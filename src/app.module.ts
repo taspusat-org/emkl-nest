@@ -30,6 +30,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { RabbitmqService } from './modules/rabbitmq/rabbitmq.service';
 import { RabbitmqClientModule } from './modules/rabbitmq-client/rabbitmq-client.module';
 import { BotModule } from './modules/bot/bot.module';
+import { PengembaliankasgantungheaderModule } from './modules/pengembaliankasgantungheader/pengembaliankasgantungheader.module';
+import { PengembaliankasgantungdetailModule } from './modules/pengembaliankasgantungdetail/pengembaliankasgantungdetail.module';
 
 @Module({
   imports: [
@@ -61,6 +63,8 @@ import { BotModule } from './modules/bot/bot.module';
     RabbitmqModule,
     RabbitmqClientModule,
     BotModule,
+    PengembaliankasgantungheaderModule,
+    PengembaliankasgantungdetailModule,
   ],
   controllers: [],
   providers: [RabbitmqService],

@@ -74,7 +74,7 @@ export class CabangController {
   }
 
   @Post('report-byselect')
-  //@CABANG
+  //@CABANG-REPORT
   async findAllByIds(@Body() ids: { id: number }[]) {
     return this.cabangService.findAllByIds(ids);
   }
@@ -169,20 +169,19 @@ export class CabangController {
     };
     return this.cabangService.findAll(params);
   }
-
   @Get(':id')
+  //@CABANG
   findOne(@Param('id') id: string) {
     return this.cabangService.findOne(+id);
   }
 
   @Get('check/:id')
+  //@CABANG
   checkCabang(@Param('id') id: string) {
     return this.cabangService.checkRole(+id);
   }
-
   @UseGuards(AuthGuard)
   @Put(':id')
-
   //@CABANG
   async update(
     @Param('id') id: string,

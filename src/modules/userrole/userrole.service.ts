@@ -56,7 +56,6 @@ export class UserroleService {
         await trx('userrole').where('user_id', id).delete();
         return { status: true, message: 'User roles updated successfully' };
       }
-
       // Loop untuk setiap roleId yang diterima
       for (const roleId of roleIds) {
         const existingRole = await trx('userrole')
@@ -96,7 +95,9 @@ export class UserroleService {
       // Update menu after roles and ACL updates
       const menuData = await this.utilsService.getDataMenuSidebar(trx);
       const menuString = this.utilsService.buildMenuString(menuData, abilities);
-
+      console.log('menuData', menuData);
+      console.log('menuString', menuString);
+      console.log('abilities', abilities);
       await trx('users').update({ menu: menuString }).where('id', id);
       return { status: true, message: 'User roles updated successfully' };
     } catch (error) {

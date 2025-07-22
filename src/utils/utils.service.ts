@@ -284,7 +284,7 @@ export class UtilsService {
     const processMenuItem = (item: any): string => {
       if (this.checkAccessRecursively(item, abilities)) {
         let itemHtml = '';
-
+        console.log('item', item);
         if (item.items && item.items.length > 0) {
           itemHtml += `<Collapsible asChild defaultOpen={true} open={isMenuOpen('${item.title}')} className="group/collapsible text-sm my-1"><SidebarMenuItem><CollapsibleTrigger asChild><SidebarMenuButton className="text-sm" tooltip="${item.title}" onClick={()=>handleToggle('${item.title}')}><Icons name="${item.icon}" className="icon-white" /><p className="break-words text-sm">${item.title}</p><ChevronRight className={\`ml-auto transform transition-transform duration-300 ease-in-out \${isMenuOpen('${item.title}') ? 'rotate-90' : ''}\`} /></SidebarMenuButton></CollapsibleTrigger><CollapsibleContent><SidebarMenuSub>${this.buildMenuString(item.items, abilities)}</SidebarMenuSub></CollapsibleContent></SidebarMenuItem></Collapsible>`;
         } else {
@@ -298,7 +298,6 @@ export class UtilsService {
     menuItems.forEach((item) => {
       menuHtml += processMenuItem(item);
     });
-
     return menuHtml.replace(/\s+/g, ' ').trim();
   };
   async getDataMenuSidebar(trx: any) {
@@ -487,4 +486,42 @@ export function addcslashes(str: string, chars: string): string {
     .join('');
   const regex = new RegExp(`[${escapedChars}]`, 'g');
   return str.replace(regex, '\\$&');
+}
+
+export async function getLastNumber(
+  trx: any,
+  table: string,
+  year: number,
+  month: number,
+  type: string,
+  statusformat: string,
+) {
+  if (type === 'RESET BULAN') {
+    return trx(table)
+      .forUpdate()
+      .where('tglbukti', '>=', `${year}-${month}-01`)
+      .andWhere('tglbukti', '<', `${year}-${month + 1}-01`)
+      .andWhere('statusformat', statusformat)
+      .orderBy('nobukti', 'desc')
+      .first();
+  }
+
+  if (type === 'RESET TAHUN') {
+    return trx(table)
+      .forUpdate()
+      .where('tglbukti', '>=', `${year}-01-01`)
+      .andWhere('tglbukti', '<', `${year + 1}-01-01`)
+      .andWhere('statusformat', statusformat)
+      .orderBy('nobukti', 'desc')
+      .first();
+  }
+
+  const query = await trx(table)
+    .forUpdate()
+    .select('nobukti')
+    .where('statusformat', statusformat)
+    .orderBy('nobukti', 'desc')
+    .first();
+
+  return query;
 }

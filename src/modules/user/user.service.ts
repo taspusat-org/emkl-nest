@@ -439,8 +439,6 @@ export class UserService {
           'u.email',
           'u.statusaktif',
           'u.modifiedby',
-          'k.namakaryawan',
-          'u.karyawan_id',
           dbMssql.raw(
             "FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') AS created_at",
           ),
@@ -450,7 +448,6 @@ export class UserService {
           'p.memo',
           'p.text',
         ])
-        .leftJoin('karyawan as k', 'u.karyawan_id', 'k.id')
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id');
 
       if (limit > 0) {

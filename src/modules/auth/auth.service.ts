@@ -41,7 +41,6 @@ export class AuthService {
         'email',
         'statusaktif',
         'modifiedby',
-        'karyawan_id',
         'created_at',
         'updated_at',
       )
@@ -57,7 +56,7 @@ export class AuthService {
       .where({ user_id: user.id })
       .pluck('role_id');
 
-    const dataKaryawan = await this.utilsService.fetchKaryawanByUserId(user.id);
+    // const dataKaryawan = await this.utilsService.fetchKaryawanByUserId(user.id);
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
@@ -66,7 +65,7 @@ export class AuthService {
     const { password: _, ...restUser } = user;
     const userWithoutPassword: Users & { cabang_nama: string } = {
       ...restUser,
-      cabang_nama: dataKaryawan.cabang_nama,
+      // cabang_nama: dataKaryawan.cabang_nama,
       role_id: roles,
     };
 
@@ -74,7 +73,7 @@ export class AuthService {
     const payload = {
       sub: user.id,
       user: userWithoutPassword,
-      cabang_id: dataKaryawan.cabang_id,
+      // cabang_id: dataKaryawan.cabang_id,
     };
 
     const accessTokenExpiresIn = 7200; // 15 seconds
@@ -89,7 +88,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      cabang_id: dataKaryawan.cabang_id,
+      cabang_id: '1',
       users: userWithoutPassword,
       accessTokenExpiresIn,
       accessTokenExpires,
