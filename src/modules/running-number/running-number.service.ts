@@ -54,10 +54,10 @@ export class RunningNumberService {
     subGroup: string,
     table: string,
     tgl: string,
-    tujuan: string | null,
-    cabang: string | null,
-    jenisbiaya: string | null,
-    marketing: string | null,
+    tujuan?: string | null,
+    cabang?: string | null,
+    jenisbiaya?: string | null,
+    marketing?: string | null,
   ): Promise<string> {
     const date = new Date(tgl);
     const year = date.getFullYear();

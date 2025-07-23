@@ -11,6 +11,7 @@ import {
 import { PengembaliankasgantungdetailService } from './pengembaliankasgantungdetail.service';
 import { CreatePengembaliankasgantungdetailDto } from './dto/create-pengembaliankasgantungdetail.dto';
 import { UpdatePengembaliankasgantungdetailDto } from './dto/update-pengembaliankasgantungdetail.dto';
+import { dbMssql } from 'src/common/utils/db';
 
 @Controller('pengembaliankasgantungdetail')
 export class PengembaliankasgantungdetailController {
@@ -32,12 +33,31 @@ export class PengembaliankasgantungdetailController {
   async findAll(
     @Query()
     query: {
+      id: number;
+    },
+  ) {
+    const { id } = query;
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.pengembaliankasgantungdetailService.findAll(
+        id,
+        trx,
+      );
+      return result;
+    } catch (error) {
+      console.error('Error fetching pengembaliankasgantungdetail:', error);
+    }
+  }
+  @Get()
+  async tes(
+    @Query()
+    query: {
       tanggalDari: string;
       tanggalSampai: string;
     },
   ) {
     const { tanggalDari, tanggalSampai } = query;
-    const result = await this.pengembaliankasgantungdetailService.findAll(
+    const result = await this.pengembaliankasgantungdetailService.tes(
       tanggalDari,
       tanggalSampai,
     );

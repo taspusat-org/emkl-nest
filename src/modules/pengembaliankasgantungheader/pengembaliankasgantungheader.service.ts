@@ -6,6 +6,7 @@ import { dbMssql } from 'src/common/utils/db';
 import { RedisService } from 'src/common/redis/redis.service';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { RunningNumberService } from '../running-number/running-number.service';
 
 @Injectable()
 export class PengembaliankasgantungheaderService {
@@ -13,6 +14,7 @@ export class PengembaliankasgantungheaderService {
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
+    private readonly runningNumberService: RunningNumberService,
   ) {}
   private readonly tableName = 'pengembaliankasgantungheader';
   async create(data: any, trx: any) {
@@ -24,9 +26,9 @@ export class PengembaliankasgantungheaderService {
         search,
         page,
         limit,
-        parent_nama,
-        acos_nama,
-        statusaktif_nama,
+        relasi_nama,
+        bank_nama,
+        details,
         ...insertData
       } = data;
       Object.keys(insertData).forEach((key) => {
@@ -34,6 +36,20 @@ export class PengembaliankasgantungheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
+
+      const parameter = await dbMssql('parameter')
+        .select('*')
+        .where('grp', 'ABSENSI')
+        .first();
+
+      const nomorBukti = await this.runningNumberService.generateRunningNumber(
+        trx,
+        parameter.grp,
+        parameter.subgrp,
+        this.tableName,
+        insertData.tglbukti,
+      );
+      insertData.nobukti = nomorBukti;
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
@@ -41,41 +57,47 @@ export class PengembaliankasgantungheaderService {
       const newItem = insertedItems[0];
 
       // Siapkan query dasar dengan alias "m" untuk tabel utama
-      const query = trx(`${this.tableName} as m`)
+      const query = trx(`${this.tableName} as u`)
         .select([
-          'm.id as id',
-          'm.title',
-          'm.aco_id',
-          'm.icon',
-          'm.parentId',
-          'm.order',
-          'm.statusaktif',
-          trx.raw("FORMAT(m.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-          trx.raw("FORMAT(m.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          'p.memo',
-          'p.text',
-          'a.nama as acos_nama',
-          trx.raw('parent.title as parent_nama'), // Select the parent title
+          'u.id as id',
+          'u.nobukti', // nobukti (nvarchar(100))
+          'u.tglbukti', // tglbukti (date)
+          'u.keterangan', // keterangan (nvarchar(max))
+          'u.bank_id', // bank_id (integer)
+          'u.penerimaan_nobukti', // penerimaan_nobukti (nvarchar(100))
+          'u.coakasmasuk', // coakasmasuk (nvarchar(100))
+          'u.relasi_id', // relasi_id (integer)
+          'u.info', // info (nvarchar(max))
+          'u.modifiedby', // modifiedby (varchar(200))
+          'u.editing_by', // editing_by (varchar(200))
+          trx.raw('r.nama as relasi_nama'), // relasi_nama (nvarchar(max))
+          trx.raw('b.nama_bank as bank_nama'),
+          trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
         ])
-        .leftJoin(`${this.tableName} as parent`, 'm.parentId', 'parent.id') // Self join on parentId
-        .leftJoin('parameter as p', 'm.statusaktif', 'p.id')
-        .leftJoin('acos as a', 'm.aco_id', 'a.id')
+        .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
+        .leftJoin('bank as b', 'u.bank_id', 'b.id')
+        .leftJoin('akunpusat as ap', 'u.coakasmasuk', 'ap.coa')
         .orderBy(sortBy ? `m.${sortBy}` : 'm.id', sortDirection || 'desc')
         .where('m.id', '<=', newItem.id); // Filter berdasarkan ID yang lebih kecil atau sama dengan newItem.id
 
       // Perbaikan bagian filters
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
-            if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(m.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+            if (
+              key === 'created_at' ||
+              key === 'updated_at' ||
+              key === 'editing_at'
+            ) {
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
                 key,
-                `%${value}%`,
+                `%${sanitizedValue}%`,
               ]);
-            } else if (key === 'text' || key === 'memo') {
-              query.andWhere(`p.${key}`, '=', value);
             } else {
-              query.andWhere(`m.${key}`, 'like', `%${value}%`);
+              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
           }
         }
@@ -83,14 +105,14 @@ export class PengembaliankasgantungheaderService {
 
       // Perbaikan bagian search
       if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
           builder
-            .orWhere('m.title', 'like', `%${search}%`)
-            .orWhere('m.parentId', 'like', `%${search}%`)
-            .orWhere('m.icon', 'like', `%${search}%`)
-            .orWhere('m.modifiedby', 'like', `%${search}%`)
-            .orWhere('p.memo', 'like', `%${search}%`)
-            .orWhere('p.text', 'like', `%${search}%`);
+            .orWhere('u.nobukti', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.penerimaan_nobukti', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.coakasmasuk', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.info', 'like', `%${sanitizedValue}%`);
         });
       }
 

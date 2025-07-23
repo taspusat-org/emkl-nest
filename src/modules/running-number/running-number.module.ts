@@ -5,5 +5,6 @@ import { RunningNumberController } from './running-number.controller';
 @Module({
   controllers: [RunningNumberController],
   providers: [RunningNumberService],
+  exports: [RunningNumberService],
 })
 export class RunningNumberModule {}
