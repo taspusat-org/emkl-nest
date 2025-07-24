@@ -1,7 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { dbMssql } from 'src/common/utils/db';
-import { Repository } from 'typeorm';
 
 @Injectable()
 export class RunningNumberService {
@@ -13,14 +11,18 @@ export class RunningNumberService {
     type: string,
     statusformat: string,
   ) {
+    console.log('type', type == 'RESET BULAN');
+    console.log('type', type);
+
     if (type === 'RESET BULAN') {
-      return trx(table)
-        .forUpdate()
+      // Get all the 'nobukti' values for the given month and order them
+      const rows = await trx(table)
+        .select('nobukti')
         .where('tglbukti', '>=', `${year}-${month}-01`)
         .andWhere('tglbukti', '<', `${year}-${month + 1}-01`)
-        .andWhere('statusformat', statusformat)
-        .orderBy('nobukti', 'desc')
-        .first();
+        .orderBy('nobukti', 'asc');
+
+      return rows;
     }
 
     if (type === 'RESET TAHUN') {
@@ -28,15 +30,13 @@ export class RunningNumberService {
         .forUpdate()
         .where('tglbukti', '>=', `${year}-01-01`)
         .andWhere('tglbukti', '<', `${year + 1}-01-01`)
-        .andWhere('statusformat', statusformat)
-        .orderBy('nobukti', 'desc')
+        .orderBy('nobukti', 'desc') // Descending order to get the latest
         .first();
     }
 
     return trx(table)
       .forUpdate()
       .select('nobukti')
-      .where('statusformat', statusformat)
       .orderBy('nobukti', 'desc')
       .first();
   }
@@ -63,8 +63,8 @@ export class RunningNumberService {
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
 
-    // Ambil parameter format dari database
-    const parameter = await dbMssql('parameter')
+    // Fetch parameter format from the database
+    const parameter = await trx('parameter')
       .select('id', 'text', 'type')
       .where('grp', group)
       .andWhere('subgrp', subGroup)
@@ -73,10 +73,14 @@ export class RunningNumberService {
       throw new Error('Parameter tidak ditemukan!');
     }
 
+    const typeformat = await trx('parameter')
+      .select('text')
+      .where('id', parameter.type)
+      .first();
     const format = parameter.text;
-    const type = parameter.type || '';
+    const type = typeformat.text || '';
 
-    // Ambil nomor terakhir
+    // Get all 'nobukti' values for this month
     const lastRowData = await this.getLastNumber(
       trx,
       table,
@@ -86,28 +90,65 @@ export class RunningNumberService {
       parameter.id,
     );
 
-    let lastCounter = 0;
-    if (lastRowData?.nobukti) {
-      const match = lastRowData.nobukti.match(/(\d+)(?=\/)/);
-      if (match) {
-        lastCounter = parseInt(match[0], 10);
+    // Get the used 'nobukti' numbers and extract the number part
+    const usedNumbers = lastRowData
+      .map((row) => {
+        const match = row.nobukti.match(/(\d+)(?=\/)/);
+        return match ? parseInt(match[0], 10) : null;
+      })
+      .filter((num) => num !== null);
+
+    // Find the smallest unused number by checking gaps in the sequence
+    let nextNumber = 1; // Start from 1
+
+    // Check for the first available number (skip already used numbers)
+    usedNumbers.sort((a, b) => a - b); // Sort numbers in ascending order
+    for (let i = 0; i < usedNumbers.length; i++) {
+      if (usedNumbers[i] !== nextNumber) {
+        break; // Gap found
       }
+      nextNumber++; // Increment to the next available number
     }
 
     const placeholders = {
-      '9999': lastCounter + 1,
+      '9999': nextNumber,
       R: this.numberToRoman(month),
       Y: year,
     };
 
-    // Format nomor bukti
-    const runningNumber = this.formatNumber(format, placeholders);
+    // Format the new 'nobukti' based on the format
+    let runningNumber = this.formatNumber(format, placeholders);
 
-    await this.saveRunningNumber(table, {
-      nobukti: runningNumber,
-      tglbukti: tgl,
-      statusformat: parameter.id,
-    });
+    // Now, ensure the generated 'nobukti' is unique
+    let isUnique = false;
+    while (!isUnique) {
+      // Check if the generated 'nobukti' already exists in the database
+      const existingNobukti = await trx(table)
+        .where('nobukti', runningNumber)
+        .first();
+
+      if (!existingNobukti) {
+        // If it doesn't exist, it's unique, and we can proceed
+        isUnique = true;
+      } else {
+        // If it exists, increment the number and try again
+        nextNumber++;
+        const newPlaceholders = {
+          '9999': nextNumber,
+          R: this.numberToRoman(month),
+          Y: year,
+        };
+        // Re-generate the new 'nobukti'
+        runningNumber = this.formatNumber(format, newPlaceholders);
+      }
+    }
+
+    // Optionally, save the new running number to the database (if needed)
+    // await this.saveRunningNumber(table, {
+    //   nobukti: runningNumber,
+    //   tglbukti: tgl,
+    //   statusformat: parameter.id,
+    // });
 
     return runningNumber;
   }
@@ -139,7 +180,7 @@ export class RunningNumberService {
   formatNumber(format: string, placeholders: { [key: string]: any }): string {
     let formatted = format;
 
-    // Replace placeholders
+    // Replace placeholders with the correct values
     for (const [placeholder, value] of Object.entries(placeholders)) {
       const regex = new RegExp(`${placeholder}`, 'g');
       if (placeholder === '9999') {

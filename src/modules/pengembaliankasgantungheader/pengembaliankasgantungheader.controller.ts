@@ -49,7 +49,7 @@ export class PengembaliankasgantungheaderController {
       return result;
     } catch (error) {
       await trx.rollback();
-      throw new Error(`Error creating menu: ${error.message}`);
+      throw new Error(`Error: ${error.message}`);
     }
   }
   @Get()
@@ -89,7 +89,7 @@ export class PengembaliankasgantungheaderController {
         params,
         trx,
       );
-      trx.commit();
+      await trx.commit();
 
       return result;
     } catch (error) {

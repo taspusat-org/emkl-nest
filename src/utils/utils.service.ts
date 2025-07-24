@@ -93,7 +93,9 @@ export class UtilsService {
   }
 
   getTime() {
-    return DateTime.now().setZone('Asia/Jakarta').toISO();
+    return DateTime.now()
+      .setZone('Asia/Jakarta') // Use the timezone you need
+      .toFormat('yyyy-MM-dd HH:mm:ss'); // Ensure proper SQL-compatible format
   }
 
   hasChanges(newData: any, existingData: any) {

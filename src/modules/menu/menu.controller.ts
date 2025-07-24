@@ -107,8 +107,16 @@ export class MenuController {
       sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
       isLookUp: isLookUp === 'true',
     };
-
-    return this.menuService.findAll(params);
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.menuService.findAll(params, trx);
+      trx.commit();
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error fetching all menus:', error);
+      throw new InternalServerErrorException('Failed to fetch menus');
+    }
   }
 
   @Get('/export')

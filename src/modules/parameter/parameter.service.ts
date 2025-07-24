@@ -320,6 +320,8 @@ export class ParameterService {
       if (!existingData) {
         throw new Error('Parameter not found');
       }
+
+      // Ensure memo is a JSON string
       data.memo = JSON.stringify(data.memo);
 
       const {
@@ -329,15 +331,16 @@ export class ParameterService {
         search,
         page,
         limit,
-        // text,
         statusaktif_text,
         ...insertData
       } = data;
+
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
+
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
 
       // If memo is an object, serialize it to a JSON string
@@ -348,6 +351,7 @@ export class ParameterService {
       }
 
       if (hasChanges) {
+        // Ensure updated_at field is properly set using getTime()
         insertData.updated_at = this.utilsService.getTime();
 
         await trx(this.tableName).where('id', id).update(insertData);
@@ -373,9 +377,9 @@ export class ParameterService {
           ),
         )
         .orderBy(sortBy ? `${sortBy}` : 'id', sortDirection || 'desc')
-        .where('id', '<=', id); // Filter berdasarkan ID yang lebih kecil atau sama dengan newItem.id
+        .where('id', '<=', id); // Filter based on ID condition
 
-      // Perbaikan bagian filters
+      // Handle search conditions
       if (search) {
         query.where((builder) => {
           builder
@@ -387,7 +391,6 @@ export class ParameterService {
             .orWhere('type', 'like', `%${search}%`)
             .orWhere('default', 'like', `%${search}%`)
             .orWhere('modifiedby', 'like', `%${search}%`)
-
             .orWhere('info', 'like', `%${search}%`);
         });
       }
@@ -407,27 +410,27 @@ export class ParameterService {
         }
       }
 
-      // Ambil hasil query yang terfilter
+      // Fetch filtered items
       const filteredItems = await query;
 
-      // Cari index item baru di hasil yang sudah difilter
       const itemIndex = filteredItems.findIndex((item) => item.id === id);
 
       if (itemIndex === -1) {
-        throw new Error('Item baru tidak ditemukan di hasil pencarian');
+        throw new Error('Item not found in search results');
       }
 
       const pageNumber = Math.floor(itemIndex / limit) + 1;
       const endIndex = pageNumber * limit;
 
-      // Ambil data hingga halaman yang mencakup item baru
+      // Get data for the page
       const limitedItems = filteredItems.slice(0, endIndex);
 
-      // Simpan ke Redis
+      // Store the result in Redis
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
       );
+
       await this.logTrailService.create(
         {
           namatabel: this.tableName,

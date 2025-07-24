@@ -35,93 +35,44 @@ export class MenuService {
         statusaktif_nama,
         ...insertData
       } = createMenuDto;
+
+      // Normalize the data (e.g., convert strings to uppercase)
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
+
+      // Insert the new item
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
 
-      const newItem = insertedItems[0];
+      const newItem = insertedItems[0]; // Get the inserted item
 
-      // Siapkan query dasar dengan alias "m" untuk tabel utama
-      const query = trx(`${this.tableName} as m`)
-        .select([
-          'm.id as id',
-          'm.title',
-          'm.aco_id',
-          'm.icon',
-          'm.parentId',
-          'm.order',
-          'm.statusaktif',
-          trx.raw("FORMAT(m.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-          trx.raw("FORMAT(m.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          'p.memo',
-          'p.text',
-          'a.nama as acos_nama',
-          trx.raw('parent.title as parent_nama'), // Select the parent title
-        ])
-        .leftJoin(`${this.tableName} as parent`, 'm.parentId', 'parent.id') // Self join on parentId
-        .leftJoin('parameter as p', 'm.statusaktif', 'p.id')
-        .leftJoin('acos as a', 'm.aco_id', 'a.id')
-        .orderBy(sortBy ? `m.${sortBy}` : 'm.id', sortDirection || 'desc')
-        .where('m.id', '<=', newItem.id); // Filter berdasarkan ID yang lebih kecil atau sama dengan newItem.id
-
-      // Perbaikan bagian filters
-      if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          if (value) {
-            if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(m.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-                key,
-                `%${value}%`,
-              ]);
-            } else if (key === 'text' || key === 'memo') {
-              query.andWhere(`p.${key}`, '=', value);
-            } else {
-              query.andWhere(`m.${key}`, 'like', `%${value}%`);
-            }
-          }
-        }
-      }
-
-      // Perbaikan bagian search
-      if (search) {
-        query.where((builder) => {
-          builder
-            .orWhere('m.title', 'like', `%${search}%`)
-            .orWhere('m.parentId', 'like', `%${search}%`)
-            .orWhere('m.icon', 'like', `%${search}%`)
-            .orWhere('m.modifiedby', 'like', `%${search}%`)
-            .orWhere('p.memo', 'like', `%${search}%`)
-            .orWhere('p.text', 'like', `%${search}%`);
-        });
-      }
-
-      // Ambil hasil query yang terfilter
-      const filteredItems = await query;
-
-      // Cari index item baru di hasil yang sudah difilter
-      const itemIndex = filteredItems.findIndex(
-        (item) => item.id === newItem.id,
+      // Now use findAll to get the updated list with pagination, sorting, and filters
+      const { data, pagination } = await this.findAll(
+        {
+          search,
+          filters,
+          pagination: { page, limit },
+          sort: { sortBy, sortDirection },
+          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+        },
+        trx,
       );
-
+      let itemIndex = data.findIndex((item) => item.id === newItem.id);
       if (itemIndex === -1) {
-        throw new Error('Item baru tidak ditemukan di hasil pencarian');
+        itemIndex = 0;
       }
 
-      const pageNumber = Math.floor(itemIndex / limit) + 1;
-      const endIndex = pageNumber * limit;
+      // Optionally, you can find the page number or other info if needed
+      const pageNumber = pagination?.currentPage;
 
-      // Ambil data hingga halaman yang mencakup item baru
-      const limitedItems = filteredItems.slice(0, endIndex);
-
-      // Simpan ke Redis
+      // Optionally, you can log the event or store the new item in a cache if needed
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
+        JSON.stringify(data),
       );
 
       await this.logTrailService.create(
@@ -147,13 +98,10 @@ export class MenuService {
     }
   }
 
-  async findAll({
-    search,
-    filters,
-    pagination,
-    sort,
-    isLookUp,
-  }: FindAllParams) {
+  async findAll(
+    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+    trx: any,
+  ) {
     try {
       let { page, limit } = pagination;
 
@@ -161,7 +109,7 @@ export class MenuService {
       limit = limit ?? 0;
 
       if (isLookUp) {
-        const acoCountResult = await dbMssql(this.tableName)
+        const acoCountResult = await trx(this.tableName)
           .count('id as total')
           .first();
 
@@ -174,7 +122,7 @@ export class MenuService {
         }
       }
 
-      const query = dbMssql(`${this.tableName} as u`)
+      const query = trx(`${this.tableName} as u`)
         .select([
           'u.id as id',
           'u.title',
@@ -183,16 +131,12 @@ export class MenuService {
           'u.parentId',
           'u.order',
           'u.statusaktif',
-          dbMssql.raw(
-            "FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at",
-          ),
-          dbMssql.raw(
-            "FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at",
-          ),
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'p.memo',
           'p.text',
           'a.nama as acos_nama',
-          dbMssql.raw('parent.title as parent_nama'), // Select the parent title
+          trx.raw('parent.title as parent_nama'), // Select the parent title
         ])
         .leftJoin(`${this.tableName} as parent`, 'u.parentId', 'parent.id') // Self join on parentId
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
@@ -234,7 +178,7 @@ export class MenuService {
         }
       }
 
-      const result = await dbMssql(this.tableName).count('id as total').first();
+      const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
       const totalPages = Math.ceil(total / limit);
 
@@ -361,68 +305,21 @@ export class MenuService {
         await trx(this.tableName).where('id', id).update(insertData);
       }
 
-      const query = trx(`${this.tableName} as m`)
-        .select([
-          'm.id as id',
-          'm.title',
-          'm.aco_id',
-          'm.icon',
-          'm.parentId',
-          'm.order',
-          'm.statusaktif',
-          trx.raw("FORMAT(m.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-          trx.raw("FORMAT(m.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          'p.memo',
-          'p.text',
-          'a.nama as acos_nama',
-          trx.raw('parent.title as parent_nama'), // Select the parent title
-        ])
-        .leftJoin(`${this.tableName} as parent`, 'm.parentId', 'parent.id') // Self join on parentId
-        .leftJoin('parameter as p', 'm.statusaktif', 'p.id')
-        .leftJoin('acos as a', 'm.aco_id', 'a.id')
-        .orderBy(sortBy ? `m.${sortBy}` : 'm.id', sortDirection || 'desc');
-
-      // Perbaikan bagian filters
-      if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          if (value) {
-            if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(m.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-                key,
-                `%${value}%`,
-              ]);
-            } else if (key === 'text' || key === 'memo') {
-              query.andWhere(`p.${key}`, '=', value);
-            } else {
-              query.andWhere(`m.${key}`, 'like', `%${value}%`);
-            }
-          }
-        }
-      }
-
-      // Perbaikan bagian search
-      if (search) {
-        query.where((builder) => {
-          builder
-            .orWhereRaw("FORMAT(m.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${search}%`,
-            ])
-            .orWhereRaw("FORMAT(m.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${search}%`,
-            ])
-            .orWhere('m.title', 'like', `%${search}%`)
-            .orWhere('m.parentId', 'like', `%${search}%`)
-            .orWhere('m.icon', 'like', `%${search}%`)
-            .orWhere('m.modifiedby', 'like', `%${search}%`)
-            .orWhere('p.memo', 'like', `%${search}%`)
-            .orWhere('p.text', 'like', `%${search}%`);
-        });
-      }
-      // Ambil hasil query yang terfilter
-      const allItems = await query;
+      const { data: filteredData, pagination } = await this.findAll(
+        {
+          search,
+          filters,
+          pagination: { page, limit },
+          sort: { sortBy, sortDirection },
+          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+        },
+        trx,
+      );
 
       // Cari index item yang baru saja diupdate
-      const itemIndex = allItems.findIndex((item) => Number(item.id) === id);
+      const itemIndex = filteredData.findIndex(
+        (item) => Number(item.id) === id,
+      );
       if (itemIndex === -1) {
         throw new Error('Updated item not found in all items');
       }
@@ -432,7 +329,7 @@ export class MenuService {
 
       // Ambil data hingga halaman yang mencakup item yang baru diperbarui
       const endIndex = pageNumber * itemsPerPage;
-      const limitedItems = allItems.slice(0, endIndex);
+      const limitedItems = filteredData.slice(0, endIndex);
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),

@@ -12,7 +12,7 @@ export async function up(knex: Knex): Promise<void> {
     table.string('kelompok', 255).nullable();
     table.string('text', 255).nullable();
     table.text('memo').nullable();
-    table.integer('type', 100).nullable();
+    table.string('type', 100).nullable();
     table.string('default', 255).nullable();
     table.string('modifiedby', 50).nullable();
     table.text('info').nullable();
