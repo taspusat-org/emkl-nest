@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
   Req,
+  Put,
 } from '@nestjs/common';
 import { PengembaliankasgantungheaderService } from './pengembaliankasgantungheader.service';
 import { CreatePengembaliankasgantungheaderDto } from './dto/create-pengembaliankasgantungheader.dto';
@@ -104,16 +105,26 @@ export class PengembaliankasgantungheaderController {
     return this.pengembaliankasgantungheaderService.findOne(+id);
   }
 
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body()
-    updatePengembaliankasgantungheaderDto: UpdatePengembaliankasgantungheaderDto,
-  ) {
-    return this.pengembaliankasgantungheaderService.update(
-      +id,
-      updatePengembaliankasgantungheaderDto,
-    );
+  @UseGuards(AuthGuard)
+  @Put(':id')
+  async update(@Param('id') id: string, @Body() data: any, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+
+      const result = await this.pengembaliankasgantungheaderService.update(
+        +id,
+        data,
+        trx,
+      );
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error updating menu in controller:', error);
+      throw new Error('Failed to update menu');
+    }
   }
 
   @Delete(':id')

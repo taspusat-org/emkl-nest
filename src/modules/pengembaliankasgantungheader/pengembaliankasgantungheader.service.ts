@@ -7,6 +7,7 @@ import { RedisService } from 'src/common/redis/redis.service';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
+import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.service';
 
 @Injectable()
 export class PengembaliankasgantungheaderService {
@@ -15,6 +16,7 @@ export class PengembaliankasgantungheaderService {
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
+    private readonly pengembaliankasgantungdetailService: PengembaliankasgantungdetailService,
   ) {}
   private readonly tableName = 'pengembaliankasgantungheader';
   async create(data: any, trx: any) {
@@ -31,6 +33,7 @@ export class PengembaliankasgantungheaderService {
         details,
         ...insertData
       } = data;
+
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
@@ -50,9 +53,25 @@ export class PengembaliankasgantungheaderService {
         insertData.tglbukti,
       );
       insertData.nobukti = nomorBukti;
+
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
+
+      if (details.length > 0) {
+        // Inject nobukti into each detail item
+        const detailsWithNobukti = details.map((detail: any) => ({
+          ...detail,
+          nobukti: nomorBukti, // Inject nobukti into each detail
+        }));
+
+        // Pass the updated details with nobukti to the detail creation service
+        await this.pengembaliankasgantungdetailService.create(
+          detailsWithNobukti,
+          insertedItems[0].id,
+          trx,
+        );
+      }
 
       const newItem = insertedItems[0];
 
@@ -68,12 +87,12 @@ export class PengembaliankasgantungheaderService {
       );
 
       // Cari index item baru di hasil yang sudah difilter
-      const itemIndex = filteredItems.findIndex(
+      let itemIndex = filteredItems.findIndex(
         (item) => Number(item.id) === newItem.id,
       );
 
       if (itemIndex === -1) {
-        throw new Error('Item baru tidak ditemukan di hasil pencarian');
+        itemIndex = 0;
       }
 
       const pageNumber = Math.floor(itemIndex / limit) + 1;
@@ -91,7 +110,7 @@ export class PengembaliankasgantungheaderService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: `ADD ${this.tableName}`,
+          postingdari: `ADD PENGEMBALIAN KAS GANTUNG HEADER`,
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -228,11 +247,104 @@ export class PengembaliankasgantungheaderService {
     return `This action returns a #${id} pengembaliankasgantungheader`;
   }
 
-  update(
-    id: number,
-    updatePengembaliankasgantungheaderDto: UpdatePengembaliankasgantungheaderDto,
-  ) {
-    return `This action updates a #${id} pengembaliankasgantungheader`;
+  async update(id: number, data: any, trx: any) {
+    try {
+      const existingData = await trx(this.tableName).where('id', id).first();
+
+      if (!existingData) {
+        throw new Error('Menu not found');
+      }
+
+      const {
+        sortBy,
+        sortDirection,
+        filters,
+        search,
+        page,
+        limit,
+        relasi_nama,
+        bank_nama,
+        details,
+        ...insertData
+      } = data;
+
+      Object.keys(insertData).forEach((key) => {
+        if (typeof insertData[key] === 'string') {
+          insertData[key] = insertData[key].toUpperCase();
+        }
+      });
+      const hasChanges = this.utilsService.hasChanges(insertData, existingData);
+      if (hasChanges) {
+        insertData.updated_at = this.utilsService.getTime();
+        await trx(this.tableName).where('id', id).update(insertData);
+      }
+      if (details.length >= 0) {
+        // Inject nobukti into each detail item
+        const detailsWithNobukti = details.map((detail: any) => ({
+          ...detail,
+          nobukti: insertData.nobukti, // Inject nobukti into each detail
+        }));
+
+        // Pass the updated details with nobukti to the detail creation service
+        await this.pengembaliankasgantungdetailService.create(
+          detailsWithNobukti,
+          id,
+          trx,
+        );
+      }
+      const { data: filteredData, pagination } = await this.findAll(
+        {
+          search,
+          filters,
+          pagination: { page, limit },
+          sort: { sortBy, sortDirection },
+          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+        },
+        trx,
+      );
+
+      // Cari index item yang baru saja diupdate
+      let itemIndex = filteredData.findIndex((item) => Number(item.id) === id);
+      if (itemIndex === -1) {
+        itemIndex = 0;
+      }
+
+      const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
+      const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;
+
+      // Ambil data hingga halaman yang mencakup item yang baru diperbarui
+      const endIndex = pageNumber * itemsPerPage;
+      const limitedItems = filteredData.slice(0, endIndex);
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'EDIT PENGEMBALIAN KAS GANTUNG HEADER',
+          idtrans: id,
+          nobuktitrans: id,
+          aksi: 'EDIT',
+          datajson: JSON.stringify(data),
+          modifiedby: data.modifiedby,
+        },
+        trx,
+      );
+
+      return {
+        updatedItem: {
+          id,
+          ...data,
+        },
+        pageNumber,
+        itemIndex,
+      };
+    } catch (error) {
+      console.error('Error updating parameter:', error);
+      throw new Error('Failed to update parameter');
+    }
   }
 
   remove(id: number) {

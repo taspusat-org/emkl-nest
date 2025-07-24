@@ -19,16 +19,6 @@ export class PengembaliankasgantungdetailController {
     private readonly pengembaliankasgantungdetailService: PengembaliankasgantungdetailService,
   ) {}
 
-  @Post()
-  create(
-    @Body()
-    createPengembaliankasgantungdetailDto: CreatePengembaliankasgantungdetailDto,
-  ) {
-    return this.pengembaliankasgantungdetailService.create(
-      createPengembaliankasgantungdetailDto,
-    );
-  }
-
   @Get()
   async findAll(
     @Query()

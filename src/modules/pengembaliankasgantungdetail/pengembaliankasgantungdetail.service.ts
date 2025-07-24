@@ -14,7 +14,7 @@ export class PengembaliankasgantungdetailService {
   private readonly logger = new Logger(
     PengembaliankasgantungdetailService.name,
   );
-  async create(createPenjualandetailDto: any, id: any = 0, trx: any = null) {
+  async create(details: any, id: any = 0, trx: any = null) {
     let insertedData = null;
     let data: any = null;
     const tableName = 'pengembaliankasgantungdetail'; // Adjusted table name
@@ -31,10 +31,14 @@ export class PengembaliankasgantungdetailService {
     const time = this.utilsService.getTime();
     const logData: any[] = [];
     const mainDataToInsert: any[] = [];
-
-    for (data of createPenjualandetailDto) {
+    console.log(details);
+    if (details.length === 0) {
+      await trx(tableName).delete().where('pengembaliankasgantung_id', id);
+      return;
+    }
+    for (data of details) {
       let isDataChanged = false;
-
+      console.log('data', data);
       // Check if the data has an id (existing record)
       if (data.id) {
         const existingData = await trx(tableName).where('id', data.id).first();
@@ -77,13 +81,12 @@ export class PengembaliankasgantungdetailService {
 
     // Create temporary table to insert
     await trx.raw(tableTemp);
-
+    console.log('mainDataToInsert', mainDataToInsert);
     // Ensure each item has an idheader
     const processedData = mainDataToInsert.map((item: any) => ({
       ...item,
       pengembaliankasgantung_id: item.pengembaliankasgantung_id ?? id, // Ensure correct field mapping
     }));
-
     const jsonString = JSON.stringify(processedData);
 
     const mappingData = Object.keys(processedData[0]).map((key) => [
@@ -99,6 +102,7 @@ export class PengembaliankasgantungdetailService {
 
     // Insert into temp table
     await trx(tempTableName).insert(openJson);
+    console.log('table', await trx(tempTableName));
 
     // **Update or Insert into 'pengembaliankasgantungdetail' with correct idheader**
     const updatedData = await trx('pengembaliankasgantungdetail')
@@ -191,7 +195,6 @@ export class PengembaliankasgantungdetailService {
       .whereNull(`${tempTableName}.id`)
       .where('pengembaliankasgantungdetail.pengembaliankasgantung_id', id)
       .del();
-
     if (insertedDataQuery.length > 0) {
       insertedData = await trx('pengembaliankasgantungdetail')
         .insert(insertedDataQuery)
@@ -208,7 +211,7 @@ export class PengembaliankasgantungdetailService {
         namatabel: tableName,
         postingdari: 'PENGEMBALIAN KAS GANTUNG HEADER',
         idtrans: id,
-        nobuktitrans: 'TES 123',
+        nobuktitrans: id,
         aksi: 'EDIT',
         datajson: JSON.stringify(finalData),
         modifiedby: 'admin',
@@ -265,8 +268,6 @@ export class PengembaliankasgantungdetailService {
 
     const formattedTglDari = formatDate(tgldari);
     const formattedTglSampai = formatDate(tglsampai);
-
-    console.log(formattedTglDari, formattedTglSampai);
 
     const tempTableName = `cuti_approval_cache_${Date.now()}`;
     const tempsuratpengantar1 = `tempsuratpengantar1${Date.now()}`;

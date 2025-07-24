@@ -9,5 +9,6 @@ import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
   imports: [UtilsModule, AuthModule, LogtrailModule],
   controllers: [PengembaliankasgantungdetailController],
   providers: [PengembaliankasgantungdetailService],
+  exports: [PengembaliankasgantungdetailService],
 })
 export class PengembaliankasgantungdetailModule {}
