@@ -32,6 +32,8 @@ import { RabbitmqClientModule } from './modules/rabbitmq-client/rabbitmq-client.
 import { BotModule } from './modules/bot/bot.module';
 import { PengembaliankasgantungheaderModule } from './modules/pengembaliankasgantungheader/pengembaliankasgantungheader.module';
 import { PengembaliankasgantungdetailModule } from './modules/pengembaliankasgantungdetail/pengembaliankasgantungdetail.module';
+import { KasgantungheaderModule } from './modules/kasgantungheader/kasgantungheader.module';
+import { KasgantungdetailModule } from './modules/kasgantungdetail/kasgantungdetail.module';
 
 @Module({
   imports: [
@@ -65,6 +67,8 @@ import { PengembaliankasgantungdetailModule } from './modules/pengembaliankasgan
     BotModule,
     PengembaliankasgantungheaderModule,
     PengembaliankasgantungdetailModule,
+    KasgantungheaderModule,
+    KasgantungdetailModule,
   ],
   controllers: [],
   providers: [RabbitmqService],

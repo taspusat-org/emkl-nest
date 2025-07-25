@@ -7,6 +7,7 @@ import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 
 @Injectable()
 export class PengembaliankasgantungdetailService {
+  private readonly tableName = 'pengembaliankasgantungdetail';
   constructor(
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
@@ -223,7 +224,7 @@ export class PengembaliankasgantungdetailService {
   }
 
   async findAll(id: number, trx: any) {
-    const result = await trx('pengembaliankasgantungdetail as p')
+    const result = await trx(`${this.tableName} as p`)
       .select(
         'p.id',
         'p.pengembaliankasgantung_id',

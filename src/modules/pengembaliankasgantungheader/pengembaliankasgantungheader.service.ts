@@ -40,7 +40,7 @@ export class PengembaliankasgantungheaderService {
         }
       });
 
-      const parameter = await dbMssql('parameter')
+      const parameter = await trx('parameter')
         .select('*')
         .where('grp', 'KAS GANTUNG')
         .first();
