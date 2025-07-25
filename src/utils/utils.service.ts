@@ -527,3 +527,7 @@ export async function getLastNumber(
 
   return query;
 }
+export const formatDateToSQL = (date: string) => {
+  const [day, month, year] = date.split('-');
+  return `${year}-${month}-${day}`; // Format ke YYYY-MM-DD
+};

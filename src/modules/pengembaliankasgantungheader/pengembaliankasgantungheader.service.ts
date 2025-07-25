@@ -157,8 +157,8 @@ export class PengembaliankasgantungheaderService {
       const query = trx(`${this.tableName} as u`)
         .select([
           'u.id as id',
-          'u.nobukti', // nobukti (nvarchar(100))
-          'u.tglbukti', // tglbukti (date)
+          trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
+          'u.nobukti', // tglbukti (date)
           'u.keterangan', // keterangan (nvarchar(max))
           'u.bank_id', // bank_id (integer)
           'u.penerimaan_nobukti', // penerimaan_nobukti (nvarchar(100))

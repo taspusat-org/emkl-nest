@@ -3,7 +3,7 @@ import { CreateKasgantungheaderDto } from './dto/create-kasgantungheader.dto';
 import { UpdateKasgantungheaderDto } from './dto/update-kasgantungheader.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { RedisService } from 'src/common/redis/redis.service';
-import { UtilsService } from 'src/utils/utils.service';
+import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.service';
@@ -16,7 +16,7 @@ export class KasgantungheaderService {
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
   ) {}
-  private readonly tableName = 'pengembaliankasgantungheader';
+  private readonly tableName = 'kasgantungheader';
   create(createKasgantungheaderDto: CreateKasgantungheaderDto) {
     return 'This action adds a new kasgantungheader';
   }
@@ -49,7 +49,7 @@ export class KasgantungheaderService {
         .select([
           'u.id as id',
           'u.nobukti', // nobukti (nvarchar(100))
-          'u.tglbukti', // tglbukti (date)
+          trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
           'u.keterangan', // keterangan (nvarchar(max))
           'u.relasi_id', // relasi_id (integer)
           'u.bank_id', // bank_id (integer)
@@ -72,7 +72,7 @@ export class KasgantungheaderService {
         .leftJoin('bank as b', 'u.bank_id', 'b.id')
         .leftJoin('kasgantungdetail as kg', 'u.id', 'kg.kasgantung_id') // Join on kasgantung_id
         .leftJoin('alatbayar as ab', 'u.alatbayar_id', 'ab.id')
-        .leftJoin('akunpusat as ap', 'u.coakasmasuk', 'ap.coa')
+        .leftJoin('akunpusat as ap', 'u.coakaskeluar', 'ap.coa')
         .groupBy(
           'u.id',
           'u.nobukti',
@@ -94,6 +94,17 @@ export class KasgantungheaderService {
           'u.created_at',
           'u.updated_at',
         ); // Group by to aggregate nominal
+      if (filters?.tglDari && filters?.tglSampai) {
+        // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
+        const tglDariFormatted = formatDateToSQL(String(filters?.tglDari)); // Fungsi untuk format
+        const tglSampaiFormatted = formatDateToSQL(String(filters?.tglSampai));
+
+        // Menggunakan whereBetween dengan tanggal yang sudah diformat
+        query.whereBetween('u.tglbukti', [
+          tglDariFormatted,
+          tglSampaiFormatted,
+        ]);
+      }
 
       if (limit > 0) {
         const offset = (page - 1) * limit;
@@ -117,6 +128,12 @@ export class KasgantungheaderService {
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
+
+          // Menambahkan pengecualian untuk 'tglDari' dan 'tglSampai'
+          if (key === 'tglDari' || key === 'tglSampai') {
+            continue; // Lewati filter jika key adalah 'tglDari' atau 'tglSampai'
+          }
+
           if (value) {
             if (
               key === 'created_at' ||
