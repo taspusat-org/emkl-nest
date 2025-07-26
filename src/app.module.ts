@@ -34,6 +34,9 @@ import { PengembaliankasgantungheaderModule } from './modules/pengembaliankasgan
 import { PengembaliankasgantungdetailModule } from './modules/pengembaliankasgantungdetail/pengembaliankasgantungdetail.module';
 import { KasgantungheaderModule } from './modules/kasgantungheader/kasgantungheader.module';
 import { KasgantungdetailModule } from './modules/kasgantungdetail/kasgantungdetail.module';
+import { RelasiModule } from './modules/relasi/relasi.module';
+import { AlatbayarModule } from './modules/alatbayar/alatbayar.module';
+import { BankModule } from './modules/bank/bank.module';
 
 @Module({
   imports: [
@@ -69,6 +72,9 @@ import { KasgantungdetailModule } from './modules/kasgantungdetail/kasgantungdet
     PengembaliankasgantungdetailModule,
     KasgantungheaderModule,
     KasgantungdetailModule,
+    RelasiModule,
+    AlatbayarModule,
+    BankModule,
   ],
   controllers: [],
   providers: [RabbitmqService],
