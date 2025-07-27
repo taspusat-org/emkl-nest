@@ -4,7 +4,7 @@ import { UpdatePengembaliankasgantungheaderDto } from './dto/update-pengembalian
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { dbMssql } from 'src/common/utils/db';
 import { RedisService } from 'src/common/redis/redis.service';
-import { UtilsService } from 'src/utils/utils.service';
+import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.service';
@@ -21,6 +21,7 @@ export class PengembaliankasgantungheaderService {
   private readonly tableName = 'pengembaliankasgantungheader';
   async create(data: any, trx: any) {
     try {
+      data.tglbukti = formatDateToSQL(data.tglbukti);
       const {
         sortBy,
         sortDirection,

@@ -36,7 +36,7 @@ export class RelasiController {
       query;
 
     const sortParams = {
-      sortBy: sortBy || 'nobukti',
+      sortBy: sortBy || 'nama',
       sortDirection: sortDirection || 'asc',
     };
 
