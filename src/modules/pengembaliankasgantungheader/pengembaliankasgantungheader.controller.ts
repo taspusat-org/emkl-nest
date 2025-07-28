@@ -94,6 +94,47 @@ export class PengembaliankasgantungheaderController {
       throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
+  @Get('report-all')
+  //@PENGEMBALIAN-KAS-GANTUNG
+  @UsePipes(new ZodValidationPipe(FindAllSchema))
+  async findAllReport(@Query() query: FindAllDto) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
+
+    const sortParams = {
+      sortBy: sortBy || 'nobukti',
+      sortDirection: sortDirection || 'asc',
+    };
+
+    const pagination = {
+      page: page || 1,
+      limit: limit === 0 || !limit ? undefined : limit,
+    };
+
+    const params: FindAllParams = {
+      search,
+      filters,
+      pagination,
+      sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
+      isLookUp: isLookUp === 'true',
+    };
+    const trx = await dbMssql.transaction();
+
+    try {
+      const result =
+        await this.pengembaliankasgantungheaderService.findAllReport(
+          params,
+          trx,
+        );
+      trx.commit();
+
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error in findAll:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
+    }
+  }
 
   @Get(':id')
   findOne(@Param('id') id: string) {

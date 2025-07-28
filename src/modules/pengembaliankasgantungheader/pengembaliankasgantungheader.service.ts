@@ -4,7 +4,7 @@ import { UpdatePengembaliankasgantungheaderDto } from './dto/update-pengembalian
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { dbMssql } from 'src/common/utils/db';
 import { RedisService } from 'src/common/redis/redis.service';
-import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
+import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.service';
@@ -21,7 +21,6 @@ export class PengembaliankasgantungheaderService {
   private readonly tableName = 'pengembaliankasgantungheader';
   async create(data: any, trx: any) {
     try {
-      data.tglbukti = formatDateToSQL(data.tglbukti);
       const {
         sortBy,
         sortDirection,
@@ -76,7 +75,7 @@ export class PengembaliankasgantungheaderService {
 
       const newItem = insertedItems[0];
 
-      const { data: filteredItems, pagination } = await this.findAll(
+      const { data: filteredItems } = await this.findAll(
         {
           search,
           filters,
@@ -158,8 +157,8 @@ export class PengembaliankasgantungheaderService {
       const query = trx(`${this.tableName} as u`)
         .select([
           'u.id as id',
-          trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
-          'u.nobukti', // tglbukti (date)
+          'u.nobukti', // nobukti (nvarchar(100))
+          'u.tglbukti', // tglbukti (date)
           'u.keterangan', // keterangan (nvarchar(max))
           'u.bank_id', // bank_id (integer)
           'u.penerimaan_nobukti', // penerimaan_nobukti (nvarchar(100))
@@ -230,6 +229,165 @@ export class PengembaliankasgantungheaderService {
       return {
         data: data,
         type: responseType,
+        total,
+        pagination: {
+          currentPage: page,
+          totalPages: totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+        },
+      };
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
+  }
+  async findAllReport(
+    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+    trx: any,
+  ) {
+    try {
+      let { page, limit } = pagination;
+
+      page = page ?? 1;
+      limit = limit ?? 0;
+
+      if (isLookUp) {
+        const acoCountResult = await trx(this.tableName)
+          .count('id as total')
+          .first();
+
+        const acoCount = acoCountResult?.total || 0;
+
+        if (Number(acoCount) > 500) {
+          return { data: { type: 'json' } };
+        } else {
+          limit = 0;
+        }
+      }
+
+      const query = trx(`${this.tableName} as u`)
+        .select([
+          'u.id as id',
+          'u.nobukti', // nobukti (nvarchar(100))
+          'u.tglbukti', // tglbukti (date)
+          'u.keterangan', // keterangan (nvarchar(max))
+          'u.bank_id', // bank_id (integer)
+          'u.penerimaan_nobukti', // penerimaan_nobukti (nvarchar(100))
+          'u.coakasmasuk', // coakasmasuk (nvarchar(100))
+          'u.relasi_id', // relasi_id (integer)
+          'u.info', // info (nvarchar(max))
+          'u.modifiedby', // modifiedby (varchar(200))
+          'u.editing_by', // editing_by (varchar(200))
+          trx.raw('r.nama as relasi_nama'), // relasi_nama (nvarchar(max))
+          trx.raw('b.nama_bank as bank_nama'),
+          trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
+        ])
+        .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
+        .leftJoin('bank as b', 'u.bank_id', 'b.id')
+        .leftJoin('akunpusat as ap', 'u.coakasmasuk', 'ap.coa');
+
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.limit(limit).offset(offset);
+      }
+
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+        query.where((builder) => {
+          builder
+            .orWhere('u.nobukti', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.penerimaan_nobukti', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.coakasmasuk', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.info', 'like', `%${sanitizedValue}%`);
+        });
+      }
+
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+          if (value) {
+            if (
+              key === 'created_at' ||
+              key === 'updated_at' ||
+              key === 'editing_at'
+            ) {
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
+            } else {
+              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+            }
+          }
+        }
+      }
+      if (sort?.sortBy && sort?.sortDirection) {
+        query.orderBy(sort.sortBy, sort.sortDirection);
+      }
+      const data: Array<any> = await query;
+      const headerIds = data.map((h) => h.id);
+
+      // 2) Jika tidak ada header, langsung return dengan details kosong
+      if (headerIds.length === 0) {
+        return {
+          data: data.map((h) => ({ ...h, details: [] })),
+          type: Number(data.length) > 500 ? 'json' : 'local',
+          total: data.length,
+          pagination: {
+            /* ... */
+          },
+        };
+      }
+
+      // 3) Ambil semua detail yang terhubung ke header-header tersebut
+      const detailRows = await trx('pengembaliankasgantungdetail')
+        .select([
+          'id',
+          'pengembaliankasgantung_id',
+          'nobukti',
+          'kasgantung_nobukti',
+          'keterangan',
+          'nominal',
+          'info',
+          'modifiedby',
+          'editing_by',
+          trx.raw("FORMAT(editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
+          trx.raw("FORMAT(created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+        ])
+        .whereIn('pengembaliankasgantung_id', headerIds);
+
+      // 4) Group detail berdasarkan pengembaliankasgantung_id
+      const detailsByHeader = detailRows.reduce(
+        (acc, detail) => {
+          const key = detail.pengembaliankasgantung_id;
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(detail);
+          return acc;
+        },
+        {} as Record<number, Array<any>>,
+      );
+
+      // 5) Satukan: tiap header dapat array details (atau [] jika tidak ada)
+      const dataWithDetails = data.map((h) => ({
+        ...h,
+        details: detailsByHeader[h.id] || [],
+      }));
+
+      // 6) Hitung total & pagination seperti sebelumnya
+      const resultCount = await trx(this.tableName)
+        .count('id as total')
+        .first();
+      const total = Number(resultCount?.total || 0);
+      const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+
+      return {
+        data: dataWithDetails,
+        type: total > 500 ? 'json' : 'local',
         total,
         pagination: {
           currentPage: page,
