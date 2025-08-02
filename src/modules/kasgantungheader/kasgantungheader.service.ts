@@ -7,6 +7,7 @@ import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.service';
+import { KasgantungdetailService } from '../kasgantungdetail/kasgantungdetail.service';
 
 @Injectable()
 export class KasgantungheaderService {
@@ -15,10 +16,119 @@ export class KasgantungheaderService {
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
+    private readonly kasgantungdetailService: KasgantungdetailService,
   ) {}
   private readonly tableName = 'kasgantungheader';
-  create(createKasgantungheaderDto: CreateKasgantungheaderDto) {
-    return 'This action adds a new kasgantungheader';
+  async create(data: any, trx: any) {
+    try {
+      data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
+      const {
+        sortBy,
+        sortDirection,
+        filters,
+        search,
+        page,
+        limit,
+        relasi_nama,
+        bank_nama,
+        details,
+        ...insertData
+      } = data;
+
+      Object.keys(insertData).forEach((key) => {
+        if (typeof insertData[key] === 'string') {
+          insertData[key] = insertData[key].toUpperCase();
+        }
+      });
+
+      const parameter = await trx('parameter')
+        .select('*')
+        .where('grp', 'KAS GANTUNG')
+        .first();
+
+      const nomorBukti = await this.runningNumberService.generateRunningNumber(
+        trx,
+        parameter.grp,
+        parameter.subgrp,
+        this.tableName,
+        insertData.tglbukti,
+      );
+      insertData.nobukti = nomorBukti;
+
+      const insertedItems = await trx(this.tableName)
+        .insert(insertData)
+        .returning('*');
+
+      if (details.length > 0) {
+        // Inject nobukti into each detail item
+        const detailsWithNobukti = details.map((detail: any) => ({
+          ...detail,
+          nobukti: nomorBukti, // Inject nobukti into each detail
+        }));
+
+        // Pass the updated details with nobukti to the detail creation service
+        await this.kasgantungdetailService.create(
+          detailsWithNobukti,
+          insertedItems[0].id,
+          trx,
+        );
+      }
+
+      const newItem = insertedItems[0];
+
+      const { data: filteredItems } = await this.findAll(
+        {
+          search,
+          filters,
+          pagination: { page, limit },
+          sort: { sortBy, sortDirection },
+          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+        },
+        trx,
+      );
+
+      // Cari index item baru di hasil yang sudah difilter
+      let itemIndex = filteredItems.findIndex(
+        (item) => Number(item.id) === newItem.id,
+      );
+
+      if (itemIndex === -1) {
+        itemIndex = 0;
+      }
+
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
+      const endIndex = pageNumber * limit;
+
+      // Ambil data hingga halaman yang mencakup item baru
+      const limitedItems = filteredItems.slice(0, endIndex);
+
+      // Simpan ke Redis
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: `ADD KAS GANTUNG HEADER`,
+          idtrans: newItem.id,
+          nobuktitrans: newItem.id,
+          aksi: 'ADD',
+          datajson: JSON.stringify(newItem),
+          modifiedby: newItem.modifiedby,
+        },
+        trx,
+      );
+
+      return {
+        newItem,
+        pageNumber,
+        itemIndex,
+      };
+    } catch (error) {
+      throw new Error(`Error: ${error.message}`);
+    }
   }
 
   async findAll(
@@ -105,23 +215,21 @@ export class KasgantungheaderService {
           tglSampaiFormatted,
         ]);
       }
-
+      const excludeSearchKeys = ['tglDari', 'tglSampai'];
       if (limit > 0) {
         const offset = (page - 1) * limit;
         query.limit(limit).offset(offset);
       }
-
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k) && filters![k],
+      );
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('u.nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.pengeluaran_nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.coakaskeluar', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.dibayarke', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.nowarkat', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.info', 'like', `%${sanitizedValue}%`);
+        const sanitized = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+          });
         });
       }
 

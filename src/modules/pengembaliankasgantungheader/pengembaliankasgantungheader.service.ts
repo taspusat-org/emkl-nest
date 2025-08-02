@@ -4,7 +4,7 @@ import { UpdatePengembaliankasgantungheaderDto } from './dto/update-pengembalian
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { dbMssql } from 'src/common/utils/db';
 import { RedisService } from 'src/common/redis/redis.service';
-import { UtilsService } from 'src/utils/utils.service';
+import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.service';
@@ -21,6 +21,7 @@ export class PengembaliankasgantungheaderService {
   private readonly tableName = 'pengembaliankasgantungheader';
   async create(data: any, trx: any) {
     try {
+      data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
       const {
         sortBy,
         sortDirection,
@@ -158,7 +159,7 @@ export class PengembaliankasgantungheaderService {
         .select([
           'u.id as id',
           'u.nobukti', // nobukti (nvarchar(100))
-          'u.tglbukti', // tglbukti (date)
+          trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
           'u.keterangan', // keterangan (nvarchar(max))
           'u.bank_id', // bank_id (integer)
           'u.penerimaan_nobukti', // penerimaan_nobukti (nvarchar(100))

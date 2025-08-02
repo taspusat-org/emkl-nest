@@ -39,7 +39,6 @@ export class PengembaliankasgantungdetailService {
     }
     for (data of details) {
       let isDataChanged = false;
-      console.log('data', data);
       // Check if the data has an id (existing record)
       if (data.id) {
         const existingData = await trx(tableName).where('id', data.id).first();
@@ -223,7 +222,7 @@ export class PengembaliankasgantungdetailService {
     return updatedData || insertedData;
   }
 
-  async findAll(id: number, trx: any) {
+  async findAll(id: string, trx: any) {
     const result = await trx(`${this.tableName} as p`)
       .select(
         'p.id',

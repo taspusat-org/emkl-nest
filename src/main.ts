@@ -24,6 +24,7 @@ async function bootstrap() {
       '*',
       'http://192.168.3.211:3001',
       'http://localhost:3000',
+      'http://192.168.3.28',
     ], // List of allowed origins
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
     allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
@@ -36,7 +37,7 @@ async function bootstrap() {
   const microservice = app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
-      urls: ['amqp://admin:123456@54.151.162.192:5672'], // URL RabbitMQ
+      urls: ['amqp://admin:admin@54.151.162.192:5672'], // URL RabbitMQ
       queue: 'hr_queue_dev', // Nama queue yang akan digunakan
       queueOptions: {
         durable: true, // Menetapkan queue untuk bertahan setelah restart

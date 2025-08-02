@@ -8,6 +8,8 @@ import {
   Delete,
   Query,
   UsePipes,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
 import { KasgantungheaderService } from './kasgantungheader.service';
 import { CreateKasgantungheaderDto } from './dto/create-kasgantungheader.dto';
@@ -19,6 +21,7 @@ import {
 } from 'src/common/interfaces/all.interface';
 import { dbMssql } from 'src/common/utils/db';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
+import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('kasgantungheader')
 export class KasgantungheaderController {
@@ -26,11 +29,27 @@ export class KasgantungheaderController {
     private readonly kasgantungheaderService: KasgantungheaderService,
   ) {}
 
+  @UseGuards(AuthGuard)
   @Post()
-  create(@Body() createKasgantungheaderDto: CreateKasgantungheaderDto) {
-    return this.kasgantungheaderService.create(createKasgantungheaderDto);
-  }
+  //@PENGEMBALIAN-KAS-GANTUNG
+  async create(
+    @Body()
+    data: any,
+    @Req() req,
+  ) {
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
 
+      const result = await this.kasgantungheaderService.create(data, trx);
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      throw new Error(`Error: ${error.message}`);
+    }
+  }
   @Get()
   //@PENGEMBALIAN-KAS-GANTUNG
   @UsePipes(new ZodValidationPipe(FindAllSchema))

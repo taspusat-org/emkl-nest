@@ -19,14 +19,8 @@ export class PengembaliankasgantungdetailController {
     private readonly pengembaliankasgantungdetailService: PengembaliankasgantungdetailService,
   ) {}
 
-  @Get()
-  async findAll(
-    @Query()
-    query: {
-      id: number;
-    },
-  ) {
-    const { id } = query;
+  @Get(':id')
+  async findAll(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
     try {
       const result = await this.pengembaliankasgantungdetailService.findAll(
@@ -52,11 +46,6 @@ export class PengembaliankasgantungdetailController {
       tanggalSampai,
     );
     return result;
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.pengembaliankasgantungdetailService.findOne(+id);
   }
 
   @Patch(':id')

@@ -37,6 +37,7 @@ import { KasgantungdetailModule } from './modules/kasgantungdetail/kasgantungdet
 import { RelasiModule } from './modules/relasi/relasi.module';
 import { AlatbayarModule } from './modules/alatbayar/alatbayar.module';
 import { BankModule } from './modules/bank/bank.module';
+import { SseModule } from './modules/sse/sse.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { BankModule } from './modules/bank/bank.module';
     RelasiModule,
     AlatbayarModule,
     BankModule,
+    SseModule,
   ],
   controllers: [],
   providers: [RabbitmqService],
@@ -90,6 +92,7 @@ export class AppModule implements NestModule {
         'redis/*path',
         'uploads/*',
         'offdays/*',
+        'sse/*',
       )
       .forRoutes('*');
   }

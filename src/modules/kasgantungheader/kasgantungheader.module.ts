@@ -6,6 +6,7 @@ import { RedisModule } from 'src/common/redis/redis.module';
 import { AuthModule } from '../auth/auth.module';
 import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 import { RunningNumberModule } from '../running-number/running-number.module';
+import { KasgantungdetailModule } from '../kasgantungdetail/kasgantungdetail.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { RunningNumberModule } from '../running-number/running-number.module';
     AuthModule,
     LogtrailModule,
     RunningNumberModule,
+    KasgantungdetailModule,
   ],
   controllers: [KasgantungheaderController],
   providers: [KasgantungheaderService],
