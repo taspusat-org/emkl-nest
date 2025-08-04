@@ -18,13 +18,12 @@ export class PengembaliankasgantungdetailService {
   async create(details: any, id: any = 0, trx: any = null) {
     let insertedData = null;
     let data: any = null;
-    const tableName = 'pengembaliankasgantungdetail'; // Adjusted table name
     const tempTableName = `##temp_${Math.random().toString(36).substring(2, 15)}`;
 
     // Get the column info and create temporary table
-    const result = await trx(tableName).columnInfo();
+    const result = await trx(this.tableName).columnInfo();
     const tableTemp = await this.utilsService.createTempTable(
-      tableName,
+      this.tableName,
       trx,
       tempTableName,
     );
@@ -34,14 +33,16 @@ export class PengembaliankasgantungdetailService {
     const mainDataToInsert: any[] = [];
     console.log(details);
     if (details.length === 0) {
-      await trx(tableName).delete().where('pengembaliankasgantung_id', id);
+      await trx(this.tableName).delete().where('pengembaliankasgantung_id', id);
       return;
     }
     for (data of details) {
       let isDataChanged = false;
       // Check if the data has an id (existing record)
       if (data.id) {
-        const existingData = await trx(tableName).where('id', data.id).first();
+        const existingData = await trx(this.tableName)
+          .where('id', data.id)
+          .first();
 
         if (existingData) {
           const createdAt = {
@@ -150,7 +151,7 @@ export class PengembaliankasgantungdetailService {
       ])
       .where(`${tempTableName}.id`, '0');
 
-    const getDeleted = await trx(tableName)
+    const getDeleted = await trx(this.tableName)
       .leftJoin(
         `${tempTableName}`,
         'pengembaliankasgantungdetail.id',
@@ -186,7 +187,7 @@ export class PengembaliankasgantungdetailService {
 
     const finalData = logData.concat(pushToLogWithAction);
 
-    const deletedData = await trx(tableName)
+    const deletedData = await trx(this.tableName)
       .leftJoin(
         `${tempTableName}`,
         'pengembaliankasgantungdetail.id',
@@ -208,7 +209,7 @@ export class PengembaliankasgantungdetailService {
 
     await this.logTrailService.create(
       {
-        namatabel: tableName,
+        namatabel: this.tableName,
         postingdari: 'PENGEMBALIAN KAS GANTUNG HEADER',
         idtrans: id,
         nobuktitrans: id,

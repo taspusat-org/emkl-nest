@@ -173,37 +173,16 @@ export class KasgantungheaderService {
           'u.info', // info (nvarchar(max))
           'u.modifiedby', // modifiedby (varchar(200))
           'u.editing_by', // editing_by (varchar(200))
+          'r.nama as relasi_nama', // editing_by (varchar(200))
+          'b.nama_bank as bank_nama', // editing_by (varchar(200))
+          'ab.nama as alatbayar_nama', // editing_by (varchar(200))
           trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
-          trx.raw('SUM(kg.nominal) as sisa'), // Summary of nominal (money)
         ])
         .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
         .leftJoin('bank as b', 'u.bank_id', 'b.id')
-        .leftJoin('kasgantungdetail as kg', 'u.id', 'kg.kasgantung_id') // Join on kasgantung_id
-        .leftJoin('alatbayar as ab', 'u.alatbayar_id', 'ab.id')
-        .leftJoin('akunpusat as ap', 'u.coakaskeluar', 'ap.coa')
-        .groupBy(
-          'u.id',
-          'u.nobukti',
-          'u.tglbukti',
-          'u.keterangan',
-          'u.relasi_id',
-          'u.bank_id',
-          'u.pengeluaran_nobukti',
-          'u.coakaskeluar',
-          'u.dibayarke',
-          'u.alatbayar_id',
-          'u.nowarkat',
-          'u.tgljatuhtempo',
-          'u.gantungorderan_nobukti',
-          'u.info',
-          'u.modifiedby',
-          'u.editing_by',
-          'u.editing_at',
-          'u.created_at',
-          'u.updated_at',
-        ); // Group by to aggregate nominal
+        .leftJoin('alatbayar as ab', 'u.alatbayar_id', 'ab.id');
       if (filters?.tglDari && filters?.tglSampai) {
         // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
         const tglDariFormatted = formatDateToSQL(String(filters?.tglDari)); // Fungsi untuk format

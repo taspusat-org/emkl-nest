@@ -31,7 +31,7 @@ export class KasgantungheaderController {
 
   @UseGuards(AuthGuard)
   @Post()
-  //@PENGEMBALIAN-KAS-GANTUNG
+  //@KAS-GANTUNG
   async create(
     @Body()
     data: any,
@@ -51,7 +51,7 @@ export class KasgantungheaderController {
     }
   }
   @Get()
-  //@PENGEMBALIAN-KAS-GANTUNG
+  //@KAS-GANTUNG
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =

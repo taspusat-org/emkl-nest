@@ -12,16 +12,15 @@ const knexConfig: { [key: string]: Knex.Config } = {
       password: process.env.SSMS_PASSWORD,
       database: process.env.SSMS_DB,
       port: Number(process.env.SSMS_PORT),
+      pool: {
+        min: 2,
+        max: 10,
+      },
       options: {
         encrypt: false,
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmatika
       },
-      pool: {
-        max: 10, // Sesuaikan jumlah koneksi maksimal pool
-        min: 0,
-        idleTimeoutMillis: 30000, // Timeout saat koneksi idle
-      },
-      requestTimeout: 30000, // Mengatur timeout permintaan ke 30 detik
+      requestTimeout: 60000, // 60 detik
     },
     migrations: {
       tableName: 'knex_migrations',

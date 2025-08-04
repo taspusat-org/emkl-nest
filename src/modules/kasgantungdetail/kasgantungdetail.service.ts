@@ -15,13 +15,12 @@ export class KasgantungdetailService {
   async create(details: any, id: any = 0, trx: any = null) {
     let insertedData = null;
     let data: any = null;
-    const tableName = 'pengembaliankasgantungdetail'; // Adjusted table name
     const tempTableName = `##temp_${Math.random().toString(36).substring(2, 15)}`;
 
     // Get the column info and create temporary table
-    const result = await trx(tableName).columnInfo();
+    const result = await trx(this.tableName).columnInfo();
     const tableTemp = await this.utilsService.createTempTable(
-      tableName,
+      this.tableName,
       trx,
       tempTableName,
     );
@@ -31,14 +30,16 @@ export class KasgantungdetailService {
     const mainDataToInsert: any[] = [];
     console.log(details);
     if (details.length === 0) {
-      await trx(tableName).delete().where('pengembaliankasgantung_id', id);
+      await trx(this.tableName).delete().where('kasgantung_id', id);
       return;
     }
     for (data of details) {
       let isDataChanged = false;
       // Check if the data has an id (existing record)
       if (data.id) {
-        const existingData = await trx(tableName).where('id', data.id).first();
+        const existingData = await trx(this.tableName)
+          .where('id', data.id)
+          .first();
 
         if (existingData) {
           const createdAt = {
@@ -82,7 +83,7 @@ export class KasgantungdetailService {
     // Ensure each item has an idheader
     const processedData = mainDataToInsert.map((item: any) => ({
       ...item,
-      pengembaliankasgantung_id: item.pengembaliankasgantung_id ?? id, // Ensure correct field mapping
+      kasgantung_id: item.kasgantung_id ?? id, // Ensure correct field mapping
     }));
     const jsonString = JSON.stringify(processedData);
 
@@ -101,25 +102,18 @@ export class KasgantungdetailService {
     await trx(tempTableName).insert(openJson);
     console.log('table', await trx(tempTableName));
 
-    // **Update or Insert into 'pengembaliankasgantungdetail' with correct idheader**
-    const updatedData = await trx('pengembaliankasgantungdetail')
-      .join(
-        `${tempTableName}`,
-        'pengembaliankasgantungdetail.id',
-        `${tempTableName}.id`,
-      )
+    // **Update or Insert into 'kasgantungdetail' with correct idheader**
+    const updatedData = await trx('kasgantungdetail')
+      .join(`${tempTableName}`, 'kasgantungdetail.id', `${tempTableName}.id`)
       .update({
         nobukti: trx.raw(`${tempTableName}.nobukti`),
-        kasgantung_nobukti: trx.raw(`${tempTableName}.kasgantung_nobukti`),
         keterangan: trx.raw(`${tempTableName}.keterangan`),
         nominal: trx.raw(`${tempTableName}.nominal`),
         info: trx.raw(`${tempTableName}.info`),
         modifiedby: trx.raw(`${tempTableName}.modifiedby`),
         editing_by: trx.raw(`${tempTableName}.editing_by`),
         editing_at: trx.raw(`${tempTableName}.editing_at`),
-        pengembaliankasgantung_id: trx.raw(
-          `${tempTableName}.pengembaliankasgantung_id`,
-        ),
+        kasgantung_id: trx.raw(`${tempTableName}.kasgantung_id`),
         created_at: trx.raw(`${tempTableName}.created_at`),
         updated_at: trx.raw(`${tempTableName}.updated_at`),
       })
@@ -134,41 +128,39 @@ export class KasgantungdetailService {
     const insertedDataQuery = await trx(tempTableName)
       .select([
         'nobukti',
-        'kasgantung_nobukti',
         'keterangan',
         'nominal',
         'info',
         'modifiedby',
         'editing_by',
         'editing_at',
-        trx.raw('? as pengembaliankasgantung_id', [id]),
+        trx.raw('? as kasgantung_id', [id]),
         'created_at',
         'updated_at',
       ])
       .where(`${tempTableName}.id`, '0');
 
-    const getDeleted = await trx(tableName)
+    const getDeleted = await trx(this.tableName)
       .leftJoin(
         `${tempTableName}`,
-        'pengembaliankasgantungdetail.id',
+        'kasgantungdetail.id',
         `${tempTableName}.id`,
       )
       .select(
-        'pengembaliankasgantungdetail.id',
-        'pengembaliankasgantungdetail.nobukti',
-        'pengembaliankasgantungdetail.kasgantung_nobukti',
-        'pengembaliankasgantungdetail.keterangan',
-        'pengembaliankasgantungdetail.nominal',
-        'pengembaliankasgantungdetail.info',
-        'pengembaliankasgantungdetail.modifiedby',
-        'pengembaliankasgantungdetail.editing_by',
-        'pengembaliankasgantungdetail.editing_at',
-        'pengembaliankasgantungdetail.created_at',
-        'pengembaliankasgantungdetail.updated_at',
-        'pengembaliankasgantungdetail.pengembaliankasgantung_id',
+        'kasgantungdetail.id',
+        'kasgantungdetail.nobukti',
+        'kasgantungdetail.keterangan',
+        'kasgantungdetail.nominal',
+        'kasgantungdetail.info',
+        'kasgantungdetail.modifiedby',
+        'kasgantungdetail.editing_by',
+        'kasgantungdetail.editing_at',
+        'kasgantungdetail.created_at',
+        'kasgantungdetail.updated_at',
+        'kasgantungdetail.kasgantung_id',
       )
       .whereNull(`${tempTableName}.id`)
-      .where('pengembaliankasgantungdetail.pengembaliankasgantung_id', id);
+      .where('kasgantungdetail.kasgantung_id', id);
 
     let pushToLog: any[] = [];
 
@@ -183,17 +175,17 @@ export class KasgantungdetailService {
 
     const finalData = logData.concat(pushToLogWithAction);
 
-    const deletedData = await trx(tableName)
+    const deletedData = await trx(this.tableName)
       .leftJoin(
         `${tempTableName}`,
-        'pengembaliankasgantungdetail.id',
+        'kasgantungdetail.id',
         `${tempTableName}.id`,
       )
       .whereNull(`${tempTableName}.id`)
-      .where('pengembaliankasgantungdetail.pengembaliankasgantung_id', id)
+      .where('kasgantungdetail.kasgantung_id', id)
       .del();
     if (insertedDataQuery.length > 0) {
-      insertedData = await trx('pengembaliankasgantungdetail')
+      insertedData = await trx('kasgantungdetail')
         .insert(insertedDataQuery)
         .returning('*')
         .then((result: any) => result[0])
@@ -205,7 +197,7 @@ export class KasgantungdetailService {
 
     await this.logTrailService.create(
       {
-        namatabel: tableName,
+        namatabel: this.tableName,
         postingdari: 'PENGEMBALIAN KAS GANTUNG HEADER',
         idtrans: id,
         nobuktitrans: id,
@@ -219,7 +211,7 @@ export class KasgantungdetailService {
     return updatedData || insertedData;
   }
 
-  async findAll(id: number, trx: any) {
+  async findAll(id: string, trx: any) {
     const result = await trx(`${this.tableName} as p`)
       .select(
         'p.id',

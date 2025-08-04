@@ -24,26 +24,17 @@ export class KasgantungdetailController {
     return this.kasgantungdetailService.create(createKasgantungdetailDto);
   }
 
-  @Get()
-  async findAll(
-    @Query()
-    query: {
-      id: number;
-    },
-  ) {
-    const { id } = query;
+  @Get(':id')
+  async findAll(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
     try {
       const result = await this.kasgantungdetailService.findAll(id, trx);
+      trx.commit();
       return result;
     } catch (error) {
+      trx.rollback();
       console.error('Error fetching pengembaliankasgantungdetail:', error);
     }
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.kasgantungdetailService.findOne(+id);
   }
 
   @Patch(':id')
