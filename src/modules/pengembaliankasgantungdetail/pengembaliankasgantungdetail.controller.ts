@@ -27,8 +27,10 @@ export class PengembaliankasgantungdetailController {
         id,
         trx,
       );
+      trx.commit();
       return result;
     } catch (error) {
+      trx.rollback();
       console.error('Error fetching pengembaliankasgantungdetail:', error);
     }
   }

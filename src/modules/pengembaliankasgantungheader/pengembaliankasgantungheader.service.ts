@@ -130,7 +130,93 @@ export class PengembaliankasgantungheaderService {
       throw new Error(`Error: ${error.message}`);
     }
   }
+  async update(data: any, id: any, trx: any) {
+    try {
+      data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
+      const {
+        sortBy,
+        sortDirection,
+        filters,
+        search,
+        page,
+        limit,
+        relasi_nama,
+        bank_nama,
+        details,
+        ...insertData
+      } = data;
 
+      Object.keys(insertData).forEach((key) => {
+        if (typeof insertData[key] === 'string') {
+          insertData[key] = insertData[key].toUpperCase();
+        }
+      });
+      const existingData = await trx(this.tableName).where('id', id).first();
+      const hasChanges = this.utilsService.hasChanges(insertData, existingData);
+      if (hasChanges) {
+        insertData.updated_at = this.utilsService.getTime();
+
+        await trx(this.tableName).where('id', id).update(insertData);
+      }
+
+      if (details.length > 0) {
+        await this.pengembaliankasgantungdetailService.create(details, id, trx);
+      }
+
+      const { data: filteredItems } = await this.findAll(
+        {
+          search,
+          filters,
+          pagination: { page, limit },
+          sort: { sortBy, sortDirection },
+          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+        },
+        trx,
+      );
+
+      // Cari index item baru di hasil yang sudah difilter
+      let itemIndex = filteredItems.findIndex((item) => Number(item.id) === id);
+
+      if (itemIndex === -1) {
+        itemIndex = 0;
+      }
+
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
+      const endIndex = pageNumber * limit;
+
+      // Ambil data hingga halaman yang mencakup item baru
+      const limitedItems = filteredItems.slice(0, endIndex);
+
+      // Simpan ke Redis
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: `ADD PENGEMBALIAN KAS GANTUNG HEADER`,
+          idtrans: id,
+          nobuktitrans: id,
+          aksi: 'ADD',
+          datajson: JSON.stringify(data),
+          modifiedby: data.modifiedby,
+        },
+        trx,
+      );
+      return {
+        updatedItem: {
+          id,
+          ...data,
+        },
+        pageNumber,
+        itemIndex,
+      };
+    } catch (error) {
+      throw new Error(`Error: ${error.message}`);
+    }
+  }
   async findAll(
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
     trx: any,
@@ -405,106 +491,6 @@ export class PengembaliankasgantungheaderService {
 
   findOne(id: number) {
     return `This action returns a #${id} pengembaliankasgantungheader`;
-  }
-
-  async update(id: number, data: any, trx: any) {
-    try {
-      const existingData = await trx(this.tableName).where('id', id).first();
-
-      if (!existingData) {
-        throw new Error('Menu not found');
-      }
-
-      const {
-        sortBy,
-        sortDirection,
-        filters,
-        search,
-        page,
-        limit,
-        relasi_nama,
-        bank_nama,
-        details,
-        ...insertData
-      } = data;
-
-      Object.keys(insertData).forEach((key) => {
-        if (typeof insertData[key] === 'string') {
-          insertData[key] = insertData[key].toUpperCase();
-        }
-      });
-      const hasChanges = this.utilsService.hasChanges(insertData, existingData);
-      if (hasChanges) {
-        insertData.updated_at = this.utilsService.getTime();
-        await trx(this.tableName).where('id', id).update(insertData);
-      }
-      if (details.length >= 0) {
-        // Inject nobukti into each detail item
-        const detailsWithNobukti = details.map((detail: any) => ({
-          ...detail,
-          nobukti: insertData.nobukti, // Inject nobukti into each detail
-        }));
-
-        // Pass the updated details with nobukti to the detail creation service
-        await this.pengembaliankasgantungdetailService.create(
-          detailsWithNobukti,
-          id,
-          trx,
-        );
-      }
-      const { data: filteredData, pagination } = await this.findAll(
-        {
-          search,
-          filters,
-          pagination: { page, limit },
-          sort: { sortBy, sortDirection },
-          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
-        },
-        trx,
-      );
-
-      // Cari index item yang baru saja diupdate
-      let itemIndex = filteredData.findIndex((item) => Number(item.id) === id);
-      if (itemIndex === -1) {
-        itemIndex = 0;
-      }
-
-      const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
-      const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;
-
-      // Ambil data hingga halaman yang mencakup item yang baru diperbarui
-      const endIndex = pageNumber * itemsPerPage;
-      const limitedItems = filteredData.slice(0, endIndex);
-      await this.redisService.set(
-        `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
-      );
-
-      await this.logTrailService.create(
-        {
-          namatabel: this.tableName,
-          postingdari: 'EDIT PENGEMBALIAN KAS GANTUNG HEADER',
-          idtrans: id,
-          nobuktitrans: id,
-          aksi: 'EDIT',
-          datajson: JSON.stringify(data),
-          modifiedby: data.modifiedby,
-        },
-        trx,
-      );
-
-      return {
-        updatedItem: {
-          id,
-          ...data,
-        },
-        pageNumber,
-        itemIndex,
-      };
-    } catch (error) {
-      console.error('Error updating parameter:', error);
-      throw new Error('Failed to update parameter');
-    }
   }
 
   remove(id: number) {

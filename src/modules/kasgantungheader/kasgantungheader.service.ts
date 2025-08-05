@@ -30,6 +30,7 @@ export class KasgantungheaderService {
         page,
         limit,
         relasi_nama,
+        alatbayar_nama,
         bank_nama,
         details,
         ...insertData
@@ -173,9 +174,9 @@ export class KasgantungheaderService {
           'u.info', // info (nvarchar(max))
           'u.modifiedby', // modifiedby (varchar(200))
           'u.editing_by', // editing_by (varchar(200))
-          'r.nama as relasi_nama', // editing_by (varchar(200))
-          'b.nama_bank as bank_nama', // editing_by (varchar(200))
-          'ab.nama as alatbayar_nama', // editing_by (varchar(200))
+          'r.nama as relasi_nama', // relasi_nama (varchar(200))
+          'b.nama_bank as bank_nama', // bank_nama (varchar(200))
+          'ab.nama as alatbayar_nama', // alatbayar_nama (varchar(200))
           trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
@@ -183,6 +184,7 @@ export class KasgantungheaderService {
         .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
         .leftJoin('bank as b', 'u.bank_id', 'b.id')
         .leftJoin('alatbayar as ab', 'u.alatbayar_id', 'ab.id');
+
       if (filters?.tglDari && filters?.tglSampai) {
         // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
         const tglDariFormatted = formatDateToSQL(String(filters?.tglDari)); // Fungsi untuk format
@@ -269,6 +271,57 @@ export class KasgantungheaderService {
     }
   }
 
+  async getPengembalian(dari: any, sampai: any, trx: any) {
+    try {
+      const tglDariFormatted = formatDateToSQL(dari);
+      const tglSampaiFormatted = formatDateToSQL(sampai);
+      const temp = '##temp_' + Math.random().toString(36).substring(2, 8);
+      await trx.schema.createTable(temp, (t) => {
+        t.string('nobukti');
+        t.date('tglbukti');
+        t.bigInteger('sisa').nullable();
+        t.text('keterangan').nullable();
+      });
+
+      await trx(temp).insert(
+        trx
+          .select(
+            'kd.nobukti',
+            trx.raw('CAST(kg.tglbukti AS DATE) AS tglbukti'),
+            trx.raw(`
+              (SELECT (sum(kd.nominal) - COALESCE(SUM(pgd.nominal), 0)) 
+               FROM pengembaliankasgantungdetail as pgd 
+               WHERE pgd.kasgantung_nobukti = kd.nobukti) AS sisa, 
+              MAX(kd.keterangan)
+            `),
+          )
+          .from('kasgantungdetail as kd')
+          .leftJoin('kasgantungheader as kg', 'kg.id', 'kd.kasgantung_id')
+          .whereBetween('kg.tglbukti', [tglDariFormatted, tglSampaiFormatted])
+          .groupBy('kd.nobukti', 'kg.tglbukti')
+          .orderBy('kg.tglbukti', 'asc')
+          .orderBy('kd.nobukti', 'asc'),
+      );
+      const result = await trx
+        .select(
+          trx.raw(`row_number() OVER (ORDER BY ??) as id`, [`${temp}.nobukti`]),
+          trx.raw(`FORMAT([${temp}].[tglbukti], 'dd-MM-yyyy') as tglbukti`),
+          `${temp}.nobukti`,
+          `${temp}.sisa`,
+          `${temp}.keterangan as keterangan`,
+        )
+
+        .from(trx.raw(`${temp} with (readuncommitted)`))
+        .where(function () {
+          this.whereRaw(`${temp}.sisa != 0`).orWhereRaw(`${temp}.sisa is null`);
+        });
+
+      return result;
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
+  }
   findOne(id: number) {
     return `This action returns a #${id} kasgantungheader`;
   }

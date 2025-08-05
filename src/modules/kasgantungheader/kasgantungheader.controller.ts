@@ -87,6 +87,28 @@ export class KasgantungheaderController {
       throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
+  @Get('pengembalian')
+  //@KAS-GANTUNG
+  @UsePipes(new ZodValidationPipe(FindAllSchema))
+  async findAllPengembalian(@Query() query: { dari: string; sampai: string }) {
+    const { dari, sampai } = query;
+    const trx = await dbMssql.transaction();
+
+    try {
+      const result = await this.kasgantungheaderService.getPengembalian(
+        dari,
+        sampai,
+        trx,
+      );
+      trx.commit();
+
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error in findAll:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
+    }
+  }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
