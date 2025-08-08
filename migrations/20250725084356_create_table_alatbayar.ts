@@ -2,13 +2,13 @@ import type { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable('alatbayar', (table) => {
-    table.increments('id').primary(); // id (primary key)
+    table.bigIncrements('id').primary(); // id (primary key)
     table.string('nama', 255).nullable(); // nama (nvarchar(max))
     table.text('keterangan').nullable(); // keterangan (nvarchar(max))
-    table.integer('statuslangsungcair').nullable(); // statuslangsungcair (int)
-    table.integer('statusdefault').nullable(); // statusdefault (int)
-    table.integer('statusbank').nullable(); // statusbank (int)
-    table.integer('statusaktif').nullable(); // statusaktif (int)
+    table.bigInteger('statuslangsungcair').nullable(); // statuslangsungcair (int)
+    table.bigInteger('statusdefault').nullable(); // statusdefault (int)
+    table.bigInteger('statusbank').nullable(); // statusbank (int)
+    table.bigInteger('statusaktif').nullable(); // statusaktif (int)
     table.text('info').nullable(); // info (nvarchar(max))
     table.string('modifiedby', 200).nullable(); // modifiedby (varchar(200))
     table.string('editing_by', 200).nullable(); // editing_by (varchar(200))
