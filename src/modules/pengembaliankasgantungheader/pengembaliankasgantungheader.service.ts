@@ -1,4 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreatePengembaliankasgantungheaderDto } from './dto/create-pengembaliankasgantungheader.dto';
 import { UpdatePengembaliankasgantungheaderDto } from './dto/update-pengembaliankasgantungheader.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
@@ -34,7 +39,8 @@ export class PengembaliankasgantungheaderService {
         details,
         ...insertData
       } = data;
-
+      insertData.updated_at = this.utilsService.getTime();
+      insertData.created_at = this.utilsService.getTime();
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
@@ -43,7 +49,7 @@ export class PengembaliankasgantungheaderService {
 
       const parameter = await trx('parameter')
         .select('*')
-        .where('grp', 'KAS GANTUNG')
+        .where('grp', 'PENERIMAAN GANTUNG')
         .first();
 
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
@@ -64,6 +70,7 @@ export class PengembaliankasgantungheaderService {
         const detailsWithNobukti = details.map((detail: any) => ({
           ...detail,
           nobukti: nomorBukti, // Inject nobukti into each detail
+          modifiedby: data.modifiedby, // Ensure modifiedby is preserved
         }));
 
         // Pass the updated details with nobukti to the detail creation service
@@ -130,9 +137,11 @@ export class PengembaliankasgantungheaderService {
       throw new Error(`Error: ${error.message}`);
     }
   }
-  async update(data: any, id: any, trx: any) {
+  async update(id: any, data: any, trx: any) {
     try {
+      console.log('data2', data);
       data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
+
       const {
         sortBy,
         sortDirection,
@@ -153,15 +162,50 @@ export class PengembaliankasgantungheaderService {
       });
       const existingData = await trx(this.tableName).where('id', id).first();
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
+
       if (hasChanges) {
         insertData.updated_at = this.utilsService.getTime();
 
         await trx(this.tableName).where('id', id).update(insertData);
       }
 
+      // Check each detail, update or set id accordingly
       if (details.length > 0) {
-        await this.pengembaliankasgantungdetailService.create(details, id, trx);
+        const existingDetails = await trx('pengembaliankasgantungdetail').where(
+          'pengembaliankasgantung_id',
+          id,
+        );
+        const updatedDetails = details.map((detail: any) => {
+          const existingDetail = existingDetails.find(
+            (existing: any) => existing.nobukti === detail.nobukti,
+          );
+
+          if (existingDetail) {
+            // If the nobukti exists, assign the id from the existing record
+            detail.id = existingDetail.id;
+            detail.kasgantung_nobukti = detail.nobukti; // Ensure nobukti is preserved
+            detail.nobukti = existingData.nobukti; // Ensure nobukti is preserved
+            detail.modifiedby = data.modifiedby; // Ensure modifiedby is preserved
+          } else {
+            // If nobukti does not exist, set id to 0
+            detail.id = 0;
+            detail.kasgantung_nobukti = detail.nobukti; // Ensure nobukti is preserved
+            detail.nobukti = existingData.nobukti; // Ensure nobukti is preserved
+            detail.modifiedby = data.modifiedby; // Ensure modifiedby is preserved
+          }
+
+          return detail;
+        });
+        if (updatedDetails.length > 0) {
+          await this.pengembaliankasgantungdetailService.create(
+            updatedDetails,
+            id,
+            trx,
+          );
+        }
       }
+
+      // If there are details, call the service to handle create or update
 
       const { data: filteredItems } = await this.findAll(
         {
@@ -205,6 +249,7 @@ export class PengembaliankasgantungheaderService {
         },
         trx,
       );
+
       return {
         updatedItem: {
           id,
@@ -217,6 +262,7 @@ export class PengembaliankasgantungheaderService {
       throw new Error(`Error: ${error.message}`);
     }
   }
+
   async findAll(
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
     trx: any,
@@ -255,7 +301,7 @@ export class PengembaliankasgantungheaderService {
           'u.modifiedby', // modifiedby (varchar(200))
           'u.editing_by', // editing_by (varchar(200))
           trx.raw('r.nama as relasi_nama'), // relasi_nama (nvarchar(max))
-          trx.raw('b.nama_bank as bank_nama'),
+          trx.raw('b.nama as bank_nama'),
           trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
@@ -367,7 +413,7 @@ export class PengembaliankasgantungheaderService {
           'u.modifiedby', // modifiedby (varchar(200))
           'u.editing_by', // editing_by (varchar(200))
           trx.raw('r.nama as relasi_nama'), // relasi_nama (nvarchar(max))
-          trx.raw('b.nama_bank as bank_nama'),
+          trx.raw('b.nama as bank_nama'),
           trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
@@ -493,7 +539,53 @@ export class PengembaliankasgantungheaderService {
     return `This action returns a #${id} pengembaliankasgantungheader`;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} pengembaliankasgantungheader`;
+  async delete(id: number, trx: any, modifiedby: string) {
+    try {
+      const deletedData = await this.utilsService.lockAndDestroy(
+        id,
+        this.tableName,
+        'id',
+        trx,
+      );
+      const deletedDataDetail = await this.utilsService.lockAndDestroy(
+        id,
+        'pengembaliankasgantungdetail',
+        'pengembaliankasgantung_id',
+        trx,
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE PENGEMBALIAN KAS GANTUNG',
+          idtrans: deletedData.id,
+          nobuktitrans: deletedData.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedData),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE PENGEMBALIAN KAS GANTUNG DETAIL',
+          idtrans: deletedDataDetail.id,
+          nobuktitrans: deletedDataDetail.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedDataDetail),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+
+      return { status: 200, message: 'Data deleted successfully', deletedData };
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to delete data');
+    }
   }
 }
