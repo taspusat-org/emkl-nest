@@ -70,6 +70,7 @@ export class PengembaliankasgantungheaderService {
         const detailsWithNobukti = details.map((detail: any) => ({
           ...detail,
           nobukti: nomorBukti, // Inject nobukti into each detail
+          kasgantung_nobukti: detail.nobukti, // Ensure kasgantung_nobukti is preserved
           modifiedby: data.modifiedby, // Ensure modifiedby is preserved
         }));
 

@@ -39,6 +39,7 @@ import { AlatbayarModule } from './modules/alatbayar/alatbayar.module';
 import { BankModule } from './modules/bank/bank.module';
 import { SseModule } from './modules/sse/sse.module';
 import { AkunpusatModule } from './modules/akunpusat/akunpusat.module';
+import { GlobalModule } from './modules/global/global.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { AkunpusatModule } from './modules/akunpusat/akunpusat.module';
     BankModule,
     SseModule,
     AkunpusatModule,
+    GlobalModule,
   ],
   controllers: [],
   providers: [RabbitmqService],
