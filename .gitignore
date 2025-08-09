@@ -51,6 +51,8 @@ lerna-debug.log*
 /uploads
 tmp
 uploads
+qrcode.png
+.qrcode.png
 # Runtime data
 pids
 *.pid
