@@ -38,6 +38,7 @@ import { RelasiModule } from './modules/relasi/relasi.module';
 import { AlatbayarModule } from './modules/alatbayar/alatbayar.module';
 import { BankModule } from './modules/bank/bank.module';
 import { SseModule } from './modules/sse/sse.module';
+import { PelayaranModule } from './modules/pelayaran/pelayaran.module';
 
 import { AkuntansiModule } from './modules/akuntansi/akuntansi.module';
 import { GlobalModule } from './modules/global/global.module';
@@ -85,6 +86,7 @@ import { GlobalModule } from './modules/global/global.module';
     AkunpusatModule,
     GlobalModule,
 
+    PelayaranModule,
   ],
   controllers: [],
   providers: [RabbitmqService],
