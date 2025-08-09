@@ -61,7 +61,7 @@ export class MenuController {
   @UseGuards(AuthGuard)
   @Post()
   async create(
-    @Body(new ZodValidationPipe(CreateMenuSchema), KeyboardOnlyValidationPipe)
+    @Body(new ZodValidationPipe(CreateMenuSchema))
     data: CreateMenuDto,
     @Req() req,
   ) {
