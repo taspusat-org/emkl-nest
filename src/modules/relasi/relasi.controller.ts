@@ -25,7 +25,6 @@ export class RelasiController {
 
   @Post()
   async create(@Body() createRelasiDto: CreateRelasiDto) {
-    
     const trx = await dbMssql.transaction();
     return this.relasiService.create(createRelasiDto, trx);
   }
@@ -74,10 +73,11 @@ export class RelasiController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateRelasiDto: UpdateRelasiDto) {
-    
+  async update(
+    @Param('id') id: string,
+    @Body() updateRelasiDto: UpdateRelasiDto,
+  ) {
     const trx = await dbMssql.transaction();
     return this.relasiService.update(+id, updateRelasiDto, trx);
   }
-
 }

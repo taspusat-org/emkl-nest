@@ -12,6 +12,5 @@ export const CreatePelayaranSchema = z.object({
     .int({ message: 'Status Aktif Wajib Angka' })
     .nonnegative({ message: 'Status Aktif Tidak Boleh Angka Negatif' }), // Ensure non-negative
   modifiedby: z.string().nullable().optional(),
-  
 });
 export type CreatePelayaranDto = z.infer<typeof CreatePelayaranSchema>;

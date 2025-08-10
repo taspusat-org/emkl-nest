@@ -42,7 +42,7 @@ import { PelayaranModule } from './modules/pelayaran/pelayaran.module';
 
 import { AkuntansiModule } from './modules/akuntansi/akuntansi.module';
 import { GlobalModule } from './modules/global/global.module';
-
+import { AkunpusatModule } from './modules/akunpusat/akunpusat.module';
 
 @Module({
   imports: [

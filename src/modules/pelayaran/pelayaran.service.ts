@@ -53,11 +53,11 @@ export class PelayaranService {
         .where('text', 'PELAYARAN')
         .first();
 
-      const relasi = ({
+      const relasi = {
         nama: insertData.nama,
         statusrelasi: statusRelasi.id,
-        modifiedby: insertData.modifiedby
-      })
+        modifiedby: insertData.modifiedby,
+      };
       const dataRelasi = await this.relasiService.create(relasi, trx);
 
       const newItem = insertedItems[0];
@@ -333,12 +333,16 @@ export class PelayaranService {
         .where('grp', 'STATUS RELASI')
         .where('text', 'PELAYARAN')
         .first();
-      const relasi = ({
+      const relasi = {
         nama: insertData.nama,
         statusrelasi: statusRelasi.id,
-        modifiedby: insertData.modifiedby
-      })
-      const dataRelasi = await this.relasiService.update(existingData.relasi_id, relasi, trx);
+        modifiedby: insertData.modifiedby,
+      };
+      const dataRelasi = await this.relasiService.update(
+        existingData.relasi_id,
+        relasi,
+        trx,
+      );
       const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
       const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;
 
@@ -398,8 +402,12 @@ export class PelayaranService {
         },
         trx,
       );
-      
-      const dataRelasi = await this.relasiService.delete(deletedData.relasi_id, trx, modifiedby);
+
+      const dataRelasi = await this.relasiService.delete(
+        deletedData.relasi_id,
+        trx,
+        modifiedby,
+      );
 
       return { status: 200, message: 'Data deleted successfully', deletedData };
     } catch (error) {

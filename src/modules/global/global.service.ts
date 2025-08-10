@@ -12,42 +12,42 @@ export class GlobalService {
     private readonly utilsService: UtilsService,
     private moduleRef: ModuleRef,
   ) {}
-  async validationDelete(checks: any[], trx: any): Promise<any[]> {
-    const results: any[] = [];
+  // async validationDelete(checks: any[], trx: any): Promise<any[]> {
+  //   const results: any[] = [];
 
-    for (const check of checks) {
-      try {
-        const moduleService = tableToServiceMap[check.tableName];
-        console.log(moduleService);
-        if (moduleService) {
-          // Menggunakan ModuleRef untuk mendapatkan instance dari service secara dinamis
-          const serviceInstance = await this.moduleRef.resolve(moduleService);
+  //   for (const check of checks) {
+  //     try {
+  //       const moduleService = tableToServiceMap[check.tableName];
+  //       console.log(moduleService);
+  //       if (moduleService) {
+  //         // Menggunakan ModuleRef untuk mendapatkan instance dari service secara dinamis
+  //         const serviceInstance = await this.moduleRef.resolve(moduleService);
 
-          if (serviceInstance && serviceInstance.cekValidasi) {
-            const validationResult = await serviceInstance.cekValidasi(
-              check,
-              trx,
-            );
-            results.push(validationResult);
-          }
-        }
+  //         if (serviceInstance && serviceInstance.cekValidasi) {
+  //           const validationResult = await serviceInstance.cekValidasi(
+  //             check,
+  //             trx,
+  //           );
+  //           results.push(validationResult);
+  //         }
+  //       }
 
-        // 1. Validasi Global: Memeriksa apakah ada data yang digunakan dalam tabel tersebut
-        const globalValidationResult = await this.validateGlobal(check, trx);
-        results.push(globalValidationResult);
-      } catch (error: any) {
-        results.push({
-          tableName: check.tableName,
-          fieldName: check.fieldName,
-          fieldValue: check.fieldValue,
-          status: 'failed',
-          message: `Error saat validasi ${check.fieldName}=${check.fieldValue}: ${error?.message ?? error}`,
-        });
-      }
-    }
+  //       // 1. Validasi Global: Memeriksa apakah ada data yang digunakan dalam tabel tersebut
+  //       const globalValidationResult = await this.validateGlobal(check, trx);
+  //       results.push(globalValidationResult);
+  //     } catch (error: any) {
+  //       results.push({
+  //         tableName: check.tableName,
+  //         fieldName: check.fieldName,
+  //         fieldValue: check.fieldValue,
+  //         status: 'failed',
+  //         message: `Error saat validasi ${check.fieldName}=${check.fieldValue}: ${error?.message ?? error}`,
+  //       });
+  //     }
+  //   }
 
-    return results;
-  }
+  //   return results;
+  // }
   async validateGlobal(
     check: ValidationCheck,
     trx: any,
@@ -85,7 +85,8 @@ export class GlobalService {
 
     // Cek apakah sudah ada kombinasi table dan tableid di tabel locks
     const existingLock = await trx('locks')
-      .where({ table: tableName, tableid: tableId })
+      .where('table', tableName)
+      .andWhere('tableid', tableId)
       .first();
 
     // Jika sudah ada lock, cek apakah lock lebih dari 5 menit

@@ -21,48 +21,48 @@ export class GlobalController {
   // create(@Body() createGlobalDto: CreateGlobalDto) {
   //   return this.globalService.create(createGlobalDto);
   // }
-  @Post('delete-validation')
-  async validateDelete(
-    @Body() checks: { tableName: string; fieldName: string; fieldValue: any }[],
-  ) {
-    const trx = await dbMssql.transaction();
+  // @Post('delete-validation')
+  // async validateDelete(
+  //   @Body() checks: { tableName: string; fieldName: string; fieldValue: any }[],
+  // ) {
+  //   const trx = await dbMssql.transaction();
 
-    // Deklarasikan tipe untuk validationResults
-    const validationResults: {
-      tableName: string;
-      fieldName: string;
-      fieldValue: any;
-      status: string;
-      message: string;
-    }[] = []; // Array untuk menyimpan hasil validasi
+  //   // Deklarasikan tipe untuk validationResults
+  //   const validationResults: {
+  //     tableName: string;
+  //     fieldName: string;
+  //     fieldValue: any;
+  //     status: string;
+  //     message: string;
+  //   }[] = []; // Array untuk menyimpan hasil validasi
 
-    try {
-      // Panggil service untuk melakukan validasi
-      const result = await this.globalService.validationDelete(checks, trx);
+  //   try {
+  //     // Panggil service untuk melakukan validasi
+  //     const result = await this.globalService.validationDelete(checks, trx);
 
-      // Masukkan hasil validasi ke dalam validationResults
-      validationResults.push(...result);
+  //     // Masukkan hasil validasi ke dalam validationResults
+  //     validationResults.push(...result);
 
-      // Komit transaksi meskipun ada pengecekan yang gagal
-      await trx.commit();
+  //     // Komit transaksi meskipun ada pengecekan yang gagal
+  //     await trx.commit();
 
-      return {
-        statusCode: HttpStatus.OK,
-        message: 'Validation completed.',
-        data: validationResults,
-      };
-    } catch (error) {
-      // Rollback transaksi jika ada error
-      await trx.rollback();
-      console.error('Error during validation:', error);
+  //     return {
+  //       statusCode: HttpStatus.OK,
+  //       message: 'Validation completed.',
+  //       data: validationResults,
+  //     };
+  //   } catch (error) {
+  //     // Rollback transaksi jika ada error
+  //     await trx.rollback();
+  //     console.error('Error during validation:', error);
 
-      return {
-        statusCode: HttpStatus.OK,
-        message: 'Validation completed with errors.',
-        data: validationResults,
-      };
-    }
-  }
+  //     return {
+  //       statusCode: HttpStatus.OK,
+  //       message: 'Validation completed with errors.',
+  //       data: validationResults,
+  //     };
+  //   }
+  // }
 
   @Get()
   findAll() {
