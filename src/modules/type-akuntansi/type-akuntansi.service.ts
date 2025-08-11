@@ -1,13 +1,13 @@
-import { 
-  Inject, 
-  Injectable, 
-  HttpException, 
-  HttpStatus, 
+import {
+  Inject,
+  Injectable,
+  HttpException,
+  HttpStatus,
   NotFoundException,
-  InternalServerErrorException
+  InternalServerErrorException,
 } from '@nestjs/common';
-import * as fs from 'fs'
-import * as path from 'path'
+import * as fs from 'fs';
+import * as path from 'path';
 import { Workbook } from 'exceljs';
 import { dbMssql } from 'src/common/utils/db';
 import { UtilsService } from 'src/utils/utils.service';
@@ -22,12 +22,12 @@ export class TypeAkuntansiService {
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilService: UtilsService,
-    private readonly logTrailService: LogtrailService
+    private readonly logTrailService: LogtrailService,
   ) {}
 
   async create(createData: any, trx: any) {
     try {
-      const  {
+      const {
         sortBy,
         sortDirection,
         filters,
@@ -43,9 +43,11 @@ export class TypeAkuntansiService {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
-      })
+      });
 
-      const insertedData = await trx(this.tableName).insert(insertData).returning('*');
+      const insertedData = await trx(this.tableName)
+        .insert(insertData)
+        .returning('*');
       console.log(insertedData, 'HEREEE');
 
       const newData = insertedData[0];
@@ -58,8 +60,8 @@ export class TypeAkuntansiService {
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },
-        trx
-      )
+        trx,
+      );
 
       // const query = trx(`${this.tableName} as u`)
       //   .select([
@@ -84,7 +86,7 @@ export class TypeAkuntansiService {
       //   .leftJoin('akuntansi as q', 'u.akuntansi_id', 'q.id')
       //   .orderBy(sortBy ? `u.${sortBy}` : 'u.id', sortDirection || 'desc')
       //   .where('u.id', '<=', newData.id)
-        
+
       // if (filters) {
       //   for (const [key, value] of Object.entries(filters)) {
       //     if (value) {
@@ -137,8 +139,8 @@ export class TypeAkuntansiService {
 
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(data)
-      )
+        JSON.stringify(data),
+      );
 
       await this.logTrailService.create(
         {
@@ -148,16 +150,16 @@ export class TypeAkuntansiService {
           nobuktitrans: newData.id,
           aksi: 'ADD',
           datajson: JSON.stringify(newData),
-          modifiedby: newData.modifiedby
+          modifiedby: newData.modifiedby,
         },
-        trx
-      )
+        trx,
+      );
 
       return {
         newData,
         pageNumber,
-        dataIndex
-      }
+        dataIndex,
+      };
     } catch (error) {
       throw new Error(`Error creating type akuntansi: ${error.message}`);
     }
@@ -165,29 +167,31 @@ export class TypeAkuntansiService {
 
   async findAll(
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
-    trx: any
+    trx: any,
   ) {
     try {
       console.log(search, filters, 'ini tes data cari');
-      
+
       let { page, limit } = pagination;
 
       page = page ?? 1;
       limit = limit ?? 0;
 
       if (isLookUp) {
-        const totalData = await trx(this.tableName).count('id as total').first();
+        const totalData = await trx(this.tableName)
+          .count('id as total')
+          .first();
 
         const resultTotalData = totalData?.total || 0;
 
         if (Number(resultTotalData) > 500) {
           return {
             data: {
-              type: 'json'
-            }
+              type: 'json',
+            },
           };
         } else {
-          limit = 0
+          limit = 0;
         }
       }
 
@@ -200,15 +204,11 @@ export class TypeAkuntansiService {
           'u.akuntansi_id',
           'u.statusaktif',
           'u.modifiedby',
-          trx.raw(
-            "FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at",
-          ),
-          trx.raw(
-            "FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at",
-          ),
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'p.memo',
           'p.text as statusaktif_text',
-          'q.nama as akuntansi_nama'
+          'q.nama as akuntansi_nama',
         ])
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
         .leftJoin('akuntansi as q', 'u.akuntansi_id', 'q.id');
@@ -229,8 +229,8 @@ export class TypeAkuntansiService {
             .orWhere('p.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
             .orWhere('u.created_at', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.updated_at', 'like', `%${sanitizedValue}%`)
-        })
+            .orWhere('u.updated_at', 'like', `%${sanitizedValue}%`);
+        });
       }
 
       if (filters) {
@@ -238,11 +238,14 @@ export class TypeAkuntansiService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'statusaktif_text' || key === 'memo') {
               query.andWhere(`p.text`, '=', sanitizedValue);
             } else if (key === 'akuntansi') {
-              query.andWhere('q.nama', 'like', `%${sanitizedValue}%`)
+              query.andWhere('q.nama', 'like', `%${sanitizedValue}%`);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
@@ -263,7 +266,7 @@ export class TypeAkuntansiService {
 
       const data = await query;
       const responseType = Number(total) > 500 ? 'json' : 'local';
-      
+
       return {
         data: data,
         type: responseType,
@@ -277,14 +280,14 @@ export class TypeAkuntansiService {
       };
     } catch (error) {
       console.error('Error to findAll Type Akuntansi', error);
-      throw new Error(error)
+      throw new Error(error);
     }
   }
 
   // async findAllByIds(ids: { id: number }[]) {
   //   try {
   //     const idList = ids.map((item) => item.id)
-      
+
   //     const tempData = `##temp_${Math.random().toString(36).substring(2, 15)}`;
 
   //     // Membuat temporary table
@@ -293,7 +296,7 @@ export class TypeAkuntansiService {
 
   //     // Memasukkan data ID ke dalam temporary table
   //     const insertTempTableQuery = `
-  //       INSERT INTO ${tempData} (id) 
+  //       INSERT INTO ${tempData} (id)
   //       VALUES ${idList.map((id) => `(${id})`).join(', ')};
   //     `;
   //     await dbMssql.raw(insertTempTableQuery);
@@ -356,7 +359,7 @@ export class TypeAkuntansiService {
         statusaktif_text,
         akuntansi_nama,
         ...updateData
-      } = data
+      } = data;
 
       Object.keys(updateData).forEach((key) => {
         if (typeof updateData[key] === 'string') {
@@ -377,14 +380,16 @@ export class TypeAkuntansiService {
           filters,
           pagination: { page, limit },
           sort: { sortBy, sortDirection },
-          isLookUp: false
+          isLookUp: false,
         },
-        trx
-      )
+        trx,
+      );
 
-      let dataIndex = filteredData.findIndex((item) => Number(item.id) === id)
-      console.log('all dataa', filteredData, 'dataIndex', dataIndex );
-      
+      const dataIndex = filteredData.findIndex(
+        (item) => Number(item.id) === id,
+      );
+      console.log('all dataa', filteredData, 'dataIndex', dataIndex);
+
       if (dataIndex === -1) {
         throw new Error('Updated item not found in all items');
       }
@@ -395,11 +400,11 @@ export class TypeAkuntansiService {
       // ambil data hingga halaman yg mencakup item yg baru diupdate
       const endIndex = pageNumber * itemsPerPage;
       const limitedItems = filteredData.slice(0, endIndex);
-      
+
       await this.redisService.set(
         `${this.tableName}-allitems`,
-        JSON.stringify(limitedItems)
-      )
+        JSON.stringify(limitedItems),
+      );
 
       await this.logTrailService.create(
         {
@@ -409,19 +414,19 @@ export class TypeAkuntansiService {
           nobuktitrans: id,
           aksi: 'EDIT',
           datajson: JSON.stringify(data),
-          modifiedby: data.modifiedby
+          modifiedby: data.modifiedby,
         },
-        trx
-      )
+        trx,
+      );
 
       return {
         newItems: {
           id,
-          ...data
+          ...data,
         },
         pageNumber,
-        dataIndex
-      }
+        dataIndex,
+      };
     } catch (error) {
       if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
@@ -434,7 +439,12 @@ export class TypeAkuntansiService {
 
   async delete(id: number, trx: any, modifiedby: string) {
     try {
-      const deletedData = await this.utilService.lockAndDestroy(id, this.tableName, 'id', trx);
+      const deletedData = await this.utilService.lockAndDestroy(
+        id,
+        this.tableName,
+        'id',
+        trx,
+      );
 
       await this.logTrailService.create(
         {
@@ -444,16 +454,16 @@ export class TypeAkuntansiService {
           nobuktitrans: id,
           aksi: 'DELETE',
           datajson: JSON.stringify(deletedData),
-          modifiedby: modifiedby
+          modifiedby: modifiedby,
         },
-        trx
-      )
+        trx,
+      );
 
       return {
         status: 200,
         message: 'Data deleted successfully',
-        deletedData
-      }
+        deletedData,
+      };
     } catch (error) {
       console.error('Error deleting data: ', error);
       if (error instanceof NotFoundException) {
@@ -490,7 +500,14 @@ export class TypeAkuntansiService {
     worksheet.getCell('A3').font = { bold: true };
 
     // Mendefinisikan header kolom
-    const headers = ['No.', 'Nama', 'Order', 'Keterangan', 'Akuntansi', 'Status Aktif'];
+    const headers = [
+      'No.',
+      'Nama',
+      'Order',
+      'Keterangan',
+      'Akuntansi',
+      'Status Aktif',
+    ];
 
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(5, index + 1);
@@ -554,6 +571,4 @@ export class TypeAkuntansiService {
 
     return tempFilePath; // Kembalikan path file sementara
   }
-
-  
 }

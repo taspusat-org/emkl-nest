@@ -1,22 +1,22 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Put, 
-  Param, 
-  Delete, 
-  UseGuards, 
-  Req, 
-  HttpException, 
-  HttpStatus, 
-  UsePipes, 
-  Query, 
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Put,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
+  HttpException,
+  HttpStatus,
+  UsePipes,
+  Query,
   NotFoundException,
   InternalServerErrorException,
-  Res
+  Res,
 } from '@nestjs/common';
-import * as fs from 'fs'
+import * as fs from 'fs';
 import { Response } from 'express';
 import { dbMssql } from 'src/common/utils/db';
 import { AuthGuard } from '../auth/auth.guard';
@@ -24,9 +24,19 @@ import { isRecordExist } from 'src/utils/utils.service';
 import { TypeAkuntansiService } from './type-akuntansi.service';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
-import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
-import { CreateTypeAkuntansiDto, CreateTypeAkuntansiSchema } from './dto/create-type-akuntansi.dto';
-import { UpdateTypeAkuntansiDto, UpdateTypeAkuntansiSchema } from './dto/update-type-akuntansi.dto';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
+import {
+  CreateTypeAkuntansiDto,
+  CreateTypeAkuntansiSchema,
+} from './dto/create-type-akuntansi.dto';
+import {
+  UpdateTypeAkuntansiDto,
+  UpdateTypeAkuntansiSchema,
+} from './dto/update-type-akuntansi.dto';
 
 @Controller('type-akuntansi')
 export class TypeAkuntansiController {
@@ -36,85 +46,83 @@ export class TypeAkuntansiController {
   @Post()
   //@TYPE-AKUNTANSI
   async create(
-    @Body(new ZodValidationPipe(CreateTypeAkuntansiSchema), KeyboardOnlyValidationPipe)
+    @Body(
+      new ZodValidationPipe(CreateTypeAkuntansiSchema),
+      KeyboardOnlyValidationPipe,
+    )
     data: CreateTypeAkuntansiDto,
-    @Req() req
+    @Req() req,
   ) {
-    const trx = await dbMssql.transaction()
+    const trx = await dbMssql.transaction();
     try {
       console.log('kesini??');
-      
-      const typeakuntansiExist = await isRecordExist('nama', data.nama, 'typeakuntansi')
+
+      const typeakuntansiExist = await isRecordExist(
+        'nama',
+        data.nama,
+        'typeakuntansi',
+      );
 
       if (typeakuntansiExist) {
         throw new HttpException(
           {
             statusCode: HttpStatus.BAD_REQUEST,
-            message: `Type Akuntansi dengan nama ${data.nama} sudah ada`
+            message: `Type Akuntansi dengan nama ${data.nama} sudah ada`,
           },
-          HttpStatus.BAD_REQUEST
-        )
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
-      data.modifiedby = req.user?.user?.username || 'unknown'
+      data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.typeAkuntansiService.create(data, trx);
 
       await trx.commit();
       return result;
-
     } catch (error) {
-       await trx.rollback();
-       console.error('Error while creating type akuntansi in controller', error);
+      await trx.rollback();
+      console.error('Error while creating type akuntansi in controller', error);
 
-       // Ensure any other errors get caught and returned
-       if (error instanceof HttpException) {
+      // Ensure any other errors get caught and returned
+      if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
-       }
+      }
 
       // Generic error handling, if something unexpected happens
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to create type akuntansi'
+          message: 'Failed to create type akuntansi',
         },
-        HttpStatus.INTERNAL_SERVER_ERROR
-      )
-       
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
   @Get()
   //@TYPE-AKUNTANSI
   @UsePipes(new ZodValidationPipe(FindAllSchema))
-  async findAll(@Query() query: FindAllDto) {    
-    const {
-      search,
-      page,
-      limit,
-      sortBy,
-      sortDirection,
-      isLookUp, 
-      ...filters
-    } = query
+  async findAll(@Query() query: FindAllDto) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
 
     const sortParams = {
       sortBy: sortBy || 'nama',
-      sortDirection: sortDirection || 'asc'
-    }
+      sortDirection: sortDirection || 'asc',
+    };
 
     const pagination = {
       page: page || 1,
-      limit: limit === 0 || !limit ? undefined : limit
-    }
+      limit: limit === 0 || !limit ? undefined : limit,
+    };
 
     const params: FindAllParams = {
       search,
       filters,
       pagination,
       isLookUp: isLookUp === 'true',
-      sort: sortParams as { sortBy: string, sortDirection: 'asc' | 'desc' }
-    }
+      sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
+    };
 
     const trx = await dbMssql.transaction();
     try {
@@ -131,15 +139,21 @@ export class TypeAkuntansiController {
   @UseGuards(AuthGuard)
   @Put(':id')
   async update(
-    @Param('id') id: string, 
-    @Body(new ZodValidationPipe(UpdateTypeAkuntansiSchema)) data: UpdateTypeAkuntansiDto,
-    @Req() req
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(UpdateTypeAkuntansiSchema))
+    data: UpdateTypeAkuntansiDto,
+    @Req() req,
   ) {
     const trx = await dbMssql.transaction();
-    
+
     try {
-      const typeakuntansiExist = await isRecordExist('nama', data.nama, 'typeakuntansi', Number(id))
-      
+      const typeakuntansiExist = await isRecordExist(
+        'nama',
+        data.nama,
+        'typeakuntansi',
+        Number(id),
+      );
+
       if (typeakuntansiExist) {
         throw new HttpException(
           {
@@ -150,15 +164,18 @@ export class TypeAkuntansiController {
         );
       }
 
-      data.modifiedby = req.user?.user?.username || 'unknown'
+      data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.typeAkuntansiService.update(+id, data, trx);
 
       await trx.commit();
-      return result
+      return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while updating type akuntansi in controller:', error);
+      console.error(
+        'Error while updating type akuntansi in controller:',
+        error,
+      );
 
       // Ensure any other errors get caught and returned
       if (error instanceof HttpException) {
@@ -179,13 +196,14 @@ export class TypeAkuntansiController {
   @UseGuards(AuthGuard)
   @Delete(':id')
   //@TYPE-AKUNTANSI
-  async delete(
-    @Param('id') id: string,
-    @Req() req
-  ) {
+  async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.typeAkuntansiService.delete(+id, trx, req.user?.user?.username)
+      const result = await this.typeAkuntansiService.delete(
+        +id,
+        trx,
+        req.user?.user?.username,
+      );
 
       if (result.status === 404) {
         throw new NotFoundException(result.message);
@@ -273,5 +291,4 @@ export class TypeAkuntansiController {
   // ) {
   //   return this.typeAkuntansiService.findAllByIds(ids);
   // }
-
 }

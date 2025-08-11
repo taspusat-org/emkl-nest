@@ -678,10 +678,20 @@ export class KasgantungheaderService {
           editedby,
           trx,
         );
-        console.log(forceEdit);
+
+        return forceEdit;
+      } else if (aksi === 'DELETE') {
+        const validasi = await this.globalService.checkUsed(
+          'pengembaliankasgantungdetail',
+          'kasgantung_nobukti',
+          value,
+          trx,
+        );
+
+        return validasi;
       }
     } catch (error) {
-      console.error('Error checking validation:', error);
+      console.error('Error di checkValidasi:', error);
       throw new InternalServerErrorException('Failed to check validation');
     }
   }
