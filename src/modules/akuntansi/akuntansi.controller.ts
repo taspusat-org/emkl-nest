@@ -37,7 +37,7 @@ export class AkuntansiController {
 
   @UseGuards(AuthGuard)
   @Post()
-  // @AKUNTANSI
+  //@AKUNTANSI
   async create(
     @Body(new ZodValidationPipe(CreateAkuntansiSchema))
     data: CreateAkuntansiDto,
@@ -59,7 +59,7 @@ export class AkuntansiController {
 
   @UseGuards(AuthGuard)
   @Get()
-  // @AKUNTANSI
+  //@AKUNTANSI
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
@@ -96,7 +96,7 @@ export class AkuntansiController {
 
   @UseGuards(AuthGuard)
   @Put(':id')
-  // @AKUNTANSI
+  //@AKUNTANSI
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateAkuntansiSchema))
@@ -118,7 +118,7 @@ export class AkuntansiController {
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  // @AKUNTANSI
+  //@AKUNTANSI
   async delete(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
     try {
@@ -139,7 +139,7 @@ export class AkuntansiController {
   }
   @UseGuards(AuthGuard)
   @Get(':id')
-  // @AKUNTANSI
+  //@AKUNTANSI
   async findOne(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
     try {

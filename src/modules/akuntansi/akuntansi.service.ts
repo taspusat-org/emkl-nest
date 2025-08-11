@@ -44,6 +44,8 @@ export class AkuntansiService {
         limit,
         ...insertData
       } = data;
+      insertData.updated_at = this.utilsService.getTime();
+      insertData.created_at = this.utilsService.getTime();
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
