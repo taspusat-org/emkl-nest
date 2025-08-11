@@ -39,6 +39,12 @@ import { AlatbayarModule } from './modules/alatbayar/alatbayar.module';
 import { BankModule } from './modules/bank/bank.module';
 import { SseModule } from './modules/sse/sse.module';
 import { ContainerModule } from './modules/container/container.module';
+import { PelayaranModule } from './modules/pelayaran/pelayaran.module';
+
+import { AkuntansiModule } from './modules/akuntansi/akuntansi.module';
+import { GlobalModule } from './modules/global/global.module';
+import { AkunpusatModule } from './modules/akunpusat/akunpusat.module';
+// import { KapalModule } from './modules/kapal/kapal.module';
 
 @Module({
   imports: [
@@ -79,6 +85,13 @@ import { ContainerModule } from './modules/container/container.module';
     BankModule,
     SseModule,
     ContainerModule,
+
+    AkunpusatModule,
+    GlobalModule,
+
+    PelayaranModule,
+    AkuntansiModule,
+    // KapalModule,
   ],
   controllers: [],
   providers: [RabbitmqService],

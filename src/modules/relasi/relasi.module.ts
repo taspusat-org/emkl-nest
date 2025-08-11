@@ -16,5 +16,6 @@ import { RunningNumberModule } from '../running-number/running-number.module';
   ],
   controllers: [RelasiController],
   providers: [RelasiService],
+  exports: [RelasiService],
 })
 export class RelasiModule {}

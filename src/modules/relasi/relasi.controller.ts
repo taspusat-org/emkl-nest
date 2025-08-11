@@ -24,8 +24,9 @@ export class RelasiController {
   constructor(private readonly relasiService: RelasiService) {}
 
   @Post()
-  create(@Body() createRelasiDto: CreateRelasiDto) {
-    return this.relasiService.create(createRelasiDto);
+  async create(@Body() createRelasiDto: CreateRelasiDto) {
+    const trx = await dbMssql.transaction();
+    return this.relasiService.create(createRelasiDto, trx);
   }
 
   @Get()
@@ -72,12 +73,11 @@ export class RelasiController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateRelasiDto: UpdateRelasiDto) {
-    return this.relasiService.update(+id, updateRelasiDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.relasiService.remove(+id);
+  async update(
+    @Param('id') id: string,
+    @Body() updateRelasiDto: UpdateRelasiDto,
+  ) {
+    const trx = await dbMssql.transaction();
+    return this.relasiService.update(+id, updateRelasiDto, trx);
   }
 }

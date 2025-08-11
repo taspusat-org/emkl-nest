@@ -49,6 +49,12 @@ export class BotService {
   }
   private readonly qrFilePath = path.join(process.cwd(), 'qrcode.png');
   async generateQRCode(qrData: string): Promise<void> {
+    // Hanya membuat QR code jika aplikasi dalam mode 'production'
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Tidak membuat QR code, karena bukan mode produksi.');
+      return; // Tidak melakukan apa-apa jika bukan mode produksi
+    }
+
     // Cek apakah file QR code lama ada dan hapus jika ada
     if (fs.existsSync(this.qrFilePath)) {
       fs.unlinkSync(this.qrFilePath); // Menghapus file lama
@@ -63,6 +69,7 @@ export class BotService {
       console.error('Error generating QR code:', err);
     }
   }
+
   // Fungsi untuk mengirim pesan ke grup
   async sendMessage(message: string): Promise<void> {
     try {

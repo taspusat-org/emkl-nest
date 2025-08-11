@@ -10,6 +10,8 @@ import {
   UsePipes,
   UseGuards,
   Req,
+  Put,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { KasgantungheaderService } from './kasgantungheader.service';
 import { CreateKasgantungheaderDto } from './dto/create-kasgantungheader.dto';
@@ -87,15 +89,40 @@ export class KasgantungheaderController {
       throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
-  @Get('pengembalian')
+  @Get('list')
   //@KAS-GANTUNG
   @UsePipes(new ZodValidationPipe(FindAllSchema))
-  async findAllPengembalian(@Query() query: { dari: string; sampai: string }) {
+  async findAllKasgantung(@Query() query: { dari: string; sampai: string }) {
     const { dari, sampai } = query;
     const trx = await dbMssql.transaction();
 
     try {
+      const result = await this.kasgantungheaderService.getKasGantung(
+        dari,
+        sampai,
+        trx,
+      );
+      trx.commit();
+
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error in findAll:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
+    }
+  }
+  @Get('pengembalian')
+  //@KAS-GANTUNG
+  @UsePipes(new ZodValidationPipe(FindAllSchema))
+  async findAllPengembalian(
+    @Query() query: { id: any; dari: string; sampai: string },
+  ) {
+    const { dari, sampai, id } = query;
+    const trx = await dbMssql.transaction();
+
+    try {
       const result = await this.kasgantungheaderService.getPengembalian(
+        id,
         dari,
         sampai,
         trx,
@@ -115,16 +142,65 @@ export class KasgantungheaderController {
     return this.kasgantungheaderService.findOne(+id);
   }
 
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateKasgantungheaderDto: UpdateKasgantungheaderDto,
-  ) {
-    return this.kasgantungheaderService.update(+id, updateKasgantungheaderDto);
+  @UseGuards(AuthGuard)
+  @Put(':id')
+  async update(@Param('id') id: string, @Body() data: any, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+      console.log('data', data);
+      const result = await this.kasgantungheaderService.update(+id, data, trx);
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error updating menu in controller:', error);
+      throw new Error('Failed to update menu');
+    }
   }
 
+  @UseGuards(AuthGuard)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.kasgantungheaderService.remove(+id);
+  async delete(@Param('id') id: string, @Req() req) {
+    const trx = await dbMssql.transaction();
+    const modifiedby = req.user?.user?.username || 'unknown';
+    try {
+      const result = await this.kasgantungheaderService.delete(
+        +id,
+        trx,
+        modifiedby,
+      );
+
+      trx.commit();
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error deleting pengembaliankasgantungheader:', error);
+      throw new Error(
+        `Error deleting pengembaliankasgantungheader: ${error.message}`,
+      );
+    }
+  }
+  @Post('check-validation')
+  @UseGuards(AuthGuard)
+  async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
+    const { aksi, value } = body;
+    const trx = await dbMssql.transaction();
+    const editedby = req.user?.user?.username;
+    try {
+      if (aksi === 'EDIT') {
+        const forceEdit = await this.kasgantungheaderService.checkValidasi(
+          aksi,
+          value.id,
+          editedby,
+          trx,
+        );
+        return forceEdit;
+      }
+    } catch (error) {
+      console.error('Error checking validation:', error);
+      throw new InternalServerErrorException('Failed to check validation');
+    }
   }
 }

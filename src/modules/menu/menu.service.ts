@@ -35,7 +35,8 @@ export class MenuService {
         statusaktif_nama,
         ...insertData
       } = createMenuDto;
-
+      insertData.updated_at = this.utilsService.getTime();
+      insertData.created_at = this.utilsService.getTime();
       // Normalize the data (e.g., convert strings to uppercase)
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {

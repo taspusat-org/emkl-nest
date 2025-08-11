@@ -47,10 +47,10 @@ export class PengembaliankasgantungheaderController {
         trx,
       );
 
-      await trx.commit();
+      trx.commit();
       return result;
     } catch (error) {
-      await trx.rollback();
+      trx.rollback();
       throw new Error(`Error: ${error.message}`);
     }
   }
@@ -147,7 +147,7 @@ export class PengembaliankasgantungheaderController {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-
+      console.log('data', data);
       const result = await this.pengembaliankasgantungheaderService.update(
         +id,
         data,
@@ -163,8 +163,26 @@ export class PengembaliankasgantungheaderController {
     }
   }
 
+  @UseGuards(AuthGuard)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.pengembaliankasgantungheaderService.remove(+id);
+  async delete(@Param('id') id: string, @Req() req) {
+    const trx = await dbMssql.transaction();
+    const modifiedby = req.user?.user?.username || 'unknown';
+    try {
+      const result = await this.pengembaliankasgantungheaderService.delete(
+        +id,
+        trx,
+        modifiedby,
+      );
+
+      trx.commit();
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error deleting pengembaliankasgantungheader:', error);
+      throw new Error(
+        `Error deleting pengembaliankasgantungheader: ${error.message}`,
+      );
+    }
   }
 }

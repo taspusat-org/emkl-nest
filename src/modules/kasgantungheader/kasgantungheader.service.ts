@@ -1,4 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateKasgantungheaderDto } from './dto/create-kasgantungheader.dto';
 import { UpdateKasgantungheaderDto } from './dto/update-kasgantungheader.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
@@ -8,6 +13,7 @@ import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.service';
 import { KasgantungdetailService } from '../kasgantungdetail/kasgantungdetail.service';
+import { GlobalService } from '../global/global.service';
 
 @Injectable()
 export class KasgantungheaderService {
@@ -17,6 +23,7 @@ export class KasgantungheaderService {
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
     private readonly kasgantungdetailService: KasgantungdetailService,
+    private readonly globalService: GlobalService,
   ) {}
   private readonly tableName = 'kasgantungheader';
   async create(data: any, trx: any) {
@@ -41,10 +48,10 @@ export class KasgantungheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-
+      console.log('masuk');
       const parameter = await trx('parameter')
         .select('*')
-        .where('grp', 'KAS GANTUNG')
+        .where('grp', 'PENERIMAAN GANTUNG')
         .first();
 
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
@@ -175,7 +182,7 @@ export class KasgantungheaderService {
           'u.modifiedby', // modifiedby (varchar(200))
           'u.editing_by', // editing_by (varchar(200))
           'r.nama as relasi_nama', // relasi_nama (varchar(200))
-          'b.nama_bank as bank_nama', // bank_nama (varchar(200))
+          'b.nama as bank_nama', // bank_nama (varchar(200))
           'ab.nama as alatbayar_nama', // alatbayar_nama (varchar(200))
           trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
@@ -271,7 +278,7 @@ export class KasgantungheaderService {
     }
   }
 
-  async getPengembalian(dari: any, sampai: any, trx: any) {
+  async getKasGantung(dari: any, sampai: any, trx: any) {
     try {
       const tglDariFormatted = formatDateToSQL(dari);
       const tglSampaiFormatted = formatDateToSQL(sampai);
@@ -282,7 +289,6 @@ export class KasgantungheaderService {
         t.bigInteger('sisa').nullable();
         t.text('keterangan').nullable();
       });
-
       await trx(temp).insert(
         trx
           .select(
@@ -302,7 +308,7 @@ export class KasgantungheaderService {
           .orderBy('kg.tglbukti', 'asc')
           .orderBy('kd.nobukti', 'asc'),
       );
-      const result = await trx
+      const result = trx
         .select(
           trx.raw(`row_number() OVER (ORDER BY ??) as id`, [`${temp}.nobukti`]),
           trx.raw(`FORMAT([${temp}].[tglbukti], 'dd-MM-yyyy') as tglbukti`),
@@ -322,15 +328,361 @@ export class KasgantungheaderService {
       throw new Error('Failed to fetch data');
     }
   }
+  async getPengembalian(id: any, dari: any, sampai: any, trx: any) {
+    try {
+      // Create temporary tables
+      const tempPribadi = await this.createTempPengembalianKasGantung(
+        id,
+        dari,
+        sampai,
+        trx,
+      );
+      const tempAll = await this.createTempPengembalian(id, dari, sampai, trx);
+
+      const temp = '##tempGet' + Math.random().toString(36).substring(2, 8);
+      // Fetch data from the personal temporary table
+      const pengembalian = trx(tempPribadi).select(
+        'pengembaliankasgantungheader_id',
+        'nobukti',
+        'tglbukti',
+        'keterangan',
+        'coa',
+        'sisa',
+        'bayar',
+      );
+
+      // Create a new temporary table
+      await trx.schema.createTable(temp, (t) => {
+        t.bigInteger('pengembaliankasgantungheader_id').nullable();
+        t.string('nobukti');
+        t.date('tglbukti').nullable();
+        t.string('keterangan').nullable();
+        t.string('coa').nullable();
+        t.bigInteger('sisa').nullable();
+        t.bigInteger('bayar').nullable();
+      });
+
+      // Insert fetched data into the new table
+      await trx(temp).insert(pengembalian);
+
+      // Fetch data from the second temporary table (tempAll)
+      const pinjaman = trx(tempAll)
+        .select(
+          trx.raw('null as pengembaliankasgantungheader_id'),
+          'nobukti',
+          'tglbukti',
+          'keterangan',
+          trx.raw('null as coa'),
+          'sisa',
+          trx.raw('0 as bayar'),
+        )
+        .where(function () {
+          this.whereRaw(`${tempAll}.sisa != 0`).orWhereRaw(
+            `${tempAll}.sisa is null`,
+          );
+        });
+
+      // Insert data from tempAll into the new temporary table
+      await trx(temp).insert(pinjaman);
+
+      // Final data query with row numbering
+      const data = await trx
+        .select(
+          trx.raw(`row_number() OVER (ORDER BY ??) as id`, [`${temp}.nobukti`]),
+          `${temp}.pengembaliankasgantungheader_id`,
+          `${temp}.nobukti`,
+          `${temp}.tglbukti`,
+          `${temp}.keterangan as keterangan`,
+          `${temp}.coa as coadetail`,
+          `${temp}.sisa`,
+          `${temp}.bayar as nominal`,
+        )
+        .from(trx.raw(`${temp} with (readuncommitted)`))
+        .where(function () {
+          this.whereRaw(`${temp}.sisa != 0`).orWhereRaw(`${temp}.sisa is null`);
+        });
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
+  }
+
+  async createTempPengembalian(id: any, dari: any, sampai: any, trx: any) {
+    try {
+      const tglDariFormatted = formatDateToSQL(dari);
+      const tglSampaiFormatted = formatDateToSQL(sampai);
+      const temp = '##temp_' + Math.random().toString(36).substring(2, 8);
+
+      // Create temp table for 'pengembalian'
+      await trx.schema.createTable(temp, (t) => {
+        t.string('nobukti');
+        t.date('tglbukti');
+        t.bigInteger('sisa').nullable();
+        t.text('keterangan').nullable();
+      });
+
+      // Insert data into temp table for 'pengembalian'
+      await trx(temp).insert(
+        trx
+          .select(
+            'kd.nobukti',
+            trx.raw('CAST(kg.tglbukti AS DATE) AS tglbukti'),
+            trx.raw(`
+              (SELECT (sum(kd.nominal) - COALESCE(SUM(pgd.nominal), 0)) 
+               FROM pengembaliankasgantungdetail as pgd 
+               WHERE pgd.kasgantung_nobukti = kd.nobukti) AS sisa, 
+              MAX(kd.keterangan)
+            `),
+          )
+          .from('kasgantungdetail as kd')
+          .leftJoin('kasgantungheader as kg', 'kg.nobukti', 'kd.nobukti')
+          .whereRaw(
+            'kg.nobukti not in (select kasgantung_nobukti from pengembaliankasgantungdetail where pengembaliankasgantung_id=?)',
+            [id],
+          )
+          .whereBetween('kg.tglbukti', [tglDariFormatted, tglSampaiFormatted])
+          .groupBy('kd.nobukti', 'kg.tglbukti'),
+      );
+      return temp;
+    } catch (error) {
+      console.error('Error creating tempPengembalianKasGantung:', error);
+      throw new Error('Failed to create tempPengembalianKasGantung');
+    }
+  }
+  async createTempPengembalianKasGantung(
+    id: any,
+    dari: any,
+    sampai: any,
+    trx: any,
+  ) {
+    try {
+      const tglDariFormatted = formatDateToSQL(dari);
+      const tglSampaiFormatted = formatDateToSQL(sampai);
+      const temp = '##temp_' + Math.random().toString(36).substring(2, 8);
+
+      // Create temp table for 'pengembalian2'
+      await trx.schema.createTable(temp, (t) => {
+        t.bigInteger('pengembaliankasgantungheader_id').nullable();
+        t.string('nobukti');
+        t.date('tglbukti');
+        t.bigInteger('bayar').nullable();
+        t.string('keterangan').nullable();
+        t.string('coa').nullable();
+        t.bigInteger('sisa').nullable();
+      });
+
+      // Insert data into temp table for 'pengembalian2'
+      await trx(temp).insert(
+        trx
+          .select(
+            'pgd.pengembaliankasgantung_id as pengembaliankasgantungheader_id',
+            'kd.nobukti',
+            trx.raw('CAST(kg.tglbukti AS DATE) AS tglbukti'),
+            trx.raw(`
+              pgd.nominal as bayar,
+              pgd.keterangan as keterangan,
+              pgh.coakasmasuk as coa,
+              (SELECT (sum(kd.nominal) - COALESCE(SUM(pgd.nominal), 0)) 
+               FROM pengembaliankasgantungdetail as pgd 
+               WHERE pgd.kasgantung_nobukti = kd.nobukti) AS sisa
+            `),
+          )
+          .from('kasgantungdetail as kd')
+          .leftJoin('kasgantungheader as kg', 'kg.id', 'kd.kasgantung_id')
+          .leftJoin(
+            'pengembaliankasgantungdetail as pgd',
+            'pgd.kasgantung_nobukti',
+            'kd.nobukti',
+          )
+          .leftJoin(
+            'pengembaliankasgantungheader as pgh',
+            'pgh.id',
+            'pgd.pengembaliankasgantung_id',
+          )
+          .whereBetween('kg.tglbukti', [tglDariFormatted, tglSampaiFormatted])
+          .where('pgd.pengembaliankasgantung_id', id)
+          .groupBy(
+            'pgd.pengembaliankasgantung_id',
+            'kd.nobukti',
+            'kg.tglbukti',
+            'pgd.nominal',
+            'pgd.keterangan',
+            'pgh.coakasmasuk',
+          ),
+      );
+
+      return temp;
+    } catch (error) {
+      console.error('Error creating tempPengembalian:', error);
+      throw new Error('Failed to create tempPengembalian');
+    }
+  }
+
   findOne(id: number) {
     return `This action returns a #${id} kasgantungheader`;
   }
 
-  update(id: number, updateKasgantungheaderDto: UpdateKasgantungheaderDto) {
-    return `This action updates a #${id} kasgantungheader`;
-  }
+  async update(id: any, data: any, trx: any) {
+    try {
+      data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
 
-  remove(id: number) {
-    return `This action removes a #${id} kasgantungheader`;
+      const {
+        sortBy,
+        sortDirection,
+        filters,
+        search,
+        page,
+        limit,
+        relasi_nama,
+        bank_nama,
+        alatbayar_nama,
+        details,
+        ...insertData
+      } = data;
+
+      Object.keys(insertData).forEach((key) => {
+        if (typeof insertData[key] === 'string') {
+          insertData[key] = insertData[key].toUpperCase();
+        }
+      });
+      const existingData = await trx(this.tableName).where('id', id).first();
+      const hasChanges = this.utilsService.hasChanges(insertData, existingData);
+
+      if (hasChanges) {
+        insertData.updated_at = this.utilsService.getTime();
+
+        await trx(this.tableName).where('id', id).update(insertData);
+      }
+
+      // Check each detail, update or set id accordingly
+      if (details.length > 0) {
+        if (details.length > 0) {
+          await this.kasgantungdetailService.create(details, id, trx);
+        }
+      }
+
+      // If there are details, call the service to handle create or update
+
+      const { data: filteredItems } = await this.findAll(
+        {
+          search,
+          filters,
+          pagination: { page, limit },
+          sort: { sortBy, sortDirection },
+          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+        },
+        trx,
+      );
+
+      // Cari index item baru di hasil yang sudah difilter
+      let itemIndex = filteredItems.findIndex((item) => Number(item.id) === id);
+
+      if (itemIndex === -1) {
+        itemIndex = 0;
+      }
+
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
+      const endIndex = pageNumber * limit;
+
+      // Ambil data hingga halaman yang mencakup item baru
+      const limitedItems = filteredItems.slice(0, endIndex);
+
+      // Simpan ke Redis
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: `ADD KAS GANTUNG HEADER`,
+          idtrans: id,
+          nobuktitrans: id,
+          aksi: 'ADD',
+          datajson: JSON.stringify(data),
+          modifiedby: data.modifiedby,
+        },
+        trx,
+      );
+
+      return {
+        updatedItem: {
+          id,
+          ...data,
+        },
+        pageNumber,
+        itemIndex,
+      };
+    } catch (error) {
+      throw new Error(`Error: ${error.message}`);
+    }
+  }
+  async delete(id: number, trx: any, modifiedby: string) {
+    try {
+      const deletedData = await this.utilsService.lockAndDestroy(
+        id,
+        this.tableName,
+        'id',
+        trx,
+      );
+      const deletedDataDetail = await this.utilsService.lockAndDestroy(
+        id,
+        'kasgantungdetail',
+        'kasgantung_id',
+        trx,
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE KAS GANTUNG',
+          idtrans: deletedData.id,
+          nobuktitrans: deletedData.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedData),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE KAS GANTUNG DETAIL',
+          idtrans: deletedDataDetail.id,
+          nobuktitrans: deletedDataDetail.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedDataDetail),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+
+      return { status: 200, message: 'Data deleted successfully', deletedData };
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to delete data');
+    }
+  }
+  async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
+    try {
+      if (aksi === 'EDIT') {
+        const forceEdit = await this.globalService.forceEdit(
+          this.tableName,
+          value,
+          editedby,
+          trx,
+        );
+        console.log(forceEdit);
+      }
+    } catch (error) {
+      console.error('Error checking validation:', error);
+      throw new InternalServerErrorException('Failed to check validation');
+    }
   }
 }

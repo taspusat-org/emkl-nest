@@ -1,4 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateRelasiDto } from './dto/create-relasi.dto';
 import { UpdateRelasiDto } from './dto/update-relasi.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
@@ -15,8 +20,41 @@ export class RelasiService {
     private readonly runningNumberService: RunningNumberService,
   ) {}
   private readonly tableName = 'relasi';
-  create(createRelasiDto: CreateRelasiDto) {
-    return 'This action adds a new relasi';
+  async create(createRelasiDto: any, trx: any) {
+    try {
+      const { ...insertData } = createRelasiDto;
+      insertData.updated_at = this.utilsService.getTime();
+      insertData.created_at = this.utilsService.getTime();
+      Object.keys(insertData).forEach((key) => {
+        if (typeof insertData[key] === 'string') {
+          insertData[key] = insertData[key].toUpperCase();
+        }
+      });
+
+      const insertedItems = await trx(this.tableName)
+        .insert(insertData)
+        .returning('*');
+
+      const newItem = insertedItems[0];
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'ADD RELASI',
+          idtrans: newItem.id,
+          nobuktitrans: newItem.id,
+          aksi: 'ADD',
+          datajson: JSON.stringify(newItem),
+          modifiedby: newItem.modifiedby,
+        },
+        trx,
+      );
+
+      return {
+        id: newItem.id,
+      };
+    } catch (error) {
+      throw new Error(`Error creating relasi: ${error.message}`);
+    }
   }
 
   async findAll(
@@ -168,11 +206,79 @@ export class RelasiService {
     return `This action returns a #${id} relasi`;
   }
 
-  update(id: number, updateRelasiDto: UpdateRelasiDto) {
-    return `This action updates a #${id} relasi`;
+  async update(id: number, data: any, trx: any) {
+    try {
+      const existingData = await trx(this.tableName).where('id', id).first();
+
+      if (!existingData) {
+        throw new Error('Relasi not found');
+      }
+      const { ...insertData } = data;
+
+      Object.keys(insertData).forEach((key) => {
+        if (typeof insertData[key] === 'string') {
+          insertData[key] = insertData[key].toUpperCase();
+        }
+      });
+
+      const hasChanges = this.utilsService.hasChanges(insertData, existingData);
+      if (hasChanges) {
+        insertData.updated_at = this.utilsService.getTime();
+        await trx(this.tableName).where('id', id).update(insertData);
+      }
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'EDIT RELASI',
+          idtrans: id,
+          nobuktitrans: id,
+          aksi: 'EDIT',
+          datajson: JSON.stringify(data),
+          modifiedby: data.modifiedby,
+        },
+        trx,
+      );
+
+      return {
+        updatedItem: {
+          id,
+        },
+      };
+    } catch (error) {
+      console.error('Error updating relasi:', error);
+      throw new Error('Failed to update relasi');
+    }
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} relasi`;
+  async delete(id: number, trx: any, modifiedby: string) {
+    try {
+      const deletedData = await this.utilsService.lockAndDestroy(
+        id,
+        this.tableName,
+        'id',
+        trx,
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE RELASI',
+          idtrans: deletedData.id,
+          nobuktitrans: deletedData.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedData),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+
+      return { status: 200, message: 'Data deleted successfully', deletedData };
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to delete data');
+    }
   }
 }
