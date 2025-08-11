@@ -23,6 +23,8 @@ export class RelasiService {
   async create(createRelasiDto: any, trx: any) {
     try {
       const { ...insertData } = createRelasiDto;
+      insertData.updated_at = this.utilsService.getTime();
+      insertData.created_at = this.utilsService.getTime();
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
