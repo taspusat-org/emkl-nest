@@ -37,6 +37,7 @@ export class AkuntansiController {
 
   @UseGuards(AuthGuard)
   @Post()
+  // @AKUNTANSI
   async create(
     @Body(new ZodValidationPipe(CreateAkuntansiSchema))
     data: CreateAkuntansiDto,
@@ -56,7 +57,9 @@ export class AkuntansiController {
     }
   }
 
+  @UseGuards(AuthGuard)
   @Get()
+  // @AKUNTANSI
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
@@ -93,6 +96,7 @@ export class AkuntansiController {
 
   @UseGuards(AuthGuard)
   @Put(':id')
+  // @AKUNTANSI
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateAkuntansiSchema))
@@ -111,7 +115,10 @@ export class AkuntansiController {
       throw new Error('Failed to update parameter');
     }
   }
+
+  @UseGuards(AuthGuard)
   @Delete(':id')
+  // @AKUNTANSI
   async delete(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
     try {
@@ -130,7 +137,9 @@ export class AkuntansiController {
       throw new InternalServerErrorException('Failed to delete menu');
     }
   }
+  @UseGuards(AuthGuard)
   @Get(':id')
+  // @AKUNTANSI
   async findOne(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
     try {
