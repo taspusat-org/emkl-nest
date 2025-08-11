@@ -295,12 +295,15 @@ export class MenuService {
         statusaktif_nama,
         ...insertData
       } = data;
+
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
+      console.log(hasChanges);
+
       if (hasChanges) {
         insertData.updated_at = this.utilsService.getTime();
         await trx(this.tableName).where('id', id).update(insertData);
