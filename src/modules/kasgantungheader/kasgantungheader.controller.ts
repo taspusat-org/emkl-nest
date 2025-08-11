@@ -186,19 +186,20 @@ export class KasgantungheaderController {
   @UseGuards(AuthGuard)
   async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
     const { aksi, value } = body;
+    console.log('body', body);
     const trx = await dbMssql.transaction();
     const editedby = req.user?.user?.username;
     try {
-      if (aksi === 'EDIT') {
-        const forceEdit = await this.kasgantungheaderService.checkValidasi(
-          aksi,
-          value.id,
-          editedby,
-          trx,
-        );
-        return forceEdit;
-      }
+      const forceEdit = await this.kasgantungheaderService.checkValidasi(
+        aksi,
+        value,
+        editedby,
+        trx,
+      );
+      trx.commit();
+      return forceEdit;
     } catch (error) {
+      trx.rollback();
       console.error('Error checking validation:', error);
       throw new InternalServerErrorException('Failed to check validation');
     }

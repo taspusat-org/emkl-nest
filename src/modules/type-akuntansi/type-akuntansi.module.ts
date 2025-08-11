@@ -7,14 +7,8 @@ import { UtilsModule } from 'src/utils/utils.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [
-    RedisModule, 
-    UtilsModule, 
-    AuthModule, 
-    LogtrailModule
-  ],
+  imports: [RedisModule, UtilsModule, AuthModule, LogtrailModule],
   controllers: [TypeAkuntansiController],
   providers: [TypeAkuntansiService],
 })
-
 export class TypeAkuntansiModule {}

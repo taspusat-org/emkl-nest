@@ -5,6 +5,7 @@ import { dbMssql } from 'src/common/utils/db';
 import { UtilsService } from 'src/utils/utils.service';
 import { tableToServiceMap, ValidationCheck, ValidationResult } from '.';
 import { ModuleRef } from '@nestjs/core';
+import { DateTime } from 'luxon';
 
 @Injectable()
 export class GlobalService {
@@ -17,7 +18,7 @@ export class GlobalService {
 
   //   for (const check of checks) {
   //     try {
-  //       const moduleService = tableToServiceMap[check.tableName];
+  //       const moduleService = tableToServiceMap[tableName];
   //       console.log(moduleService);
   //       if (moduleService) {
   //         // Menggunakan ModuleRef untuk mendapatkan instance dari service secara dinamis
@@ -37,8 +38,8 @@ export class GlobalService {
   //       results.push(globalValidationResult);
   //     } catch (error: any) {
   //       results.push({
-  //         tableName: check.tableName,
-  //         fieldName: check.fieldName,
+  //         tableName: tableName,
+  //         fieldName: fieldName,
   //         fieldValue: check.fieldValue,
   //         status: 'failed',
   //         message: `Error saat validasi ${check.fieldName}=${check.fieldValue}: ${error?.message ?? error}`,
@@ -48,106 +49,149 @@ export class GlobalService {
 
   //   return results;
   // }
-  async validateGlobal(
-    check: ValidationCheck,
+  async checkUsed(
+    tableName: any,
+    fieldName: any,
+    fieldValue: any,
     trx: any,
   ): Promise<ValidationResult> {
-    const recordInUse = await trx(check.tableName)
-      .where(check.fieldName, check.fieldValue)
+    console.log(tableName, fieldName, fieldValue);
+    const recordInUse = await trx(tableName)
+      .where(fieldName, fieldValue)
       .first();
 
     if (recordInUse) {
       return {
-        tableName: check.tableName,
-        fieldName: check.fieldName,
-        fieldValue: check.fieldValue,
+        tableName: tableName,
+        fieldName: fieldName,
+        fieldValue: fieldValue,
         status: 'failed',
-        message: `Data ini sedang digunakan dalam ${check.tableName}, tidak dapat dihapus.`,
+        message: `Data ini tidak diizinkan untuk dihapus.`,
       };
     }
 
     return {
-      tableName: check.tableName,
-      fieldName: check.fieldName,
-      fieldValue: check.fieldValue,
+      tableName: tableName,
+      fieldName: fieldName,
+      fieldValue: fieldValue,
       status: 'success',
       message: 'Data aman untuk dihapus.',
     };
   }
+
   async forceEdit(
     tableName: string,
     tableId: number,
     editingBy: string,
     trx: any,
   ) {
-    // Get the current time
-    const datenow = this.utilsService.getTime();
+    try {
+      // UTC sekarang
+      const now = new Date();
+      const nowMs = now.getTime();
+      const utcNowIso = now.toISOString(); // simpan ini ke DB
 
-    // Cek apakah sudah ada kombinasi table dan tableid di tabel locks
-    const existingLock = await trx('locks')
-      .where('table', tableName)
-      .andWhere('tableid', tableId)
-      .first();
+      console.log('[forceEdit] params:', {
+        tableName,
+        tableId,
+        editingBy,
+        nowIso: utcNowIso,
+      });
 
-    // Jika sudah ada lock, cek apakah lock lebih dari 5 menit
-    if (existingLock) {
-      // Calculate if the lock is older than 5 minutes
-      const fiveMinutesAgo = new Date(datenow).getTime() - 5 * 60 * 1000; // 5 minutes in milliseconds
-      const editingAtTime = new Date(existingLock.editing_at).getTime();
+      const existingLock = await trx('locks')
+        .where('table', tableName)
+        .andWhere('tableid', tableId)
+        .first();
+      if (existingLock && existingLock.editing_by === editingBy) {
+        return {
+          status: 'success',
+          message: `Data pada table ${tableName} dengan ID ${tableId} sudah terkunci oleh Anda.`,
+        };
+      }
 
-      // Jika lock lebih dari 5 menit, update lock dengan data baru
-      if (editingAtTime < fiveMinutesAgo) {
+      if (!existingLock) {
+        try {
+          await trx('locks').insert({
+            table: tableName,
+            tableid: tableId,
+            editing_by: editingBy,
+            editing_at: utcNowIso, // <-- simpan UTC ISO
+            info: `Data pada table ${tableName} dengan ID ${tableId} sedang diedit.`,
+            modifiedby: editingBy,
+            created_at: utcNowIso, // <-- simpan UTC ISO
+            updated_at: utcNowIso, // <-- simpan UTC ISO
+          });
+
+          return {
+            status: 'success',
+            message: `Data pada table ${tableName} dengan ID ${tableId} berhasil dikunci untuk edit.`,
+          };
+        } catch (error) {
+          console.error('[forceEdit] Error saat insert lock:', error);
+          return {
+            status: 'failed',
+            message: `Terjadi kesalahan saat menyimpan data: ${error.message}`,
+          };
+        }
+      }
+
+      // --- cek expired pakai epoch UTC ---
+      const lockedAtMs = new Date(existingLock.editing_at).getTime(); // Date dari driver sudah UTC-safe
+      const diffMs = nowMs - lockedAtMs;
+      const FIVE_MIN_MS = 5 * 60 * 1000;
+      const expired = diffMs >= FIVE_MIN_MS;
+
+      console.log('[forceEdit] timeCheck:', {
+        expired,
+        nowMs,
+        lockedAtMs,
+        diffMs,
+        nowIso: utcNowIso,
+        lockedAtIso: new Date(lockedAtMs).toISOString(),
+      });
+
+      if (expired) {
+        // timpa lock lama
         try {
           await trx('locks')
             .where({ table: tableName, tableid: tableId })
             .update({
               editing_by: editingBy,
-              editing_at: datenow, // Waktu saat ini (dari utilsService)
+              editing_at: utcNowIso, // <-- update pakai UTC ISO
               info: `Data pada table ${tableName} dengan ID ${tableId} sedang diedit oleh ${editingBy}.`,
-              modifiedby: editingBy, // Menyimpan siapa yang memodifikasi
-              updated_at: datenow, // Waktu saat entri diperbarui
+              modifiedby: editingBy,
+              updated_at: utcNowIso, // <-- UTC ISO
             });
 
           return {
             status: 'success',
-            message: `Data pada table ${tableName} dengan ID ${tableId} berhasil dikunci ulang untuk edit oleh ${editingBy}.`,
+            message: `Lock lama (>5 menit) ditimpa. Sekarang ${editingBy} mengunci data ${tableName}#${tableId}.`,
           };
         } catch (error) {
+          console.error(
+            '[forceEdit] Error saat update lock (overwrite):',
+            error,
+          );
           return {
             status: 'failed',
-            message: `Terjadi kesalahan saat memperbarui data: ${error.message}`,
+            message: `Gagal menimpa lock lama: ${error.message}`,
           };
         }
       } else {
-        // Jika lock masih dalam waktu kurang dari 5 menit, tidak bisa edit
+        // masih aktif → kasih sisa MENIT
+        const remainingMs = FIVE_MIN_MS - Math.max(0, diffMs); // guard kalau diff negatif
+        const remainingMin = Math.max(1, Math.ceil(remainingMs / 60000));
+
         return {
           status: 'failed',
-          message: `Data pada table ${tableName} dengan ID ${tableId} sudah terkunci oleh ${existingLock.editing_by}. Tidak dapat diedit.`,
+          message: `Data sedang diedit oleh ${existingLock.editing_by}. Coba lagi dalam ~${remainingMin} menit.`,
         };
       }
-    }
-
-    // Jika tidak ada lock, lakukan insert baru
-    try {
-      await trx('locks').insert({
-        table: tableName,
-        tableid: tableId,
-        editing_by: editingBy,
-        editing_at: datenow, // Waktu saat ini
-        info: `Data pada table ${tableName} dengan ID ${tableId} sedang diedit.`,
-        modifiedby: editingBy, // Menyimpan siapa yang memodifikasi
-        created_at: datenow, // Waktu saat entri dibuat
-        updated_at: datenow, // Waktu saat entri diperbarui
-      });
-
-      return {
-        status: 'success',
-        message: `Data pada table ${tableName} dengan ID ${tableId} berhasil dikunci untuk edit.`,
-      };
     } catch (error) {
+      console.error('[forceEdit] Unexpected error:', error);
       return {
         status: 'failed',
-        message: `Terjadi kesalahan saat menyimpan data: ${error.message}`,
+        message: `Unexpected error: ${error.message}`,
       };
     }
   }

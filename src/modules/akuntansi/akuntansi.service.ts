@@ -164,15 +164,17 @@ export class AkuntansiService {
       const offset = (page - 1) * limit;
 
       if (isLookUp) {
-        const totalData = await trx(this.tableName).count('id as total').first();
+        const totalData = await trx(this.tableName)
+          .count('id as total')
+          .first();
         const resultTotalData = totalData?.total || 0;
-        
+
         if (Number(resultTotalData) > 500) {
           return {
             data: {
-              type: 'json'
-            }
-          }
+              type: 'json',
+            },
+          };
         } else {
           limit = 0;
         }
