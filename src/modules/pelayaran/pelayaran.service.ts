@@ -4,24 +4,28 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateMenuDto } from './dto/create-menu.dto';
-import { dbMssql } from 'src/common/utils/db';
+import { CreatePelayaranDto } from './dto/create-pelayaran.dto';
+import { UpdatePelayaranDto } from './dto/update-pelayaran.dto';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { RedisService } from 'src/common/redis/redis.service';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
-import { FindAllParams } from 'src/common/interfaces/all.interface';
+import { dbMssql } from 'src/common/utils/db';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Workbook } from 'exceljs';
+import { RelasiService } from '../relasi/relasi.service';
+
 @Injectable()
-export class MenuService {
-  private readonly tableName = 'menus';
+export class PelayaranService {
+  private readonly tableName = 'pelayaran';
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
+    private readonly relasiService: RelasiService,
   ) {}
-  async create(createMenuDto: any, trx: any) {
+  async create(createPelayaranDto: any, trx: any) {
     try {
       const {
         sortBy,
@@ -30,35 +34,50 @@ export class MenuService {
         search,
         page,
         limit,
-        parent_nama,
-        acos_nama,
-        statusaktif_nama,
+        statusaktif_text,
         ...insertData
-      } = createMenuDto;
+      } = createPelayaranDto;
       insertData.updated_at = this.utilsService.getTime();
       insertData.created_at = this.utilsService.getTime();
-      // Normalize the data (e.g., convert strings to uppercase)
+
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
 
-      // Insert the new item
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
 
-      const newItem = insertedItems[0]; // Get the inserted item
+      const statusRelasi = await trx('parameter')
+        .select('*')
+        .where('grp', 'STATUS RELASI')
+        .where('text', 'PELAYARAN')
+        .first();
 
-      // Now use findAll to get the updated list with pagination, sorting, and filters
+      const relasi = ({
+        nama: insertData.nama,
+        statusrelasi: statusRelasi.id,
+        modifiedby: insertData.modifiedby
+      })
+      const dataRelasi = await this.relasiService.create(relasi, trx);
+
+      const newItem = insertedItems[0];
+      await trx(this.tableName)
+        .update({
+          relasi_id: Number(dataRelasi.id),
+        })
+        .where('id', newItem.id)
+        .returning('*');
+
       const { data, pagination } = await this.findAll(
         {
           search,
           filters,
           pagination: { page, limit },
           sort: { sortBy, sortDirection },
-          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+          isLookUp: false,
         },
         trx,
       );
@@ -67,10 +86,8 @@ export class MenuService {
         itemIndex = 0;
       }
 
-      // Optionally, you can find the page number or other info if needed
       const pageNumber = pagination?.currentPage;
 
-      // Optionally, you can log the event or store the new item in a cache if needed
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(data),
@@ -79,7 +96,7 @@ export class MenuService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'ADD MENU',
+          postingdari: 'ADD PELAYARAN',
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -95,7 +112,7 @@ export class MenuService {
         itemIndex,
       };
     } catch (error) {
-      throw new Error(`Error creating parameter: ${error.message}`);
+      throw new Error(`Error creating pelayaran: ${error.message}`);
     }
   }
 
@@ -105,43 +122,39 @@ export class MenuService {
   ) {
     try {
       let { page, limit } = pagination;
-
       page = page ?? 1;
       limit = limit ?? 0;
 
       if (isLookUp) {
-        const acoCountResult = await trx(this.tableName)
+        const pelayaranCountResult = await trx(this.tableName)
           .count('id as total')
           .first();
 
-        const acoCount = acoCountResult?.total || 0;
-
-        if (Number(acoCount) > 500) {
+        const pelayaranCount = pelayaranCountResult?.total || 0;
+        if (Number(pelayaranCount) > 500) {
           return { data: { type: 'json' } };
         } else {
           limit = 0;
         }
       }
 
-      const query = trx(`${this.tableName} as u`)
+      const query = trx(`${this.tableName} as pel`)
         .select([
-          'u.id as id',
-          'u.title',
-          'u.aco_id',
-          'u.icon',
-          'u.parentId',
-          'u.order',
-          'u.statusaktif',
-          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          'p.memo',
-          'p.text',
-          'a.nama as acos_nama',
-          trx.raw('parent.title as parent_nama'), // Select the parent title
+          'pel.id as id',
+          'pel.nama',
+          'pel.keterangan',
+          'pel.statusaktif',
+          'pel.modifiedby',
+          trx.raw(
+            "FORMAT(pel.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at",
+          ),
+          trx.raw(
+            "FORMAT(pel.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at",
+          ),
+          'par.memo',
+          'par.text',
         ])
-        .leftJoin(`${this.tableName} as parent`, 'u.parentId', 'parent.id') // Self join on parentId
-        .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
-        .leftJoin('acos as a', 'u.aco_id', 'a.id');
+        .leftJoin('parameter as par', 'pel.statusaktif', 'par.id');
 
       if (limit > 0) {
         const offset = (page - 1) * limit;
@@ -152,12 +165,10 @@ export class MenuService {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
           builder
-
-            .orWhere('u.title', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.parentId', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.icon', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.memo', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.text', 'like', `%${sanitizedValue}%`);
+            .orWhere('pel.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('pel.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('par.memo', 'like', `%${sanitizedValue}%`)
+            .orWhere('par.text', 'like', `%${sanitizedValue}%`);
         });
       }
 
@@ -166,19 +177,18 @@ export class MenuService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-                key,
-                `%${sanitizedValue}%`,
-              ]);
+              query.andWhereRaw(
+                "FORMAT(pel.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?",
+                [key, `%${sanitizedValue}%`],
+              );
             } else if (key === 'text' || key === 'memo') {
-              query.andWhere(`p.${key}`, '=', sanitizedValue);
+              query.andWhere(`par.${key}`, '=', sanitizedValue);
             } else {
-              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+              query.andWhere(`pel.${key}`, 'like', `%${sanitizedValue}%`);
             }
           }
         }
       }
-
       const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
       const totalPages = Math.ceil(total / limit);
@@ -207,6 +217,7 @@ export class MenuService {
       throw new Error('Failed to fetch data');
     }
   }
+
   async findAllByIds(ids: { id: number }[]) {
     try {
       const idList = ids.map((item) => item.id);
@@ -225,28 +236,26 @@ export class MenuService {
       `;
       await dbMssql.raw(insertTempTableQuery);
 
-      const query = dbMssql(`${this.tableName} as m`)
+      const query = dbMssql(`${this.tableName} as pel`)
         .select([
-          'm.id as id',
-          'm.title',
-          'm.aco_id',
-          'm.icon',
-          'm.parentId',
-          'm.order',
-          'm.statusaktif',
+          'pel.id as id',
+          'pel.nama',
+          'pel.keterangan',
+          'pel.statusaktif',
+          'pel.modifiedby',
           dbMssql.raw(
-            "FORMAT(m.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at",
+            "FORMAT(pel.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at",
           ),
           dbMssql.raw(
-            "FORMAT(m.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at",
+            "FORMAT(pel.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at",
           ),
-          'p.memo',
-          'p.text',
+          'par.memo',
+          'par.text',
         ])
-        .join('parameter as p', 'm.statusaktif', 'p.id')
-        .join(dbMssql.raw(`${tempData} as temp`), 'm.id', 'temp.id')
+        .leftJoin('parameter as par', 'pel.statusaktif', 'par.id')
+        .join(dbMssql.raw(`${tempData} as temp`), 'pel.id', 'temp.id')
 
-        .orderBy('m.title', 'ASC');
+        .orderBy('pel.nama', 'ASC');
 
       const data = await query;
 
@@ -259,6 +268,7 @@ export class MenuService {
       throw new Error('Failed to fetch data');
     }
   }
+
   async getById(id: number, trx: any) {
     try {
       const result = await trx(this.tableName).where('id', id).first();
@@ -279,7 +289,7 @@ export class MenuService {
       const existingData = await trx(this.tableName).where('id', id).first();
 
       if (!existingData) {
-        throw new Error('Menu not found');
+        throw new Error('Pelayaran not found');
       }
 
       const {
@@ -289,10 +299,7 @@ export class MenuService {
         search,
         page,
         limit,
-        text,
-        parent_nama,
-        acos_nama,
-        statusaktif_nama,
+        statusaktif_text,
         ...insertData
       } = data;
       Object.keys(insertData).forEach((key) => {
@@ -324,7 +331,17 @@ export class MenuService {
       if (itemIndex === -1) {
         throw new Error('Updated item not found in all items');
       }
-
+      const statusRelasi = await trx('parameter')
+        .select('*')
+        .where('grp', 'STATUS RELASI')
+        .where('text', 'PELAYARAN')
+        .first();
+      const relasi = ({
+        nama: insertData.nama,
+        statusrelasi: statusRelasi.id,
+        modifiedby: insertData.modifiedby
+      })
+      const dataRelasi = await this.relasiService.update(existingData.relasi_id, relasi, trx);
       const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
       const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;
 
@@ -339,7 +356,7 @@ export class MenuService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'EDIT MENU',
+          postingdari: 'EDIT PELAYARAN',
           idtrans: id,
           nobuktitrans: id,
           aksi: 'EDIT',
@@ -358,8 +375,8 @@ export class MenuService {
         itemIndex,
       };
     } catch (error) {
-      console.error('Error updating parameter:', error);
-      throw new Error('Failed to update parameter');
+      console.error('Error updating pelayaran:', error);
+      throw new Error('Failed to update pelayaran');
     }
   }
 
@@ -375,7 +392,7 @@ export class MenuService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE MENU',
+          postingdari: 'DELETE PELAYARAN',
           idtrans: deletedData.id,
           nobuktitrans: deletedData.id,
           aksi: 'DELETE',
@@ -384,6 +401,8 @@ export class MenuService {
         },
         trx,
       );
+      
+      const dataRelasi = await this.relasiService.delete(deletedData.relasi_id, trx, modifiedby);
 
       return { status: 200, message: 'Data deleted successfully', deletedData };
     } catch (error) {
@@ -395,149 +414,6 @@ export class MenuService {
     }
   }
 
-  sortMenuData(menuData) {
-    const mapChildren = (menu) => {
-      if (menu.items && menu.items.length > 0) {
-        menu.items = menu.items
-          .sort((a, b) => a.order - b.order)
-          .map(mapChildren);
-      }
-      return menu;
-    };
-
-    return menuData.sort((a, b) => a.order - b.order).map(mapChildren);
-  }
-
-  async updateMenuResequence(data, parentId = 0, order = 0, trx) {
-    if (!Array.isArray(data)) {
-      throw new Error("Expected 'data' to be an array.");
-    }
-
-    for (const [index, item] of data.entries()) {
-      const { id, text, icon, children } = item;
-
-      // Check if item exists in the database
-      const existingItem = await trx('menus').where({ id }).first();
-
-      if (existingItem) {
-        // Update the existing menu item
-        await trx('menus')
-          .where({ id })
-          .update({
-            title: text,
-            icon: icon || null,
-            parentId,
-            order: order + index + 1,
-            updated_at: new Date(),
-          });
-      } else {
-        // Insert new menu item
-        await trx('menus').insert({
-          id,
-          title: text,
-          icon: icon || null,
-          parentId,
-          order: order + index + 1,
-          updated_at: new Date(),
-        });
-      }
-
-      // Recursively update children menus if any
-      if (Array.isArray(children) && children.length > 0) {
-        await this.updateMenuResequence(children, id, order + index + 1, trx);
-      }
-    }
-
-    // After updating the menus, update the users' menu strings
-    const users = await trx('users').select('id');
-
-    for (const user of users) {
-      const { abilities } = await this.utilsService.fetchUserRolesAndAbilities(
-        user.id,
-        trx,
-      );
-
-      const menuData = await this.utilsService.getDataMenuSidebar(trx);
-      const sortedMenuData = this.sortMenuData(menuData);
-
-      const menuString = this.utilsService.buildMenuString(
-        sortedMenuData,
-        abilities,
-      );
-
-      await trx('users').where({ id: user.id }).update({
-        menu: menuString,
-        updated_at: new Date(),
-      });
-    }
-  }
-
-  async getMenuSidebar(userId: number) {
-    try {
-      const user = await dbMssql('users')
-        .select('menu')
-        .where('id', userId)
-        .first();
-
-      if (!user) {
-        throw new Error(`User dengan ID ${userId} tidak ditemukan`);
-      }
-
-      const menuField = user.menu;
-      if (!menuField) {
-        throw new Error(`Field menu kosong untuk user ID ${userId}`);
-      }
-
-      return menuField;
-    } catch (error) {
-      console.error('Error fetching user menu sidebar:', error);
-      throw new Error('Gagal mengambil data menu sidebar user');
-    }
-  }
-  async getSearchMenu(userId: number, search: string = '') {
-    try {
-      const userAcls = await dbMssql('useracl')
-        .select('aco_id')
-        .where('user_id', userId);
-
-      const userRoles = await dbMssql('userrole')
-        .select('role_id')
-        .where('user_id', userId);
-
-      const roleIds = userRoles.map((role) => role.role_id);
-
-      const roleAcls = await dbMssql('acl')
-        .select('aco_id')
-        .whereIn('role_id', roleIds);
-
-      const userAcoIds = new Set([
-        ...userAcls.map((acl) => acl.aco_id),
-        ...roleAcls.map((acl) => acl.aco_id),
-      ]);
-
-      let query = dbMssql('menus')
-        .select('id', 'title', 'icon', 'parentId', 'order')
-        .whereIn('aco_id', Array.from(userAcoIds))
-        .orderBy('parentId')
-        .orderBy('order');
-
-      if (search) {
-        query = query.andWhere('title', 'like', `%${search}%`);
-      }
-
-      const menus = await query;
-
-      if (!menus.length) {
-        throw new Error(`No menus found for user ID ${userId}`);
-      }
-
-      return menus;
-    } catch (error) {
-      console.error('Error fetching user menu sidebar:', error);
-      throw new Error('Gagal mengambil data menu sidebar user');
-    }
-  }
-
   async exportToExcel(data: any[]) {
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Data Export');
@@ -546,7 +422,7 @@ export class MenuService {
     worksheet.mergeCells('A2:I2');
     worksheet.mergeCells('A3:I3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
-    worksheet.getCell('A2').value = 'LAPORAN MENU';
+    worksheet.getCell('A2').value = 'LAPORAN PELAYARAN';
     worksheet.getCell('A3').value = 'Data Export';
     worksheet.getCell('A1').alignment = {
       horizontal: 'center',
@@ -564,17 +440,7 @@ export class MenuService {
     worksheet.getCell('A2').font = { bold: true };
     worksheet.getCell('A3').font = { bold: true };
 
-    const headers = [
-      'NO.',
-      'MENU NAME',
-      'MENU PARENT',
-      'MENU ICON',
-      'ACO ID',
-      'LINK',
-      'ORDER',
-      'STATUS AKTIF',
-      'CREATED AT',
-    ];
+    const headers = ['NO.', 'NAMA', 'KETERANGAN', 'STATUS AKTIF'];
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(5, index + 1);
       cell.value = header;
@@ -596,14 +462,9 @@ export class MenuService {
       const currentRow = rowIndex + 6;
 
       worksheet.getCell(currentRow, 1).value = rowIndex + 1;
-      worksheet.getCell(currentRow, 2).value = row.title;
-      worksheet.getCell(currentRow, 3).value = row.parentId;
-      worksheet.getCell(currentRow, 4).value = row.icon;
-      worksheet.getCell(currentRow, 5).value = row.aco_id;
-      worksheet.getCell(currentRow, 6).value = row.link;
-      worksheet.getCell(currentRow, 7).value = row.order;
-      worksheet.getCell(currentRow, 8).value = row.text;
-      worksheet.getCell(currentRow, 9).value = row.created_at;
+      worksheet.getCell(currentRow, 2).value = row.nama;
+      worksheet.getCell(currentRow, 3).value = row.keterangan;
+      worksheet.getCell(currentRow, 4).value = row.text;
 
       for (let col = 1; col <= headers.length; col++) {
         const cell = worksheet.getCell(currentRow, col);
@@ -620,12 +481,7 @@ export class MenuService {
     worksheet.getColumn(1).width = 10;
     worksheet.getColumn(2).width = 30;
     worksheet.getColumn(3).width = 30;
-    worksheet.getColumn(4).width = 30;
-    worksheet.getColumn(5).width = 15;
-    worksheet.getColumn(6).width = 20;
-    worksheet.getColumn(7).width = 20;
-    worksheet.getColumn(8).width = 20;
-    worksheet.getColumn(9).width = 30;
+    worksheet.getColumn(4).width = 20;
 
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
@@ -639,89 +495,5 @@ export class MenuService {
     await workbook.xlsx.writeFile(tempFilePath);
 
     return tempFilePath;
-  }
-
-  async getMenuResequence() {
-    const menus = await dbMssql('menus')
-      .select('*')
-      .orderBy(['parentId', 'order']);
-
-    const itemsMap = new Map<number, any>();
-    const rootItems: any[] = [];
-
-    menus.forEach((item) => {
-      const menuItem = {
-        id: item.id,
-        text: item.title,
-        ...(item.icon ? { icon: item.icon } : {}),
-        children: [],
-      };
-
-      itemsMap.set(item.id, menuItem);
-
-      if (item.parentId === 0) {
-        rootItems.push(menuItem);
-      } else {
-        const parentItem = itemsMap.get(item.parentId);
-        if (parentItem) {
-          parentItem.children.push(menuItem);
-        } else {
-          itemsMap.set(item.parentId, { children: [menuItem] });
-        }
-      }
-    });
-
-    const sortItems = (items: any[]): any[] => {
-      return items
-        .sort((a, b) => a.order - b.order)
-        .map((item) => ({
-          ...item,
-          children: sortItems(item.children),
-        }));
-    };
-
-    return sortItems(rootItems);
-  }
-  async getDataMenuSidebar(userId: number) {
-    try {
-      // Fetch all ACLs and roles associated with the user
-      const userAcls = await dbMssql('useracl')
-        .select('aco_id')
-        .where('user_id', userId);
-
-      const userRoles = await dbMssql('userrole')
-        .select('role_id')
-        .where('user_id', userId);
-
-      const roleIds = userRoles.map((role) => role.role_id);
-
-      const roleAcls = await dbMssql('acl')
-        .select('aco_id')
-        .whereIn('role_id', roleIds);
-
-      // Combine aco_ids from userAcls and roleAcls
-      const userAcoIds = new Set([
-        ...userAcls.map((acl) => acl.aco_id),
-        ...roleAcls.map((acl) => acl.aco_id),
-      ]);
-
-      // Fetch menus associated with the user ACOs
-      const query = dbMssql('menus')
-        .select('id', 'title', 'icon', 'parentId', 'order')
-        .whereIn('aco_id', Array.from(userAcoIds))
-        .orderBy('parentId')
-        .orderBy('order');
-
-      const menus = await query;
-
-      if (!menus.length) {
-        throw new Error(`No menus found for user ID ${userId}`);
-      }
-
-      return menus;
-    } catch (error) {
-      console.error('Error fetching user menu sidebar:', error);
-      throw new Error('Gagal mengambil data menu sidebar user');
-    }
   }
 }

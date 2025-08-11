@@ -1,4 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreatePengembaliankasgantungheaderDto } from './dto/create-pengembaliankasgantungheader.dto';
 import { UpdatePengembaliankasgantungheaderDto } from './dto/update-pengembaliankasgantungheader.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
@@ -34,7 +39,8 @@ export class PengembaliankasgantungheaderService {
         details,
         ...insertData
       } = data;
-
+      insertData.updated_at = this.utilsService.getTime();
+      insertData.created_at = this.utilsService.getTime();
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
@@ -43,7 +49,7 @@ export class PengembaliankasgantungheaderService {
 
       const parameter = await trx('parameter')
         .select('*')
-        .where('grp', 'KAS GANTUNG')
+        .where('grp', 'PENERIMAAN GANTUNG')
         .first();
 
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
@@ -64,6 +70,8 @@ export class PengembaliankasgantungheaderService {
         const detailsWithNobukti = details.map((detail: any) => ({
           ...detail,
           nobukti: nomorBukti, // Inject nobukti into each detail
+          kasgantung_nobukti: detail.nobukti, // Ensure kasgantung_nobukti is preserved
+          modifiedby: data.modifiedby, // Ensure modifiedby is preserved
         }));
 
         // Pass the updated details with nobukti to the detail creation service
@@ -130,6 +138,131 @@ export class PengembaliankasgantungheaderService {
       throw new Error(`Error: ${error.message}`);
     }
   }
+  async update(id: any, data: any, trx: any) {
+    try {
+      console.log('data2', data);
+      data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
+
+      const {
+        sortBy,
+        sortDirection,
+        filters,
+        search,
+        page,
+        limit,
+        relasi_nama,
+        bank_nama,
+        details,
+        ...insertData
+      } = data;
+
+      Object.keys(insertData).forEach((key) => {
+        if (typeof insertData[key] === 'string') {
+          insertData[key] = insertData[key].toUpperCase();
+        }
+      });
+      const existingData = await trx(this.tableName).where('id', id).first();
+      const hasChanges = this.utilsService.hasChanges(insertData, existingData);
+
+      if (hasChanges) {
+        insertData.updated_at = this.utilsService.getTime();
+
+        await trx(this.tableName).where('id', id).update(insertData);
+      }
+
+      // Check each detail, update or set id accordingly
+      if (details.length > 0) {
+        const existingDetails = await trx('pengembaliankasgantungdetail').where(
+          'pengembaliankasgantung_id',
+          id,
+        );
+        const updatedDetails = details.map((detail: any) => {
+          const existingDetail = existingDetails.find(
+            (existing: any) => existing.nobukti === detail.nobukti,
+          );
+
+          if (existingDetail) {
+            // If the nobukti exists, assign the id from the existing record
+            detail.id = existingDetail.id;
+            detail.kasgantung_nobukti = detail.nobukti; // Ensure nobukti is preserved
+            detail.nobukti = existingData.nobukti; // Ensure nobukti is preserved
+            detail.modifiedby = data.modifiedby; // Ensure modifiedby is preserved
+          } else {
+            // If nobukti does not exist, set id to 0
+            detail.id = 0;
+            detail.kasgantung_nobukti = detail.nobukti; // Ensure nobukti is preserved
+            detail.nobukti = existingData.nobukti; // Ensure nobukti is preserved
+            detail.modifiedby = data.modifiedby; // Ensure modifiedby is preserved
+          }
+
+          return detail;
+        });
+        if (updatedDetails.length > 0) {
+          await this.pengembaliankasgantungdetailService.create(
+            updatedDetails,
+            id,
+            trx,
+          );
+        }
+      }
+
+      // If there are details, call the service to handle create or update
+
+      const { data: filteredItems } = await this.findAll(
+        {
+          search,
+          filters,
+          pagination: { page, limit },
+          sort: { sortBy, sortDirection },
+          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+        },
+        trx,
+      );
+
+      // Cari index item baru di hasil yang sudah difilter
+      let itemIndex = filteredItems.findIndex((item) => Number(item.id) === id);
+
+      if (itemIndex === -1) {
+        itemIndex = 0;
+      }
+
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
+      const endIndex = pageNumber * limit;
+
+      // Ambil data hingga halaman yang mencakup item baru
+      const limitedItems = filteredItems.slice(0, endIndex);
+
+      // Simpan ke Redis
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: `ADD PENGEMBALIAN KAS GANTUNG HEADER`,
+          idtrans: id,
+          nobuktitrans: id,
+          aksi: 'ADD',
+          datajson: JSON.stringify(data),
+          modifiedby: data.modifiedby,
+        },
+        trx,
+      );
+
+      return {
+        updatedItem: {
+          id,
+          ...data,
+        },
+        pageNumber,
+        itemIndex,
+      };
+    } catch (error) {
+      throw new Error(`Error: ${error.message}`);
+    }
+  }
 
   async findAll(
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
@@ -169,7 +302,7 @@ export class PengembaliankasgantungheaderService {
           'u.modifiedby', // modifiedby (varchar(200))
           'u.editing_by', // editing_by (varchar(200))
           trx.raw('r.nama as relasi_nama'), // relasi_nama (nvarchar(max))
-          trx.raw('b.nama_bank as bank_nama'),
+          trx.raw('b.nama as bank_nama'),
           trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
@@ -281,7 +414,7 @@ export class PengembaliankasgantungheaderService {
           'u.modifiedby', // modifiedby (varchar(200))
           'u.editing_by', // editing_by (varchar(200))
           trx.raw('r.nama as relasi_nama'), // relasi_nama (nvarchar(max))
-          trx.raw('b.nama_bank as bank_nama'),
+          trx.raw('b.nama as bank_nama'),
           trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
@@ -407,107 +540,53 @@ export class PengembaliankasgantungheaderService {
     return `This action returns a #${id} pengembaliankasgantungheader`;
   }
 
-  async update(id: number, data: any, trx: any) {
+  async delete(id: number, trx: any, modifiedby: string) {
     try {
-      const existingData = await trx(this.tableName).where('id', id).first();
-
-      if (!existingData) {
-        throw new Error('Menu not found');
-      }
-
-      const {
-        sortBy,
-        sortDirection,
-        filters,
-        search,
-        page,
-        limit,
-        relasi_nama,
-        bank_nama,
-        details,
-        ...insertData
-      } = data;
-
-      Object.keys(insertData).forEach((key) => {
-        if (typeof insertData[key] === 'string') {
-          insertData[key] = insertData[key].toUpperCase();
-        }
-      });
-      const hasChanges = this.utilsService.hasChanges(insertData, existingData);
-      if (hasChanges) {
-        insertData.updated_at = this.utilsService.getTime();
-        await trx(this.tableName).where('id', id).update(insertData);
-      }
-      if (details.length >= 0) {
-        // Inject nobukti into each detail item
-        const detailsWithNobukti = details.map((detail: any) => ({
-          ...detail,
-          nobukti: insertData.nobukti, // Inject nobukti into each detail
-        }));
-
-        // Pass the updated details with nobukti to the detail creation service
-        await this.pengembaliankasgantungdetailService.create(
-          detailsWithNobukti,
-          id,
-          trx,
-        );
-      }
-      const { data: filteredData, pagination } = await this.findAll(
-        {
-          search,
-          filters,
-          pagination: { page, limit },
-          sort: { sortBy, sortDirection },
-          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
-        },
+      const deletedData = await this.utilsService.lockAndDestroy(
+        id,
+        this.tableName,
+        'id',
         trx,
       );
-
-      // Cari index item yang baru saja diupdate
-      let itemIndex = filteredData.findIndex((item) => Number(item.id) === id);
-      if (itemIndex === -1) {
-        itemIndex = 0;
-      }
-
-      const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
-      const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;
-
-      // Ambil data hingga halaman yang mencakup item yang baru diperbarui
-      const endIndex = pageNumber * itemsPerPage;
-      const limitedItems = filteredData.slice(0, endIndex);
-      await this.redisService.set(
-        `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
+      const deletedDataDetail = await this.utilsService.lockAndDestroy(
+        id,
+        'pengembaliankasgantungdetail',
+        'pengembaliankasgantung_id',
+        trx,
       );
 
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'EDIT PENGEMBALIAN KAS GANTUNG HEADER',
-          idtrans: id,
-          nobuktitrans: id,
-          aksi: 'EDIT',
-          datajson: JSON.stringify(data),
-          modifiedby: data.modifiedby,
+          postingdari: 'DELETE PENGEMBALIAN KAS GANTUNG',
+          idtrans: deletedData.id,
+          nobuktitrans: deletedData.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedData),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE PENGEMBALIAN KAS GANTUNG DETAIL',
+          idtrans: deletedDataDetail.id,
+          nobuktitrans: deletedDataDetail.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedDataDetail),
+          modifiedby: modifiedby,
         },
         trx,
       );
 
-      return {
-        updatedItem: {
-          id,
-          ...data,
-        },
-        pageNumber,
-        itemIndex,
-      };
+      return { status: 200, message: 'Data deleted successfully', deletedData };
     } catch (error) {
-      console.error('Error updating parameter:', error);
-      throw new Error('Failed to update parameter');
+      console.error('Error deleting data:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to delete data');
     }
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} pengembaliankasgantungheader`;
   }
 }

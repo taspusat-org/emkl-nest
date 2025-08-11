@@ -46,11 +46,24 @@ export class BankService {
       // build query
       const query = trx(`${this.tableName} as b`).select([
         'b.id',
-        'b.nama_bank',
-        'b.kode_bank',
-        'b.alamat',
-        'b.nomor_telepon',
-        'b.email',
+        'b.nama',
+        'b.keterangan',
+        'b.coa',
+        'b.coagantung',
+        'b.statusbank',
+        'b.statusaktif',
+        'b.statusdefault',
+        'b.formatpenerimaan',
+        'b.formatpengeluaran',
+        'b.formatpenerimaangantung',
+        'b.formatpengeluarangantung',
+        'b.formatpencairan',
+        'b.formatrekappenerimaan',
+        'b.formatrekappengeluaran',
+        'b.info',
+        'b.modifiedby',
+        'b.editing_by',
+        trx.raw("FORMAT(b.updated_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
         trx.raw("FORMAT(b.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
         trx.raw("FORMAT(b.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
       ]);
@@ -60,7 +73,7 @@ export class BankService {
         const val = String(search).replace(/\[/g, '[[]');
         query.where((builder) =>
           builder
-            .orWhere('b.nama_bank', 'like', `%${val}%`)
+            .orWhere('b.nama', 'like', `%${val}%`)
             .orWhere('b.kode_bank', 'like', `%${val}%`)
             .orWhere('b.alamat', 'like', `%${val}%`)
             .orWhere('b.nomor_telepon', 'like', `%${val}%`)
@@ -79,13 +92,9 @@ export class BankService {
               `%${val}%`,
             ]);
           } else if (
-            [
-              'nama_bank',
-              'kode_bank',
-              'alamat',
-              'nomor_telepon',
-              'email',
-            ].includes(key)
+            ['nama', 'kode_bank', 'alamat', 'nomor_telepon', 'email'].includes(
+              key,
+            )
           ) {
             query.andWhere(`b.${key}`, 'like', `%${val}%`);
           }

@@ -6,100 +6,83 @@ import {
   Patch,
   Param,
   Delete,
-  UseGuards,
-  Req,
-  Put,
-  NotFoundException,
-  InternalServerErrorException,
   UsePipes,
   Query,
+  InternalServerErrorException,
+  UseGuards,
+  Req,
+  NotFoundException,
+  Put,
   Res,
 } from '@nestjs/common';
-import { MenuService } from './menu.service';
-import { CreateMenuDto, CreateMenuSchema } from './dto/create-menu.dto';
-import { dbMssql } from 'src/common/utils/db';
-import { AuthGuard } from '../auth/auth.guard';
-import { UpdateMenuDto, UpdateMenuSchema } from './dto/update-menu.dto';
+import { PelayaranService } from './pelayaran.service';
+import {
+  CreatePelayaranDto,
+  CreatePelayaranSchema,
+} from './dto/create-pelayaran.dto';
+import {
+  UpdatePelayaranDto,
+  UpdatePelayaranSchema,
+} from './dto/update-pelayaran.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
   FindAllDto,
   FindAllParams,
   FindAllSchema,
 } from 'src/common/interfaces/all.interface';
+import { dbMssql } from 'src/common/utils/db';
+import { AuthGuard } from '../auth/auth.guard';
 import { Response } from 'express';
 import * as fs from 'fs';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
 
-@Controller('menu')
-export class MenuController {
-  constructor(private readonly menuService: MenuService) {}
-  @Get('sidebar')
-  menuSidebar(@Query('userId') userId: number) {
-    return this.menuService.getMenuSidebar(userId);
-  }
-  @Get('menu-sidebar')
-  menuSidebarUser(@Query('userId') userId: number) {
-    return this.menuService.getDataMenuSidebar(userId);
-  }
-  @Get('menu-resequence')
-  menuResequence() {
-    return this.menuService.getMenuResequence();
-  }
-  @Post('search')
-  async getSearchMenu(
-    @Body() { userId, search }: { userId: number; search: string },
-  ) {
-    try {
-      const menus = await this.menuService.getSearchMenu(userId, search);
-      return menus;
-    } catch (error) {
-      console.error('Error searching menu:', error);
-      throw new InternalServerErrorException('Failed to fetch search menus');
-    }
-  }
+@Controller('pelayaran')
+export class PelayaranController {
+  constructor(private readonly pelayaranService: PelayaranService) {}
 
   @UseGuards(AuthGuard)
   @Post()
+  //@PELAYARAN
   async create(
-    @Body(new ZodValidationPipe(CreateMenuSchema))
-    data: CreateMenuDto,
+    @Body(
+      new ZodValidationPipe(CreatePelayaranSchema),
+      KeyboardOnlyValidationPipe,
+    )
+    data: CreatePelayaranDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-
-      const result = await this.menuService.create(data, trx);
-
+      const result = await this.pelayaranService.create(data, trx);
       await trx.commit();
-      return result;
     } catch (error) {
       await trx.rollback();
-      throw new Error(`Error creating menu: ${error.message}`);
+      throw new Error(`Error creating pelayaran: ${error.message}`);
     }
   }
 
   @Post('report-byselect')
   async findAllByIds(@Body() ids: { id: number }[]) {
-    return this.menuService.findAllByIds(ids);
+    return this.pelayaranService.findAllByIds(ids);
   }
 
   @Get()
+  //@PELAYARAN
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
       query;
 
     const sortParams = {
-      sortBy: sortBy || 'title',
+      sortBy: sortBy || 'nama',
       sortDirection: sortDirection || 'asc',
     };
-
+    console.log('heree');
     const pagination = {
       page: page || 1,
       limit: limit === 0 || !limit ? undefined : limit,
     };
-
     const params: FindAllParams = {
       search,
       filters,
@@ -109,16 +92,15 @@ export class MenuController {
     };
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.menuService.findAll(params, trx);
+      const result = await this.pelayaranService.findAll(params, trx);
       trx.commit();
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error fetching all menus:', error);
-      throw new InternalServerErrorException('Failed to fetch menus');
+      console.error('Error fetching all pelayaran:', error);
+      throw new InternalServerErrorException('Failed to fetch pelayaran');
     }
   }
-
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {
@@ -128,7 +110,7 @@ export class MenuController {
         throw new Error('Data is not an array or is undefined.');
       }
 
-      const tempFilePath = await this.menuService.exportToExcel(data);
+      const tempFilePath = await this.pelayaranService.exportToExcel(data);
 
       const fileStream = fs.createReadStream(tempFilePath);
 
@@ -138,7 +120,7 @@ export class MenuController {
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_menu.xlsx"',
+        'attachment; filename="laporan_pelayaran.xlsx"',
       );
 
       fileStream.pipe(res);
@@ -154,13 +136,13 @@ export class MenuController {
     @Res() res: Response,
   ) {
     try {
-      const data = await this.menuService.findAllByIds(ids);
+      const data = await this.pelayaranService.findAllByIds(ids);
 
       if (!Array.isArray(data)) {
         throw new Error('Data is not an array or is undefined.');
       }
 
-      const tempFilePath = await this.menuService.exportToExcel(data);
+      const tempFilePath = await this.pelayaranService.exportToExcel(data);
 
       const fileStream = fs.createReadStream(tempFilePath);
 
@@ -170,7 +152,7 @@ export class MenuController {
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_menu.xlsx"',
+        'attachment; filename="laporan_pelayaran.xlsx"',
       );
 
       fileStream.pipe(res);
@@ -180,78 +162,37 @@ export class MenuController {
     }
   }
 
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const trx = await dbMssql.transaction();
-    try {
-      const result = await this.menuService.getById(+id, trx);
-      if (!result) {
-        throw new Error('Data not found');
-      }
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      console.error('Error fetching data by id:', error);
-
-      await trx.rollback();
-      throw new Error('Failed to fetch data by id');
-    }
-  }
-
   @UseGuards(AuthGuard)
-  @Put('update-resequence')
-  async updateMenuResequence(@Body() body: { data: any[] }, @Req() req) {
-    const trx = await dbMssql.transaction();
-    try {
-      const { data } = body;
-
-      if (!Array.isArray(data)) {
-        throw new Error("Expected 'data' to be an array.");
-      }
-
-      // Pass the extracted array to the service method along with the transaction
-      await this.menuService.updateMenuResequence(data, 0, 0, trx);
-
-      // If everything goes well, commit the transaction
-      await trx.commit();
-      return { message: 'Menu sequence updated successfully' };
-    } catch (error) {
-      // Rollback the transaction in case of error
-      await trx.rollback();
-      console.error('Error updating menu sequence in controller:', error);
-      throw new InternalServerErrorException('Failed to update menu sequence');
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Put('update/:id')
+  @Put(':id')
+  //@PELAYARAN
   async update(
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateMenuSchema)) data: UpdateMenuDto,
+    @Body(new ZodValidationPipe(UpdatePelayaranSchema))
+    data: UpdatePelayaranDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.menuService.update(+id, data, trx);
+      const result = await this.pelayaranService.update(+id, data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error updating menu in controller:', error);
-      throw new Error('Failed to update menu');
+      console.error('Error updating pelayaran in controller:', error);
+      throw new Error('Failed to update pelayaran');
     }
   }
 
   @UseGuards(AuthGuard)
   @Delete(':id')
+  //@PELAYARAN
   async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.menuService.delete(
+      const result = await this.pelayaranService.delete(
         +id,
         trx,
         req.user?.user?.username,
@@ -272,6 +213,25 @@ export class MenuController {
       }
 
       throw new InternalServerErrorException('Failed to delete menu');
+    }
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.pelayaranService.getById(+id, trx);
+      if (!result) {
+        throw new Error('Data not found');
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      console.error('Error fetching data by id:', error);
+
+      await trx.rollback();
+      throw new Error('Failed to fetch data by id');
     }
   }
 }

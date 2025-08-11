@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { RelasiService } from './relasi.service';
-import { RelasiController } from './relasi.controller';
+import { AkunpusatService } from './akunpusat.service';
+import { AkunpusatController } from './akunpusat.controller';
 import { UtilsModule } from 'src/utils/utils.module';
 import { RedisModule } from 'src/common/redis/redis.module';
 import { AuthModule } from '../auth/auth.module';
@@ -14,8 +14,7 @@ import { RunningNumberModule } from '../running-number/running-number.module';
     LogtrailModule,
     RunningNumberModule,
   ],
-  controllers: [RelasiController],
-  providers: [RelasiService],
-  exports: [RelasiService],
+  controllers: [AkunpusatController],
+  providers: [AkunpusatService],
 })
-export class RelasiModule {}
+export class AkunpusatModule {}

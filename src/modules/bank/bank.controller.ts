@@ -37,7 +37,7 @@ export class BankController {
       query;
 
     const sortParams = {
-      sortBy: sortBy || 'nama_bank',
+      sortBy: sortBy || 'nama',
       sortDirection: sortDirection || 'asc',
     };
 
