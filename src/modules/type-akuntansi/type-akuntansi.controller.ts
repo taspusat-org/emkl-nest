@@ -1,0 +1,277 @@
+import { 
+  Controller, 
+  Get, 
+  Post, 
+  Body, 
+  Put, 
+  Param, 
+  Delete, 
+  UseGuards, 
+  Req, 
+  HttpException, 
+  HttpStatus, 
+  UsePipes, 
+  Query, 
+  NotFoundException,
+  InternalServerErrorException,
+  Res
+} from '@nestjs/common';
+import * as fs from 'fs'
+import { Response } from 'express';
+import { dbMssql } from 'src/common/utils/db';
+import { AuthGuard } from '../auth/auth.guard';
+import { isRecordExist } from 'src/utils/utils.service';
+import { TypeAkuntansiService } from './type-akuntansi.service';
+import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
+import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
+import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
+import { CreateTypeAkuntansiDto, CreateTypeAkuntansiSchema } from './dto/create-type-akuntansi.dto';
+import { UpdateTypeAkuntansiDto, UpdateTypeAkuntansiSchema } from './dto/update-type-akuntansi.dto';
+
+@Controller('type-akuntansi')
+export class TypeAkuntansiController {
+  constructor(private readonly typeAkuntansiService: TypeAkuntansiService) {}
+
+  @UseGuards(AuthGuard)
+  @Post()
+  //@TYPE-AKUNTANSI
+  async create(
+    @Body(new ZodValidationPipe(CreateTypeAkuntansiSchema), KeyboardOnlyValidationPipe)
+    data: CreateTypeAkuntansiDto,
+    @Req() req
+  ) {
+    const trx = await dbMssql.transaction()
+    try {
+      console.log('kesini??');
+      
+      const typeakuntansiExist = await isRecordExist('nama', data.nama, 'typeakuntansi')
+
+      if (typeakuntansiExist) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.BAD_REQUEST,
+            message: `Type Akuntansi dengan nama ${data.nama} sudah ada`
+          },
+          HttpStatus.BAD_REQUEST
+        )
+      }
+
+      data.modifiedby = req.user?.user?.username || 'unknown'
+
+      const result = await this.typeAkuntansiService.create(data, trx);
+
+      await trx.commit();
+      return result;
+
+    } catch (error) {
+       await trx.rollback();
+       console.error('Error while creating type akuntansi in controller', error);
+
+       // Ensure any other errors get caught and returned
+       if (error instanceof HttpException) {
+        throw error; // If it's already a HttpException, rethrow it
+       }
+
+      // Generic error handling, if something unexpected happens
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'Failed to create type akuntansi'
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      )
+       
+    }
+  }
+
+  @Get()
+  //@TYPE-AKUNTANSI
+  @UsePipes(new ZodValidationPipe(FindAllSchema))
+  async findAll(@Query() query: FindAllDto) {    
+    const {
+      search,
+      page,
+      limit,
+      sortBy,
+      sortDirection,
+      isLookUp, 
+      ...filters
+    } = query
+
+    const sortParams = {
+      sortBy: sortBy || 'nama',
+      sortDirection: sortDirection || 'asc'
+    }
+
+    const pagination = {
+      page: page || 1,
+      limit: limit === 0 || !limit ? undefined : limit
+    }
+
+    const params: FindAllParams = {
+      search,
+      filters,
+      pagination,
+      isLookUp: isLookUp === 'true',
+      sort: sortParams as { sortBy: string, sortDirection: 'asc' | 'desc' }
+    }
+
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.typeAkuntansiService.findAll(params, trx);
+      trx.commit();
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error fetching all menus:', error);
+      throw new InternalServerErrorException('Failed to fetch type akuntansi');
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @Put(':id')
+  async update(
+    @Param('id') id: string, 
+    @Body(new ZodValidationPipe(UpdateTypeAkuntansiSchema)) data: UpdateTypeAkuntansiDto,
+    @Req() req
+  ) {
+    const trx = await dbMssql.transaction();
+    
+    try {
+      const typeakuntansiExist = await isRecordExist('nama', data.nama, 'typeakuntansi', Number(id))
+      
+      if (typeakuntansiExist) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.BAD_REQUEST,
+            message: `Type Akuntansi dengan nama ${data.nama} sudah ada`,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      data.modifiedby = req.user?.user?.username || 'unknown'
+
+      const result = await this.typeAkuntansiService.update(+id, data, trx);
+
+      await trx.commit();
+      return result
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error while updating type akuntansi in controller:', error);
+
+      // Ensure any other errors get caught and returned
+      if (error instanceof HttpException) {
+        throw error; // If it's already a HttpException, rethrow it
+      }
+
+      // Generic error handling, if something unexpected happens
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'Failed to update type akuntansi',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id')
+  //@TYPE-AKUNTANSI
+  async delete(
+    @Param('id') id: string,
+    @Req() req
+  ) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.typeAkuntansiService.delete(+id, trx, req.user?.user?.username)
+
+      if (result.status === 404) {
+        throw new NotFoundException(result.message);
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error deleting data in controller: ', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to delete data');
+    }
+  }
+
+  // @Get('/export')
+  // async exportToExcel(
+  //   @Query() query: any,
+  //   @Res() res: Response
+  // ) {
+  //   try {
+  //     const { data } = await this.findAll(query);
+
+  //     if (!Array.isArray(data)) {
+  //       throw new Error('Data is not an array or is undefined')
+  //     }
+
+  //     const tempFilePath = await this.typeAkuntansiService.exportToExcel(data);
+  //     const fileStream = fs.createReadStream(tempFilePath)
+
+  //     res.setHeader(
+  //       'Content-Type',
+  //       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  //     )
+  //     res.setHeader(
+  //       'Content-Disposition',
+  //       'attachment; filename="laporan_typeakuntansi.xlsx"'
+  //     )
+
+  //     fileStream.pipe(res)
+  //   } catch (error) {
+  //     console.error('Error exporting to Excel:', error);
+  //     res.status(500).send('Failed to export file');
+  //   }
+  // }
+
+  // @Post('/export-byselect')
+  // async exportToExcelBySelect(
+  //   @Body() ids: {id: number }[],
+  //   @Res() res: Response
+  // ) {
+  //   try {
+  //     const data = await this.typeAkuntansiService.findAllByIds(ids);
+
+  //     if (!Array.isArray(data)) {
+  //       throw new Error('Data is not an array or is undefined')
+  //     }
+
+  //     const tempFilePath = await this.typeAkuntansiService.exportToExcel(data);
+  //     const fileStream = fs.createReadStream(tempFilePath);
+
+  //     res.setHeader(
+  //       'Content-Type',
+  //       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  //     )
+  //     res.setHeader(
+  //       'Content-Disposition',
+  //       'attachment; filename="laporan_typeakuntansi.xlsx"'
+  //     )
+
+  //     fileStream.pipe(res);
+  //   } catch (error) {
+  //     console.error('Error exporting to Excel:', error);
+  //     res.status(500).send('Failed to export file');
+  //   }
+  // }
+
+  // @Post('/report-byselect')
+  // async findAllByIds(
+  //   @Body() ids: { id: number }[]
+  // ) {
+  //   return this.typeAkuntansiService.findAllByIds(ids);
+  // }
+
+}

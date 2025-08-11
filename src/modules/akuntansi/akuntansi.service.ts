@@ -152,7 +152,7 @@ export class AkuntansiService {
   }
 
   async findAll(
-    { search, filters, pagination, sort }: FindAllParams,
+    { search, filters, pagination, sort, isLookUp }: FindAllParams,
     trx: any,
   ) {
     try {
@@ -160,6 +160,21 @@ export class AkuntansiService {
       page = page ?? 1;
       limit = limit ?? 0;
       const offset = (page - 1) * limit;
+
+      if (isLookUp) {
+        const totalData = await trx(this.tableName).count('id as total').first();
+        const resultTotalData = totalData?.total || 0;
+        
+        if (Number(resultTotalData) > 500) {
+          return {
+            data: {
+              type: 'json'
+            }
+          }
+        } else {
+          limit = 0;
+        }
+      }
 
       const query = trx(`${this.tableName} as u`)
         .select([
