@@ -45,6 +45,7 @@ import { AkuntansiModule } from './modules/akuntansi/akuntansi.module';
 import { GlobalModule } from './modules/global/global.module';
 import { AkunpusatModule } from './modules/akunpusat/akunpusat.module';
 // import { KapalModule } from './modules/kapal/kapal.module';
+import { TypeAkuntansiModule } from './modules/type-akuntansi/type-akuntansi.module';
 
 @Module({
   imports: [
@@ -88,10 +89,10 @@ import { AkunpusatModule } from './modules/akunpusat/akunpusat.module';
 
     AkunpusatModule,
     GlobalModule,
-
     PelayaranModule,
     AkuntansiModule,
     // KapalModule,
+    TypeAkuntansiModule,
   ],
   controllers: [],
   providers: [RabbitmqService],

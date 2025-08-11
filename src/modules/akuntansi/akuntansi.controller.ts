@@ -66,7 +66,7 @@ export class AkuntansiController {
       query;
 
     const sortParams = {
-      sortBy: sortBy || 'title',
+      sortBy: sortBy || 'nama',
       sortDirection: sortDirection || 'asc',
     };
 
