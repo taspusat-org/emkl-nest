@@ -1,4 +1,9 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateRelasiDto } from './dto/create-relasi.dto';
 import { UpdateRelasiDto } from './dto/update-relasi.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
@@ -206,9 +211,7 @@ export class RelasiService {
       if (!existingData) {
         throw new Error('Relasi not found');
       }
-      const {
-        ...insertData
-      } = data;
+      const { ...insertData } = data;
 
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
@@ -237,7 +240,7 @@ export class RelasiService {
       return {
         updatedItem: {
           id,
-        }
+        },
       };
     } catch (error) {
       console.error('Error updating relasi:', error);
@@ -245,35 +248,35 @@ export class RelasiService {
     }
   }
 
-   async delete(id: number, trx: any, modifiedby: string) {
-      try {
-        const deletedData = await this.utilsService.lockAndDestroy(
-          id,
-          this.tableName,
-          'id',
-          trx,
-        );
-  
-        await this.logTrailService.create(
-          {
-            namatabel: this.tableName,
-            postingdari: 'DELETE RELASI',
-            idtrans: deletedData.id,
-            nobuktitrans: deletedData.id,
-            aksi: 'DELETE',
-            datajson: JSON.stringify(deletedData),
-            modifiedby: modifiedby,
-          },
-          trx,
-        );
-  
-        return { status: 200, message: 'Data deleted successfully', deletedData };
-      } catch (error) {
-        console.error('Error deleting data:', error);
-        if (error instanceof NotFoundException) {
-          throw error;
-        }
-        throw new InternalServerErrorException('Failed to delete data');
+  async delete(id: number, trx: any, modifiedby: string) {
+    try {
+      const deletedData = await this.utilsService.lockAndDestroy(
+        id,
+        this.tableName,
+        'id',
+        trx,
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE RELASI',
+          idtrans: deletedData.id,
+          nobuktitrans: deletedData.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedData),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+
+      return { status: 200, message: 'Data deleted successfully', deletedData };
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
       }
+      throw new InternalServerErrorException('Failed to delete data');
     }
+  }
 }

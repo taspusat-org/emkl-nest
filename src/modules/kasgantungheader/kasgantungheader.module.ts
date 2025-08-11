@@ -7,6 +7,7 @@ import { AuthModule } from '../auth/auth.module';
 import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 import { RunningNumberModule } from '../running-number/running-number.module';
 import { KasgantungdetailModule } from '../kasgantungdetail/kasgantungdetail.module';
+import { GlobalModule } from '../global/global.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { KasgantungdetailModule } from '../kasgantungdetail/kasgantungdetail.mod
     LogtrailModule,
     RunningNumberModule,
     KasgantungdetailModule,
+    GlobalModule,
   ],
   controllers: [KasgantungheaderController],
   providers: [KasgantungheaderService],

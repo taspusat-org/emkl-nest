@@ -162,7 +162,6 @@ export class PelayaranController {
     }
   }
 
-
   @UseGuards(AuthGuard)
   @Put(':id')
   //@PELAYARAN
@@ -216,7 +215,7 @@ export class PelayaranController {
       throw new InternalServerErrorException('Failed to delete menu');
     }
   }
-  
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const trx = await dbMssql.transaction();

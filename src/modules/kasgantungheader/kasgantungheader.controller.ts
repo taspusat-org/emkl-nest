@@ -11,6 +11,7 @@ import {
   UseGuards,
   Req,
   Put,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { KasgantungheaderService } from './kasgantungheader.service';
 import { CreateKasgantungheaderDto } from './dto/create-kasgantungheader.dto';
@@ -179,6 +180,27 @@ export class KasgantungheaderController {
       throw new Error(
         `Error deleting pengembaliankasgantungheader: ${error.message}`,
       );
+    }
+  }
+  @Post('check-validation')
+  @UseGuards(AuthGuard)
+  async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
+    const { aksi, value } = body;
+    const trx = await dbMssql.transaction();
+    const editedby = req.user?.user?.username;
+    try {
+      if (aksi === 'EDIT') {
+        const forceEdit = await this.kasgantungheaderService.checkValidasi(
+          aksi,
+          value.id,
+          editedby,
+          trx,
+        );
+        return forceEdit;
+      }
+    } catch (error) {
+      console.error('Error checking validation:', error);
+      throw new InternalServerErrorException('Failed to check validation');
     }
   }
 }

@@ -13,6 +13,7 @@ import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.service';
 import { KasgantungdetailService } from '../kasgantungdetail/kasgantungdetail.service';
+import { GlobalService } from '../global/global.service';
 
 @Injectable()
 export class KasgantungheaderService {
@@ -22,6 +23,7 @@ export class KasgantungheaderService {
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
     private readonly kasgantungdetailService: KasgantungdetailService,
+    private readonly globalService: GlobalService,
   ) {}
   private readonly tableName = 'kasgantungheader';
   async create(data: any, trx: any) {
@@ -665,6 +667,22 @@ export class KasgantungheaderService {
         throw error;
       }
       throw new InternalServerErrorException('Failed to delete data');
+    }
+  }
+  async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
+    try {
+      if (aksi === 'EDIT') {
+        const forceEdit = await this.globalService.forceEdit(
+          this.tableName,
+          value,
+          editedby,
+          trx,
+        );
+        console.log(forceEdit);
+      }
+    } catch (error) {
+      console.error('Error checking validation:', error);
+      throw new InternalServerErrorException('Failed to check validation');
     }
   }
 }
