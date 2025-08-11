@@ -43,6 +43,7 @@ import { PelayaranModule } from './modules/pelayaran/pelayaran.module';
 import { AkuntansiModule } from './modules/akuntansi/akuntansi.module';
 import { GlobalModule } from './modules/global/global.module';
 import { AkunpusatModule } from './modules/akunpusat/akunpusat.module';
+import { KapalModule } from './modules/kapal/kapal.module';
 
 @Module({
   imports: [
@@ -87,6 +88,8 @@ import { AkunpusatModule } from './modules/akunpusat/akunpusat.module';
     GlobalModule,
 
     PelayaranModule,
+    AkuntansiModule,
+    KapalModule,
   ],
   controllers: [],
   providers: [RabbitmqService],
