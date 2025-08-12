@@ -15,15 +15,16 @@ import * as path from 'path';
 import { Workbook } from 'exceljs';
 
 @Injectable()
-export class ContainerService {
-  private readonly tableName = 'container';
+export class TujuankapalService {
+  private readonly tableName = 'tujuankapal';
+
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
 
-  async create(createContainerDto: any, trx: any) {
+  async create(createTujuankapalDto: any, trx: any) {
     try {
       const {
         sortBy,
@@ -33,30 +34,28 @@ export class ContainerService {
         page,
         limit,
         nama,
+        cabang_id,
         keterangan,
         statusaktif,
         modifiedby,
         created_at,
         updated_at,
         info,
-      } = createContainerDto;
-
+      } = createTujuankapalDto;
       const insertData = {
         nama: nama ? nama.toUpperCase() : null,
         keterangan: keterangan ? keterangan.toUpperCase() : null,
+        cabang_id: cabang_id,
         statusaktif: statusaktif,
         modifiedby: modifiedby,
         created_at: created_at || this.utilsService.getTime(),
         updated_at: updated_at || this.utilsService.getTime(),
       };
-
       // Insert the new item
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
-
       const newItem = insertedItems[0]; // Get the inserted item
-
       const { data, pagination } = await this.findAll(
         {
           search,
@@ -71,19 +70,16 @@ export class ContainerService {
       if (itemIndex === -1) {
         itemIndex = 0;
       }
-
       // Optionally, you can find the page number or other info if needed
       const pageNumber = pagination?.currentPage;
-
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(newItem),
       );
-
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'ADD CONTAINER',
+          postingdari: 'ADD TUJUANKAPAL',
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -92,7 +88,6 @@ export class ContainerService {
         },
         trx,
       );
-
       return {
         newItem,
         pageNumber,
@@ -132,6 +127,8 @@ export class ContainerService {
           'u.id as id',
           'u.nama',
           'u.keterangan',
+          'u.cabang_id',
+          'c.nama as namacabang',
           'u.statusaktif',
           'u.modifiedby',
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
@@ -139,6 +136,7 @@ export class ContainerService {
           'p.memo',
           'p.text',
         ])
+        .leftJoin('cabang as c', 'u.cabang_id', 'c.id')
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id');
 
       if (limit > 0) {
@@ -153,6 +151,7 @@ export class ContainerService {
           builder
             .orWhere('u.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('c.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('p.memo', 'like', `%${sanitizedValue}%`)
             .orWhere('p.text', 'like', `%${sanitizedValue}%`);
         });
@@ -228,6 +227,7 @@ export class ContainerService {
           'm.id as id',
           'm.nama',
           'm.keterangan',
+          'm.cabang_id',
           'm.statusaktif',
           'm.modifiedby',
           dbMssql.raw(
@@ -251,6 +251,7 @@ export class ContainerService {
       throw new Error('Failed to fetch data');
     }
   }
+
   async getById(id: number, trx: any) {
     try {
       const result = await trx(this.tableName).where('id', id).first();
@@ -271,7 +272,7 @@ export class ContainerService {
       const existingData = await trx(this.tableName).where('id', id).first();
 
       if (!existingData) {
-        throw new Error('Container not found');
+        throw new Error('Tujuan Kapal not found');
       }
 
       const {
@@ -281,6 +282,7 @@ export class ContainerService {
         search,
         page,
         limit,
+        namacabang,
         statusaktif_nama,
         ...insertData
       } = data;
@@ -329,7 +331,7 @@ export class ContainerService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'EDIT CONTAINER',
+          postingdari: 'EDIT TUJUAN KAPAL',
           idtrans: id,
           nobuktitrans: id,
           aksi: 'EDIT',
@@ -348,8 +350,8 @@ export class ContainerService {
         itemIndex,
       };
     } catch (error) {
-      console.error('Error updating container:', error);
-      throw new Error('Failed to update container');
+      console.error('Error updating Tujuan Kapal:', error);
+      throw new Error('Failed to update Tujuan Kapal');
     }
   }
 
@@ -365,7 +367,7 @@ export class ContainerService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE CONTAINER',
+          postingdari: 'DELETE TUJUAN KAPAL',
           idtrans: deletedData.id,
           nobuktitrans: deletedData.id,
           aksi: 'DELETE',
@@ -393,7 +395,7 @@ export class ContainerService {
     worksheet.mergeCells('A2:I2');
     worksheet.mergeCells('A3:I3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
-    worksheet.getCell('A2').value = 'LAPORAN CONTAINER';
+    worksheet.getCell('A2').value = 'LAPORAN TUJUAN KAPAL';
     worksheet.getCell('A3').value = 'Data Export';
     worksheet.getCell('A1').alignment = {
       horizontal: 'center',
@@ -415,6 +417,7 @@ export class ContainerService {
       'NO.',
       'NAMA',
       'KETERANGAN',
+      'NAMA CABANG',
       'STATUS AKTIF',
       'MODIFIED BY',
       'CREATED AT',
@@ -443,10 +446,11 @@ export class ContainerService {
       worksheet.getCell(currentRow, 1).value = rowIndex + 1;
       worksheet.getCell(currentRow, 2).value = row.nama;
       worksheet.getCell(currentRow, 3).value = row.keterangan;
-      worksheet.getCell(currentRow, 4).value = row.text;
-      worksheet.getCell(currentRow, 5).value = row.modifiedby;
-      worksheet.getCell(currentRow, 6).value = row.created_at;
-      worksheet.getCell(currentRow, 7).value = row.updated_at;
+      worksheet.getCell(currentRow, 4).value = row.namacabang;
+      worksheet.getCell(currentRow, 5).value = row.statusaktif;
+      worksheet.getCell(currentRow, 6).value = row.modifiedby;
+      worksheet.getCell(currentRow, 7).value = row.created_at;
+      worksheet.getCell(currentRow, 8).value = row.updated_at;
 
       for (let col = 1; col <= headers.length; col++) {
         const cell = worksheet.getCell(currentRow, col);
@@ -461,12 +465,13 @@ export class ContainerService {
     });
 
     worksheet.getColumn(1).width = 10;
-    worksheet.getColumn(2).width = 30;
+    worksheet.getColumn(2).width = 10;
     worksheet.getColumn(3).width = 30;
-    worksheet.getColumn(4).width = 30;
-    worksheet.getColumn(5).width = 15;
-    worksheet.getColumn(6).width = 20;
+    worksheet.getColumn(4).width = 20;
+    worksheet.getColumn(5).width = 30;
+    worksheet.getColumn(6).width = 15;
     worksheet.getColumn(7).width = 20;
+    worksheet.getColumn(8).width = 20;
 
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
@@ -475,7 +480,7 @@ export class ContainerService {
 
     const tempFilePath = path.resolve(
       tempDir,
-      `laporan_container${Date.now()}.xlsx`,
+      `laporan_tujuankapal${Date.now()}.xlsx`,
     );
     await workbook.xlsx.writeFile(tempFilePath);
 

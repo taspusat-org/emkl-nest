@@ -1,8 +1,12 @@
 import { z } from 'zod';
 
-export const UpdateContainerSchema = z.object({
+export const UpdateTujuankapalSchema = z.object({
   nama: z.string(),
   keterangan: z.string(),
+  cabang_id: z
+    .number()
+    .int({ message: 'statusaktif must be an integer' })
+    .min(0, { message: 'statusaktif must be a non-negative integer' }),
   statusaktif: z
     .number()
     .int({ message: 'statusaktif must be an integer' })
@@ -11,4 +15,4 @@ export const UpdateContainerSchema = z.object({
   modifiedby: z.string().nullable().optional(),
 });
 
-export type UpdateContainerDto = z.infer<typeof UpdateContainerSchema>;
+export type UpdateTujuankapalDto = z.infer<typeof UpdateTujuankapalSchema>;
