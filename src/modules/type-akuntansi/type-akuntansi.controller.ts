@@ -138,6 +138,7 @@ export class TypeAkuntansiController {
 
   @UseGuards(AuthGuard)
   @Put(':id')
+  //@TYPE-AKUNTANSI
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateTypeAkuntansiSchema))
@@ -220,6 +221,30 @@ export class TypeAkuntansiController {
       }
 
       throw new InternalServerErrorException('Failed to delete data');
+    }
+  }
+
+  @Post('check-validation')
+  @UseGuards(AuthGuard)
+  async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
+    const { aksi, value } = body;
+    console.log('body', body);
+    const trx = await dbMssql.transaction();
+    const editedby = req.user?.user?.username;
+    
+    try {
+      const forceEdit = await this.typeAkuntansiService.checkValidasi(
+        aksi,
+        value,
+        editedby,
+        trx,
+      );
+      trx.commit();
+      return forceEdit;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error checking validation:', error);
+      throw new InternalServerErrorException('Failed to check validation');
     }
   }
 
