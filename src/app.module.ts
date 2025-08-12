@@ -40,6 +40,7 @@ import { BankModule } from './modules/bank/bank.module';
 import { SseModule } from './modules/sse/sse.module';
 import { ContainerModule } from './modules/container/container.module';
 import { PelayaranModule } from './modules/pelayaran/pelayaran.module';
+import { JenisMuatanModule } from './modules/jenismuatan/jenismuatan.module';
 
 import { AkuntansiModule } from './modules/akuntansi/akuntansi.module';
 import { GlobalModule } from './modules/global/global.module';
@@ -90,6 +91,7 @@ import { TypeAkuntansiModule } from './modules/type-akuntansi/type-akuntansi.mod
     AkunpusatModule,
     GlobalModule,
     PelayaranModule,
+    JenisMuatanModule,
     AkuntansiModule,
     // KapalModule,
     TypeAkuntansiModule,
