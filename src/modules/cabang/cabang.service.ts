@@ -154,11 +154,8 @@ export class CabangService {
           'c.nama as namacabang',
           'c.keterangan',
           'c.statusaktif',
-          'c.periode',
           'p.memo',
           'p.text',
-          'p2.text as periode_text',
-          'p3.text as minuscuti_text',
           'c.modifiedby',
           dbMssql.raw(
             "FORMAT(c.created_at, 'dd-MM-yyyy HH:mm:ss') AS created_at",
@@ -167,9 +164,7 @@ export class CabangService {
             "FORMAT(c.updated_at, 'dd-MM-yyyy HH:mm:ss') AS updated_at",
           ),
         ])
-        .leftJoin('parameter as p', 'c.statusaktif', 'p.id')
-        .leftJoin('parameter as p3', 'c.minuscuti', 'p3.id')
-        .leftJoin('parameter as p2', 'c.periode', 'p2.id');
+        .leftJoin('parameter as p', 'c.statusaktif', 'p.id');
 
       if (limit > 0) {
         const offset = (page - 1) * limit;

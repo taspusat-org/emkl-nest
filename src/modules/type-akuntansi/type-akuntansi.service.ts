@@ -11,6 +11,7 @@ import * as path from 'path';
 import { Workbook } from 'exceljs';
 import { dbMssql } from 'src/common/utils/db';
 import { UtilsService } from 'src/utils/utils.service';
+import { GlobalService } from '../global/global.service';
 import { RedisService } from 'src/common/redis/redis.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
@@ -22,6 +23,7 @@ export class TypeAkuntansiService {
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilService: UtilsService,
+    private readonly globalService: GlobalService,
     private readonly logTrailService: LogtrailService,
   ) {}
 
@@ -470,6 +472,33 @@ export class TypeAkuntansiService {
         throw error;
       }
       throw new InternalServerErrorException('Failed to delete data');
+    }
+  }
+  
+  async checkValidasi(aksi: string, value: any, editedby: any, trx: any){
+    try {
+      if (aksi === 'EDIT') {
+        const forceEdit = await this.globalService.forceEdit(
+          this.tableName,
+          value,
+          editedby,
+          trx
+        )
+
+        return forceEdit;
+      } else if (aksi === 'DELETE') {
+        const validasi = await this.globalService.checkUsed(
+          'akunpusat',
+          'type_id',
+          value,
+          trx
+        )
+
+        return validasi;
+      }
+    } catch (error) {
+      console.error('Error di checkValidasi:', error);
+      throw new InternalServerErrorException('Failed to check validation');
     }
   }
 

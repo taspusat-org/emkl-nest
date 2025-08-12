@@ -47,7 +47,11 @@ import { GlobalModule } from './modules/global/global.module';
 import { AkunpusatModule } from './modules/akunpusat/akunpusat.module';
 // import { KapalModule } from './modules/kapal/kapal.module';
 import { TypeAkuntansiModule } from './modules/type-akuntansi/type-akuntansi.module';
+
 import { JenisOrderanModule } from './modules/jenisorderan/jenisorderan.module';
+
+import { TujuankapalModule } from './modules/tujuankapal/tujuankapal.module';
+
 
 @Module({
   imports: [
@@ -97,6 +101,8 @@ import { JenisOrderanModule } from './modules/jenisorderan/jenisorderan.module';
     // KapalModule,
     TypeAkuntansiModule,
     JenisOrderanModule
+    TujuankapalModule,
+
   ],
   controllers: [],
   providers: [RabbitmqService],
