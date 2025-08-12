@@ -16,17 +16,17 @@ import {
   InternalServerErrorException,
   Res,
 } from '@nestjs/common';
-import { ContainerService } from './container.service';
+import { TujuankapalService } from './tujuankapal.service';
 import {
-  CreateContainerDto,
-  CreateContainerSchema,
-} from './dto/create-container.dto';
+  CreateTujuankapalDto,
+  CreateTujuankapalSchema,
+} from './dto/create-tujuankapal.dto';
 import { dbMssql } from 'src/common/utils/db';
 import { AuthGuard } from '../auth/auth.guard';
 import {
-  UpdateContainerDto,
-  UpdateContainerSchema,
-} from './dto/update-container.dto';
+  UpdateTujuankapalDto,
+  UpdateTujuankapalSchema,
+} from './dto/update-tujuankapal.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
   FindAllDto,
@@ -38,42 +38,41 @@ import * as fs from 'fs';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
 import { isRecordExist } from 'src/utils/utils.service';
 
-@Controller('container')
-export class ContainerController {
-  constructor(private readonly containerService: ContainerService) {}
+@Controller('tujuankapal')
+export class TujuankapalController {
+  constructor(private readonly tujuankapalService: TujuankapalService) {}
 
   @UseGuards(AuthGuard)
   @Post()
-  //@CONTAINER
+  //@TUJUANKAPAL
   async create(
     @Body(
-      new ZodValidationPipe(CreateContainerSchema),
+      new ZodValidationPipe(CreateTujuankapalSchema),
       KeyboardOnlyValidationPipe,
     )
-    data: CreateContainerDto,
+    data: CreateTujuankapalDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const typeContainerExist = await isRecordExist(
+      const typeakuntansiExist = await isRecordExist(
         'nama',
         data.nama,
-        'container',
+        'typeakuntansi',
       );
 
-      if (typeContainerExist) {
+      if (typeakuntansiExist) {
         throw new HttpException(
           {
             statusCode: HttpStatus.BAD_REQUEST,
-            message: `Type Container dengan nama ${data.nama} sudah ada`,
+            message: `Type Tujuan Kapal dengan nama ${data.nama} sudah ada`,
           },
           HttpStatus.BAD_REQUEST,
         );
       }
-
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.containerService.create(data, trx);
+      const result = await this.tujuankapalService.create(data, trx);
 
       await trx.commit();
       return result;
@@ -81,6 +80,7 @@ export class ContainerController {
       await trx.rollback();
       console.error('Error while creating type akuntansi in controller', error);
 
+      // Ensure any other errors get caught and returned
       if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
       }
@@ -98,11 +98,11 @@ export class ContainerController {
 
   @Post('report-byselect')
   async findAllByIds(@Body() ids: { id: number }[]) {
-    return this.containerService.findAllByIds(ids);
+    return this.tujuankapalService.findAllByIds(ids);
   }
 
   @Get()
-  //@CONTAINER
+  //@TUJUANKAPAL
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
@@ -127,13 +127,13 @@ export class ContainerController {
     };
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.containerService.findAll(params, trx);
+      const result = await this.tujuankapalService.findAll(params, trx);
       trx.commit();
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error fetching all containers:', error);
-      throw new InternalServerErrorException('Failed to fetch containers');
+      console.error('Error fetching all Tujuan Kapal:', error);
+      throw new InternalServerErrorException('Failed to fetch Tujuan Kapal');
     }
   }
 
@@ -146,7 +146,7 @@ export class ContainerController {
         throw new Error('Data is not an array or is undefined.');
       }
 
-      const tempFilePath = await this.containerService.exportToExcel(data);
+      const tempFilePath = await this.tujuankapalService.exportToExcel(data);
 
       const fileStream = fs.createReadStream(tempFilePath);
 
@@ -156,7 +156,7 @@ export class ContainerController {
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_container.xlsx"',
+        'attachment; filename="laporan_tujuankapal.xlsx"',
       );
 
       fileStream.pipe(res);
@@ -172,13 +172,13 @@ export class ContainerController {
     @Res() res: Response,
   ) {
     try {
-      const data = await this.containerService.findAllByIds(ids);
+      const data = await this.tujuankapalService.findAllByIds(ids);
 
       if (!Array.isArray(data)) {
         throw new Error('Data is not an array or is undefined.');
       }
 
-      const tempFilePath = await this.containerService.exportToExcel(data);
+      const tempFilePath = await this.tujuankapalService.exportToExcel(data);
 
       const fileStream = fs.createReadStream(tempFilePath);
 
@@ -188,7 +188,7 @@ export class ContainerController {
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_container.xlsx"',
+        'attachment; filename="laporan_tujuankapal.xlsx"',
       );
 
       fileStream.pipe(res);
@@ -202,7 +202,7 @@ export class ContainerController {
   async findOne(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.containerService.getById(+id, trx);
+      const result = await this.tujuankapalService.getById(+id, trx);
       if (!result) {
         throw new Error('Data not found');
       }
@@ -219,35 +219,35 @@ export class ContainerController {
 
   @UseGuards(AuthGuard)
   @Put('update/:id')
-  //@CONTAINER
+  //@TUJUANKAPAL
   async update(
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateContainerSchema))
-    data: UpdateContainerDto,
+    @Body(new ZodValidationPipe(UpdateTujuankapalSchema))
+    data: UpdateTujuankapalDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.containerService.update(+id, data, trx);
+      const result = await this.tujuankapalService.update(+id, data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error updating container in controller:', error);
-      throw new Error('Failed to update container');
+      console.error('Error updating Tujuan Kapal in controller:', error);
+      throw new Error('Failed to update Tujuan Kapal');
     }
   }
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  //@CONTAINER
+  //@TUJUANKAPAL
   async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.containerService.delete(
+      const result = await this.tujuankapalService.delete(
         +id,
         trx,
         req.user?.user?.username,
