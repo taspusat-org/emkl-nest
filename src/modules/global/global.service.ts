@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { CreateGlobalDto } from './dto/create-global.dto';
 import { UpdateGlobalDto } from './dto/update-global.dto';
 import { dbMssql } from 'src/common/utils/db';
@@ -6,6 +6,7 @@ import { UtilsService } from 'src/utils/utils.service';
 import { tableToServiceMap, ValidationCheck, ValidationResult } from '.';
 import { ModuleRef } from '@nestjs/core';
 import { DateTime } from 'luxon';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class GlobalService {
@@ -154,7 +155,8 @@ export class GlobalService {
         // timpa lock lama
         try {
           await trx('locks')
-            .where({ table: tableName, tableid: tableId })
+            .where('table', tableName)
+            .andWhere('tableid', tableId)
             .update({
               editing_by: editingBy,
               editing_at: utcNowIso, // <-- update pakai UTC ISO
@@ -196,6 +198,77 @@ export class GlobalService {
     }
   }
 
+  async openForceEdit(data: any, trx: any) {
+    const now = new Date();
+    const utcNowIso = now.toISOString(); // Save this to DB
+    const { username, password, tableName, tableId, editingBy } = data;
+
+    // Get the role of "ATASAN"
+    const atasanRole = await trx('role')
+      .select('id')
+      .where({ rolename: 'ATASAN' })
+      .first();
+
+    // Get the user details from the users table
+    const user = await trx('users')
+      .select(
+        'id',
+        'username',
+        'name',
+        'password',
+        'email',
+        'statusaktif',
+        'modifiedby',
+        'created_at',
+        'updated_at',
+      )
+      .where({ username })
+      .first();
+
+    // Check if the password is correct
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Username atau password salah');
+    }
+
+    // Check if the user has the "ATASAN" role
+    const checkAtasan = await trx('userrole')
+      .select('id')
+      .where({ user_id: user.id, role_id: atasanRole.id })
+      .first();
+
+    if (!checkAtasan) {
+      return {
+        status: 'failed',
+        message: 'Terjadi kesalahan saat memverifikasi role atasan',
+      };
+    }
+
+    // Ensure that the column names are correct (e.g., 'table' => 'table_name' if necessary)
+    const updatedRows = await trx('locks')
+      .where('table', tableName) // Check if 'table' column exists or use the correct column name
+      .andWhere('tableid', tableId) // Check if 'tableid' column exists or use the correct column name
+      .update({
+        editing_by: editingBy,
+        editing_at: utcNowIso,
+        info: `Data pada table ${tableName} dengan ID ${tableId} sedang diedit oleh ${editingBy}.`,
+        modifiedby: editingBy,
+        updated_at: utcNowIso,
+      });
+
+    // Check if any rows were updated
+    if (updatedRows === 0) {
+      return {
+        status: 'failed',
+        message: `Data dengan ID ${tableId} tidak ditemukan atau tidak dapat diupdate.`,
+      };
+    }
+
+    return {
+      status: 'success',
+      message: `Lock berhasil diperbarui oleh ${editingBy}.`,
+    };
+  }
   findAll() {
     return `This action returns all global`;
   }

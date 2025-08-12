@@ -231,7 +231,7 @@ export class TypeAkuntansiController {
     console.log('body', body);
     const trx = await dbMssql.transaction();
     const editedby = req.user?.user?.username;
-    
+
     try {
       const forceEdit = await this.typeAkuntansiService.checkValidasi(
         aksi,

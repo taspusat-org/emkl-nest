@@ -48,10 +48,7 @@ export class JenisOrderanService {
         .insert(insertData)
         .returning('*');
 
-      
-     
       const newItem = insertedItems[0];
-
 
       const { data, pagination } = await this.findAll(
         {
@@ -166,7 +163,11 @@ export class JenisOrderanService {
             } else if (key === 'text' || key === 'memo') {
               query.andWhere(`par.${key}`, '=', sanitizedValue);
             } else {
-              query.andWhere(`jenisorderan.${key}`, 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                `jenisorderan.${key}`,
+                'like',
+                `%${sanitizedValue}%`,
+              );
             }
           }
         }
@@ -313,7 +314,7 @@ export class JenisOrderanService {
       if (itemIndex === -1) {
         throw new Error('Updated item not found in all items');
       }
-     
+
       const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
       const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;
 
@@ -373,7 +374,6 @@ export class JenisOrderanService {
         },
         trx,
       );
-      
 
       return { status: 200, message: 'Data deleted successfully', deletedData };
     } catch (error) {

@@ -38,7 +38,7 @@ import { JenisOrderanService } from './jenisorderan.service';
 
 @Controller('JenisOrderan')
 export class JenisOrderanController {
-  constructor(private readonly JenisOrderanService : JenisOrderanService) {}
+  constructor(private readonly JenisOrderanService: JenisOrderanService) {}
 
   @UseGuards(AuthGuard)
   @Post()

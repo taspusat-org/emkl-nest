@@ -52,7 +52,6 @@ import { JenisOrderanModule } from './modules/jenisorderan/jenisorderan.module';
 
 import { TujuankapalModule } from './modules/tujuankapal/tujuankapal.module';
 
-
 @Module({
   imports: [
     CacheModule.register(),
@@ -100,9 +99,8 @@ import { TujuankapalModule } from './modules/tujuankapal/tujuankapal.module';
     AkuntansiModule,
     // KapalModule,
     TypeAkuntansiModule,
-    JenisOrderanModule
+    JenisOrderanModule,
     TujuankapalModule,
-
   ],
   controllers: [],
   providers: [RabbitmqService],
