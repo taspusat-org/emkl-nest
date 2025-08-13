@@ -51,6 +51,7 @@ import { TypeAkuntansiModule } from './modules/type-akuntansi/type-akuntansi.mod
 import { JenisOrderanModule } from './modules/jenisorderan/jenisorderan.module';
 
 import { TujuankapalModule } from './modules/tujuankapal/tujuankapal.module';
+import { LocksModule } from './modules/locks/locks.module';
 
 @Module({
   imports: [
@@ -101,6 +102,7 @@ import { TujuankapalModule } from './modules/tujuankapal/tujuankapal.module';
     TypeAkuntansiModule,
     JenisOrderanModule,
     TujuankapalModule,
+    LocksModule,
   ],
   controllers: [],
   providers: [RabbitmqService],

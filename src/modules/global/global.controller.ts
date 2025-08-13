@@ -63,25 +63,25 @@ export class GlobalController {
   //     };
   //   }
   // }
-  @Post('open-forceedit')
-  async openForceEdit(@Body() data: any) {
-    console.log('data', data);
-    // Assuming trx is some form of transaction handling passed from TypeORM or a similar DB library.
-    // In TypeORM you can use the QueryBuilder or use transaction API if needed.
-    const trx = await dbMssql.transaction();
-    try {
-      const result = await this.globalService.openForceEdit(data, trx);
-      await trx.commit();
-      return {
-        statusCode: HttpStatus.OK,
-        message: 'Force edit opened successfully.',
-        data: result,
-      };
-    } catch (error) {
-      await trx.rollback();
-      throw new Error(`Error: ${error.message}`);
-    }
-  }
+  // @Post('open-forceedit')
+  // async openForceEdit(@Body() data: any) {
+  //   console.log('data', data);
+  //   // Assuming trx is some form of transaction handling passed from TypeORM or a similar DB library.
+  //   // In TypeORM you can use the QueryBuilder or use transaction API if needed.
+  //   const trx = await dbMssql.transaction();
+  //   try {
+  //     const result = await this.globalService.openForceEdit(data, trx);
+  //     await trx.commit();
+  //     return {
+  //       statusCode: HttpStatus.OK,
+  //       message: 'Force edit opened successfully.',
+  //       data: result,
+  //     };
+  //   } catch (error) {
+  //     await trx.rollback();
+  //     throw new Error(`Error: ${error.message}`);
+  //   }
+  // }
   @Get()
   findAll() {
     return this.globalService.findAll();

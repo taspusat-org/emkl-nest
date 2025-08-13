@@ -14,6 +14,7 @@ import { RunningNumberService } from '../running-number/running-number.service';
 import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.service';
 import { KasgantungdetailService } from '../kasgantungdetail/kasgantungdetail.service';
 import { GlobalService } from '../global/global.service';
+import { LocksService } from '../locks/locks.service';
 
 @Injectable()
 export class KasgantungheaderService {
@@ -23,6 +24,7 @@ export class KasgantungheaderService {
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
     private readonly kasgantungdetailService: KasgantungdetailService,
+    private readonly locksService: LocksService,
     private readonly globalService: GlobalService,
   ) {}
   private readonly tableName = 'kasgantungheader';
@@ -672,7 +674,7 @@ export class KasgantungheaderService {
   async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
     try {
       if (aksi === 'EDIT') {
-        const forceEdit = await this.globalService.forceEdit(
+        const forceEdit = await this.locksService.forceEdit(
           this.tableName,
           value,
           editedby,

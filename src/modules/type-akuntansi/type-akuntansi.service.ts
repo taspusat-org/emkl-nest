@@ -15,6 +15,7 @@ import { GlobalService } from '../global/global.service';
 import { RedisService } from 'src/common/redis/redis.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { LocksService } from '../locks/locks.service';
 
 @Injectable()
 export class TypeAkuntansiService {
@@ -24,6 +25,7 @@ export class TypeAkuntansiService {
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilService: UtilsService,
     private readonly globalService: GlobalService,
+    private readonly locksService: LocksService,
     private readonly logTrailService: LogtrailService,
   ) {}
 
@@ -478,7 +480,7 @@ export class TypeAkuntansiService {
   async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
     try {
       if (aksi === 'EDIT') {
-        const forceEdit = await this.globalService.forceEdit(
+        const forceEdit = await this.locksService.forceEdit(
           this.tableName,
           value,
           editedby,
