@@ -474,16 +474,16 @@ export class TypeAkuntansiService {
       throw new InternalServerErrorException('Failed to delete data');
     }
   }
-  
-  async checkValidasi(aksi: string, value: any, editedby: any, trx: any){
+
+  async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
     try {
       if (aksi === 'EDIT') {
         const forceEdit = await this.globalService.forceEdit(
           this.tableName,
           value,
           editedby,
-          trx
-        )
+          trx,
+        );
 
         return forceEdit;
       } else if (aksi === 'DELETE') {
@@ -491,8 +491,8 @@ export class TypeAkuntansiService {
           'akunpusat',
           'type_id',
           value,
-          trx
-        )
+          trx,
+        );
 
         return validasi;
       }

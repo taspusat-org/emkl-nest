@@ -8,13 +8,7 @@ import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 import { TypeAkuntansiController } from './type-akuntansi.controller';
 
 @Module({
-  imports: [
-    RedisModule, 
-    UtilsModule, 
-    AuthModule, 
-    LogtrailModule,
-    GlobalModule
-  ],
+  imports: [RedisModule, UtilsModule, AuthModule, LogtrailModule, GlobalModule],
   controllers: [TypeAkuntansiController],
   providers: [TypeAkuntansiService],
 })
