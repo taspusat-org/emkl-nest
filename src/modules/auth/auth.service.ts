@@ -28,6 +28,8 @@ export class AuthService {
     users: Users & { cabang_nama: string };
     accessTokenExpiresIn: number;
     accessTokenExpires: Date;
+    refreshTokenExpiresIn: number; // Tambahkan refreshTokenExpiresIn
+    refreshTokenExpires: Date; // Tambahkan refreshTokenExpires
   }> {
     const { username, password } = credentials;
 
@@ -41,6 +43,7 @@ export class AuthService {
         'email',
         'statusaktif',
         'modifiedby',
+        'cabang_id',
         'created_at',
         'updated_at',
       )
@@ -80,18 +83,26 @@ export class AuthService {
     const accessTokenExpires = new Date(
       Date.now() + accessTokenExpiresIn * 1000,
     );
+    const refreshTokenExpiresIn = 60 * 60 * 8; // 8 hours
+    const refreshTokenExpires = new Date(
+      Date.now() + refreshTokenExpiresIn * 1000,
+    ); // Set expiration for 8 hours
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: accessTokenExpiresIn,
     });
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const refreshToken = this.jwtService.sign(payload, {
+      expiresIn: refreshTokenExpiresIn,
+    });
 
     return {
       accessToken,
       refreshToken,
-      cabang_id: '1',
+      cabang_id: user.cabang_id,
       users: userWithoutPassword,
       accessTokenExpiresIn,
       accessTokenExpires,
+      refreshTokenExpiresIn, // Return the refresh token expiration time
+      refreshTokenExpires, // Return the refresh token expiration date
     };
   }
 
@@ -118,13 +129,16 @@ export class AuthService {
     users: Users & { cabang_nama: string };
     accessTokenExpiresIn: number;
     accessTokenExpires: Date;
+    refreshTokenExpiresIn: number; // Tambahkan refreshTokenExpiresIn
+    refreshTokenExpires: Date; // Tambahkan refreshTokenExpires
   }> {
     try {
       // Decode the refresh token
       const decoded = this.jwtService.verify(oldRefreshToken);
-
+      console.log('decoded', decoded, decoded.sub);
       // Check if the refresh token is still valid
       if (!decoded || !decoded.sub) {
+        console.log('masuk');
         throw new UnauthorizedException('Refresh token tidak valid');
       }
 
@@ -138,7 +152,7 @@ export class AuthService {
           'email',
           'statusaktif',
           'modifiedby',
-          'karyawan_id',
+          'cabang_id',
           'created_at',
           'updated_at',
         )
@@ -149,26 +163,16 @@ export class AuthService {
         throw new UnauthorizedException('User tidak ditemukan');
       }
 
-      const dataKaryawan = await this.utilsService.fetchKaryawanByUserId(
-        user.id,
-      );
-
-      const roles = await dbMssql('userrole')
-        .where({ user_id: user.id })
-        .pluck('role_id');
-
       // Remove password and include cabang_nama in the returned user object
       const { password: _, ...restUser } = user;
       const userWithoutPassword: Users & { cabang_nama: string } = {
         ...restUser,
-        cabang_nama: dataKaryawan.cabang_nama,
       };
 
       // Prepare JWT payload
       const payload = {
         sub: user.id,
         user: userWithoutPassword,
-        cabang_id: dataKaryawan.cabang_id,
       };
 
       const accessTokenExpiresIn = 7200; // 2 hours
@@ -180,18 +184,26 @@ export class AuthService {
       const accessToken = this.jwtService.sign(payload, {
         expiresIn: accessTokenExpiresIn,
       });
-
-      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+      const refreshTokenExpiresIn = 60 * 60 * 8; // 8 hours
+      const refreshTokenExpires = new Date(
+        Date.now() + refreshTokenExpiresIn * 1000,
+      ); // Set expiration for 8 hours
+      const refreshToken = this.jwtService.sign(payload, {
+        expiresIn: refreshTokenExpiresIn,
+      });
 
       return {
         accessToken,
         refreshToken,
-        cabang_id: dataKaryawan.cabang_id,
+        cabang_id: user.cabang_id,
         users: userWithoutPassword,
         accessTokenExpiresIn,
         accessTokenExpires,
+        refreshTokenExpiresIn, // Return the refresh token expiration time
+        refreshTokenExpires, // Return the refresh token expiration date
       };
     } catch (e) {
+      console.error('Error refreshing token:', e);
       throw new UnauthorizedException('Refresh token tidak valid');
     }
   }

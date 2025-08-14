@@ -203,7 +203,7 @@ export class KasgantungdetailService {
         nobuktitrans: id,
         aksi: 'EDIT',
         datajson: JSON.stringify(finalData),
-        modifiedby: 'admin',
+        modifiedby: details[0].modifiedby || 'unknown',
       },
       trx,
     );
