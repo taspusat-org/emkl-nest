@@ -49,6 +49,7 @@ import { AkunpusatModule } from './modules/akunpusat/akunpusat.module';
 import { TypeAkuntansiModule } from './modules/type-akuntansi/type-akuntansi.module';
 
 import { JenisOrderanModule } from './modules/jenisorderan/jenisorderan.module';
+import { DaftarBankModule } from './modules/daftarbank/daftarbank.module';
 
 import { TujuankapalModule } from './modules/tujuankapal/tujuankapal.module';
 import { LocksModule } from './modules/locks/locks.module';
@@ -101,6 +102,7 @@ import { LocksModule } from './modules/locks/locks.module';
     // KapalModule,
     TypeAkuntansiModule,
     JenisOrderanModule,
+    DaftarBankModule,
     TujuankapalModule,
     LocksModule,
   ],
