@@ -6,7 +6,7 @@ export const CreatePelayaranSchema = z.object({
     .trim()
     .min(1, { message: 'Nama Pelayaran Wajib Diisi' })
     .max(255),
-  keterangan: z.string().trim().min(1, { message: 'Keterangan Wajib Diisi' }),
+  keterangan: z.string().trim().nullable().optional(),
   statusaktif: z
     .number()
     .int({ message: 'Status Aktif Wajib Angka' })

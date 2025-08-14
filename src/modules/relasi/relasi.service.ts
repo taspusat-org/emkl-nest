@@ -79,27 +79,43 @@ export class RelasiService {
       }
 
       // build query
-      const query = trx(`${this.tableName} as r`).select([
-        'r.id',
-        'r.statusrelasi',
-        'r.nama',
-        'r.coagiro',
-        'r.coapiutang',
-        'r.coahutang',
-        'r.statustitip',
-        'r.titipcabang_id',
-        'r.alamat',
-        'r.npwp',
-        'r.namapajak',
-        'r.alamatpajak',
-        'r.statusaktif',
-        'r.info',
-        'r.modifiedby',
-        'r.editing_by',
-        trx.raw("FORMAT(r.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
-        trx.raw("FORMAT(r.created_at,  'dd-MM-yyyy HH:mm:ss') as created_at"),
-        trx.raw("FORMAT(r.updated_at,  'dd-MM-yyyy HH:mm:ss') as updated_at"),
-      ]);
+      const query = trx(`${this.tableName} as r`)
+        .select([
+          'r.id',
+          'r.statusrelasi',
+          'r.nama',
+          'r.coagiro',
+          'r.coapiutang',
+          'r.coahutang',
+          'r.statustitip',
+          'r.titipcabang_id',
+          'r.alamat',
+          'r.npwp',
+          'r.namapajak',
+          'r.alamatpajak',
+          'r.statusaktif',
+          'r.info',
+          'r.modifiedby',
+          'r.editing_by',
+          trx.raw("FORMAT(r.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
+          trx.raw("FORMAT(r.created_at,  'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(r.updated_at,  'dd-MM-yyyy HH:mm:ss') as updated_at"),
+          'statusrelasi.text as statusrelasi_text',
+          'statusrelasi.memo as statusrelasi_memo',
+          'statustitip.text as statustitip_text',
+          'statustitip.memo as statustitip_memo',
+          'statusaktif.text as statusaktif_text',
+          'statusaktif.memo as statusaktif_memo',
+          'cabang.nama as titipcabang',
+        ])
+        .leftJoin(
+          'parameter as statusrelasi',
+          'r.statusrelasi',
+          'statusrelasi.id',
+        )
+        .leftJoin('parameter as statustitip', 'r.statustitip', 'statustitip.id')
+        .leftJoin('parameter as statusaktif', 'r.statusaktif', 'statusaktif.id')
+        .leftJoin('cabang', 'r.titipcabang_id', 'cabang.id');
 
       // full-text search
       if (search) {
@@ -143,6 +159,14 @@ export class RelasiService {
             ].includes(key)
           ) {
             query.andWhere(`r.${key}`, Number(val));
+          } else if (['statusrelasi_text'].includes(key)) {
+            query.andWhere(`statusrelasi.text`, `${val}`);
+          } else if (['statustitip_text'].includes(key)) {
+            query.andWhere(`statustitip.text`, `${val}`);
+          } else if (['statusaktif_text'].includes(key)) {
+            query.andWhere(`statusaktif.text`, `${val}`);
+          } else if (['titipcabang'].includes(key)) {
+            query.andWhere(`cabang.nama`, `${val}`);
           }
           // text fields
           else if (
