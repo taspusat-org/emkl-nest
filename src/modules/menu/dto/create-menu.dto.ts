@@ -11,7 +11,8 @@ export const CreateMenuSchema = z.object({
   parentId: z
     .number()
     .int({ message: 'parentId must be an integer' })
-    .nonnegative({ message: 'parentId must be a non-negative integer' }), // Ensure it’s non-negative
+    .optional(),
+    // .nonnegative({ message: 'parentId must be a non-negative integer' }), // Ensure it’s non-negative
   statusaktif: z
     .number()
     .int({ message: 'statusaktif must be an integer' })
