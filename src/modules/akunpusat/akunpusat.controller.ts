@@ -56,7 +56,7 @@ export class AkunpusatController {
       query;
 
     const sortParams = {
-      sortBy: sortBy || 'nobukti',
+      sortBy: sortBy || 'coa',
       sortDirection: sortDirection || 'asc',
     };
 

@@ -3,14 +3,10 @@ import { z } from 'zod';
 export const CreateTujuankapalSchema = z.object({
   nama: z.string(),
   keterangan: z.string(),
-  cabang_id: z
-    .number()
-    .int({ message: 'statusaktif must be an integer' })
-    .min(0, { message: 'statusaktif must be a non-negative integer' }),
   statusaktif: z
     .number()
-    .int({ message: 'statusaktif must be an integer' })
-    .min(0, { message: 'statusaktif must be a non-negative integer' }),
+    .int({ message: 'Status Aktif must be an integer' })
+    .min(1, { message: 'Status Aktif Wajib Diisi' }),
   info: z.string().nullable().optional(),
   modifiedby: z.string().nullable().optional(),
 });
