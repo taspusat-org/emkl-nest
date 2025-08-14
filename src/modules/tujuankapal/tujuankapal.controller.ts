@@ -58,7 +58,7 @@ export class TujuankapalController {
       const typeakuntansiExist = await isRecordExist(
         'nama',
         data.nama,
-        'typeakuntansi',
+        'tujuankapal',
       );
 
       if (typeakuntansiExist) {
