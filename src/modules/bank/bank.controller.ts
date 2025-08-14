@@ -148,7 +148,7 @@ export class BankController {
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_bankl.xlsx"',
+        'attachment; filename="laporan_bank.xlsx"',
       );
 
       fileStream.pipe(res);

@@ -219,10 +219,10 @@ export class BankService {
           const val = String(rawValue).replace(/\[/g, '[[]');
 
           if (key === 'created_at' || key === 'updated_at') {
-            query.andWhereRaw(
-              `FORMAT(b.${key}, 'dd-MM-yyyy HH:mm:ss') like ?`,
-              [`%${val}%`],
-            );
+            query.andWhereRaw("FORMAT(b.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              key,
+              `%${val}%`,
+            ]);
           } else if (key === 'text') {
             query.andWhere(`b.statusaktif`, 'like', `%${val}%`);
           } else if (key === 'memo') {
@@ -418,9 +418,10 @@ export class BankService {
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Data Export');
 
-    worksheet.mergeCells('A1:I1');
-    worksheet.mergeCells('A2:I2');
-    worksheet.mergeCells('A3:I3');
+    // Header perusahaan
+    worksheet.mergeCells('A1:R1');
+    worksheet.mergeCells('A2:R2');
+    worksheet.mergeCells('A3:R3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
     worksheet.getCell('A2').value = 'LAPORAN BANK';
     worksheet.getCell('A3').value = 'Data Export';
@@ -440,16 +441,31 @@ export class BankService {
     worksheet.getCell('A2').font = { bold: true };
     worksheet.getCell('A3').font = { bold: true };
 
+    // Header kolom sesuai database
     const headers = [
       'NO.',
       'NAMA',
       'KETERANGAN',
-      'NAMA CABANG',
+      'COA',
+      'KETERANGAN COA',
+      'COA GANTUNG',
+      'KETERANGAN COA GANTUNG',
+      'STATUS BANK',
       'STATUS AKTIF',
+      'STATUS DEFAULT',
+      'FORMAT PENERIMAAN',
+      'FORMAT PENGELUARAN',
+      'FORMAT PENERIMAAN GANTUNG',
+      'FORMAT PENGELUARAN GANTUNG',
+      'FORMAT PENCAIRAN',
+      'FORMAT REKAP PENERIMAAN',
+      'FORMAT REKAP PENGELUARAN',
       'MODIFIED BY',
       'CREATED AT',
       'UPDATED AT',
     ];
+
+    // Styling header
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(5, index + 1);
       cell.value = header;
@@ -467,18 +483,34 @@ export class BankService {
         right: { style: 'thin' },
       };
     });
+
+    // Data rows
     data.forEach((row, rowIndex) => {
       const currentRow = rowIndex + 6;
 
       worksheet.getCell(currentRow, 1).value = rowIndex + 1;
       worksheet.getCell(currentRow, 2).value = row.nama;
       worksheet.getCell(currentRow, 3).value = row.keterangan;
-      worksheet.getCell(currentRow, 4).value = row.namacabang;
-      worksheet.getCell(currentRow, 5).value = row.statusaktif;
-      worksheet.getCell(currentRow, 6).value = row.modifiedby;
-      worksheet.getCell(currentRow, 7).value = row.created_at;
-      worksheet.getCell(currentRow, 8).value = row.updated_at;
+      worksheet.getCell(currentRow, 4).value = row.coa;
+      worksheet.getCell(currentRow, 5).value = row.keterangancoa;
+      worksheet.getCell(currentRow, 6).value = row.coagantung;
+      worksheet.getCell(currentRow, 7).value = row.keterangancoagantung;
+      worksheet.getCell(currentRow, 8).value = row.textbank;
+      worksheet.getCell(currentRow, 9).value = row.text;
+      worksheet.getCell(currentRow, 10).value = row.textdefault;
+      worksheet.getCell(currentRow, 11).value = row.formatpenerimaantext;
+      worksheet.getCell(currentRow, 12).value = row.formatpengeluarantext;
+      worksheet.getCell(currentRow, 13).value = row.formatpenerimaangantungtext;
+      worksheet.getCell(currentRow, 14).value =
+        row.formatpengeluarangantungtext;
+      worksheet.getCell(currentRow, 15).value = row.formatpencairantext;
+      worksheet.getCell(currentRow, 16).value = row.formatrekappenerimaantext;
+      worksheet.getCell(currentRow, 17).value = row.formatrekappengeluarantext;
+      worksheet.getCell(currentRow, 18).value = row.modifiedby;
+      worksheet.getCell(currentRow, 19).value = row.created_at;
+      worksheet.getCell(currentRow, 20).value = row.updated_at;
 
+      // Styling untuk setiap cell
       for (let col = 1; col <= headers.length; col++) {
         const cell = worksheet.getCell(currentRow, col);
         cell.font = { name: 'Tahoma', size: 10 };
@@ -491,14 +523,27 @@ export class BankService {
       }
     });
 
-    worksheet.getColumn(1).width = 10;
-    worksheet.getColumn(2).width = 10;
-    worksheet.getColumn(3).width = 30;
-    worksheet.getColumn(4).width = 20;
-    worksheet.getColumn(5).width = 30;
-    worksheet.getColumn(6).width = 15;
-    worksheet.getColumn(7).width = 20;
-    worksheet.getColumn(8).width = 20;
+    // Set column widths
+    worksheet.getColumn(1).width = 6; // NO
+    worksheet.getColumn(2).width = 20; // NAMA
+    worksheet.getColumn(3).width = 25; // KETERANGAN
+    worksheet.getColumn(4).width = 10; // COA
+    worksheet.getColumn(5).width = 25; // KETERANGAN COA
+    worksheet.getColumn(6).width = 10; // COA GANTUNG
+    worksheet.getColumn(7).width = 25; // KETERANGAN COA GANTUNG
+    worksheet.getColumn(8).width = 15; // STATUS BANK
+    worksheet.getColumn(9).width = 15; // STATUS AKTIF
+    worksheet.getColumn(10).width = 15; // STATUS DEFAULT
+    worksheet.getColumn(11).width = 20; // FORMAT PENERIMAAN
+    worksheet.getColumn(12).width = 20; // FORMAT PENGELUARAN
+    worksheet.getColumn(13).width = 25; // FORMAT PENERIMAAN GANTUNG
+    worksheet.getColumn(14).width = 25; // FORMAT PENGELUARAN GANTUNG
+    worksheet.getColumn(15).width = 20; // FORMAT PENCAIRAN
+    worksheet.getColumn(16).width = 25; // FORMAT REKAP PENERIMAAN
+    worksheet.getColumn(17).width = 25; // FORMAT REKAP PENGELUARAN
+    worksheet.getColumn(18).width = 15; // MODIFIED BY
+    worksheet.getColumn(19).width = 20; // CREATED AT
+    worksheet.getColumn(20).width = 20; // UPDATED AT
 
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
@@ -507,7 +552,7 @@ export class BankService {
 
     const tempFilePath = path.resolve(
       tempDir,
-      `laporan_bank${Date.now()}.xlsx`,
+      `laporan_bank_${Date.now()}.xlsx`,
     );
     await workbook.xlsx.writeFile(tempFilePath);
 
