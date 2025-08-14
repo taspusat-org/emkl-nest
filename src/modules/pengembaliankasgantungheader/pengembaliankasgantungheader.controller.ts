@@ -54,6 +54,7 @@ export class PengembaliankasgantungheaderController {
       throw new Error(`Error: ${error.message}`);
     }
   }
+  @UseGuards(AuthGuard)
   @Get()
   //@PENGEMBALIAN-KAS-GANTUNG
   @UsePipes(new ZodValidationPipe(FindAllSchema))

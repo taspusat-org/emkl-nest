@@ -310,27 +310,41 @@ export class PengembaliankasgantungheaderService {
         .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
         .leftJoin('bank as b', 'u.bank_id', 'b.id')
         .leftJoin('akunpusat as ap', 'u.coakasmasuk', 'ap.coa');
+      if (filters?.tglDari && filters?.tglSampai) {
+        // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
+        const tglDariFormatted = formatDateToSQL(String(filters?.tglDari)); // Fungsi untuk format
+        const tglSampaiFormatted = formatDateToSQL(String(filters?.tglSampai));
 
+        // Menggunakan whereBetween dengan tanggal yang sudah diformat
+        query.whereBetween('u.tglbukti', [
+          tglDariFormatted,
+          tglSampaiFormatted,
+        ]);
+      }
       if (limit > 0) {
         const offset = (page - 1) * limit;
         query.limit(limit).offset(offset);
       }
-
+      const excludeSearchKeys = ['tglDari', 'tglSampai'];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k) && filters![k],
+      );
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('u.nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.penerimaan_nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.coakasmasuk', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.info', 'like', `%${sanitizedValue}%`);
+        const sanitized = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+          });
         });
       }
-
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
+          if (key === 'tglDari' || key === 'tglSampai') {
+            continue; // Lewati filter jika key adalah 'tglDari' atau 'tglSampai'
+          }
+
           if (value) {
             if (
               key === 'created_at' ||

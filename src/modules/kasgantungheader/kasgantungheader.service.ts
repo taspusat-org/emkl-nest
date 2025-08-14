@@ -74,6 +74,7 @@ export class KasgantungheaderService {
         const detailsWithNobukti = details.map((detail: any) => ({
           ...detail,
           nobukti: nomorBukti, // Inject nobukti into each detail
+          modifiedby: insertData.modifiedby,
         }));
 
         // Pass the updated details with nobukti to the detail creation service

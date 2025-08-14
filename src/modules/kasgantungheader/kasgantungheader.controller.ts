@@ -52,6 +52,7 @@ export class KasgantungheaderController {
       throw new Error(`Error: ${error.message}`);
     }
   }
+  @UseGuards(AuthGuard)
   @Get()
   //@KAS-GANTUNG
   @UsePipes(new ZodValidationPipe(FindAllSchema))
