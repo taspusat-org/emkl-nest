@@ -56,6 +56,7 @@ export class PelayaranController {
       data.modifiedby = req.user?.user?.username || 'unknown';
       const result = await this.pelayaranService.create(data, trx);
       await trx.commit();
+      return result;
     } catch (error) {
       await trx.rollback();
       throw new Error(`Error creating pelayaran: ${error.message}`);
@@ -78,7 +79,6 @@ export class PelayaranController {
       sortBy: sortBy || 'nama',
       sortDirection: sortDirection || 'asc',
     };
-    console.log('heree');
     const pagination = {
       page: page || 1,
       limit: limit === 0 || !limit ? undefined : limit,

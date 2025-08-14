@@ -152,7 +152,7 @@ export class PelayaranService {
             "FORMAT(pel.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at",
           ),
           'par.memo',
-          'par.text',
+          'par.text as statusaktif_text',
         ])
         .leftJoin('parameter as par', 'pel.statusaktif', 'par.id');
 

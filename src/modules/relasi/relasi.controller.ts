@@ -8,6 +8,7 @@ import {
   Delete,
   UsePipes,
   Query,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { RelasiService } from './relasi.service';
 import { CreateRelasiDto } from './dto/create-relasi.dto';
@@ -24,13 +25,14 @@ export class RelasiController {
   constructor(private readonly relasiService: RelasiService) {}
 
   @Post()
+  //@RELASI
   async create(@Body() createRelasiDto: CreateRelasiDto) {
     const trx = await dbMssql.transaction();
     return this.relasiService.create(createRelasiDto, trx);
   }
 
   @Get()
-  //@PENGEMBALIAN-KAS-GANTUNG
+  //@RELASI
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
@@ -63,7 +65,8 @@ export class RelasiController {
     } catch (error) {
       trx.rollback();
       console.error('Error in findAll:', error);
-      throw error; // Re-throw the error to be handled by the global exception filter
+      throw new InternalServerErrorException('Failed to fetch Relasi');
+      // throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
 
