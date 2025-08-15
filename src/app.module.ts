@@ -53,6 +53,9 @@ import { DaftarBankModule } from './modules/daftarbank/daftarbank.module';
 
 import { TujuankapalModule } from './modules/tujuankapal/tujuankapal.module';
 import { LocksModule } from './modules/locks/locks.module';
+import { LaporanbankModule } from './modules/laporanbank/laporanbank.module';
+import { LaporancontainerModule } from './modules/laporancontainer/laporancontainer.module';
+import { LaporantujuankapalModule } from './modules/laporantujuankapal/laporantujuankapal.module';
 
 @Module({
   imports: [
@@ -105,6 +108,9 @@ import { LocksModule } from './modules/locks/locks.module';
     DaftarBankModule,
     TujuankapalModule,
     LocksModule,
+    LaporanbankModule,
+    LaporancontainerModule,
+    LaporantujuankapalModule,
   ],
   controllers: [],
   providers: [RabbitmqService],

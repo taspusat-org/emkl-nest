@@ -16,5 +16,6 @@ import { RunningNumberModule } from '../running-number/running-number.module';
   ],
   controllers: [BankController],
   providers: [BankService],
+  exports: [BankService],
 })
 export class BankModule {}
