@@ -10,5 +10,6 @@ import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
   imports: [UtilsModule, RedisModule, AuthModule, LogtrailModule],
   controllers: [ContainerController],
   providers: [ContainerService],
+  exports: [ContainerService],
 })
 export class ContainerModule {}

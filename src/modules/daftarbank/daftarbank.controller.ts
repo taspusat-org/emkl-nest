@@ -56,23 +56,23 @@ export class DaftarBankController {
   ) {
     const trx = await dbMssql.transaction();
     try {
-        // validasi uniq nama
-      
-            const daftarbankExist = await isRecordExist(
-              'nama',
-              data.nama,
-              'daftarbank',
-            );
-      
-            if (daftarbankExist) {
-              throw new HttpException (
-                {
-                  statusCode: HttpStatus.BAD_REQUEST,
-                  message: `Daftar Bank dengan nama ${data.nama} sudah ada`,
-                },
-                HttpStatus.BAD_REQUEST,
-              );
-            }
+      // validasi uniq nama
+
+      const daftarbankExist = await isRecordExist(
+        'nama',
+        data.nama,
+        'daftarbank',
+      );
+
+      if (daftarbankExist) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.BAD_REQUEST,
+            message: `Daftar Bank dengan nama ${data.nama} sudah ada`,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
 
       data.modifiedby = req.user?.user?.username || 'unknown';
       const result = await this.DaftarBankService.create(data, trx);
@@ -81,7 +81,7 @@ export class DaftarBankController {
       await trx.rollback();
       console.error('Error while creating daftar bank in controller', error);
 
-if (error instanceof HttpException) {
+      if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
       }
 
@@ -92,7 +92,7 @@ if (error instanceof HttpException) {
           message: 'Failed to update daftar bank',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
-      );      
+      );
     }
   }
 
@@ -207,22 +207,22 @@ if (error instanceof HttpException) {
   ) {
     const trx = await dbMssql.transaction();
     try {
-        const daftarbankExist = await isRecordExist(
-              'nama',
-              data.nama,
-              'daftarbank',
-              Number(id),
-            );
-      
-            if (daftarbankExist) {
-              throw new HttpException (
-                {
-                  statusCode: HttpStatus.BAD_REQUEST,
-                  message: `Daftar Bank dengan nama ${data.nama} sudah ada`,
-                },
-                HttpStatus.BAD_REQUEST,
-              );
-            }
+      const daftarbankExist = await isRecordExist(
+        'nama',
+        data.nama,
+        'daftarbank',
+        Number(id),
+      );
+
+      if (daftarbankExist) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.BAD_REQUEST,
+            message: `Daftar Bank dengan nama ${data.nama} sudah ada`,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
 
       data.modifiedby = req.user?.user?.username || 'unknown';
 
@@ -234,7 +234,7 @@ if (error instanceof HttpException) {
       await trx.rollback();
       console.error('Error updating DaftarBank in controller:', error);
 
-if (error instanceof HttpException) {
+      if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
       }
 
@@ -245,7 +245,7 @@ if (error instanceof HttpException) {
           message: 'Failed to update type akuntansi',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
-      );      
+      );
     }
   }
 
