@@ -44,6 +44,7 @@ export class LaporanbankController {
   }
 
   @Get()
+  //@LAPORAN-BANK
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto, @Res() res: Response) {
     try {

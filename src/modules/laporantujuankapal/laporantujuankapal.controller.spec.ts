@@ -11,7 +11,9 @@ describe('LaporantujuankapalController', () => {
       providers: [LaporantujuankapalService],
     }).compile();
 
-    controller = module.get<LaporantujuankapalController>(LaporantujuankapalController);
+    controller = module.get<LaporantujuankapalController>(
+      LaporantujuankapalController,
+    );
   });
 
   it('should be defined', () => {

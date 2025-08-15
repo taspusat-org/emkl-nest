@@ -11,7 +11,9 @@ describe('LaporancontainerController', () => {
       providers: [LaporancontainerService],
     }).compile();
 
-    controller = module.get<LaporancontainerController>(LaporancontainerController);
+    controller = module.get<LaporancontainerController>(
+      LaporancontainerController,
+    );
   });
 
   it('should be defined', () => {
