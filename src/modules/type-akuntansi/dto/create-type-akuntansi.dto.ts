@@ -14,15 +14,15 @@ const checkIfExistsNama = async (nama: string) => {
 };
 
 // Fungsi untuk mengecek apakah statusnya aktif
-const checkIfActiveStatus = async (nama: string) => {
+const checkIfActiveStatus = async () => {
   const result = await dbMssql
-    .select('status')
+    .select('statusaktif')
     .from('typeakuntansi')
-    .where('nama', nama)
+    .where('statusaktif', 2) // Asumsi status aktif adalah 1
     .first();
 
   // Pastikan statusnya 1 (aktif)
-  return result && result.status === 1; // Kembalikan true jika aktif, false jika tidak aktif
+  return result && result.statusaktif === 1; // Kembalikan true jika aktif, false jika tidak aktif
 };
 
 // Zod Schema untuk validasi
@@ -33,17 +33,21 @@ export const CreateTypeAkuntansiSchema = z.object({
     .max(100)
     .refine(
       async (value) => {
-        // Panggil pengecekan namaz
         const exists = await checkIfExistsNama(value);
-        if (exists) {
-          // Jika nama sudah ada, kita cek statusnya
-          const isActive = await checkIfActiveStatus(value);
-          return isActive; // Validasi hanya berhasil jika statusnya aktif
-        }
-        return true; // Jika nama tidak ada, validasi berhasil
+        return !exists; // Validasi jika nama sudah ada
       },
       {
-        message: 'Type Akuntansi dengan nama ini sudah ada dan harus aktif',
+        message: 'Type Akuntansi dengan nama ini sudah ada',
+      },
+    )
+    .refine(
+      async (value) => {
+        const isActive = await checkIfActiveStatus();
+        console.log('isActive:', isActive);
+        return isActive; // Validasi jika status aktif
+      },
+      {
+        message: 'Type Akuntansi dengan nama ini harus aktif',
       },
     ),
 

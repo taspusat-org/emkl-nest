@@ -59,8 +59,6 @@ export class AuthService {
       .where({ user_id: user.id })
       .pluck('role_id');
 
-    // const dataKaryawan = await this.utilsService.fetchKaryawanByUserId(user.id);
-
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Username atau password salah');
@@ -68,7 +66,6 @@ export class AuthService {
     const { password: _, ...restUser } = user;
     const userWithoutPassword: Users & { cabang_nama: string } = {
       ...restUser,
-      // cabang_nama: dataKaryawan.cabang_nama,
       role_id: roles,
     };
 
@@ -76,10 +73,9 @@ export class AuthService {
     const payload = {
       sub: user.id,
       user: userWithoutPassword,
-      // cabang_id: dataKaryawan.cabang_id,
     };
 
-    const accessTokenExpiresIn = 7200; // 15 seconds
+    const accessTokenExpiresIn = 7200; // 2 hours
     const accessTokenExpires = new Date(
       Date.now() + accessTokenExpiresIn * 1000,
     );
@@ -88,7 +84,7 @@ export class AuthService {
       Date.now() + refreshTokenExpiresIn * 1000,
     ); // Set expiration for 8 hours
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: accessTokenExpiresIn,
+      expiresIn: accessTokenExpiresIn, // 1 minute
     });
     const refreshToken = this.jwtService.sign(payload, {
       expiresIn: refreshTokenExpiresIn,
