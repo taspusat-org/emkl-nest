@@ -57,21 +57,21 @@ export class TypeAkuntansiController {
     try {
       console.log('kesini??');
 
-      const typeakuntansiExist = await isRecordExist(
-        'nama',
-        data.nama,
-        'typeakuntansi',
-      );
+      // const typeakuntansiExist = await isRecordExist(
+      //   'nama',
+      //   data.nama,
+      //   'typeakuntansi',
+      // );
 
-      if (typeakuntansiExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Type Akuntansi dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+      // if (typeakuntansiExist) {
+      //   throw new HttpException(
+      //     {
+      //       statusCode: HttpStatus.BAD_REQUEST,
+      //       message: `Type Akuntansi dengan nama ${data.nama} sudah ada`,
+      //     },
+      //     HttpStatus.BAD_REQUEST,
+      //   );
+      // }
 
       data.modifiedby = req.user?.user?.username || 'unknown';
 
