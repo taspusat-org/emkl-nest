@@ -45,7 +45,7 @@ import { JenisMuatanModule } from './modules/jenismuatan/jenismuatan.module';
 import { AkuntansiModule } from './modules/akuntansi/akuntansi.module';
 import { GlobalModule } from './modules/global/global.module';
 import { AkunpusatModule } from './modules/akunpusat/akunpusat.module';
-// import { KapalModule } from './modules/kapal/kapal.module';
+import { KapalModule } from './modules/kapal/kapal.module';
 import { TypeAkuntansiModule } from './modules/type-akuntansi/type-akuntansi.module';
 
 import { JenisOrderanModule } from './modules/jenisorderan/jenisorderan.module';
@@ -102,7 +102,7 @@ import { LaporantujuankapalModule } from './modules/laporantujuankapal/laporantu
     PelayaranModule,
     JenisMuatanModule,
     AkuntansiModule,
-    // KapalModule,
+    KapalModule,
     TypeAkuntansiModule,
     JenisOrderanModule,
     DaftarBankModule,
