@@ -290,6 +290,8 @@ export class KapalService {
         page,
         limit,
         isLookUp,
+        text,
+        pelayaran,
         ...insertData
       } = data;
       Object.keys(insertData).forEach((key) => {
