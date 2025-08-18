@@ -5,21 +5,19 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
-import { RunningNumberService } from '../running-number/running-number.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { UtilsService } from 'src/utils/utils.service';
 import { RedisService } from 'src/common/redis/redis.service';
 
 @Injectable()
-export class BankService {
+export class HargatruckingService {
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
-    private readonly runningNumberService: RunningNumberService,
   ) {}
-  private readonly tableName = 'bank';
-  async create(CreateBankDto: any, trx: any) {
+  private readonly tableName = 'hargatrucking';
+  async create(CreateHargatruckingDto: any, trx: any) {
     try {
       const {
         sortBy,
@@ -28,40 +26,26 @@ export class BankService {
         search,
         page,
         limit,
-        nama,
+        tujuankapal_id,
+        emkl_id,
         keterangan,
-        coa,
-        coagantung,
-        statusbank,
+        container_id,
+        jenisorderan_id,
+        nominal,
         statusaktif,
-        statusdefault,
-        formatpenerimaan,
-        formatpengeluaran,
-        formatpenerimaangantung,
-        formatpengeluarangantung,
-        formatpencairan,
-        formatrekappenerimaan,
-        formatrekappengeluaran,
         modifiedby,
         created_at,
         updated_at,
         info,
-      } = CreateBankDto;
+      } = CreateHargatruckingDto;
       const insertData = {
-        nama: nama ? nama.toUpperCase() : null,
-        keterangan: keterangan ? keterangan.toUpperCase() : null,
-        coa: coa,
-        coagantung: coagantung,
-        statusbank: statusbank,
+        tujuankapal_id: tujuankapal_id,
+        emkl_id: emkl_id,
+        keterangan: keterangan,
         statusaktif: statusaktif,
-        statusdefault: statusdefault,
-        formatpenerimaan: formatpenerimaan,
-        formatpengeluaran: formatpengeluaran,
-        formatpenerimaangantung: formatpenerimaangantung,
-        formatpengeluarangantung: formatpengeluarangantung,
-        formatpencairan: formatpencairan,
-        formatrekappenerimaan: formatrekappenerimaan,
-        formatrekappengeluaran: formatrekappengeluaran,
+        container_id: container_id,
+        jenisorderan_id: jenisorderan_id,
+        nominal: nominal,
         modifiedby: modifiedby,
         created_at: created_at || this.utilsService.getTime(),
         updated_at: updated_at || this.utilsService.getTime(),
@@ -94,7 +78,7 @@ export class BankService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'ADD BANK',
+          postingdari: 'ADD HARGA-TRUCKING',
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -136,78 +120,51 @@ export class BankService {
         limit = 0;
       }
 
-      // build query
       const query = trx(`${this.tableName} as b`)
         .select([
           'b.id',
-          'b.nama',
+          'b.tarifdetail_id',
+          'b.tujuankapal_id',
+          'b.emkl_id',
           'b.keterangan',
-          'b.coa',
-          'b.coagantung',
-          'a.keterangancoa as keterangancoa',
-          'a2.keterangancoa as keterangancoagantung',
-          'b.statusbank',
-          'b.statusaktif ',
-          'b.statusdefault ',
-          'b.formatpenerimaan',
-          'b.formatpengeluaran',
-          'b.formatpenerimaangantung',
-          'b.formatpengeluarangantung',
-          'b.formatpencairan',
-          'b.formatrekappenerimaan',
-          'b.formatrekappengeluaran',
+          'b.container_id',
+          'b.jenisorderan_id',
+          'b.nominal',
+          'b.statusaktif',
           'b.info',
           'b.modifiedby',
           trx.raw("FORMAT(b.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(b.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'p.memo',
           'p.text',
-          'p2.text as textbank',
-          'p3.text as textdefault',
-          'p4.text as formatpenerimaantext',
-          'p5.text as formatpengeluarantext',
-          'p6.text as formatpenerimaangantungtext',
-          'p7.text as formatpengeluarangantungtext',
-          'p8.text as formatpencairantext',
-          'p9.text as formatrekappenerimaantext',
-          'p10.text as formatrekappengeluarantext',
+          'p1.nama as tujuankapal_text',
+          'p2.nama as emkl_text',
+          'p3.nama as container_text',
+          'p4.nama as jenisorderan_text',
         ])
-        .leftJoin('akunpusat as a', 'b.coa', 'a.coa')
-        .leftJoin('akunpusat as a2', 'b.coagantung', 'a2.coa')
         .leftJoin('parameter as p', 'b.statusaktif', 'p.id')
-        .leftJoin('parameter as p2', 'b.statusbank', 'p2.id')
-        .leftJoin('parameter as p3', 'b.statusdefault', 'p3.id')
-        .leftJoin('parameter as p4', 'b.formatpenerimaan', 'p4.id')
-        .leftJoin('parameter as p5', 'b.formatpengeluaran', 'p5.id')
-        .leftJoin('parameter as p6', 'b.formatpenerimaangantung', 'p6.id')
-        .leftJoin('parameter as p7', 'b.formatpengeluarangantung', 'p7.id')
-        .leftJoin('parameter as p8', 'b.formatpencairan', 'p8.id')
-        .leftJoin('parameter as p9', 'b.formatrekappenerimaan', 'p9.id')
-        .leftJoin('parameter as p10', 'b.formatrekappengeluaran', 'p10.id');
+        .leftJoin('tujuankapal as p1', 'b.tujuankapal_id', 'p1.id')
+        .leftJoin('emkl as p2', 'b.emkl_id', 'p2.id')
+        .leftJoin('container as p3', 'b.container_id', 'p3.id')
+        .leftJoin('jenisorderan as p4', 'b.jenisorderan_id', 'p4.id');
 
       if (search) {
         const val = String(search).replace(/\[/g, '[[]');
         query.where((builder) =>
           builder
-            .orWhere('b.nama', 'like', `%${val}%`)
             .orWhere('b.keterangan', 'like', `%${val}%`)
-            .orWhere('a.keterangancoa', 'like', `%${val}%`)
-            .orWhere('a2.keterangancoa', 'like', `%${val}%`)
             .orWhere('p.memo', 'like', `%${val}%`)
             .orWhere('p.text', 'like', `%${val}%`)
-            .orWhere('p2.text', 'like', `%${val}%`)
-            .orWhere('p3.text', 'like', `%${val}%`)
-            .orWhere('p4.text', 'like', `%${val}%`)
-            .orWhere('p5.text', 'like', `%${val}%`)
-            .orWhere('p6.text', 'like', `%${val}%`)
-            .orWhere('p7.text', 'like', `%${val}%`)
-            .orWhere('p8.text', 'like', `%${val}%`)
-            .orWhere('p9.text', 'like', `%${val}%`)
-            .orWhere('p10.text', 'like', `%${val}%`),
+            .orWhere('p1.nama', 'like', `%${val}%`)
+            .orWhere('p2.nama', 'like', `%${val}%`)
+            .orWhere('p3.nama', 'like', `%${val}%`)
+            .orWhere('p4.nama', 'like', `%${val}%`)
+            .orWhere('b.nominal', 'like', `%${val}%`)
+            .orWhere('b.created_at', 'like', `%${val}%`)
+            .orWhere('b.updated_at', 'like', `%${val}%`),
         );
       }
 
-      // filter berdasarkan key yang valid
       if (filters) {
         for (const [key, rawValue] of Object.entries(filters)) {
           if (!rawValue) continue;
@@ -218,38 +175,23 @@ export class BankService {
               key,
               `%${val}%`,
             ]);
-          } else if (key === 'text') {
-            query.andWhere(`b.statusaktif`, 'like', `%${val}%`);
           } else if (key === 'memo') {
-            query.andWhere(`p.memo`, 'like', `%${val}%`);
-          } else if (key === 'textbank') {
-            query.andWhere(`b.statusbank`, 'like', `%${val}%`);
-          } else if (key === 'textdefault') {
-            query.andWhere(`b.statusdefault`, 'like', `%${val}%`);
-          } else if (key === 'formatpenerimaantext') {
-            query.andWhere(`b.formatpenerimaan`, 'like', `%${val}%`);
-          } else if (key === 'formatpengeluarantext') {
-            query.andWhere(`b.formatpengeluaran`, 'like', `%${val}%`);
-          } else if (key === 'formatpenerimaangantungtext') {
-            query.andWhere(`b.formatpenerimaangantung`, 'like', `%${val}%`);
-          } else if (key === 'formatpengeluarangantungtext') {
-            query.andWhere(`b.formatpengeluarangantung`, 'like', `%${val}%`);
-          } else if (key === 'formatpencairantext') {
-            query.andWhere(`b.formatpencairan`, 'like', `%${val}%`);
-          } else if (key === 'formatrekappenerimaantext') {
-            query.andWhere(`b.formatrekappenerimaan`, 'like', `%${val}%`);
-          } else if (key === 'formatrekappengeluarantext') {
-            query.andWhere(`b.formatrekappengeluaran`, 'like', `%${val}%`);
-          } else if (key === 'keterangancoa') {
-            query.andWhere(`b.coa`, 'like', `%${val}%`);
-          } else if (key === 'keterangancoagantung') {
-            query.andWhere(`b.coagantung`, 'like', `%${val}%`);
+            query.andWhere('p.memo', 'like', `%${val}%`);
+          } else if (key === 'text') {
+            query.andWhere('p.text', 'like', `%${val}%`);
+          } else if (key === 'tujuankapal_text') {
+            query.andWhere('b.tujuankapal_id', 'like', `%${val}%`);
+          } else if (key === 'emkl_text') {
+            query.andWhere('b.emkl_id', 'like', `%${val}%`);
+          } else if (key === 'container_text') {
+            query.andWhere('b.container_id', 'like', `%${val}%`);
+          } else if (key === 'jenisorderan_text') {
+            query.andWhere('b.jenisorderan_id', 'like', `%${val}%`);
           } else {
             query.andWhere(`b.${key}`, 'like', `%${val}%`);
           }
         }
       }
-
       const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
       const totalPages = Math.ceil(total / limit);
@@ -257,7 +199,6 @@ export class BankService {
       if (sort?.sortBy && sort?.sortDirection) {
         query.orderBy(sort.sortBy, sort.sortDirection);
       }
-
       const data = await query;
       const responseType = Number(total) > 500 ? 'json' : 'local';
 
@@ -273,9 +214,13 @@ export class BankService {
         },
       };
     } catch (error) {
-      console.error('Error fetching bank data:', error);
-      throw new Error('Failed to fetch bank data');
+      console.error('Error fetching harga trucking data:', error);
+      throw new Error('Failed to fetch harga trucking data');
     }
+  }
+
+  findOne(id: number) {
+    return `This action returns a #${id} hargatrucking`;
   }
 
   async update(id: number, data: any, trx: any) {
@@ -283,7 +228,7 @@ export class BankService {
       const existingData = await trx(this.tableName).where('id', id).first();
 
       if (!existingData) {
-        throw new Error('Bank not found');
+        throw new Error('Harga Trucking not found');
       }
 
       const {
@@ -293,18 +238,11 @@ export class BankService {
         search,
         page,
         limit,
+        tujuankapal_text,
+        emkl_text,
+        container_text,
+        jenisorderan_text,
         text,
-        textbank,
-        textdefault,
-        formatpenerimaantext,
-        formatpengeluarantext,
-        formatpenerimaangantungtext,
-        formatpengeluarangantungtext,
-        formatpencairantext,
-        formatrekappenerimaantext,
-        formatrekappengeluarantext,
-        keterangancoa,
-        keterangancoagantung,
         ...insertData
       } = data;
 
@@ -352,7 +290,7 @@ export class BankService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'EDIT BANK',
+          postingdari: 'EDIT HARGA-TRUCKING',
           idtrans: id,
           nobuktitrans: id,
           aksi: 'EDIT',
@@ -388,7 +326,7 @@ export class BankService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE BANK',
+          postingdari: 'DELETE HARGA-TRUCKING',
           idtrans: deletedData.id,
           nobuktitrans: deletedData.id,
           aksi: 'DELETE',

@@ -56,6 +56,10 @@ import { LocksModule } from './modules/locks/locks.module';
 import { LaporanbankModule } from './modules/laporanbank/laporanbank.module';
 import { LaporancontainerModule } from './modules/laporancontainer/laporancontainer.module';
 import { LaporantujuankapalModule } from './modules/laporantujuankapal/laporantujuankapal.module';
+import { HargatruckingModule } from './modules/hargatrucking/hargatrucking.module';
+import { LaporanhargatruckingModule } from './modules/laporanhargatrucking/laporanhargatrucking.module';
+import { EmklModule } from './modules/emkl/emkl.module';
+import { LaporanalatbayarModule } from './modules/laporanalatbayar/laporanalatbayar.module';
 
 @Module({
   imports: [
@@ -111,6 +115,10 @@ import { LaporantujuankapalModule } from './modules/laporantujuankapal/laporantu
     LaporanbankModule,
     LaporancontainerModule,
     LaporantujuankapalModule,
+    HargatruckingModule,
+    LaporanhargatruckingModule,
+    EmklModule,
+    LaporanalatbayarModule,
   ],
   controllers: [],
   providers: [RabbitmqService],

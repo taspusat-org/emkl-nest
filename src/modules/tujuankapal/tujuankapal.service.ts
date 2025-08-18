@@ -168,6 +168,16 @@ export class TujuankapalService {
               ]);
             } else if (key === 'text' || key === 'memo') {
               query.andWhere(`p.${key}`, '=', sanitizedValue);
+            } else if (key === 'cabang_id') {
+              if (
+                sanitizedValue === 'null' ||
+                sanitizedValue === 'NULL' ||
+                sanitizedValue === null
+              ) {
+                query.andWhereRaw(`u.cabang_id IS NULL`);
+              } else {
+                query.andWhere(`u.cabang_id`, '=', sanitizedValue);
+              }
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }

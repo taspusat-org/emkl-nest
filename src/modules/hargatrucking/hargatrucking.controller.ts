@@ -16,61 +16,52 @@ import {
   InternalServerErrorException,
   Res,
 } from '@nestjs/common';
-import { AlatbayarService } from './alatbayar.service';
+import { HargatruckingService } from './hargatrucking.service';
 import {
-  CreateAlatbayarDto,
-  CreateAlatbayarSchema,
-} from './dto/create-alatbayar.dto';
+  CreateHargatruckingDto,
+  CreateHargatruckingSchema,
+} from './dto/create-hargatrucking.dto';
 import {
-  UpdateAlatbayarDto,
-  UpdateAlatbayarSchema,
-} from './dto/update-alatbayar.dto';
-import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
+  UpdateHargatruckingDto,
+  UpdateHargatruckingSchema,
+} from './dto/update-hargatrucking.dto';
 import {
   FindAllDto,
   FindAllParams,
   FindAllSchema,
 } from 'src/common/interfaces/all.interface';
-import { dbMssql } from 'src/common/utils/db';
-import { AuthGuard } from '../auth/auth.guard';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
 import { isRecordExist } from 'src/utils/utils.service';
-@Controller('alatbayar')
-export class AlatbayarController {
-  constructor(private readonly alatbayarService: AlatbayarService) {}
+import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
+import { AuthGuard } from '../auth/auth.guard';
+import { dbMssql } from 'src/common/utils/db';
+import { any } from 'zod';
+
+@Controller('hargatrucking')
+export class HargatruckingController {
+  constructor(private readonly hargatruckingService: HargatruckingService) {}
 
   @Post()
-  //@ALAT-BAYAR
+  //@HARGA-TRUCKING
   async create(
     @Body(
-      new ZodValidationPipe(CreateAlatbayarSchema),
+      new ZodValidationPipe(CreateHargatruckingSchema),
       KeyboardOnlyValidationPipe,
     )
-    data: CreateAlatbayarDto,
+    data: CreateHargatruckingDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const bankExist = await isRecordExist('nama', data.nama, 'alatbayar');
-
-      if (bankExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Bank dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.alatbayarService.create(data, trx);
+      const result = await this.hargatruckingService.create(data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating bank in controller', error);
+      console.error('Error while creating harga trucking in controller', error);
 
       // Ensure any other errors get caught and returned
       if (error instanceof HttpException) {
@@ -81,7 +72,7 @@ export class AlatbayarController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to create bank',
+          message: 'Failed to create harga trucking',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -89,14 +80,14 @@ export class AlatbayarController {
   }
 
   @Get()
-  //@ALAT-BAYAR
+  //@HARGA-TRUCKING
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
       query;
 
     const sortParams = {
-      sortBy: sortBy || 'nama',
+      sortBy: sortBy || 'emkl_text',
       sortDirection: sortDirection || 'asc',
     };
 
@@ -115,7 +106,7 @@ export class AlatbayarController {
     const trx = await dbMssql.transaction();
 
     try {
-      const result = await this.alatbayarService.findAll(params, trx);
+      const result = await this.hargatruckingService.findAll(params, trx);
       trx.commit();
 
       return result;
@@ -126,20 +117,25 @@ export class AlatbayarController {
     }
   }
 
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.hargatruckingService.findOne(+id);
+  }
+
   @UseGuards(AuthGuard)
   @Put('update/:id')
-  //@ALAT-BAYAR
+  //@HARGA-TRUCKING
   async update(
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateAlatbayarSchema))
-    data: UpdateAlatbayarDto,
+    @Body(new ZodValidationPipe(UpdateHargatruckingSchema))
+    data: UpdateHargatruckingDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.alatbayarService.update(+id, data, trx);
+      const result = await this.hargatruckingService.update(+id, data, trx);
 
       await trx.commit();
       return result;
@@ -154,7 +150,7 @@ export class AlatbayarController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to Update alat bayar',
+          message: 'Failed to create type akuntansi',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -163,11 +159,11 @@ export class AlatbayarController {
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  //@ALAT-BAYAR
+  //@HARGA-TRUCKING
   async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.alatbayarService.delete(
+      const result = await this.hargatruckingService.delete(
         +id,
         trx,
         req.user?.user?.username,
@@ -181,13 +177,13 @@ export class AlatbayarController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error deleting alat bayar in controller:', error);
+      console.error('Error deleting harga trucking in controller:', error);
 
       if (error instanceof NotFoundException) {
         throw error;
       }
 
-      throw new InternalServerErrorException('Failed to delete alat bayar');
+      throw new InternalServerErrorException('Failed to delete bank');
     }
   }
 }
