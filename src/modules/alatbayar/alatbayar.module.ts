@@ -16,5 +16,6 @@ import { RunningNumberModule } from '../running-number/running-number.module';
   ],
   controllers: [AlatbayarController],
   providers: [AlatbayarService],
+  exports: [AlatbayarService],
 })
 export class AlatbayarModule {}

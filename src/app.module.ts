@@ -59,6 +59,7 @@ import { LaporantujuankapalModule } from './modules/laporantujuankapal/laporantu
 import { HargatruckingModule } from './modules/hargatrucking/hargatrucking.module';
 import { LaporanhargatruckingModule } from './modules/laporanhargatrucking/laporanhargatrucking.module';
 import { EmklModule } from './modules/emkl/emkl.module';
+import { LaporanalatbayarModule } from './modules/laporanalatbayar/laporanalatbayar.module';
 
 @Module({
   imports: [
@@ -117,6 +118,7 @@ import { EmklModule } from './modules/emkl/emkl.module';
     HargatruckingModule,
     LaporanhargatruckingModule,
     EmklModule,
+    LaporanalatbayarModule,
   ],
   controllers: [],
   providers: [RabbitmqService],
