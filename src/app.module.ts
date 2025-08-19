@@ -47,7 +47,8 @@ import { GlobalModule } from './modules/global/global.module';
 import { AkunpusatModule } from './modules/akunpusat/akunpusat.module';
 import { KapalModule } from './modules/kapal/kapal.module';
 import { TypeAkuntansiModule } from './modules/type-akuntansi/type-akuntansi.module';
-
+import { ScheduleHeaderModule } from './modules/schedule-header/schedule-header.module';
+import { ScheduleDetailModule } from './modules/schedule-detail/schedule-detail.module';
 import { JenisOrderanModule } from './modules/jenisorderan/jenisorderan.module';
 import { DaftarBankModule } from './modules/daftarbank/daftarbank.module';
 
@@ -60,6 +61,7 @@ import { HargatruckingModule } from './modules/hargatrucking/hargatrucking.modul
 import { LaporanhargatruckingModule } from './modules/laporanhargatrucking/laporanhargatrucking.module';
 import { EmklModule } from './modules/emkl/emkl.module';
 import { LaporanalatbayarModule } from './modules/laporanalatbayar/laporanalatbayar.module';
+import { ScheduleKapalModule } from './modules/schedule-kapal/schedule-kapal.module';
 
 @Module({
   imports: [
@@ -108,6 +110,8 @@ import { LaporanalatbayarModule } from './modules/laporanalatbayar/laporanalatba
     AkuntansiModule,
     KapalModule,
     TypeAkuntansiModule,
+    ScheduleHeaderModule,
+    ScheduleDetailModule,
     JenisOrderanModule,
     DaftarBankModule,
     TujuankapalModule,
@@ -119,6 +123,7 @@ import { LaporanalatbayarModule } from './modules/laporanalatbayar/laporanalatba
     LaporanhargatruckingModule,
     EmklModule,
     LaporanalatbayarModule,
+    ScheduleKapalModule,
   ],
   controllers: [],
   providers: [RabbitmqService],
