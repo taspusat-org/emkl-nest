@@ -11,5 +11,6 @@ import { DaftarBankService } from './daftarbank.service';
   imports: [RedisModule, UtilsModule, AuthModule, LogtrailModule, RelasiModule],
   controllers: [DaftarBankController],
   providers: [DaftarBankService],
+  exports: [DaftarBankService],
 })
 export class DaftarBankModule {}

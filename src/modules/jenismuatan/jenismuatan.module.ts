@@ -11,5 +11,6 @@ import { JenisMuatanService } from './jenismuatan.service';
   imports: [RedisModule, UtilsModule, AuthModule, LogtrailModule, RelasiModule],
   controllers: [JenisMuatanController],
   providers: [JenisMuatanService],
+  exports: [JenisMuatanService],
 })
 export class JenisMuatanModule {}
