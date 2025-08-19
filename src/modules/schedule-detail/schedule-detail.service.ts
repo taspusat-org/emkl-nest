@@ -65,7 +65,8 @@ export class ScheduleDetailService {
             filters: {
               kapal_id: data.kapal_id,
               pelayaran_id: data.pelayaran_id,
-              tglberangkat: data.tglberangkat
+              tglberangkat: data.tglberangkat,
+              voyberangkat: data.voyberangkat
             },
             pagination: { page: 1, limit: 0 }   // default pagination 
           },
@@ -77,6 +78,7 @@ export class ScheduleDetailService {
             kapal_id: data.kapal_id,
             pelayaran_id: data.pelayaran_id,
             tglberangkat: data.tglberangkat,
+            voyberangkat: data.voyberangkat,
             modifiedby: data.modifiedby,
           }
           const insertScheduleKapal = await this.scheduleKapalService.create(dataInsertShceduleKapal, trx)
@@ -332,6 +334,7 @@ export class ScheduleDetailService {
       'p.voyberangkat',
       'p.voytiba',
       trx.raw("FORMAT(p.closing, 'dd-MM-yyyy HH:mm:ss') as closing"),
+      trx.raw("FORMAT(p.closing, 'dd-MM-yyyy hh:mm tt') as closingForDateTime"),
       trx.raw("FORMAT(p.etatujuan, 'dd-MM-yyyy') as etatujuan"),
       trx.raw("FORMAT(p.etdtujuan, 'dd-MM-yyyy') as etdtujuan"),
       'p.keterangan',

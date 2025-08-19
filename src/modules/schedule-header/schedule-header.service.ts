@@ -69,7 +69,7 @@ export class ScheduleHeaderService {
         {
           search,
           filters,
-          pagination: { page, limit },
+          pagination: { page, limit:0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },
@@ -120,19 +120,19 @@ export class ScheduleHeaderService {
       page = page ?? 1;
       limit = limit ?? 0;      
 
-      if (isLookUp) {
-        const scheduleheaderCount = await trx(this.tableName)
-          .count('id as total')
-          .first();
+      // if (isLookUp) {
+      //   const scheduleheaderCount = await trx(this.tableName)
+      //     .count('id as total')
+      //     .first();
 
-        const scheduleCountResult = scheduleheaderCount?.total || 0;
+      //   const scheduleCountResult = scheduleheaderCount?.total || 0;
 
-        if (Number(scheduleCountResult) > 500) {
-          return { data: { type: 'json' } };
-        } else {
-          limit = 0;
-        }
-      }
+      //   if (Number(scheduleCountResult) > 500) {
+      //     return { data: { type: 'json' } };
+      //   } else {
+      //     limit = 0;
+      //   }
+      // }
 
       const query = trx(`${this.tableName} as u`)
       .select([
@@ -276,7 +276,7 @@ export class ScheduleHeaderService {
         {
           search,
           filters,
-          pagination: { page, limit },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false, 
         },
