@@ -14,6 +14,8 @@ import {
   NotFoundException,
   Put,
   Res,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { PelayaranService } from './pelayaran.service';
 import {
@@ -35,6 +37,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { Response } from 'express';
 import * as fs from 'fs';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
+import { isRecordExist } from 'src/utils/utils.service';
 
 @Controller('pelayaran')
 export class PelayaranController {
@@ -53,13 +56,40 @@ export class PelayaranController {
   ) {
     const trx = await dbMssql.transaction();
     try {
+      const pelayaranExist = await isRecordExist(
+        'nama',
+        data.nama,
+        'pelayaran',
+      );
+
+      if (pelayaranExist) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.BAD_REQUEST,
+            message: `pelayaran dengan nama ${data.nama} sudah ada`,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       data.modifiedby = req.user?.user?.username || 'unknown';
       const result = await this.pelayaranService.create(data, trx);
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      throw new Error(`Error creating pelayaran: ${error.message}`);
+      console.error('Error while creating type pelayaran in controller', error);
+      if (error instanceof HttpException) {
+        throw error; // If it's already a HttpException, rethrow it
+      }
+
+      // Generic error handling, if something unexpected happens
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'Failed to create type pelayaran',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -173,6 +203,22 @@ export class PelayaranController {
   ) {
     const trx = await dbMssql.transaction();
     try {
+      const pelayaranExist = await isRecordExist(
+        'nama',
+        data.nama,
+        'pelayaran',
+        Number(id),
+      );
+
+      if (pelayaranExist) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.BAD_REQUEST,
+            message: `Pelayaran dengan nama ${data.nama} sudah ada`,
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.pelayaranService.update(+id, data, trx);
@@ -182,7 +228,19 @@ export class PelayaranController {
     } catch (error) {
       await trx.rollback();
       console.error('Error updating pelayaran in controller:', error);
-      throw new Error('Failed to update pelayaran');
+      // Ensure any other errors get caught and returned
+      if (error instanceof HttpException) {
+        throw error; // If it's already a HttpException, rethrow it
+      }
+
+      // Generic error handling, if something unexpected happens
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'Failed to update pelayaran',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -206,13 +264,13 @@ export class PelayaranController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error deleting menu in controller:', error);
+      console.error('Error deleting pelayaran in controller:', error);
 
       if (error instanceof NotFoundException) {
         throw error;
       }
 
-      throw new InternalServerErrorException('Failed to delete menu');
+      throw new InternalServerErrorException('Failed to delete pelayaran');
     }
   }
 

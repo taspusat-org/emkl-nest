@@ -107,6 +107,9 @@ export class RelasiService {
           'statusaktif.text as statusaktif_text',
           'statusaktif.memo as statusaktif_memo',
           'cabang.nama as titipcabang',
+          'coagiro.keterangancoa as coagiro_ket',
+          'coapiutang.keterangancoa as coapiutang_ket',
+          'coahutang.keterangancoa as coahutang_ket',
         ])
         .leftJoin(
           'parameter as statusrelasi',
@@ -115,6 +118,13 @@ export class RelasiService {
         )
         .leftJoin('parameter as statustitip', 'r.statustitip', 'statustitip.id')
         .leftJoin('parameter as statusaktif', 'r.statusaktif', 'statusaktif.id')
+        .leftJoin('akunpusat as coagiro', 'r.coagiro', 'coagiro.coa')
+        .leftJoin(
+          'akunpusat as coapiutang',
+          'r.coapiutang',
+          'coapiutang.coa',
+        )
+        .leftJoin('akunpusat as coahutang', 'r.coahutang', 'coahutang.coa')
         .leftJoin('cabang', 'r.titipcabang_id', 'cabang.id');
 
       // full-text search
@@ -167,7 +177,25 @@ export class RelasiService {
             query.andWhere(`statusaktif.text`, `${val}`);
           } else if (['titipcabang'].includes(key)) {
             query.andWhere(`cabang.nama`, `${val}`);
-          }
+          } else if (key === 'coagiro_ket') {
+              query.andWhere(
+                `coagiro.keterangancoa`,
+                'like',
+                `%${val}%`,
+              );
+            } else if (key === 'coahutang_ket') {
+              query.andWhere(
+                `coahutang.keterangancoa`,
+                'like',
+                `%${val}%`,
+              );
+            } else if (key === 'coapiutang_ket') {
+              query.andWhere(
+                `coapiutang.keterangancoa`,
+                'like',
+                `%${val}%`,
+              );
+            } 
           // text fields
           else if (
             [

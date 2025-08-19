@@ -59,6 +59,7 @@ export class PelayaranService {
       const relasi = {
         nama: insertData.nama,
         statusrelasi: statusRelasi.id,
+        statusaktif: insertData.statusaktif,
         modifiedby: insertData.modifiedby,
       };
       const dataRelasi = await this.relasiService.create(relasi, trx);
@@ -339,6 +340,7 @@ export class PelayaranService {
       const relasi = {
         nama: insertData.nama,
         statusrelasi: statusRelasi.id,
+        statusaktif: insertData.statusaktif,
         modifiedby: insertData.modifiedby,
       };
       const dataRelasi = await this.relasiService.update(

@@ -124,6 +124,7 @@ import { ScheduleKapalModule } from './modules/schedule-kapal/schedule-kapal.mod
     EmklModule,
     LaporanalatbayarModule,
     ScheduleKapalModule,
+    EmklModule,
   ],
   controllers: [],
   providers: [RabbitmqService],
