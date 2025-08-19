@@ -552,3 +552,9 @@ export const formatDateToSQL = (date: string): string | null => {
   const pad = (n: number) => (n < 10 ? '0' + n : n);
   return `${isoDate.getFullYear()}-${pad(isoDate.getMonth() + 1)}-${pad(isoDate.getDate())}`;
 };
+export const formatDateTimeToSQL = (val: string) => {
+  const raw = String(val).trim().replace('T', ' ');
+  const [d, t = '00:00'] = raw.split(' ');
+  const [hh = '00', mm = '00', ss = '00'] = t.split(':');
+  return `${d} ${hh.padStart(2, '0')}:${mm.padStart(2, '0')}:${ss.padStart(2, '0')}.000`;
+};
