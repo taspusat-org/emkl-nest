@@ -46,33 +46,12 @@ export class TypeAkuntansiController {
   @Post()
   //@TYPE-AKUNTANSI
   async create(
-    @Body(
-      new ZodValidationPipe(CreateTypeAkuntansiSchema),
-      KeyboardOnlyValidationPipe,
-    )
+    @Body(new ZodValidationPipe(CreateTypeAkuntansiSchema))
     data: CreateTypeAkuntansiDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
-      console.log('kesini??');
-
-      // const typeakuntansiExist = await isRecordExist(
-      //   'nama',
-      //   data.nama,
-      //   'typeakuntansi',
-      // );
-
-      // if (typeakuntansiExist) {
-      //   throw new HttpException(
-      //     {
-      //       statusCode: HttpStatus.BAD_REQUEST,
-      //       message: `Type Akuntansi dengan nama ${data.nama} sudah ada`,
-      //     },
-      //     HttpStatus.BAD_REQUEST,
-      //   );
-      // }
-
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.typeAkuntansiService.create(data, trx);

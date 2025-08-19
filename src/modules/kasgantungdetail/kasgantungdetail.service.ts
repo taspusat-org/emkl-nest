@@ -100,7 +100,6 @@ export class KasgantungdetailService {
 
     // Insert into temp table
     await trx(tempTableName).insert(openJson);
-    console.log('table', await trx(tempTableName));
 
     // **Update or Insert into 'kasgantungdetail' with correct idheader**
     const updatedData = await trx('kasgantungdetail')
