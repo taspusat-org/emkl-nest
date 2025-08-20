@@ -11,5 +11,6 @@ import { JenisOrderanService } from './jenisorderan.service';
   imports: [RedisModule, UtilsModule, AuthModule, LogtrailModule, RelasiModule],
   controllers: [JenisOrderanController],
   providers: [JenisOrderanService],
+  exports: [JenisOrderanService],
 })
 export class JenisOrderanModule {}
