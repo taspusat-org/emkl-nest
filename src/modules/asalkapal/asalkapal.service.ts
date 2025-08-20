@@ -4,56 +4,25 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateKapalDto } from './dto/create-kapal.dto';
-import { UpdateKapalDto } from './dto/update-kapal.dto';
+import { CreateAsalkapalDto } from './dto/create-asalkapal.dto';
+import { UpdateAsalkapalDto } from './dto/update-asalkapal.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
+import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RedisService } from 'src/common/redis/redis.service';
 import { UtilsService } from 'src/utils/utils.service';
-import { LogtrailService } from 'src/common/logtrail/logtrail.service';
-import { Knex } from 'knex';
+import { LocksService } from '../locks/locks.service';
+import { GlobalService } from '../global/global.service';
 
 @Injectable()
-export class KapalService {
-  private readonly tableName: string = 'kapal';
+export class AsalkapalService {
+  private readonly tableName: string = 'asalkapal';
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
+    private readonly locksService: LocksService,
+    private readonly globalService: GlobalService,
   ) {}
-  async getById(id: number, trx: any) {
-    try {
-      const result = await trx(`${this.tableName} as u`)
-        .select([
-          'u.id as id',
-          'u.nama',
-          'u.keterangan',
-          'u.statusaktif',
-          'u.pelayaran_id',
-          'pelayaran.nama as pelayaran',
-          'u.modifiedby',
-          trx.raw(
-            "ISNULL(FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss'), ' ') as created_at",
-          ),
-          trx.raw(
-            "ISNULL(FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss'), ' ') as updated_at",
-          ),
-          'p.memo',
-          'p.text',
-        ])
-        .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
-        .leftJoin('pelayaran', 'u.pelayaran_id', 'pelayaran.id')
-        .where('u.id', id)
-        .first();
-      if (!result) {
-        throw new Error('Data not found');
-      }
-      return result;
-    } catch (error) {
-      console.error('Error fetching data by id:', error);
-      throw new Error('Failed to fetch data by id');
-    }
-  }
-
   async create(data: any, trx: any) {
     try {
       const {
@@ -82,11 +51,13 @@ export class KapalService {
       const query = trx(`${this.tableName} as u`)
         .select([
           'u.id as id',
-          'u.nama',
+          // 'u.nama',
           'u.keterangan',
-          'u.statusaktif',
-          'u.pelayaran_id',
-          'pelayaran.nama as pelayaran',
+          'u.nominal',
+          'u.cabang_id',
+          'cabang.nama as cabang',
+          'u.container_id',
+          'container.nama as container',
           'u.modifiedby',
           trx.raw(
             "ISNULL(FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss'), ' ') as created_at",
@@ -95,19 +66,21 @@ export class KapalService {
             "ISNULL(FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss'), ' ') as updated_at",
           ),
           'p.memo',
-          'p.text',
+          'p.text as statusaktif_text',
+          'u.statusaktif',
         ])
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
-        .leftJoin('pelayaran', 'u.pelayaran_id', 'pelayaran.id')
+        .leftJoin('cabang', 'u.cabang_id', 'cabang.id')
+        .leftJoin('container', 'u.container_id', 'container.id')
         .orderBy(sortBy ? `u.${sortBy}` : 'u.id', sortDirection || 'desc')
         .where('u.id', '<=', newItem.id); // Filter berdasarkan ID yang lebih kecil atau sama dengan newItem.id
 
       if (search) {
         query.where((builder) => {
           builder
-            .orWhere('u.nama', 'like', `%${search}%`)
             .orWhere('u.keterangan', 'like', `%${search}%`)
-            .orWhere('pelayaran.nama', 'like', `%${search}%`)
+            .orWhere('cabang.nama', 'like', `%${search}%`)
+            .orWhere('container.nama', 'like', `%${search}%`)
             .orWhere('p.memo', 'like', `%${search}%`)
             .orWhere('p.text', 'like', `%${search}%`);
         });
@@ -121,10 +94,12 @@ export class KapalService {
                 "ISNULL(FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss'), ' ') LIKE ?",
                 [key, `%${value}%`],
               );
-            } else if (key === 'pelayaran') {
-              query.andWhere(`pelayaran.nama`, 'like', `%${value}%`);
-            } else if (key === 'text' || key === 'memo') {
-              query.andWhere(`p.${key}`, '=', value);
+            } else if (key === 'cabang') {
+              query.andWhere(`cabang.nama`, 'like', `%${value}%`);
+            } else if (key === 'container') {
+              query.andWhere(`container.nama`, 'like', `%${value}%`);
+            } else if (key === 'statusaktif_text' || key === 'memo') {
+              query.andWhere(`p.text`, '=', value);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${value}%`);
             }
@@ -190,11 +165,13 @@ export class KapalService {
       const query = trx(`${this.tableName} as u`)
         .select([
           'u.id as id',
-          'u.nama',
+          // 'u.nama',
           'u.keterangan',
-          'u.statusaktif',
-          'u.pelayaran_id',
-          'pelayaran.nama as pelayaran',
+          'u.nominal',
+          'u.cabang_id',
+          'cabang.nama as cabang',
+          'u.container_id',
+          'container.nama as container',
           'u.modifiedby',
           trx.raw(
             "ISNULL(FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss'), ' ') as created_at",
@@ -203,10 +180,12 @@ export class KapalService {
             "ISNULL(FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss'), ' ') as updated_at",
           ),
           'p.memo',
-          'p.text',
+          'p.text as statusaktif_text',
+          'u.statusaktif',
         ])
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
-        .leftJoin('pelayaran', 'u.pelayaran_id', 'pelayaran.id');
+        .leftJoin('cabang', 'u.cabang_id', 'cabang.id')
+        .leftJoin('container', 'u.container_id', 'container.id');
 
       if (limit > 0) {
         const offset = (page - 1) * limit;
@@ -216,9 +195,9 @@ export class KapalService {
       if (search) {
         query.where((builder) => {
           builder
-            .orWhere('u.nama', 'like', `%${search}%`)
             .orWhere('u.keterangan', 'like', `%${search}%`)
-            .orWhere('pelayaran.nama', 'like', `%${search}%`)
+            .orWhere('cabang.nama', 'like', `%${search}%`)
+            .orWhere('container.nama', 'like', `%${search}%`)
             .orWhere('p.memo', 'like', `%${search}%`)
             .orWhere('p.text', 'like', `%${search}%`);
         });
@@ -232,10 +211,12 @@ export class KapalService {
                 "ISNULL(FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss'), ' ') LIKE ?",
                 [key, `%${value}%`],
               );
-            } else if (key === 'pelayaran') {
-              query.andWhere(`pelayaran.nama`, 'like', `%${value}%`);
-            } else if (key === 'text' || key === 'memo') {
-              query.andWhere(`p.${key}`, '=', value);
+            } else if (key === 'cabang') {
+              query.andWhere(`cabang.nama`, 'like', `%${value}%`);
+            } else if (key === 'container') {
+              query.andWhere(`container.nama`, 'like', `%${value}%`);
+            } else if (key === 'statusaktif_text' || key === 'memo') {
+              query.andWhere(`p.text`, '=', value);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${value}%`);
             }
@@ -273,14 +254,14 @@ export class KapalService {
   }
 
   findOne(id: number) {
-    return `This action returns a #${id} kapal`;
+    return `This action returns a #${id} asalkapal`;
   }
 
   async update(id: number, data: any, trx: any) {
     try {
       const existingData = await trx(this.tableName).where('id', id).first();
       if (!existingData) {
-        throw new Error('kapal not found');
+        throw new Error('Asal kapal not found');
       }
       const {
         sortBy,
@@ -383,6 +364,30 @@ export class KapalService {
         throw error;
       }
       throw new InternalServerErrorException('Failed to delete data');
+    }
+  }
+
+  async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
+    try {
+      if (aksi === 'EDIT') {
+        const forceEdit = await this.locksService.forceEdit(
+          this.tableName,
+          value,
+          editedby,
+          trx,
+        );
+        return forceEdit;
+      } else if (aksi === 'DELETE') {
+        const validasi = {
+          status: 'success',
+          message: 'Data aman untuk dihapus.',
+        };
+
+        return validasi;
+      }
+    } catch (error) {
+      console.error('Error di checkValidasi:', error);
+      throw new InternalServerErrorException('Failed to check validation');
     }
   }
 }
