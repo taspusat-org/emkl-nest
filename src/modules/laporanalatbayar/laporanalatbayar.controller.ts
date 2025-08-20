@@ -20,7 +20,7 @@ import { LaporanalatbayarService } from './laporanalatbayar.service';
 import { CreateLaporanalatbayarDto } from './dto/create-laporanalatbayar.dto';
 import { UpdateLaporanalatbayarDto } from './dto/update-laporanalatbayar.dto';
 import * as fs from 'fs';
-import { query, Response } from 'express';
+import { Response } from 'express';
 import { dbMssql } from 'src/common/utils/db';
 import {
   FindAllDto,

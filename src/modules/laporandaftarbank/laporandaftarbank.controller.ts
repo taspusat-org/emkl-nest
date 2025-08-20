@@ -21,7 +21,7 @@ import { CreateLaporandaftarbankDto } from './dto/create-laporandaftarbank.dto';
 import { UpdateLaporandaftarbankDto } from './dto/update-laporandaftarbank.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import * as fs from 'fs';
-import { query, Response } from 'express';
+import { Response } from 'express';
 import { dbMssql } from 'src/common/utils/db';
 import {
   FindAllDto,

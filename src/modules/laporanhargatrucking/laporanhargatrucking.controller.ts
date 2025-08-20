@@ -22,7 +22,7 @@ import { UpdateLaporanhargatruckingDto } from './dto/update-laporanhargatrucking
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { HargatruckingService } from '../hargatrucking/hargatrucking.service';
 import * as fs from 'fs';
-import { query, Response } from 'express';
+import { Response } from 'express';
 import { dbMssql } from 'src/common/utils/db';
 import {
   FindAllDto,

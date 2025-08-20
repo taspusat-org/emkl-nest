@@ -16,7 +16,7 @@ import { UpdateLaporanjenismuatanDto } from './dto/update-laporanjenismuatan.dto
 import { JenisMuatanService } from '../jenismuatan/jenismuatan.service';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import * as fs from 'fs';
-import { query, Response } from 'express';
+import { Response } from 'express';
 import { dbMssql } from 'src/common/utils/db';
 import {
   FindAllDto,

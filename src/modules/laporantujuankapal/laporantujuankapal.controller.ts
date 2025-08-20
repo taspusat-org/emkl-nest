@@ -22,7 +22,7 @@ import { UpdateLaporantujuankapalDto } from './dto/update-laporantujuankapal.dto
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { TujuankapalService } from '../tujuankapal/tujuankapal.service';
 import * as fs from 'fs';
-import { query, Response } from 'express';
+import { Response } from 'express';
 import { dbMssql } from 'src/common/utils/db';
 import {
   FindAllDto,

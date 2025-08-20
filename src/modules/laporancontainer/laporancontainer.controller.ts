@@ -22,7 +22,7 @@ import { UpdateLaporancontainerDto } from './dto/update-laporancontainer.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { ContainerService } from '../container/container.service';
 import * as fs from 'fs';
-import { query, Response } from 'express';
+import { Response } from 'express';
 import { dbMssql } from 'src/common/utils/db';
 import {
   FindAllDto,

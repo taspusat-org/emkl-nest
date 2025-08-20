@@ -29,7 +29,6 @@ import {
   FindAllParams,
   FindAllSchema,
 } from 'src/common/interfaces/all.interface';
-import { query } from 'express';
 
 @Controller('emkl')
 export class EmklController {
