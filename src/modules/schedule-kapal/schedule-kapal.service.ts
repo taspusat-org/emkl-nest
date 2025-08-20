@@ -45,11 +45,6 @@ export class ScheduleKapalService {
 
       const newData = insertedItems[0];
 
-      // await this.redisService.set(
-      //   `${this.tableName}-allItems`,
-      //   JSON.stringify(data),
-      // );
-
       await this.logTrailService.create(
         {
           namatable: this.tableName,
@@ -85,6 +80,7 @@ export class ScheduleKapalService {
       .select([
         'u.id',
         'u.jenisorderan_id',
+        'u.voyberangkat',
         'u.keterangan',
         'u.kapal_id',
         'u.pelayaran_id',
@@ -133,6 +129,7 @@ export class ScheduleKapalService {
             .orWhere('c.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('d.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('e.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.voyberangkat', 'like', `%${sanitizedValue}%`)
             .orWhere('u.tglberangkat', 'like', `%${sanitizedValue}%`)
             .orWhere('u.tgltiba', 'like', `%${sanitizedValue}%`)
             .orWhere('u.tglclosing', 'like', `%${sanitizedValue}%`)
