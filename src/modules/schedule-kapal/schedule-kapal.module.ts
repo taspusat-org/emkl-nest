@@ -10,15 +10,7 @@ import { RedisModule } from 'src/common/redis/redis.module';
 @Module({
   controllers: [ScheduleKapalController],
   providers: [ScheduleKapalService],
-  imports: [
-    LogtrailModule,
-    UtilsModule,
-    AuthModule,
-    GlobalModule,
-    RedisModule
-  ],
-  exports: [
-    ScheduleKapalService
-  ]
+  imports: [LogtrailModule, UtilsModule, AuthModule, GlobalModule, RedisModule],
+  exports: [ScheduleKapalService],
 })
 export class ScheduleKapalModule {}

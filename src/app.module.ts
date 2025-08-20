@@ -65,6 +65,8 @@ import { ScheduleKapalModule } from './modules/schedule-kapal/schedule-kapal.mod
 import { LaporandaftarbankModule } from './modules/laporandaftarbank/laporandaftarbank.module';
 import { LaporanjenisorderanModule } from './modules/laporanjenisorderan/laporanjenisorderan.module';
 import { LaporanjenismuatanModule } from './modules/laporanjenismuatan/laporanjenismuatan.module';
+import { ManagermarketingheaderModule } from './modules/managermarketingheader/managermarketingheader.module';
+import { ManagermarketingdetailModule } from './modules/managermarketingdetail/managermarketingdetail.module';
 
 @Module({
   imports: [
@@ -131,6 +133,11 @@ import { LaporanjenismuatanModule } from './modules/laporanjenismuatan/laporanje
     LaporandaftarbankModule,
     LaporanjenisorderanModule,
     LaporanjenismuatanModule,
+    LaporandaftarbankModule,
+    LaporanjenisorderanModule,
+    LaporanjenismuatanModule,
+    ManagermarketingheaderModule,
+    ManagermarketingdetailModule,
   ],
   controllers: [],
   providers: [RabbitmqService],

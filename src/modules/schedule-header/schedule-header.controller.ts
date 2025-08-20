@@ -1,16 +1,16 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Patch, 
-  Param, 
-  Delete, 
-  UseGuards, 
-  Req, 
-  UsePipes, 
-  Query, 
-  Put
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
+  UsePipes,
+  Query,
+  Put,
 } from '@nestjs/common';
 import { dbMssql } from 'src/common/utils/db';
 import { AuthGuard } from '../auth/auth.guard';
@@ -18,7 +18,11 @@ import { ScheduleHeaderService } from './schedule-header.service';
 import { CreateScheduleHeaderDto } from './dto/create-schedule-header.dto';
 import { UpdateScheduleHeaderDto } from './dto/update-schedule-header.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
-import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
 
 @Controller('schedule-header')
 export class ScheduleHeaderController {
@@ -27,16 +31,13 @@ export class ScheduleHeaderController {
   @UseGuards(AuthGuard)
   @Post()
   //@SCHEDULE-HEADER
-  async create(
-    @Body() data:any, 
-    @Req() req
-  ) {
+  async create(@Body() data: any, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
       // console.log('masuk sinii??', data, data.modifiedby);
-      
-      const result = await this.scheduleHeaderService.create(data, trx)
+
+      const result = await this.scheduleHeaderService.create(data, trx);
 
       await trx.commit();
       return result;
@@ -49,39 +50,32 @@ export class ScheduleHeaderController {
   @Get()
   //@SCHEDULE-HEADER
   @UsePipes(new ZodValidationPipe(FindAllSchema))
-  async findAll(@Query() query:FindAllDto) {
-    const {
-      search,
-      page,
-      limit,
-      sortBy,
-      sortDirection,
-      isLookUp,
-      ...filters
-    } = query
-    
+  async findAll(@Query() query: FindAllDto) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
+
     const sortParams = {
       sortBy: sortBy || 'nobukti',
-      sortDirection: sortDirection || 'asc'
-    }
+      sortDirection: sortDirection || 'asc',
+    };
 
     const pagination = {
       page: page || 1,
-      limit: limit === 0 || !limit ? undefined : limit
-    }
+      limit: limit === 0 || !limit ? undefined : limit,
+    };
 
     const params: FindAllParams = {
       search,
       filters,
       pagination,
       sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
-      isLookUp: isLookUp === 'true'
-    }
+      isLookUp: isLookUp === 'true',
+    };
 
     const trx = await dbMssql.transaction();
 
     try {
-      const result = await this.scheduleHeaderService.findAll(params, trx)
+      const result = await this.scheduleHeaderService.findAll(params, trx);
       trx.commit();
 
       return result;
@@ -96,10 +90,10 @@ export class ScheduleHeaderController {
   @Put(':id')
   //@SCHEDULE-HEADER
   async update(
-    @Param('id') 
-    id: string, 
+    @Param('id')
+    id: string,
     @Body() data: any,
-    @Req() req
+    @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
@@ -120,9 +114,9 @@ export class ScheduleHeaderController {
   @Delete(':id')
   //@SCHEDULE-HEADER
   async delete(
-    @Param('id') 
+    @Param('id')
     id: string,
-    @Req() req
+    @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     const modifiedby = req.user?.user?.username || 'unknown';

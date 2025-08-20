@@ -9,7 +9,6 @@ import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 import { RunningNumberModule } from '../running-number/running-number.module';
 import { ScheduleDetailModule } from '../schedule-detail/schedule-detail.module';
 
-
 @Module({
   controllers: [ScheduleHeaderController],
   providers: [ScheduleHeaderService],
@@ -20,7 +19,7 @@ import { ScheduleDetailModule } from '../schedule-detail/schedule-detail.module'
     LogtrailModule,
     GlobalModule,
     RunningNumberModule,
-    ScheduleDetailModule
-  ]
+    ScheduleDetailModule,
+  ],
 })
 export class ScheduleHeaderModule {}
