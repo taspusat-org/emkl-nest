@@ -61,13 +61,10 @@ import { HargatruckingModule } from './modules/hargatrucking/hargatrucking.modul
 import { LaporanhargatruckingModule } from './modules/laporanhargatrucking/laporanhargatrucking.module';
 import { EmklModule } from './modules/emkl/emkl.module';
 import { LaporanalatbayarModule } from './modules/laporanalatbayar/laporanalatbayar.module';
-<<<<<<< Updated upstream
 import { ScheduleKapalModule } from './modules/schedule-kapal/schedule-kapal.module';
-=======
 import { LaporandaftarbankModule } from './modules/laporandaftarbank/laporandaftarbank.module';
 import { LaporanjenisorderanModule } from './modules/laporanjenisorderan/laporanjenisorderan.module';
 import { LaporanjenismuatanModule } from './modules/laporanjenismuatan/laporanjenismuatan.module';
->>>>>>> Stashed changes
 
 @Module({
   imports: [
@@ -129,13 +126,11 @@ import { LaporanjenismuatanModule } from './modules/laporanjenismuatan/laporanje
     LaporanhargatruckingModule,
     EmklModule,
     LaporanalatbayarModule,
-<<<<<<< Updated upstream
     ScheduleKapalModule,
-=======
+    EmklModule,
     LaporandaftarbankModule,
     LaporanjenisorderanModule,
     LaporanjenismuatanModule,
->>>>>>> Stashed changes
   ],
   controllers: [],
   providers: [RabbitmqService],
