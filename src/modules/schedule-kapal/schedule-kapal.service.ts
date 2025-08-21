@@ -14,20 +14,20 @@ export class ScheduleKapalService {
   constructor(
     @Inject('REDIS_CLIENT')
     private readonly utilService: UtilsService,
-    // private readonly locksService: 
+    // private readonly locksService:
     private readonly redisService: RedisService,
     private readonly globalService: GlobalService,
-    private readonly logTrailService: LogtrailService
+    private readonly logTrailService: LogtrailService,
   ) {}
 
   async create(createData: any, trx: any) {
     try {
-      console.log('masuk ke create sc kapal',createData);
+      console.log('masuk ke create sc kapal', createData);
 
       Object.keys(createData).forEach((key) => {
         if (typeof createData[key] === 'string') {
           // createData[key] = createData[key].toUpperCase();
-          
+
           const value = createData[key];
           const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
 
@@ -62,19 +62,21 @@ export class ScheduleKapalService {
         newData: newData,
       };
     } catch (error) {
-      throw new Error(`Error creating schedule kapal in service be: ${error.message}`);
+      throw new Error(
+        `Error creating schedule kapal in service be: ${error.message}`,
+      );
     }
   }
 
   async findAll(
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
-    trx: any
+    trx: any,
   ) {
-    try {      
+    try {
       let { page, limit } = pagination;
       page = page ?? 1;
       limit = limit ?? 0;
-// console.log('kesini?', search, filters, page, limit, sort);
+      // console.log('kesini?', search, filters, page, limit, sort);
 
       const query = trx(`${this.tableName} as u`)
       .select([
@@ -119,7 +121,7 @@ export class ScheduleKapalService {
 
       if (search) {
         console.log('atau kesini ');
-        
+
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
           builder
@@ -143,12 +145,15 @@ export class ScheduleKapalService {
         });
       }
 
-      if (filters) {      
+      if (filters) {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'statusaktif_nama' || key === 'memo') {
               query.andWhere(`p.text`, '=', sanitizedValue);
             } else if (key === 'jenisorderan_nama') {
@@ -175,21 +180,21 @@ export class ScheduleKapalService {
 
       if (sort?.sortBy && sort?.sortDirection) {
         if (sort?.sortBy === 'jenisorderan') {
-          query.orderBy('a.nama', sort?.sortDirection)
+          query.orderBy('a.nama', sort?.sortDirection);
         } else if (sort?.sortBy === 'kapal') {
-          query.orderBy('b.nama', sort?.sortDirection)
+          query.orderBy('b.nama', sort?.sortDirection);
         } else if (sort?.sortBy === 'pelayaran') {
-          query.orderBy('c.nama', sort?.sortDirection)
+          query.orderBy('c.nama', sort?.sortDirection);
         } else if (sort?.sortBy === 'tujuankapal') {
-          query.orderBy('d.nama', sort?.sortDirection)
+          query.orderBy('d.nama', sort?.sortDirection);
         } else if (sort?.sortBy === 'asalkapal') {
-          query.orderBy('e.keterangan', sort?.sortDirection)
+          query.orderBy('e.keterangan', sort?.sortDirection);
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }
       }
 
-      const data = await query;      
+      const data = await query;
 
       return {
         data: data,
@@ -201,13 +206,11 @@ export class ScheduleKapalService {
           itemsPerPage: limit > 0 ? limit : total,
         },
       };
-
     } catch (error) {
       console.error('Error to findAll Schedule Kapal in Service', error);
       throw new Error(error);
     }
   }
-  
 
   findOne(id: number) {
     return `This action returns a #${id} scheduleKapal`;

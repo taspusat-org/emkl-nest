@@ -641,18 +641,6 @@ export class KasgantungheaderService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE KAS GANTUNG',
-          idtrans: deletedData.id,
-          nobuktitrans: deletedData.id,
-          aksi: 'DELETE',
-          datajson: JSON.stringify(deletedData),
-          modifiedby: modifiedby,
-        },
-        trx,
-      );
-      await this.logTrailService.create(
-        {
-          namatabel: this.tableName,
           postingdari: 'DELETE KAS GANTUNG DETAIL',
           idtrans: deletedDataDetail.id,
           nobuktitrans: deletedDataDetail.id,

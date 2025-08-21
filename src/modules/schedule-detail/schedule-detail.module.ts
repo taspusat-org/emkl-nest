@@ -10,11 +10,6 @@ import { ScheduleKapalModule } from '../schedule-kapal/schedule-kapal.module';
   controllers: [ScheduleDetailController],
   providers: [ScheduleDetailService],
   exports: [ScheduleDetailService],
-  imports: [
-    AuthModule,
-    UtilsModule,
-    LogtrailModule,
-    ScheduleKapalModule
-  ]
+  imports: [AuthModule, UtilsModule, LogtrailModule, ScheduleKapalModule],
 })
 export class ScheduleDetailModule {}
