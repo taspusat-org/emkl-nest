@@ -67,6 +67,8 @@ import { LaporanjenisorderanModule } from './modules/laporanjenisorderan/laporan
 import { LaporanjenismuatanModule } from './modules/laporanjenismuatan/laporanjenismuatan.module';
 import { ManagermarketingheaderModule } from './modules/managermarketingheader/managermarketingheader.module';
 import { ManagermarketingdetailModule } from './modules/managermarketingdetail/managermarketingdetail.module';
+import { DaftarblModule } from './modules/daftarbl/daftarbl.module';
+import { LaporanDaftarblModule } from './modules/laporan-daftarbl/laporan-daftarbl.module';
 
 @Module({
   imports: [
@@ -133,11 +135,10 @@ import { ManagermarketingdetailModule } from './modules/managermarketingdetail/m
     LaporandaftarbankModule,
     LaporanjenisorderanModule,
     LaporanjenismuatanModule,
-    LaporandaftarbankModule,
-    LaporanjenisorderanModule,
-    LaporanjenismuatanModule,
     ManagermarketingheaderModule,
     ManagermarketingdetailModule,
+    DaftarblModule,
+    LaporanDaftarblModule,
   ],
   controllers: [],
   providers: [RabbitmqService],
