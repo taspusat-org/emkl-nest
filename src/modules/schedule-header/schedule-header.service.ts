@@ -90,7 +90,7 @@ export class ScheduleHeaderService {
         {
           search,
           filters,
-          pagination: { page, limit:0 },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },

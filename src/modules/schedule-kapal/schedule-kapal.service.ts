@@ -79,40 +79,40 @@ export class ScheduleKapalService {
       // console.log('kesini?', search, filters, page, limit, sort);
 
       const query = trx(`${this.tableName} as u`)
-      .select([
-        'u.id',
-        'u.jenisorderan_id',
-        'u.voyberangkat',
-        'u.keterangan',
-        'u.kapal_id',
-        'u.pelayaran_id',
-        'u.tujuankapal_id',
-        'u.asalkapal_id',
-        trx.raw("FORMAT(u.tglberangkat, 'dd-MM-yyyy') as tglberangkat"),
-        trx.raw("FORMAT(u.tgltiba, 'dd-MM-yyyy') as tgltiba"),
-        // 'u.tglclosing',
-        trx.raw("FORMAT(u.tglclosing, 'dd-MM-yyyy HH:mm:ss') as tglclosing"),
-        'u.statusberangkatkapal',
-        'u.statustibakapal',
-        'u.batasmuatankapal',
-        'u.statusaktif',
-        'u.modifiedby',
-        trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-        trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-        'a.nama as jenisorderan_nama',
-        'b.nama as kapal_nama',
-        'c.nama as pelayaran_nama',
-        'd.nama as tujuankapal_nama',
-        'e.keterangan as asalkapal_nama',
-        'p.memo',
-        'p.text as statusaktif_nama'
-      ])
-      .leftJoin('jenisorderan as a', 'u.jenisorderan_id', 'a.id')
-      .leftJoin('kapal as b', 'u.kapal_id', 'b.id')
-      .leftJoin('pelayaran as c', 'u.pelayaran_id', 'c.id')
-      .leftJoin('tujuankapal as d', 'u.tujuankapal_id', 'd.id')
-      .leftJoin('asalkapal as e', 'u.asalkapal_id', 'e.id')
-      .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
+        .select([
+          'u.id',
+          'u.jenisorderan_id',
+          'u.voyberangkat',
+          'u.keterangan',
+          'u.kapal_id',
+          'u.pelayaran_id',
+          'u.tujuankapal_id',
+          'u.asalkapal_id',
+          trx.raw("FORMAT(u.tglberangkat, 'dd-MM-yyyy') as tglberangkat"),
+          trx.raw("FORMAT(u.tgltiba, 'dd-MM-yyyy') as tgltiba"),
+          // 'u.tglclosing',
+          trx.raw("FORMAT(u.tglclosing, 'dd-MM-yyyy HH:mm:ss') as tglclosing"),
+          'u.statusberangkatkapal',
+          'u.statustibakapal',
+          'u.batasmuatankapal',
+          'u.statusaktif',
+          'u.modifiedby',
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+          'a.nama as jenisorderan_nama',
+          'b.nama as kapal_nama',
+          'c.nama as pelayaran_nama',
+          'd.nama as tujuankapal_nama',
+          'e.keterangan as asalkapal_nama',
+          'p.memo',
+          'p.text as statusaktif_nama',
+        ])
+        .leftJoin('jenisorderan as a', 'u.jenisorderan_id', 'a.id')
+        .leftJoin('kapal as b', 'u.kapal_id', 'b.id')
+        .leftJoin('pelayaran as c', 'u.pelayaran_id', 'c.id')
+        .leftJoin('tujuankapal as d', 'u.tujuankapal_id', 'd.id')
+        .leftJoin('asalkapal as e', 'u.asalkapal_id', 'e.id')
+        .leftJoin('parameter as p', 'u.statusaktif', 'p.id');
 
       if (limit > 0) {
         const offset = (page - 1) * limit;
