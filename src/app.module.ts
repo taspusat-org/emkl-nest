@@ -69,6 +69,7 @@ import { ManagermarketingheaderModule } from './modules/managermarketingheader/m
 import { ManagermarketingdetailModule } from './modules/managermarketingdetail/managermarketingdetail.module';
 import { DaftarblModule } from './modules/daftarbl/daftarbl.module';
 import { LaporanDaftarblModule } from './modules/laporan-daftarbl/laporan-daftarbl.module';
+import { JenisbiayamarketingModule } from './modules/jenisbiayamarketing/jenisbiayamarketing.module';
 
 @Module({
   imports: [
@@ -139,6 +140,7 @@ import { LaporanDaftarblModule } from './modules/laporan-daftarbl/laporan-daftar
     ManagermarketingdetailModule,
     DaftarblModule,
     LaporanDaftarblModule,
+    JenisbiayamarketingModule,
   ],
   controllers: [],
   providers: [RabbitmqService],
