@@ -70,6 +70,7 @@ import { ManagermarketingdetailModule } from './modules/managermarketingdetail/m
 import { DaftarblModule } from './modules/daftarbl/daftarbl.module';
 import { LaporanDaftarblModule } from './modules/laporan-daftarbl/laporan-daftarbl.module';
 import { JenisbiayamarketingModule } from './modules/jenisbiayamarketing/jenisbiayamarketing.module';
+import { MarketinggroupModule } from './modules/marketinggroup/marketinggroup.module';
 
 @Module({
   imports: [
@@ -141,6 +142,7 @@ import { JenisbiayamarketingModule } from './modules/jenisbiayamarketing/jenisbi
     DaftarblModule,
     LaporanDaftarblModule,
     JenisbiayamarketingModule,
+    MarketinggroupModule,
   ],
   controllers: [],
   providers: [RabbitmqService],
