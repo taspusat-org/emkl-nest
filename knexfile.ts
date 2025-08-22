@@ -246,6 +246,25 @@ const knexConfig: { [key: string]: Knex.Config } = {
       directory: './migrations',
     },
   },
+  dbHr: {
+    client: 'mssql',
+    connection: {
+      server: process.env.SSMS_SERVER_HR,
+      user: process.env.SSMS_USER_HR,
+      password: process.env.SSMS_PASSWORD_HR,
+      database: process.env.SSMS_DB_HR,
+      port: 1450,
+      options: {
+        encrypt: false, // Sesuaikan dengan pengaturan enkripsi pada MSSQL
+        enableArithAbort: true, // Diperlukan untuk mencegah error aritmati
+      },
+      requestTimeout: 50000000,
+    },
+    migrations: {
+      tableName: 'knex_migrations',
+      directory: './migrations',
+    },
+  },
   mysqltest: {
     client: 'mysql',
     connection: {
