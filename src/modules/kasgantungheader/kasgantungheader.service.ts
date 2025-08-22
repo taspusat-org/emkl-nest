@@ -50,7 +50,6 @@ export class KasgantungheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-      console.log('masuk');
       const parameter = await trx('parameter')
         .select('*')
         .where('grp', 'PENERIMAAN GANTUNG')

@@ -104,6 +104,7 @@ export class MenuService {
     trx: any,
   ) {
     try {
+      console.log('pagination', pagination);
       let { page, limit } = pagination;
 
       page = page ?? 1;
@@ -145,6 +146,7 @@ export class MenuService {
 
       if (limit > 0) {
         const offset = (page - 1) * limit;
+        console.log('OFFSET', offset, 'LIMIT', limit);
         query.limit(limit).offset(offset);
       }
 

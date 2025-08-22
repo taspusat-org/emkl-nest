@@ -122,6 +122,7 @@ export class ParameterService {
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
       );
+      await this.redisService.del('parameter-*');
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
@@ -153,26 +154,22 @@ export class ParameterService {
   }: FindAllParams) {
     try {
       let { page, limit } = pagination;
-
       page = page ?? 1;
       limit = limit ?? 0;
-      if (isLookUp) {
-        // Count the total number of records in the ACO table (assuming 'aco' is the table)
-        const acoCountResult = await dbMssql(this.tableName)
-          .count('id as total')
-          .first();
 
-        const acoCount = acoCountResult?.total || 0;
+      // Membuat cache key berdasarkan filters.grp
+      const cacheKey = `parameter-grp-${filters?.grp || 'default'}`;
 
-        // If there are more than 500 ACO records, limit the results
-        if (Number(acoCount) > 500) {
-          return { data: { type: 'json' } };
-        } else {
-          limit = 0; // If ACO records are below 500, return all data
-        }
+      // Cek apakah data sudah ada di cache
+      const cachedData = await this.redisService.get(cacheKey);
+
+      if (cachedData) {
+        // Jika data ada di cache, langsung return dari cache
+        return JSON.parse(cachedData);
       }
-      const offset = (page - 1) * limit;
 
+      // Jika tidak ada di cache, lakukan query ke database
+      const offset = (page - 1) * limit;
       const query = dbMssql(this.tableName).select(
         'id',
         'grp',
@@ -187,6 +184,7 @@ export class ParameterService {
         dbMssql.raw("FORMAT(created_at, 'dd-MM-yyyy HH:mm:ss') AS created_at"),
         dbMssql.raw("FORMAT(updated_at, 'dd-MM-yyyy HH:mm:ss') AS updated_at"),
       );
+
       if (limit > 0) {
         query.limit(limit).offset(offset);
       }
@@ -214,19 +212,20 @@ export class ParameterService {
 
       const result = await dbMssql(this.tableName).count('id as total').first();
       const total = result?.total as number;
-
       const totalPages = Math.ceil(total / limit);
+
       if (sort?.sortBy && sort?.sortDirection) {
         query.orderBy(sort.sortBy, sort.sortDirection);
       }
-      const responseType = Number(total) > 500 ? 'json' : 'local';
 
       const parameters = await query;
+
+      // Simpan data hasil query ke dalam Redis cache
+      await this.redisService.set(cacheKey, JSON.stringify(parameters));
 
       return {
         data: parameters,
         total,
-        type: responseType,
         pagination: {
           currentPage: page,
           totalPages: totalPages,
