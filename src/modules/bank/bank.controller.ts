@@ -46,25 +46,6 @@ export class BankController {
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const bankExist = await isRecordExist('nama', data.nama, 'bank');
-      const checkCoa = data.coa === data.coagantung;
-      if (bankExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Bank dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      } else if (checkCoa && data.coa !== 0 && data.coagantung !== 0) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Coa dan Coa Gantung tidak boleh sama `,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.bankService.create(data, trx);

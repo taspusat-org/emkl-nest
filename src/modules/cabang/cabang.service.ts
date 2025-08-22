@@ -7,7 +7,7 @@ import {
 import { CreateCabangDto } from './dto/create-cabang.dto';
 import { UpdateCabangDto } from './dto/update-cabang.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
-import { dbMssql } from 'src/common/utils/db';
+import { dbMssql, dbMssqlHr } from 'src/common/utils/db';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RedisService } from 'src/common/redis/redis.service';
@@ -34,8 +34,8 @@ export class CabangService {
         search,
         page,
         limit,
-        periode_text,
-        minuscuti_text,
+        text,
+        cabang_text,
         ...insertData
       } = data;
       Object.keys(insertData).forEach((key) => {
@@ -151,12 +151,16 @@ export class CabangService {
         .select([
           'c.id',
           'c.kodecabang',
-          'c.nama as namacabang',
+          'c.nama',
           'c.keterangan',
           'c.statusaktif',
+          'c.cabang_id',
           'p.memo',
           'p.text',
           'c.modifiedby',
+          dbMssql.raw(
+            '(SELECT TOP 1 nama FROM hr.dbo.cabang WHERE id = c.cabang_id) as namacabang_hr',
+          ),
           dbMssql.raw(
             "FORMAT(c.created_at, 'dd-MM-yyyy HH:mm:ss') AS created_at",
           ),
@@ -227,6 +231,95 @@ export class CabangService {
     }
   }
 
+  async findAllbyHr({ search, filters, pagination, sort }: FindAllParams) {
+    try {
+      let { page, limit } = pagination;
+
+      page = page ?? 1;
+      limit = limit ?? 0;
+
+      const query = dbMssqlHr(`${this.tableName} as c`)
+        .select([
+          'c.id',
+          'c.kodecabang',
+          'c.nama as namacabang',
+          'c.keterangan',
+          'c.statusaktif',
+          'p.memo',
+          'p.text',
+          'c.modifiedby',
+          dbMssqlHr.raw(
+            "FORMAT(c.created_at, 'dd-MM-yyyy HH:mm:ss') AS created_at",
+          ),
+          dbMssqlHr.raw(
+            "FORMAT(c.updated_at, 'dd-MM-yyyy HH:mm:ss') AS updated_at",
+          ),
+        ])
+        .leftJoin('parameter as p', 'c.statusaktif', 'p.id');
+
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.limit(limit).offset(offset);
+      }
+      if (search) {
+        query.where((builder) => {
+          builder
+            .orWhere('c.kodecabang', 'like', `%${search}%`)
+            .orWhere('c.nama', 'like', `%${search}%`)
+            .orWhere('c.keterangan', 'like', `%${search}%`)
+
+            .orWhere('p.memo', 'like', `%${search}%`)
+            .orWhere('p.text', 'like', `%${search}%`);
+        });
+      }
+
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          if (value) {
+            if (key === 'created_at' || key === 'updated_at') {
+              query.andWhereRaw("FORMAT(c.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${value}%`,
+              ]);
+            } else if (key === 'text' || key === 'memo') {
+              query.andWhere(`p.${key}`, '=', value);
+            } else {
+              query.andWhere(`c.${key}`, 'like', `%${value}%`);
+            }
+          }
+        }
+      }
+
+      const result = await dbMssqlHr(this.tableName)
+        .count('id as total')
+        .first();
+      const total = result?.total as number;
+
+      // Jika limit ada, hitung total pages berdasarkan limit
+      const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+
+      if (sort?.sortBy && sort?.sortDirection) {
+        query.orderBy(sort.sortBy, sort.sortDirection);
+      }
+
+      const data = await query;
+
+      return {
+        data: data,
+        total,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit > 0 ? limit : total, // Jika limit tidak ada, return semua data
+        },
+      };
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
+  }
+
   async checkRole(id: number) {
     try {
       const cabangUsage = await dbMssql('karyawan')
@@ -258,8 +351,8 @@ export class CabangService {
         search,
         page,
         limit,
-        periode_text,
-        minuscuti_text,
+        text,
+        namacabang_hr,
         ...insertData
       } = data;
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);

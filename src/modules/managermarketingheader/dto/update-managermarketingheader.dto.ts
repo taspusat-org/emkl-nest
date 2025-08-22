@@ -1,6 +1,4 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { CreateManagermarketingheaderDto } from './create-managermarketingheader.dto';
+import { CreateManagermarketingHeaderDto } from './create-managermarketingheader.dto';
 
-export class UpdateManagermarketingheaderDto extends PartialType(
-  CreateManagermarketingheaderDto,
-) {}
+export class UpdateManagermarketingheaderDto {}

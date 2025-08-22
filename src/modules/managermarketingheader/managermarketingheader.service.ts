@@ -6,7 +6,7 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
-import { CreateManagermarketingheaderDto } from './dto/create-managermarketingheader.dto';
+import { CreateManagermarketingHeaderDto } from './dto/create-managermarketingheader.dto';
 import { UpdateManagermarketingheaderDto } from './dto/update-managermarketingheader.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { RedisService } from 'src/common/redis/redis.service';

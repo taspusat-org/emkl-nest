@@ -55,22 +55,6 @@ export class ContainerController {
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const typeContainerExist = await isRecordExist(
-        'nama',
-        data.nama,
-        'container',
-      );
-
-      if (typeContainerExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Type Container dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.containerService.create(data, trx);
@@ -89,7 +73,7 @@ export class ContainerController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to create type akuntansi',
+          message: 'Failed to create container',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );

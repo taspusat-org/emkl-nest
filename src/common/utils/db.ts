@@ -1,6 +1,7 @@
 import knex from 'knex';
 import knexConfig from 'knexfile';
 const dbMssql = knex(knexConfig.development);
+const dbMssqlHr = knex(knexConfig.hr);
 const dbMdnEmkl = knex(knexConfig.medanEmkl);
 const dbMdnTruck = knex(knexConfig.medanTrucking);
 const dbjktEmkl = knex(knexConfig.jktEmkl);
@@ -17,6 +18,7 @@ const dbHr = knex(knexConfig.dbHr)
 
 export {
   dbMssql,
+  dbMssqlHr,
   dbMdnEmkl,
   dbMdnTruck,
   dbjktEmkl,

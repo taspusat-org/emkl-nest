@@ -1,7 +1,19 @@
 import { z } from 'zod';
-
+import { isRecordExist } from 'src/utils/utils.service';
 export const CreateContainerSchema = z.object({
-  nama: z.string(),
+  nama: z
+    .string()
+    .min(1, { message: 'Nama Wajib Diisi' })
+    .max(100)
+    .refine(
+      async (value) => {
+        const exists = await isRecordExist('nama', value, 'container');
+        return !exists; // Validasi jika nama sudah ada
+      },
+      {
+        message: 'Container dengan dengan nama ini sudah ada',
+      },
+    ),
   keterangan: z.string(),
   statusaktif: z
     .number()

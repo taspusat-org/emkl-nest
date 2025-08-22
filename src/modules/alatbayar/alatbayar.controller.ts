@@ -51,17 +51,6 @@ export class AlatbayarController {
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const bankExist = await isRecordExist('nama', data.nama, 'alatbayar');
-
-      if (bankExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Bank dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.alatbayarService.create(data, trx);
