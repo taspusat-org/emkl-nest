@@ -7,7 +7,7 @@ import {
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
-import { UtilsService } from 'src/utils/utils.service';
+import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { RedisService } from 'src/common/redis/redis.service';
 
 @Injectable()
@@ -185,8 +185,20 @@ export class BankService {
         .leftJoin('parameter as p9', 'b.formatrekappenerimaan', 'p9.id')
         .leftJoin('parameter as p10', 'b.formatrekappengeluaran', 'p10.id');
 
+      if (filters?.tglDari && filters?.tglSampai) {
+        // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
+        const tglDariFormatted = formatDateToSQL(String(filters?.tglDari)); // Fungsi untuk format
+        const tglSampaiFormatted = formatDateToSQL(String(filters?.tglSampai));
+
+        // Menggunakan whereBetween dengan tanggal yang sudah diformat
+        query.whereBetween('b.created_at', [
+          tglDariFormatted,
+          tglSampaiFormatted,
+        ]);
+      }
       if (search) {
         const val = String(search).replace(/\[/g, '[[]');
+
         query.where((builder) =>
           builder
             .orWhere('b.nama', 'like', `%${val}%`)
@@ -210,6 +222,9 @@ export class BankService {
       // filter berdasarkan key yang valid
       if (filters) {
         for (const [key, rawValue] of Object.entries(filters)) {
+          if (key === 'tglDari' || key === 'tglSampai') {
+            continue; // Lewati filter jika key adalah 'tglDari' atau 'tglSampai'
+          }
           if (!rawValue) continue;
           const val = String(rawValue).replace(/\[/g, '[[]');
 

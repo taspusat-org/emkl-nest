@@ -120,7 +120,7 @@ export class TypeAkuntansiController {
   //@TYPE-AKUNTANSI
   async update(
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateTypeAkuntansiSchema))
+    @Body()
     data: UpdateTypeAkuntansiDto,
     @Req() req,
   ) {

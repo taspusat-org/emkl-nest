@@ -19,7 +19,6 @@ export const CreateTypeAkuntansiSchema = z.object({
     .max(100)
     .refine(
       async (value) => {
-        console.log('value', value);
         const exists = await checkIfExistsNama(value);
         return !exists; // Validasi jika nama sudah ada
       },

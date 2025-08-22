@@ -139,7 +139,7 @@ import { MarketingdetailModule } from './modules/marketingdetail/marketingdetail
     MarketingdetailModule,
   ],
   controllers: [],
-  providers: [RabbitmqService],
+  providers: [RabbitmqService], // global],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
