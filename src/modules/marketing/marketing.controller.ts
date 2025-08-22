@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, UsePipes, Query } from '@nestjs/common';
 import { MarketingService } from './marketing.service';
 import { CreateMarketingDto, CreateMarketingSchema } from './dto/create-marketing.dto';
-import { UpdateMarketingDto } from './dto/update-marketing.dto';
+// import { UpdateMarketingDto } from './dto/update-marketing.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { dbMssql } from 'src/common/utils/db';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
@@ -84,8 +84,8 @@ export class MarketingController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateMarketingDto: UpdateMarketingDto) {
-    return this.marketingService.update(+id, updateMarketingDto);
+  update(@Param('id') id: string, @Body() data: any) {
+    return this.marketingService.update(+id, data);
   }
 
   @Delete(':id')

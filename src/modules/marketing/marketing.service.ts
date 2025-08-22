@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CreateMarketingDto } from './dto/create-marketing.dto';
-import { UpdateMarketingDto } from './dto/update-marketing.dto';
+// import { UpdateMarketingDto } from './dto/update-marketing.dto';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { dbHr } from 'src/common/utils/db';
 import { DateTime } from 'luxon';
@@ -332,7 +332,7 @@ export class MarketingService {
     return `This action returns a #${id} marketing`;
   }
 
-  update(id: number, updateMarketingDto: UpdateMarketingDto) {
+  update(id: number, data: any) {
     return `This action updates a #${id} marketing`;
   }
 
