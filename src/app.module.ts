@@ -71,6 +71,12 @@ import { DaftarblModule } from './modules/daftarbl/daftarbl.module';
 import { LaporanDaftarblModule } from './modules/laporan-daftarbl/laporan-daftarbl.module';
 import { JenisbiayamarketingModule } from './modules/jenisbiayamarketing/jenisbiayamarketing.module';
 import { MarketinggroupModule } from './modules/marketinggroup/marketinggroup.module';
+import { MarketingModule } from './modules/marketing/marketing.module';
+import { MarketingorderanModule } from './modules/marketingorderan/marketingorderan.module';
+import { MarketingbiayaModule } from './modules/marketingbiaya/marketingbiaya.module';
+import { MarketingmanagerModule } from './modules/marketingmanager/marketingmanager.module';
+import { MarketingprosesfeeModule } from './modules/marketingprosesfee/marketingprosesfee.module';
+import { MarketingdetailModule } from './modules/marketingdetail/marketingdetail.module';
 
 @Module({
   imports: [
@@ -143,6 +149,12 @@ import { MarketinggroupModule } from './modules/marketinggroup/marketinggroup.mo
     LaporanDaftarblModule,
     JenisbiayamarketingModule,
     MarketinggroupModule,
+    MarketingModule,
+    MarketingorderanModule,
+    MarketingbiayaModule,
+    MarketingmanagerModule,
+    MarketingprosesfeeModule,
+    MarketingdetailModule,
   ],
   controllers: [],
   providers: [RabbitmqService],

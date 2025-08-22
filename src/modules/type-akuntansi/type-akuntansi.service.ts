@@ -382,16 +382,19 @@ export class TypeAkuntansiService {
         {
           search,
           filters,
-          pagination: { page, limit },
+          pagination: { page, limit:0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },
         trx,
       );
 
-      const dataIndex = filteredData.findIndex(
-        (item) => Number(item.id) === id,
+      let dataIndex = filteredData.findIndex(
+        (item) => Number(item.id) === Number(id),
       );
+      if (dataIndex === -1) {
+        dataIndex = 0
+      }
       console.log('all dataa', filteredData, 'dataIndex', dataIndex);
 
       if (dataIndex === -1) {

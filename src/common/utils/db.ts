@@ -13,6 +13,7 @@ const dbmksTrucking = knex(knexConfig.mksTrucking);
 const dbbtgEmkl = knex(knexConfig.btgEmkl);
 const dbMysqlTes = knex(knexConfig.mysqltest);
 const dbBunga = knex(knexConfig.dbBunga);
+const dbHr = knex(knexConfig.dbHr)
 
 export {
   dbMssql,
@@ -28,4 +29,5 @@ export {
   dbbtgEmkl,
   dbMysqlTes,
   dbBunga,
+  dbHr
 };
