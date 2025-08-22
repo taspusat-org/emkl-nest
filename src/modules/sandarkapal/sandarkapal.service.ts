@@ -4,26 +4,25 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateAsalkapalDto } from './dto/create-asalkapal.dto';
-import { UpdateAsalkapalDto } from './dto/update-asalkapal.dto';
-import { FindAllParams } from 'src/common/interfaces/all.interface';
-import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { CreateSandarkapalDto } from './dto/create-sandarkapal.dto';
+import { UpdateSandarkapalDto } from './dto/update-sandarkapal.dto';
 import { RedisService } from 'src/common/redis/redis.service';
 import { UtilsService } from 'src/utils/utils.service';
+import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LocksService } from '../locks/locks.service';
-import { GlobalService } from '../global/global.service';
 
 @Injectable()
-export class AsalkapalService {
-  private readonly tableName: string = 'asalkapal';
+export class SandarkapalService {
+  private readonly tableName = 'sandarkapal';
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
     private readonly locksService: LocksService,
-    private readonly globalService: GlobalService,
   ) {}
-  async create(data: any, trx: any) {
+
+  async create(CreateSandarkapalDto: any, trx: any) {
     try {
       const {
         sortBy,
@@ -32,17 +31,12 @@ export class AsalkapalService {
         search,
         page,
         limit,
-        ...reqData
-      } = data;
-      const insertData = {
-        cabang_id: reqData.cabang_id,
-        container_id: reqData.container_id,
-        keterangan: reqData.keterangan,
-        statusaktif: reqData.statusaktif,
-        modifiedby: reqData.modifiedby,
-        updated_at: this.utilsService.getTime(),
-        created_at: this.utilsService.getTime(),
-      };
+        statusaktif_text,
+        ...insertData
+      } = CreateSandarkapalDto;
+      insertData.updated_at = this.utilsService.getTime();
+      insertData.created_at = this.utilsService.getTime();
+
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
@@ -55,92 +49,32 @@ export class AsalkapalService {
 
       const newItem = insertedItems[0];
 
-      const query = trx(`${this.tableName} as u`)
-        .select([
-          'u.id as id',
-          // 'u.nama',
-          'u.keterangan',
-          'u.nominal',
-          'u.cabang_id',
-          'cabang.nama as cabang',
-          'u.container_id',
-          'container.nama as container',
-          'u.modifiedby',
-          trx.raw(
-            "ISNULL(FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss'), ' ') as created_at",
-          ),
-          trx.raw(
-            "ISNULL(FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss'), ' ') as updated_at",
-          ),
-          'p.memo',
-          'p.text as statusaktif_text',
-          'u.statusaktif',
-        ])
-        .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
-        .leftJoin('cabang', 'u.cabang_id', 'cabang.id')
-        .leftJoin('container', 'u.container_id', 'container.id')
-        .orderBy(sortBy ? `u.${sortBy}` : 'u.id', sortDirection || 'desc')
-        .where('u.id', '<=', newItem.id); // Filter berdasarkan ID yang lebih kecil atau sama dengan newItem.id
-
-      if (search) {
-        query.where((builder) => {
-          builder
-            .orWhere('u.keterangan', 'like', `%${search}%`)
-            .orWhere('cabang.nama', 'like', `%${search}%`)
-            .orWhere('container.nama', 'like', `%${search}%`)
-            .orWhere('p.memo', 'like', `%${search}%`)
-            .orWhere('p.text', 'like', `%${search}%`);
-        });
-      }
-
-      if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          if (value) {
-            if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw(
-                "ISNULL(FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss'), ' ') LIKE ?",
-                [key, `%${value}%`],
-              );
-            } else if (key === 'cabang') {
-              query.andWhere(`cabang.nama`, 'like', `%${value}%`);
-            } else if (key === 'container') {
-              query.andWhere(`container.nama`, 'like', `%${value}%`);
-            } else if (key === 'statusaktif_text' || key === 'memo') {
-              query.andWhere(`p.text`, '=', value);
-            } else {
-              query.andWhere(`u.${key}`, 'like', `%${value}%`);
-            }
-          }
-        }
-      }
-
-      // Ambil hasil query yang terfilter
-      const filteredItems = await query;
-
-      // Cari index item baru di hasil yang sudah difilter
-      const itemIndex = filteredItems.findIndex(
-        (item) => item.id === newItem.id,
+      const { data, pagination } = await this.findAll(
+        {
+          search,
+          filters,
+          pagination: { page, limit },
+          sort: { sortBy, sortDirection },
+          isLookUp: false,
+        },
+        trx,
       );
-
+      let itemIndex = data.findIndex((item) => item.id === newItem.id);
       if (itemIndex === -1) {
-        throw new Error('Item baru tidak ditemukan di hasil pencarian');
+        itemIndex = 0;
       }
 
-      const pageNumber = Math.floor(itemIndex / limit) + 1;
-      const endIndex = pageNumber * limit;
+      const pageNumber = pagination?.currentPage;
 
-      // Ambil data hingga halaman yang mencakup item baru
-      const limitedItems = filteredItems.slice(0, endIndex);
-
-      // Simpan ke Redis
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
+        JSON.stringify(data),
       );
+
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'ADD ERROR',
+          postingdari: 'ADD SANDARKAPAL',
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -149,50 +83,56 @@ export class AsalkapalService {
         },
         trx,
       );
+
       return {
         newItem,
         pageNumber,
         itemIndex,
       };
     } catch (error) {
-      throw new Error(`Error creating menu: ${error.message}`);
+      throw new Error(`Error creating sandarkapal: ${error.message}`);
     }
   }
 
   async findAll(
-    { search, filters, pagination, sort }: FindAllParams,
+    { search, filters, pagination, sort, isLookUp }: FindAllParams,
     trx: any,
   ) {
     try {
       let { page, limit } = pagination;
       page = page ?? 1;
       limit = limit ?? 0;
-      const offset = (page - 1) * limit;
 
-      const query = trx(`${this.tableName} as u`)
+      if (isLookUp) {
+        const sandarkapalCountResult = await trx(this.tableName)
+          .count('id as total')
+          .first();
+
+        const sandarkapalCount = sandarkapalCountResult?.total || 0;
+        if (Number(sandarkapalCount) > 500) {
+          return { data: { type: 'json' } };
+        } else {
+          limit = 0;
+        }
+      }
+
+      const query = trx(`${this.tableName} as pel`)
         .select([
-          'u.id as id',
-          // 'u.nama',
-          'u.keterangan',
-          'u.nominal',
-          'u.cabang_id',
-          'cabang.nama as cabang',
-          'u.container_id',
-          'container.nama as container',
-          'u.modifiedby',
+          'pel.id as id',
+          'pel.nama',
+          'pel.keterangan',
+          'pel.statusaktif',
+          'pel.modifiedby',
           trx.raw(
-            "ISNULL(FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss'), ' ') as created_at",
+            "FORMAT(pel.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at",
           ),
           trx.raw(
-            "ISNULL(FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss'), ' ') as updated_at",
+            "FORMAT(pel.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at",
           ),
-          'p.memo',
-          'p.text as statusaktif_text',
-          'u.statusaktif',
+          'par.memo',
+          'par.text as statusaktif_text',
         ])
-        .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
-        .leftJoin('cabang', 'u.cabang_id', 'cabang.id')
-        .leftJoin('container', 'u.container_id', 'container.id');
+        .leftJoin('parameter as par', 'pel.statusaktif', 'par.id');
 
       if (limit > 0) {
         const offset = (page - 1) * limit;
@@ -200,37 +140,33 @@ export class AsalkapalService {
       }
 
       if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
           builder
-            .orWhere('u.keterangan', 'like', `%${search}%`)
-            .orWhere('cabang.nama', 'like', `%${search}%`)
-            .orWhere('container.nama', 'like', `%${search}%`)
-            .orWhere('p.memo', 'like', `%${search}%`)
-            .orWhere('p.text', 'like', `%${search}%`);
+            .orWhere('pel.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('pel.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('par.memo', 'like', `%${sanitizedValue}%`)
+            .orWhere('par.text', 'like', `%${sanitizedValue}%`);
         });
       }
 
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
               query.andWhereRaw(
-                "ISNULL(FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss'), ' ') LIKE ?",
-                [key, `%${value}%`],
+                "FORMAT(pel.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?",
+                [key, `%${sanitizedValue}%`],
               );
-            } else if (key === 'cabang') {
-              query.andWhere(`cabang.nama`, 'like', `%${value}%`);
-            } else if (key === 'container') {
-              query.andWhere(`container.nama`, 'like', `%${value}%`);
-            } else if (key === 'statusaktif_text' || key === 'memo') {
-              query.andWhere(`p.text`, '=', value);
+            } else if (key === 'text' || key === 'memo') {
+              query.andWhere(`par.${key}`, '=', sanitizedValue);
             } else {
-              query.andWhere(`u.${key}`, 'like', `%${value}%`);
+              query.andWhere(`pel.${key}`, 'like', `%${sanitizedValue}%`);
             }
           }
         }
       }
-
       const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
       const totalPages = Math.ceil(total / limit);
@@ -260,16 +196,29 @@ export class AsalkapalService {
     }
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} asalkapal`;
+  async getById(id: number, trx: any) {
+    try {
+      const result = await trx(this.tableName).where('id', id).first();
+
+      if (!result) {
+        throw new Error('Data not found');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error fetching data by id:', error);
+      throw new Error('Failed to fetch data by id');
+    }
   }
 
   async update(id: number, data: any, trx: any) {
     try {
       const existingData = await trx(this.tableName).where('id', id).first();
+
       if (!existingData) {
-        throw new Error('Asal kapal not found');
+        throw new Error('Sandar kapal not found');
       }
+
       const {
         sortBy,
         sortDirection,
@@ -277,19 +226,9 @@ export class AsalkapalService {
         search,
         page,
         limit,
-        isLookUp,
-        text,
-        pelayaran,
-        ...reqData
+        statusaktif_text,
+        ...insertData
       } = data;
-      const insertData = {
-        cabang_id: reqData.cabang_id,
-        container_id: reqData.container_id,
-        keterangan: reqData.keterangan,
-        statusaktif: reqData.statusaktif,
-        modifiedby: reqData.modifiedby,
-        updated_at: '',
-      };
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
@@ -300,6 +239,7 @@ export class AsalkapalService {
         insertData.updated_at = this.utilsService.getTime();
         await trx(this.tableName).where('id', id).update(insertData);
       }
+
       const { data: filteredData, pagination } = await this.findAll(
         {
           search,
@@ -310,6 +250,7 @@ export class AsalkapalService {
         },
         trx,
       );
+
       // Cari index item yang baru saja diupdate
       const itemIndex = filteredData.findIndex(
         (item) => Number(item.id) === id,
@@ -317,8 +258,10 @@ export class AsalkapalService {
       if (itemIndex === -1) {
         throw new Error('Updated item not found in all items');
       }
+
       const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
       const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;
+
       // Ambil data hingga halaman yang mencakup item yang baru diperbarui
       const endIndex = pageNumber * itemsPerPage;
       const limitedItems = filteredData.slice(0, endIndex);
@@ -326,10 +269,11 @@ export class AsalkapalService {
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
       );
+
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'EDIT MENU',
+          postingdari: 'EDIT SANDARKAPAL',
           idtrans: id,
           nobuktitrans: id,
           aksi: 'EDIT',
@@ -338,6 +282,7 @@ export class AsalkapalService {
         },
         trx,
       );
+
       return {
         updatedItem: {
           id,
@@ -347,12 +292,12 @@ export class AsalkapalService {
         itemIndex,
       };
     } catch (error) {
-      console.error('Error updating parameter:', error);
-      throw new Error('Failed to update parameter');
+      console.error('Error updating sandarkapal:', error);
+      throw new Error('Failed to update sandarkapal');
     }
   }
 
-  async delete(id: number, trx: any) {
+  async delete(id: number, trx: any, modifiedby: string) {
     try {
       const deletedData = await this.utilsService.lockAndDestroy(
         id,
@@ -360,18 +305,20 @@ export class AsalkapalService {
         'id',
         trx,
       );
+
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE ERROR',
+          postingdari: 'DELETE SANDARKAPAL',
           idtrans: deletedData.id,
           nobuktitrans: deletedData.id,
           aksi: 'DELETE',
           datajson: JSON.stringify(deletedData),
-          modifiedby: deletedData.modifiedby,
+          modifiedby: modifiedby,
         },
         trx,
       );
+
       return { status: 200, message: 'Data deleted successfully', deletedData };
     } catch (error) {
       console.error('Error deleting data:', error);

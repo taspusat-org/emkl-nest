@@ -66,6 +66,7 @@ import { LaporandaftarbankModule } from './modules/laporandaftarbank/laporandaft
 import { LaporanjenisorderanModule } from './modules/laporanjenisorderan/laporanjenisorderan.module';
 import { LaporanjenismuatanModule } from './modules/laporanjenismuatan/laporanjenismuatan.module';
 import { AsalkapalModule } from './modules/asalkapal/asalkapal.module';
+import { SandarkapalModule } from './modules/sandarkapal/sandarkapal.module';
 
 @Module({
   imports: [
@@ -133,6 +134,7 @@ import { AsalkapalModule } from './modules/asalkapal/asalkapal.module';
     LaporanjenisorderanModule,
     LaporanjenismuatanModule,
     AsalkapalModule,
+    SandarkapalModule,
   ],
   controllers: [],
   providers: [RabbitmqService],
