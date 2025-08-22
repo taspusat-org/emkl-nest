@@ -1,7 +1,19 @@
 import { z } from 'zod';
-
+import { isRecordExist } from 'src/utils/utils.service';
 export const CreateAlatbayarSchema = z.object({
-  nama: z.string().min(1, { message: 'NAMA is required' }),
+  nama: z
+    .string()
+    .min(1, { message: 'Nama Wajib Diisi' })
+    .max(100)
+    .refine(
+      async (value) => {
+        const exists = await isRecordExist('nama', value, 'alatbayar');
+        return !exists; // Validasi jika nama sudah ada
+      },
+      {
+        message: 'Alat Bayar dengan dengan nama ini sudah ada',
+      },
+    ),
   keterangan: z.string().trim().min(1, { message: 'KETERANGAN is required' }),
 
   statuslangsungcair: z

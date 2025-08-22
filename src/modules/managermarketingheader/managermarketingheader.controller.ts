@@ -16,7 +16,10 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ManagermarketingheaderService } from './managermarketingheader.service';
-import { CreateManagermarketingheaderDto } from './dto/create-managermarketingheader.dto';
+import {
+  CreateManagermarketingHeaderDto,
+  CreateManagermarketingHeaderSchema,
+} from './dto/create-managermarketingheader.dto';
 import { UpdateManagermarketingheaderDto } from './dto/update-managermarketingheader.dto';
 import {
   FindAllDto,
@@ -26,7 +29,7 @@ import {
 import { dbMssql } from 'src/common/utils/db';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
-
+import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
 @Controller('managermarketing')
 export class ManagermarketingheaderController {
   constructor(
@@ -37,35 +40,38 @@ export class ManagermarketingheaderController {
   @Post()
   //@MANAGER-MARKETING
   async create(
-    @Body()
-    data: any,
+    @Body(
+      new ZodValidationPipe(CreateManagermarketingHeaderSchema),
+      KeyboardOnlyValidationPipe,
+    )
+    data: CreateManagermarketingHeaderDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
-      if (data.details && Array.isArray(data.details)) {
-        for (const detail of data.details) {
-          if (detail.nominalawal >= detail.nominalakhir) {
-            throw new HttpException(
-              {
-                statusCode: HttpStatus.BAD_REQUEST,
-                message: `Nominal akhir (${detail.nominalakhir}) harus lebih besar dari nominal awal (${detail.nominalawal})`,
-              },
-              HttpStatus.BAD_REQUEST,
-            );
-          }
+      // if (data.details && Array.isArray(data.details)) {
+      //   for (const detail of data.details) {
+      //     if (detail.nominalawal >= detail.nominalakhir) {
+      //       throw new HttpException(
+      //         {
+      //           statusCode: HttpStatus.BAD_REQUEST,
+      //           message: `Nominal akhir (${detail.nominalakhir}) harus lebih besar dari nominal awal (${detail.nominalawal})`,
+      //         },
+      //         HttpStatus.BAD_REQUEST,
+      //       );
+      //     }
 
-          if (detail.persentase > 100) {
-            throw new HttpException(
-              {
-                statusCode: HttpStatus.BAD_REQUEST,
-                message: `Persentase (${detail.persentase}%) tidak boleh lebih dari 100%`,
-              },
-              HttpStatus.BAD_REQUEST,
-            );
-          }
-        }
-      }
+      //     if (detail.persentase > 100) {
+      //       throw new HttpException(
+      //         {
+      //           statusCode: HttpStatus.BAD_REQUEST,
+      //           message: `Persentase (${detail.persentase}%) tidak boleh lebih dari 100%`,
+      //         },
+      //         HttpStatus.BAD_REQUEST,
+      //       );
+      //     }
+      //   }
+      // }
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.managermarketingheaderService.create(data, trx);
