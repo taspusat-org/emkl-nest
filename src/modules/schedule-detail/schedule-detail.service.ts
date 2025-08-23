@@ -1,19 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CreateScheduleDetailDto } from './dto/create-schedule-detail.dto';
 import { UpdateScheduleDetailDto } from './dto/update-schedule-detail.dto';
-import { formatDateTimeToSQL, formatDateToSQL, UtilsService } from 'src/utils/utils.service';
+import {
+  formatDateTimeToSQL,
+  formatDateToSQL,
+  UtilsService,
+} from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { ScheduleKapalService } from '../schedule-kapal/schedule-kapal.service';
 
 @Injectable()
 export class ScheduleDetailService {
   private readonly tableName = 'scheduledetail';
-  private readonly logger = new Logger(ScheduleDetailService.name)
+  private readonly logger = new Logger(ScheduleDetailService.name);
 
-  constructor (
+  constructor(
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
-    private readonly scheduleKapalService: ScheduleKapalService
+    private readonly scheduleKapalService: ScheduleKapalService,
   ) {}
 
   async create(details: any, id: any = 0, trx: any = null) {
@@ -23,24 +27,29 @@ export class ScheduleDetailService {
     const time = this.utilsService.getTime();
     const logData: any[] = [];
     const mainDataToInsert: any[] = [];
-    let schedulekapal_id
+    let schedulekapal_id;
     // console.log("ke detail?", details, id);
 
-    const result = await trx(this.tableName).columnInfo();  // Get the column info and create temporary table 
-    const tableTemp = await this.utilsService.createTempTable(this.tableName, trx, tempTableName);    
-    
-    if (details.length === 0) {      
-      await trx(this.tableName).delete().where('schedule_id', id)
-      return;
-    }    
+    const result = await trx(this.tableName).columnInfo(); // Get the column info and create temporary table
+    const tableTemp = await this.utilsService.createTempTable(
+      this.tableName,
+      trx,
+      tempTableName,
+    );
 
-    const fixDetail = details.map(({ pelayaran_nama, kapal_nama, tujuankapal_nama, ...details }) => ({
-      ...details,
-    }));
+    if (details.length === 0) {
+      await trx(this.tableName).delete().where('schedule_id', id);
+      return;
+    }
+
+    const fixDetail = details.map(
+      ({ pelayaran_nama, kapal_nama, tujuankapal_nama, ...details }) => ({
+        ...details,
+      }),
+    );
 
     for (data of fixDetail) {
       let isDataChanged = false;
-      
 
       Object.keys(data).forEach((key) => {
         // if (typeof data[key] === 'string') {
@@ -57,21 +66,25 @@ export class ScheduleDetailService {
             data[key] = data[key].toUpperCase();
           }
         }
-      })
+      });
 
-      if (data.kapal_id != null && data.pelayaran_id != null && data.tglberangkat != null) {
-        const dataScheduleKapal =  await this.scheduleKapalService.findAll(
+      if (
+        data.kapal_id != null &&
+        data.pelayaran_id != null &&
+        data.tglberangkat != null
+      ) {
+        const dataScheduleKapal = await this.scheduleKapalService.findAll(
           {
             filters: {
               kapal_id: data.kapal_id,
               pelayaran_id: data.pelayaran_id,
               tglberangkat: data.tglberangkat,
-              voyberangkat: data.voyberangkat
+              voyberangkat: data.voyberangkat,
             },
-            pagination: { page: 1, limit: 0 }   // default pagination 
+            pagination: { page: 1, limit: 0 }, // default pagination
           },
-          trx
-        ); 
+          trx,
+        );
 
         if (dataScheduleKapal.data.length === 0) {
           const dataInsertShceduleKapal = {
@@ -80,26 +93,32 @@ export class ScheduleDetailService {
             tglberangkat: data.tglberangkat,
             voyberangkat: data.voyberangkat,
             modifiedby: data.modifiedby,
-          }
-          const insertScheduleKapal = await this.scheduleKapalService.create(dataInsertShceduleKapal, trx)
-          schedulekapal_id = insertScheduleKapal.newData.id
+          };
+          const insertScheduleKapal = await this.scheduleKapalService.create(
+            dataInsertShceduleKapal,
+            trx,
+          );
+          schedulekapal_id = insertScheduleKapal.newData.id;
           // console.log('insertScheduleKapal', insertScheduleKapal.newData.id);
         } else {
-          schedulekapal_id = dataScheduleKapal.data[0].id
+          schedulekapal_id = dataScheduleKapal.data[0].id;
           console.log('Schedule Kapal sudah ada, skip insert');
         }
       }
-      
-      if (data.id) {  // Check if the data has an id (existing record)
-        const existingData = await trx(this.tableName).where('id', data.id).first();
+
+      if (data.id) {
+        // Check if the data has an id (existing record)
+        const existingData = await trx(this.tableName)
+          .where('id', data.id)
+          .first();
         if (existingData) {
           const createdAt = {
             created_at: existingData.created_at,
-            updated_at: existingData.updated_at
+            updated_at: existingData.updated_at,
           };
           Object.assign(data, createdAt);
-          data.closing = formatDateTimeToSQL(String(data?.closing))
-          data.schedulekapal_id = schedulekapal_id
+          data.closing = formatDateTimeToSQL(String(data?.closing));
+          data.schedulekapal_id = schedulekapal_id;
           // data.tgltiba = formatDateToSQL(String(data?.tgltiba))
           // data.etb = formatDateToSQL(String(data?.etb))
           // data.eta = formatDateToSQL(String(data?.eta))
@@ -118,13 +137,13 @@ export class ScheduleDetailService {
         // New record: Set timestamps
         const newTimestamps = {
           created_at: time,
-          updated_at: time
+          updated_at: time,
         };
         Object.assign(data, newTimestamps);
         isDataChanged = true;
         data.aksi = 'CREATE';
-        data.closing = formatDateTimeToSQL(String(data?.closing))
-        data.schedulekapal_id = schedulekapal_id
+        data.closing = formatDateTimeToSQL(String(data?.closing));
+        data.schedulekapal_id = schedulekapal_id;
         // data.tgltiba = formatDateToSQL(String(data?.tgltiba))
         // data.etb = formatDateToSQL(String(data?.etb))
         // data.eta = formatDateToSQL(String(data?.eta))
@@ -134,7 +153,7 @@ export class ScheduleDetailService {
         // data.etdtujuan = formatDateToSQL(String(data?.etdtujuan))
       }
       // console.log('ini data', data, data.tglberangkat);
-      
+
       if (!isDataChanged) {
         data.aksi = 'NO UPDATE';
       }
@@ -156,53 +175,56 @@ export class ScheduleDetailService {
       schedule_id: item.schedule_id ?? id, // Ensure correct field mapping
     }));
 
-
-    const jsonString = JSON.stringify(processedData);    
+    const jsonString = JSON.stringify(processedData);
 
     const mappingData = Object.keys(processedData[0]).map((key) => [
       'value',
       `$.${key}`,
       key,
-    ]);    
+    ]);
 
     const openJson = await trx
       .from(trx.raw('OPENJSON(?)', [jsonString]))
       .jsonExtract(mappingData)
       .as('jsonData');
-      // console.log('openJson',openJson, tempTableName, tableTemp);
+    // console.log('openJson',openJson, tempTableName, tableTemp);
 
     // Insert into temp table
     await trx(tempTableName).insert(openJson);
 
     const updatedData = await trx('scheduledetail')
-    .join(`${tempTableName}`, 'scheduledetail.id', `${tempTableName}.id`)
-    .update({
-      nobukti: trx.raw(`${tempTableName}.nobukti`),
-      pelayaran_id: trx.raw(`${tempTableName}.pelayaran_id`),
-      kapal_id: trx.raw(`${tempTableName}.kapal_id`),
-      tujuankapal_id: trx.raw(`${tempTableName}.tujuankapal_id`),
-      schedulekapal_id: trx.raw(`${tempTableName}.schedulekapal_id`),
-      tglberangkat: trx.raw(`${tempTableName}.tglberangkat`),
-      tgltiba: trx.raw(`${tempTableName}.tgltiba`),
-      etb: trx.raw(`${tempTableName}.etb`),
-      eta: trx.raw(`${tempTableName}.eta`),
-      etd: trx.raw(`${tempTableName}.etd`),
-      voyberangkat: trx.raw(`${tempTableName}.voyberangkat`),
-      voytiba: trx.raw(`${tempTableName}.voytiba`),
-      closing: trx.raw(`${tempTableName}.closing`),
-      etatujuan: trx.raw(`${tempTableName}.etatujuan`),
-      etdtujuan: trx.raw(`${tempTableName}.etdtujuan`),
-      keterangan: trx.raw(`${tempTableName}.keterangan`),
-      modifiedby: trx.raw(`${tempTableName}.modifiedby`),
-      created_at: trx.raw(`${tempTableName}.created_at`),
-      updated_at: trx.raw(`${tempTableName}.updated_at`)
-    })
-    .returning('*')
-    .then((result: any) => result[0])
-    .catch((error: any) => {
-      console.error('Error inserting data schedule detail in servoce', error, error.message);
-      throw error;
-    })
+      .join(`${tempTableName}`, 'scheduledetail.id', `${tempTableName}.id`)
+      .update({
+        nobukti: trx.raw(`${tempTableName}.nobukti`),
+        pelayaran_id: trx.raw(`${tempTableName}.pelayaran_id`),
+        kapal_id: trx.raw(`${tempTableName}.kapal_id`),
+        tujuankapal_id: trx.raw(`${tempTableName}.tujuankapal_id`),
+        schedulekapal_id: trx.raw(`${tempTableName}.schedulekapal_id`),
+        tglberangkat: trx.raw(`${tempTableName}.tglberangkat`),
+        tgltiba: trx.raw(`${tempTableName}.tgltiba`),
+        etb: trx.raw(`${tempTableName}.etb`),
+        eta: trx.raw(`${tempTableName}.eta`),
+        etd: trx.raw(`${tempTableName}.etd`),
+        voyberangkat: trx.raw(`${tempTableName}.voyberangkat`),
+        voytiba: trx.raw(`${tempTableName}.voytiba`),
+        closing: trx.raw(`${tempTableName}.closing`),
+        etatujuan: trx.raw(`${tempTableName}.etatujuan`),
+        etdtujuan: trx.raw(`${tempTableName}.etdtujuan`),
+        keterangan: trx.raw(`${tempTableName}.keterangan`),
+        modifiedby: trx.raw(`${tempTableName}.modifiedby`),
+        created_at: trx.raw(`${tempTableName}.created_at`),
+        updated_at: trx.raw(`${tempTableName}.updated_at`),
+      })
+      .returning('*')
+      .then((result: any) => result[0])
+      .catch((error: any) => {
+        console.error(
+          'Error inserting data schedule detail in servoce',
+          error,
+          error.message,
+        );
+        throw error;
+      });
 
     // Handle insertion if no update occurs
     const insertedDataQuery = await trx(tempTableName)
@@ -229,14 +251,10 @@ export class ScheduleDetailService {
         'updated_at',
       ])
       .where(`${tempTableName}.id`, '0');
-      // console.log('insertedDataQuery', insertedDataQuery);
+    // console.log('insertedDataQuery', insertedDataQuery);
 
     const getDeleted = await trx(this.tableName)
-      .leftJoin(
-        `${tempTableName}`,
-        'scheduledetail.id',
-        `${tempTableName}.id`,
-      )
+      .leftJoin(`${tempTableName}`, 'scheduledetail.id', `${tempTableName}.id`)
       .select(
         'scheduledetail.id',
         'scheduledetail.nobukti',
@@ -264,8 +282,8 @@ export class ScheduleDetailService {
       .where('scheduledetail.schedule_id', id);
 
     let pushToLog: any[] = [];
-      // console.log('getDeleted', getDeleted, getDeleted.length);
-      
+    // console.log('getDeleted', getDeleted, getDeleted.length);
+
     if (getDeleted.length > 0) {
       pushToLog = Object.assign(getDeleted, { aksi: 'DELETE' });
     }
@@ -275,14 +293,10 @@ export class ScheduleDetailService {
       aksi: 'DELETE',
     }));
 
-    const finalData = logData.concat(pushToLogWithAction);    
+    const finalData = logData.concat(pushToLogWithAction);
 
     const deletedData = await trx(this.tableName)
-      .leftJoin(
-        `${tempTableName}`,
-        'scheduledetail.id',
-        `${tempTableName}.id`,
-      )
+      .leftJoin(`${tempTableName}`, 'scheduledetail.id', `${tempTableName}.id`)
       .whereNull(`${tempTableName}.id`)
       .where('scheduledetail.schedule_id', id)
       .del();
@@ -293,7 +307,10 @@ export class ScheduleDetailService {
         .returning('*')
         .then((result: any) => result[0])
         .catch((error: any) => {
-          console.error('Error inserting data to schedule detail in service:', error);
+          console.error(
+            'Error inserting data to schedule detail in service:',
+            error,
+          );
           throw error;
         });
     }
@@ -311,60 +328,68 @@ export class ScheduleDetailService {
       trx,
     );
 
-    console.log('return insertedData', insertedData, 'updatedData', updatedData);
+    console.log(
+      'return insertedData',
+      insertedData,
+      'updatedData',
+      updatedData,
+    );
     return updatedData || insertedData;
-
   }
 
   async findAll(id: string, trx: any) {
-    const result = await trx((`${this.tableName} as p`))
-    .select(
-      'p.id',
-      'p.schedule_id',
-      'p.nobukti',
-      'p.pelayaran_id',
-      'p.kapal_id',
-      'p.tujuankapal_id',
-      'p.schedulekapal_id',
-      trx.raw("FORMAT(p.tglberangkat, 'dd-MM-yyyy') as tglberangkat"),
-      trx.raw("FORMAT(p.tgltiba, 'dd-MM-yyyy') as tgltiba"),
-      trx.raw("FORMAT(p.etb, 'dd-MM-yyyy') as etb"),
-      trx.raw("FORMAT(p.eta, 'dd-MM-yyyy') as eta"),
-      trx.raw("FORMAT(p.etd, 'dd-MM-yyyy') as etd"),
-      'p.voyberangkat',
-      'p.voytiba',
-      trx.raw("FORMAT(p.closing, 'dd-MM-yyyy HH:mm:ss') as closing"),
-      trx.raw("FORMAT(p.closing, 'dd-MM-yyyy hh:mm tt') as closingForDateTime"),
-      trx.raw("FORMAT(p.etatujuan, 'dd-MM-yyyy') as etatujuan"),
-      trx.raw("FORMAT(p.etdtujuan, 'dd-MM-yyyy') as etdtujuan"),
-      'p.keterangan',
-      'p.modifiedby',
-      trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-      trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-      'pel.nama as pelayaran_nama',
-      'kapal.nama as kapal_nama',
-      'q.nama as tujuankapal_nama',
-    )
-    .leftJoin('pelayaran as pel', 'p.pelayaran_id', 'pel.id')
-    .leftJoin('kapal', 'p.kapal_id', 'kapal.id')
-    .leftJoin('tujuankapal as q', 'p.tujuankapal_id', 'q.id')
-    .where('schedule_id', id)
-    .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
+    const result = await trx(`${this.tableName} as p`)
+      .select(
+        'p.id',
+        'p.schedule_id',
+        'p.nobukti',
+        'p.pelayaran_id',
+        'p.kapal_id',
+        'p.tujuankapal_id',
+        'p.schedulekapal_id',
+        trx.raw("FORMAT(p.tglberangkat, 'dd-MM-yyyy') as tglberangkat"),
+        trx.raw("FORMAT(p.tgltiba, 'dd-MM-yyyy') as tgltiba"),
+        trx.raw("FORMAT(p.etb, 'dd-MM-yyyy') as etb"),
+        trx.raw("FORMAT(p.eta, 'dd-MM-yyyy') as eta"),
+        trx.raw("FORMAT(p.etd, 'dd-MM-yyyy') as etd"),
+        'p.voyberangkat',
+        'p.voytiba',
+        trx.raw("FORMAT(p.closing, 'dd-MM-yyyy HH:mm:ss') as closing"),
+        trx.raw(
+          "FORMAT(p.closing, 'dd-MM-yyyy hh:mm tt') as closingForDateTime",
+        ),
+        trx.raw("FORMAT(p.etatujuan, 'dd-MM-yyyy') as etatujuan"),
+        trx.raw("FORMAT(p.etdtujuan, 'dd-MM-yyyy') as etdtujuan"),
+        'p.keterangan',
+        'p.modifiedby',
+        trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+        trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+        'pel.nama as pelayaran_nama',
+        'kapal.nama as kapal_nama',
+        'q.nama as tujuankapal_nama',
+      )
+      .leftJoin('pelayaran as pel', 'p.pelayaran_id', 'pel.id')
+      .leftJoin('kapal', 'p.kapal_id', 'kapal.id')
+      .leftJoin('tujuankapal as q', 'p.tujuankapal_id', 'q.id')
+      .where('schedule_id', id)
+      .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
 
     if (!result.length) {
-      this.logger.warn(`No data schedule detail found for id schedule header: ${id}`)
+      this.logger.warn(
+        `No data schedule detail found for id schedule header: ${id}`,
+      );
       return {
         status: false,
         message: 'No Data Schedule Detail Found',
-        data: []
-      }
+        data: [],
+      };
     }
 
     return {
       status: true,
       message: 'Schedule Detail data fetched successfully',
-      data: result
-    }
+      data: result,
+    };
   }
 
   findOne(id: number) {

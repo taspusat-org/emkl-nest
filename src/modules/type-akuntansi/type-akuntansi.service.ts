@@ -174,8 +174,7 @@ export class TypeAkuntansiService {
     trx: any,
   ) {
     try {
-      console.log(search, filters, 'ini tes data cari');
-
+      console.log('pagination', pagination);
       let { page, limit } = pagination;
 
       page = page ?? 1;
@@ -212,14 +211,14 @@ export class TypeAkuntansiService {
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'p.memo',
           'p.text as statusaktif_text',
-          'q.nama as akuntansi_nama',
+          'ak.nama as akuntansi_nama',
         ])
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
-        .leftJoin('akuntansi as q', 'u.akuntansi_id', 'q.id');
+        .leftJoin('akuntansi as ak', 'u.akuntansi_id', 'ak.id');
 
       if (limit > 0) {
         const offset = (page - 1) * limit;
-        query.limit(limit).offset(offset);
+        query.limit(Number(limit)).offset(offset);
       }
 
       if (search) {
@@ -229,7 +228,7 @@ export class TypeAkuntansiService {
             .orWhere('u.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('u.order', 'like', `%${sanitizedValue}%`)
             .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('q.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('ak.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('p.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
             .orWhere('u.created_at', 'like', `%${sanitizedValue}%`)
@@ -249,7 +248,7 @@ export class TypeAkuntansiService {
             } else if (key === 'statusaktif_text' || key === 'memo') {
               query.andWhere(`p.text`, '=', sanitizedValue);
             } else if (key === 'akuntansi') {
-              query.andWhere('q.nama', 'like', `%${sanitizedValue}%`);
+              query.andWhere('ak.nama', 'like', `%${sanitizedValue}%`);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
@@ -382,16 +381,19 @@ export class TypeAkuntansiService {
         {
           search,
           filters,
-          pagination: { page, limit },
+          pagination: { page, limit:0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },
         trx,
       );
 
-      const dataIndex = filteredData.findIndex(
-        (item) => Number(item.id) === id,
+      let dataIndex = filteredData.findIndex(
+        (item) => Number(item.id) === Number(id),
       );
+      if (dataIndex === -1) {
+        dataIndex = 0
+      }
       console.log('all dataa', filteredData, 'dataIndex', dataIndex);
 
       if (dataIndex === -1) {

@@ -27,7 +27,7 @@ export const UpdateCabangSchema = z.object({
     .int({ message: 'statusaktif must be an integer' })
     .nonnegative({ message: 'statusaktif must be a non-negative integer' }), // Ensure non-negative
   modifiedby: z.string().nullable().optional(),
-  periode: z
+  cabang_id: z
     .number()
     .int({ message: 'periode must be an integer' })
     .nonnegative({ message: 'periode must be a non-negative integer' }), // Ensure non-negative

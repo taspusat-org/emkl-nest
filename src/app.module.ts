@@ -54,19 +54,22 @@ import { DaftarBankModule } from './modules/daftarbank/daftarbank.module';
 
 import { TujuankapalModule } from './modules/tujuankapal/tujuankapal.module';
 import { LocksModule } from './modules/locks/locks.module';
-import { LaporanbankModule } from './modules/laporanbank/laporanbank.module';
-import { LaporancontainerModule } from './modules/laporancontainer/laporancontainer.module';
-import { LaporantujuankapalModule } from './modules/laporantujuankapal/laporantujuankapal.module';
 import { HargatruckingModule } from './modules/hargatrucking/hargatrucking.module';
-import { LaporanhargatruckingModule } from './modules/laporanhargatrucking/laporanhargatrucking.module';
 import { EmklModule } from './modules/emkl/emkl.module';
-import { LaporanalatbayarModule } from './modules/laporanalatbayar/laporanalatbayar.module';
 import { ScheduleKapalModule } from './modules/schedule-kapal/schedule-kapal.module';
-import { LaporandaftarbankModule } from './modules/laporandaftarbank/laporandaftarbank.module';
-import { LaporanjenisorderanModule } from './modules/laporanjenisorderan/laporanjenisorderan.module';
-import { LaporanjenismuatanModule } from './modules/laporanjenismuatan/laporanjenismuatan.module';
 import { AsalkapalModule } from './modules/asalkapal/asalkapal.module';
 import { SandarkapalModule } from './modules/sandarkapal/sandarkapal.module';
+import { ManagermarketingheaderModule } from './modules/managermarketingheader/managermarketingheader.module';
+import { ManagermarketingdetailModule } from './modules/managermarketingdetail/managermarketingdetail.module';
+import { DaftarblModule } from './modules/daftarbl/daftarbl.module';
+import { JenisbiayamarketingModule } from './modules/jenisbiayamarketing/jenisbiayamarketing.module';
+import { MarketinggroupModule } from './modules/marketinggroup/marketinggroup.module';
+import { MarketingModule } from './modules/marketing/marketing.module';
+import { MarketingorderanModule } from './modules/marketingorderan/marketingorderan.module';
+import { MarketingbiayaModule } from './modules/marketingbiaya/marketingbiaya.module';
+import { MarketingmanagerModule } from './modules/marketingmanager/marketingmanager.module';
+import { MarketingprosesfeeModule } from './modules/marketingprosesfee/marketingprosesfee.module';
+import { MarketingdetailModule } from './modules/marketingdetail/marketingdetail.module';
 
 @Module({
   imports: [
@@ -121,23 +124,26 @@ import { SandarkapalModule } from './modules/sandarkapal/sandarkapal.module';
     DaftarBankModule,
     TujuankapalModule,
     LocksModule,
-    LaporanbankModule,
-    LaporancontainerModule,
-    LaporantujuankapalModule,
     HargatruckingModule,
-    LaporanhargatruckingModule,
     EmklModule,
-    LaporanalatbayarModule,
     ScheduleKapalModule,
     EmklModule,
-    LaporandaftarbankModule,
-    LaporanjenisorderanModule,
-    LaporanjenismuatanModule,
     AsalkapalModule,
     SandarkapalModule,
+    ManagermarketingheaderModule,
+    ManagermarketingdetailModule,
+    DaftarblModule,
+    JenisbiayamarketingModule,
+    MarketinggroupModule,
+    MarketingModule,
+    MarketingorderanModule,
+    MarketingbiayaModule,
+    MarketingmanagerModule,
+    MarketingprosesfeeModule,
+    MarketingdetailModule,
   ],
   controllers: [],
-  providers: [RabbitmqService],
+  providers: [RabbitmqService], // global],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

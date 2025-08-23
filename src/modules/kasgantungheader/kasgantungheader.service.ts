@@ -50,7 +50,6 @@ export class KasgantungheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-      console.log('masuk');
       const parameter = await trx('parameter')
         .select('*')
         .where('grp', 'PENERIMAAN GANTUNG')
@@ -638,18 +637,6 @@ export class KasgantungheaderService {
         trx,
       );
 
-      await this.logTrailService.create(
-        {
-          namatabel: this.tableName,
-          postingdari: 'DELETE KAS GANTUNG',
-          idtrans: deletedData.id,
-          nobuktitrans: deletedData.id,
-          aksi: 'DELETE',
-          datajson: JSON.stringify(deletedData),
-          modifiedby: modifiedby,
-        },
-        trx,
-      );
       await this.logTrailService.create(
         {
           namatabel: this.tableName,

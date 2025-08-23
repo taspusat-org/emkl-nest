@@ -28,6 +28,30 @@ const knexConfig: { [key: string]: Knex.Config } = {
       directory: './migrations',
     },
   },
+  hr: {
+    client: 'mssql',
+    connection: {
+      server: process.env.SSMS_HR,
+      user: process.env.SSMS_HR_USER,
+      password: process.env.SSMS_HR_PASSWORD,
+      database: process.env.SSMS_HR_DB,
+      port: Number(process.env.SSMS_HR_PORT),
+      pool: {
+        min: 2,
+        max: 10,
+      },
+      options: {
+        encrypt: false,
+        enableArithAbort: true, // Diperlukan untuk mencegah error aritmatika
+      },
+      requestTimeout: 60000, // 60 detik
+    },
+    migrations: {
+      tableName: 'knex_migrations',
+      // Set an absolute path to the migrations folder
+      directory: './migrations',
+    },
+  },
   medanEmkl: {
     client: 'mssql',
     connection: {
@@ -235,6 +259,25 @@ const knexConfig: { [key: string]: Knex.Config } = {
       password: process.env.SSMS_PASSWORD_BUNGA,
       database: process.env.SSMS_DB_BUNGA,
       port: 1502,
+      options: {
+        encrypt: false, // Sesuaikan dengan pengaturan enkripsi pada MSSQL
+        enableArithAbort: true, // Diperlukan untuk mencegah error aritmati
+      },
+      requestTimeout: 50000000,
+    },
+    migrations: {
+      tableName: 'knex_migrations',
+      directory: './migrations',
+    },
+  },
+  dbHr: {
+    client: 'mssql',
+    connection: {
+      server: process.env.SSMS_SERVER_HR,
+      user: process.env.SSMS_USER_HR,
+      password: process.env.SSMS_PASSWORD_HR,
+      database: process.env.SSMS_DB_HR,
+      port: 1450,
       options: {
         encrypt: false, // Sesuaikan dengan pengaturan enkripsi pada MSSQL
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmati

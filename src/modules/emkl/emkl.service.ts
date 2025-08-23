@@ -1,4 +1,9 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateEmklDto } from './dto/create-emkl.dto';
 import { UpdateEmklDto } from './dto/update-emkl.dto';
 import { RedisService } from 'src/common/redis/redis.service';

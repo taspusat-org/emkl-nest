@@ -1,4 +1,9 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateScheduleHeaderDto } from './dto/create-schedule-header.dto';
 import { UpdateScheduleHeaderDto } from './dto/update-schedule-header.dto';
 import { ScheduleDetailService } from '../schedule-detail/schedule-detail.service';
@@ -14,7 +19,7 @@ export class ScheduleHeaderService {
   private readonly tableName = 'scheduleheader';
 
   constructor(
-    @Inject('REDIS_CLIENT') 
+    @Inject('REDIS_CLIENT')
     private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
     private readonly globalService: GlobalService,
@@ -25,7 +30,7 @@ export class ScheduleHeaderService {
 
   async create(data: any, trx: any) {
     try {
-      data.tglbukti = formatDateToSQL(String(data?.tglbukti))
+      data.tglbukti = formatDateToSQL(String(data?.tglbukti));
 
       const {
         sortBy,
@@ -45,22 +50,38 @@ export class ScheduleHeaderService {
         if (typeof insertedData[key] === 'string') {
           insertedData[key] = insertedData[key].toUpperCase();
         }
-      })
+      });
 
-      const parameter = await trx('parameter').select('*').where('grp', 'SCHEDULE').first();
-      const nomorBukti = await this.runningNumberService.generateRunningNumber(trx, parameter.grp, parameter.subgrp, this.tableName, insertedData.tglbukti)
+      const parameter = await trx('parameter')
+        .select('*')
+        .where('grp', 'SCHEDULE')
+        .first();
+      const nomorBukti = await this.runningNumberService.generateRunningNumber(
+        trx,
+        parameter.grp,
+        parameter.subgrp,
+        this.tableName,
+        insertedData.tglbukti,
+      );
       insertedData.nobukti = nomorBukti;
 
-      const insertedItems = await trx(this.tableName).insert(insertedData).returning('*');
+      const insertedItems = await trx(this.tableName)
+        .insert(insertedData)
+        .returning('*');
 
-      if (details.length > 0) { // insert nobukti into each item of detail
+      if (details.length > 0) {
+        // insert nobukti into each item of detail
         const detailsWithNobukti = details.map((detail: any) => ({
           ...detail,
           nobukti: nomorBukti,
-          modifiedby: insertedData.modifiedby
-        }))
+          modifiedby: insertedData.modifiedby,
+        }));
 
-        await this.scheduleDetailService.create(detailsWithNobukti, insertedItems[0].id, trx)
+        await this.scheduleDetailService.create(
+          detailsWithNobukti,
+          insertedItems[0].id,
+          trx,
+        );
       }
 
       const newItem = insertedItems[0];
@@ -69,25 +90,28 @@ export class ScheduleHeaderService {
         {
           search,
           filters,
-          pagination: { page, limit:0 },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },
-        trx
-      )      
+        trx,
+      );
 
-      let dataIndex = filteredItems.findIndex((item) => (item.id) === newItem.id)
+      let dataIndex = filteredItems.findIndex((item) => item.id === newItem.id);
       // console.log('newItem', newItem.id, 'filteredItems', filteredItems,);
-      
+
       if (dataIndex === -1) {
-        dataIndex = 0
+        dataIndex = 0;
       }
       const pageNumber = Math.floor(dataIndex / limit) + 1;
       const endIndex = pageNumber * limit;
-      const limitedItems = filteredItems.slice(0, endIndex);  // Ambil data hingga halaman yang mencakup item baru
+      const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
       // console.log('herer', dataIndex, 'pageNumber', pageNumber, 'endIndex', endIndex, 'limitedItems', limitedItems);
 
-      await this.redisService.set(`${this.tableName}-allItems`, JSON.stringify(limitedItems));
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
@@ -112,13 +136,13 @@ export class ScheduleHeaderService {
   }
 
   async findAll(
-    { search, filters, pagination, sort, isLookUp } : FindAllParams,
-    trx: any
+    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+    trx: any,
   ) {
     try {
       let { page, limit } = pagination;
       page = page ?? 1;
-      limit = limit ?? 0;      
+      limit = limit ?? 0;
 
       // if (isLookUp) {
       //   const scheduleheaderCount = await trx(this.tableName)
@@ -134,21 +158,23 @@ export class ScheduleHeaderService {
       //   }
       // }
 
-      const query = trx(`${this.tableName} as u`)
-      .select([
+      const query = trx(`${this.tableName} as u`).select([
         'u.id as id',
         'u.nobukti',
         trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
         'u.keterangan',
         'u.modifiedby',
-        trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), 
-        trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), 
-      ])
+        trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+        trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+      ]);
 
       if (filters?.tglDari && filters?.tglSampai) {
-        const tglDariFormatted = formatDateToSQL(String(filters?.tglDari)); 
+        const tglDariFormatted = formatDateToSQL(String(filters?.tglDari));
         const tglSampaiFormatted = formatDateToSQL(String(filters?.tglSampai));
-        query.whereBetween('u.tglbukti', [tglDariFormatted, tglSampaiFormatted]);
+        query.whereBetween('u.tglbukti', [
+          tglDariFormatted,
+          tglSampaiFormatted,
+        ]);
       }
       const excludeSearchKeys = ['tglDari', 'tglSampai'];
 
@@ -164,8 +190,8 @@ export class ScheduleHeaderService {
           searchFields.forEach((field) => {
             // if (field == 'created_at' || field == 'updated_at') {
             //   query.orWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [field, `%${sanitized}%`]);
-            // } else { 
-              builder.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+            // } else {
+            builder.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
             // }
           });
         });
@@ -180,8 +206,15 @@ export class ScheduleHeaderService {
           }
 
           if (value) {
-            if (key === 'created_at' || key === 'updated_at' || key === 'tglbukti') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [key, `%${sanitizedValue}%`]);
+            if (
+              key === 'created_at' ||
+              key === 'updated_at' ||
+              key === 'tglbukti'
+            ) {
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
@@ -196,11 +229,11 @@ export class ScheduleHeaderService {
 
       const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
-      const totalPages = Math.ceil(total / limit)
+      const totalPages = Math.ceil(total / limit);
       // console.log('result',result, 'total', total, 'totalPages',totalPages, 'page limit di findall');
 
       if (sort?.sortBy && sort.sortDirection) {
-        query.orderBy(sort.sortBy, sort.sortDirection)
+        query.orderBy(sort.sortBy, sort.sortDirection);
       }
 
       const data = await query;
@@ -215,9 +248,9 @@ export class ScheduleHeaderService {
           currentPage: page,
           totalPages: totalPages,
           totalItems: total,
-          itemPerPage: limit
-        }
-      }
+          itemPerPage: limit,
+        },
+      };
     } catch (error) {
       console.error('Error fetching data schedule header in service:', error);
       throw new Error('Failed to fetch data schedule header in service');
@@ -231,7 +264,7 @@ export class ScheduleHeaderService {
   async update(id: any, data: any, trx: any) {
     try {
       data.tglbukti = formatDateToSQL(String(data?.tglbukti));
-      
+
       const {
         sortBy,
         sortDirection,
@@ -249,28 +282,36 @@ export class ScheduleHeaderService {
         if (typeof insertedData[key] === 'string') {
           insertedData[key] = insertedData[key].toUpperCase();
         }
-      })
+      });
 
       const existingData = await trx(this.tableName).where('id', id).first();
-      const hasChanges = this.utilsService.hasChanges(insertedData, existingData);
+      const hasChanges = this.utilsService.hasChanges(
+        insertedData,
+        existingData,
+      );
 
       if (hasChanges) {
         insertedData.updated_at = this.utilsService.getTime();
 
         await trx(this.tableName).where('id', id).update(insertedData);
       }
-      
-      if (details.length > 0) { // Check each detail, update or set id accordingly
+
+      if (details.length > 0) {
+        // Check each detail, update or set id accordingly
         const detailsWithModifiedBy = details.map((detail: any) => ({
           ...detail,
-          modifiedby: insertedData.modifiedby
-        }))
+          modifiedby: insertedData.modifiedby,
+        }));
 
         if (details.length > 0) {
-          await this.scheduleDetailService.create(detailsWithModifiedBy, id, trx);
+          await this.scheduleDetailService.create(
+            detailsWithModifiedBy,
+            id,
+            trx,
+          );
         }
       }
-      
+
       // If there are details, call the service to handle create or update
       const { data: filteredItems } = await this.findAll(
         {
@@ -278,13 +319,13 @@ export class ScheduleHeaderService {
           filters,
           pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
-          isLookUp: false, 
+          isLookUp: false,
         },
         trx,
       );
 
       let dataIndex = filteredItems.findIndex((item) => Number(item.id) === id);
-      
+
       if (dataIndex === -1) {
         dataIndex = 0;
       }
@@ -329,9 +370,19 @@ export class ScheduleHeaderService {
 
   async delete(id: number, trx: any, modifiedby: string) {
     try {
-      const deletedData = await this.utilsService.lockAndDestroy(id, this.tableName, 'id', trx);
+      const deletedData = await this.utilsService.lockAndDestroy(
+        id,
+        this.tableName,
+        'id',
+        trx,
+      );
 
-      const deletedDataDetail = await this.utilsService.lockAndDestroy(id, 'scheduledetail', 'schedule_id', trx);
+      const deletedDataDetail = await this.utilsService.lockAndDestroy(
+        id,
+        'scheduledetail',
+        'schedule_id',
+        trx,
+      );
 
       await this.logTrailService.create(
         {

@@ -169,6 +169,35 @@ export class CabangController {
     };
     return this.cabangService.findAll(params);
   }
+
+  @Get('hr')
+  @UsePipes(new ZodValidationPipe(FindAllSchema))
+  async findAllbyHr(@Query() query: FindAllDto) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
+
+    // Menangani fallback untuk page dan limit
+    const sort = {
+      sortBy: sortBy || 'nama',
+      sortDirection: sortDirection,
+    };
+
+    // Jika limit 0 atau tidak ada, maka tidak ada pagination
+    const pagination = {
+      page: page || 1, // Jika page tidak ada, set ke 1
+      limit: limit === 0 || !limit ? undefined : limit, // Jika limit 0, tidak ada pagination
+    };
+
+    const params: FindAllParams = {
+      search,
+      filters,
+      pagination,
+      isLookUp: isLookUp === 'true', // Convert isLookUp to boolean
+      sort,
+    };
+    return this.cabangService.findAllbyHr(params);
+  }
+
   @Get(':id')
   //@CABANG
   findOne(@Param('id') id: string) {

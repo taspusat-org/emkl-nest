@@ -166,30 +166,30 @@ export class EmklController {
   @Delete(':id')
   //@EMKL
   async delete(@Param('id') id: string, @Req() req) {
-      const trx = await dbMssql.transaction();
-      try {
-        const result = await this.emklService.delete(
-          +id,
-          trx,
-          req.user?.user?.username,
-        );
-  
-        if (result.status === 404) {
-          throw new NotFoundException(result.message);
-        }
-  
-        await trx.commit();
-        return result;
-      } catch (error) {
-        await trx.rollback();
-        console.error('Error deleting emkl in controller:', error);
-  
-        if (error instanceof NotFoundException) {
-          throw error;
-        }
-  
-        throw new InternalServerErrorException('Failed to delete emkl');
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.emklService.delete(
+        +id,
+        trx,
+        req.user?.user?.username,
+      );
+
+      if (result.status === 404) {
+        throw new NotFoundException(result.message);
       }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error deleting emkl in controller:', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to delete emkl');
+    }
   }
 
   @Get(':id')

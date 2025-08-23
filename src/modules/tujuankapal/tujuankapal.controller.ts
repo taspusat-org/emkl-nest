@@ -55,21 +55,6 @@ export class TujuankapalController {
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const typeakuntansiExist = await isRecordExist(
-        'nama',
-        data.nama,
-        'tujuankapal',
-      );
-
-      if (typeakuntansiExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Type Tujuan Kapal dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.tujuankapalService.create(data, trx);
@@ -78,7 +63,7 @@ export class TujuankapalController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating type akuntansi in controller', error);
+      console.error('Error while creating tujuan kapal in controller', error);
 
       // Ensure any other errors get caught and returned
       if (error instanceof HttpException) {
@@ -89,7 +74,7 @@ export class TujuankapalController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to create type akuntansi',
+          message: 'Failed to create tujuan kapal',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );

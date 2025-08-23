@@ -1,6 +1,7 @@
 import knex from 'knex';
 import knexConfig from 'knexfile';
 const dbMssql = knex(knexConfig.development);
+const dbMssqlHr = knex(knexConfig.hr);
 const dbMdnEmkl = knex(knexConfig.medanEmkl);
 const dbMdnTruck = knex(knexConfig.medanTrucking);
 const dbjktEmkl = knex(knexConfig.jktEmkl);
@@ -13,9 +14,11 @@ const dbmksTrucking = knex(knexConfig.mksTrucking);
 const dbbtgEmkl = knex(knexConfig.btgEmkl);
 const dbMysqlTes = knex(knexConfig.mysqltest);
 const dbBunga = knex(knexConfig.dbBunga);
+const dbHr = knex(knexConfig.dbHr)
 
 export {
   dbMssql,
+  dbMssqlHr,
   dbMdnEmkl,
   dbMdnTruck,
   dbjktEmkl,
@@ -28,4 +31,5 @@ export {
   dbbtgEmkl,
   dbMysqlTes,
   dbBunga,
+  dbHr
 };
