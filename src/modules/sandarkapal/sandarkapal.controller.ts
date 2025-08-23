@@ -16,52 +16,66 @@ import {
   Put,
   NotFoundException,
 } from '@nestjs/common';
-import { EmklService } from './emkl.service';
-import { CreateEmklDto, CreateEmklSchema } from './dto/create-emkl.dto';
-import { UpdateEmklDto, UpdateEmklSchema } from './dto/update-emkl.dto';
+import { SandarkapalService } from './sandarkapal.service';
+import {
+  CreateSandarkapalDto,
+  CreateSandarkapalSchema,
+} from './dto/create-sandarkapal.dto';
+import { UpdateSandarkapalDto } from './dto/update-sandarkapal.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
-import { dbMssql } from 'src/common/utils/db';
 import { isRecordExist } from 'src/utils/utils.service';
+import { dbMssql } from 'src/common/utils/db';
 import {
   FindAllDto,
   FindAllParams,
   FindAllSchema,
 } from 'src/common/interfaces/all.interface';
+import { UpdateSandarkapalSchema } from '../sandarkapal/dto/update-sandarkapal.dto';
 
-@Controller('emkl')
-export class EmklController {
-  constructor(private readonly emklService: EmklService) {}
+@Controller('sandarkapal')
+export class SandarkapalController {
+  constructor(private readonly sandarkapalService: SandarkapalService) {}
 
   @UseGuards(AuthGuard)
   @Post()
-  //@EMKL
+  //@SANDARKAPAL
   async create(
-    @Body(new ZodValidationPipe(CreateEmklSchema), KeyboardOnlyValidationPipe)
-    data: CreateEmklDto,
+    @Body(
+      new ZodValidationPipe(CreateSandarkapalSchema),
+      KeyboardOnlyValidationPipe,
+    )
+    data: CreateSandarkapalDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const emklExist = await isRecordExist('nama', data.nama, 'emkl');
+      const sandarkapalExist = await isRecordExist(
+        'nama',
+        data.nama,
+        'sandarkapal',
+      );
 
-      if (emklExist) {
+      if (sandarkapalExist) {
         throw new HttpException(
           {
             statusCode: HttpStatus.BAD_REQUEST,
-            message: `emkl dengan nama ${data.nama} sudah ada`,
+            message: `sandarkapal dengan nama ${data.nama} sudah ada`,
           },
           HttpStatus.BAD_REQUEST,
         );
       }
       data.modifiedby = req.user?.user?.username || 'unknown';
-      const result = await this.emklService.create(data, trx);
+      const result = await this.sandarkapalService.create(data, trx);
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating type emkl in controller', error);
+      console.error(
+        'Error while creating type sandarkapal in controller',
+        error,
+      );
       if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
       }
@@ -70,15 +84,40 @@ export class EmklController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to create type emkl',
+          message: 'Failed to create type sandarkapal',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
+  @Post('check-validation')
+  //@SANDARKAPAL
+  @UseGuards(AuthGuard)
+  async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
+    const { aksi, value } = body;
+    console.log('body', body);
+    const trx = await dbMssql.transaction();
+    const editedby = req.user?.user?.username;
+
+    try {
+      const forceEdit = await this.sandarkapalService.checkValidasi(
+        aksi,
+        value,
+        editedby,
+        trx,
+      );
+      trx.commit();
+      return forceEdit;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error checking validation:', error);
+      throw new InternalServerErrorException('Failed to check validation');
+    }
+  }
+
   @Get()
-  //@EMKL
+  //@SANDARKAPAL
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
@@ -101,51 +140,71 @@ export class EmklController {
     };
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.emklService.findAll(params, trx);
+      const result = await this.sandarkapalService.findAll(params, trx);
       trx.commit();
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error fetching all emkl:', error);
-      throw new InternalServerErrorException('Failed to fetch emkl');
+      console.error('Error fetching all sandarkapal:', error);
+      throw new InternalServerErrorException('Failed to fetch sandarkapal');
+    }
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.sandarkapalService.getById(+id, trx);
+      if (!result) {
+        throw new Error('Data not found');
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      console.error('Error fetching data by id:', error);
+
+      await trx.rollback();
+      throw new Error('Failed to fetch data by id');
     }
   }
 
   @UseGuards(AuthGuard)
   @Put(':id')
-  //@EMKL
+  //@SANDARKAPAL
   async update(
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateEmklSchema)) data: UpdateEmklDto,
+    @Body(new ZodValidationPipe(UpdateSandarkapalSchema))
+    data: UpdateSandarkapalDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const emklExist = await isRecordExist(
+      const sandarkapalExist = await isRecordExist(
         'nama',
         data.nama,
-        'emkl',
+        'sandarkapal',
         Number(id),
       );
 
-      if (emklExist) {
+      if (sandarkapalExist) {
         throw new HttpException(
           {
             statusCode: HttpStatus.BAD_REQUEST,
-            message: `Emkl dengan nama ${data.nama} sudah ada`,
+            message: `Sandar kapal dengan nama ${data.nama} sudah ada`,
           },
           HttpStatus.BAD_REQUEST,
         );
       }
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.emklService.update(+id, data, trx);
+      const result = await this.sandarkapalService.update(+id, data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error updating emkl in controller:', error);
+      console.error('Error updating sandar kapal in controller:', error);
       // Ensure any other errors get caught and returned
       if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
@@ -155,7 +214,7 @@ export class EmklController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to update emkl',
+          message: 'Failed to update sandarkapal',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -164,11 +223,11 @@ export class EmklController {
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  //@EMKL
+  //@PELAYARAN
   async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.emklService.delete(
+      const result = await this.sandarkapalService.delete(
         +id,
         trx,
         req.user?.user?.username,
@@ -182,32 +241,13 @@ export class EmklController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error deleting emkl in controller:', error);
+      console.error('Error deleting sandar kapal in controller:', error);
 
       if (error instanceof NotFoundException) {
         throw error;
       }
 
-      throw new InternalServerErrorException('Failed to delete emkl');
-    }
-  }
-
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const trx = await dbMssql.transaction();
-    try {
-      const result = await this.emklService.getById(+id, trx);
-      if (!result) {
-        throw new Error('Data not found');
-      }
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      console.error('Error fetching data by id:', error);
-
-      await trx.rollback();
-      throw new Error('Failed to fetch data by id');
+      throw new InternalServerErrorException('Failed to delete sandar kapal');
     }
   }
 }

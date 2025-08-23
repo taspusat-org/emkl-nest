@@ -57,6 +57,8 @@ import { LocksModule } from './modules/locks/locks.module';
 import { HargatruckingModule } from './modules/hargatrucking/hargatrucking.module';
 import { EmklModule } from './modules/emkl/emkl.module';
 import { ScheduleKapalModule } from './modules/schedule-kapal/schedule-kapal.module';
+import { AsalkapalModule } from './modules/asalkapal/asalkapal.module';
+import { SandarkapalModule } from './modules/sandarkapal/sandarkapal.module';
 import { ManagermarketingheaderModule } from './modules/managermarketingheader/managermarketingheader.module';
 import { ManagermarketingdetailModule } from './modules/managermarketingdetail/managermarketingdetail.module';
 import { DaftarblModule } from './modules/daftarbl/daftarbl.module';
@@ -126,6 +128,8 @@ import { MarketingdetailModule } from './modules/marketingdetail/marketingdetail
     EmklModule,
     ScheduleKapalModule,
     EmklModule,
+    AsalkapalModule,
+    SandarkapalModule,
     ManagermarketingheaderModule,
     ManagermarketingdetailModule,
     DaftarblModule,
