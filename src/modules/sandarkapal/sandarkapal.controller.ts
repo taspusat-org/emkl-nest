@@ -3,7 +3,7 @@ import {
   Get,
   Post,
   Body,
-  Patch,
+  Put,
   Param,
   Delete,
   UseGuards,
@@ -12,27 +12,31 @@ import {
   HttpStatus,
   UsePipes,
   Query,
-  InternalServerErrorException,
-  Put,
   NotFoundException,
+  InternalServerErrorException,
+  Res,
 } from '@nestjs/common';
 import { SandarkapalService } from './sandarkapal.service';
 import {
   CreateSandarkapalDto,
   CreateSandarkapalSchema,
 } from './dto/create-sandarkapal.dto';
-import { UpdateSandarkapalDto } from './dto/update-sandarkapal.dto';
-import { AuthGuard } from '../auth/auth.guard';
-import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
-import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
-import { isRecordExist } from 'src/utils/utils.service';
 import { dbMssql } from 'src/common/utils/db';
+import { AuthGuard } from '../auth/auth.guard';
+import {
+  UpdateSandarkapalDto,
+  UpdateSandarkapalSchema,
+} from './dto/update-sandarkapal.dto';
+import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
   FindAllDto,
   FindAllParams,
   FindAllSchema,
 } from 'src/common/interfaces/all.interface';
-import { UpdateSandarkapalSchema } from '../sandarkapal/dto/update-sandarkapal.dto';
+import { Response } from 'express';
+import * as fs from 'fs';
+import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
+import { isRecordExist } from 'src/utils/utils.service';
 
 @Controller('sandarkapal')
 export class SandarkapalController {
@@ -51,23 +55,10 @@ export class SandarkapalController {
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const sandarkapalExist = await isRecordExist(
-        'nama',
-        data.nama,
-        'sandarkapal',
-      );
-
-      if (sandarkapalExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `sandarkapal dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
       data.modifiedby = req.user?.user?.username || 'unknown';
+
       const result = await this.sandarkapalService.create(data, trx);
+
       await trx.commit();
       return result;
     } catch (error) {
@@ -76,6 +67,7 @@ export class SandarkapalController {
         'Error while creating type sandarkapal in controller',
         error,
       );
+
       if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
       }
@@ -84,36 +76,16 @@ export class SandarkapalController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to create type sandarkapal',
+          message: 'Failed to create sandarkapal',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
-  @Post('check-validation')
-  //@SANDARKAPAL
-  @UseGuards(AuthGuard)
-  async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
-    const { aksi, value } = body;
-    console.log('body', body);
-    const trx = await dbMssql.transaction();
-    const editedby = req.user?.user?.username;
-
-    try {
-      const forceEdit = await this.sandarkapalService.checkValidasi(
-        aksi,
-        value,
-        editedby,
-        trx,
-      );
-      trx.commit();
-      return forceEdit;
-    } catch (error) {
-      trx.rollback();
-      console.error('Error checking validation:', error);
-      throw new InternalServerErrorException('Failed to check validation');
-    }
+  @Post('report-byselect')
+  async findAllByIds(@Body() ids: { id: number }[]) {
+    return this.sandarkapalService.findAllByIds(ids);
   }
 
   @Get()
@@ -124,13 +96,15 @@ export class SandarkapalController {
       query;
 
     const sortParams = {
-      sortBy: sortBy || 'nama',
+      sortBy: sortBy || 'id',
       sortDirection: sortDirection || 'asc',
     };
+
     const pagination = {
       page: page || 1,
       limit: limit === 0 || !limit ? undefined : limit,
     };
+
     const params: FindAllParams = {
       search,
       filters,
@@ -145,8 +119,69 @@ export class SandarkapalController {
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error fetching all sandarkapal:', error);
-      throw new InternalServerErrorException('Failed to fetch sandarkapal');
+      console.error('Error fetching all sandarkapals:', error);
+      throw new InternalServerErrorException('Failed to fetch sandarkapals');
+    }
+  }
+
+  @Get('/export')
+  async exportToExcel(@Query() params: any, @Res() res: Response) {
+    try {
+      const { data } = await this.findAll(params);
+
+      if (!Array.isArray(data)) {
+        throw new Error('Data is not an array or is undefined.');
+      }
+
+      const tempFilePath = await this.sandarkapalService.exportToExcel(data);
+
+      const fileStream = fs.createReadStream(tempFilePath);
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_sandarkapal.xlsx"',
+      );
+
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      res.status(500).send('Failed to export file');
+    }
+  }
+
+  @Post('/export-byselect')
+  async exportToExcelBySelect(
+    @Body() ids: { id: number }[],
+    @Res() res: Response,
+  ) {
+    try {
+      const data = await this.sandarkapalService.findAllByIds(ids);
+
+      if (!Array.isArray(data)) {
+        throw new Error('Data is not an array or is undefined.');
+      }
+
+      const tempFilePath = await this.sandarkapalService.exportToExcel(data);
+
+      const fileStream = fs.createReadStream(tempFilePath);
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_sandarkapal.xlsx"',
+      );
+
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      res.status(500).send('Failed to export file');
     }
   }
 
@@ -170,7 +205,7 @@ export class SandarkapalController {
   }
 
   @UseGuards(AuthGuard)
-  @Put(':id')
+  @Put('update/:id')
   //@SANDARKAPAL
   async update(
     @Param('id') id: string,
@@ -180,22 +215,6 @@ export class SandarkapalController {
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const sandarkapalExist = await isRecordExist(
-        'nama',
-        data.nama,
-        'sandarkapal',
-        Number(id),
-      );
-
-      if (sandarkapalExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Sandar kapal dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.sandarkapalService.update(+id, data, trx);
@@ -204,26 +223,14 @@ export class SandarkapalController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error updating sandar kapal in controller:', error);
-      // Ensure any other errors get caught and returned
-      if (error instanceof HttpException) {
-        throw error; // If it's already a HttpException, rethrow it
-      }
-
-      // Generic error handling, if something unexpected happens
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to update sandarkapal',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      console.error('Error updating sandarkapal in controller:', error);
+      throw new Error('Failed to update sandarkapal');
     }
   }
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  //@PELAYARAN
+  //@SANDARKAPAL
   async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
@@ -241,13 +248,13 @@ export class SandarkapalController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error deleting sandar kapal in controller:', error);
+      console.error('Error deleting sandarkapal in controller:', error);
 
       if (error instanceof NotFoundException) {
         throw error;
       }
 
-      throw new InternalServerErrorException('Failed to delete sandar kapal');
+      throw new InternalServerErrorException('Failed to delete sandarkapal');
     }
   }
 }
