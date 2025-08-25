@@ -163,6 +163,7 @@ export class UtilsService {
     userId: number,
     trx,
   ): Promise<UserRoleAbilities> {
+    console.log('userId', userId);
     const roles = await trx('userrole')
       .where({ user_id: userId })
       .pluck('role_id');
@@ -282,15 +283,15 @@ export class UtilsService {
 
   buildMenuString = (menuItems: any[], abilities: any[]): string => {
     let menuHtml = '';
-
     const processMenuItem = (item: any): string => {
       if (this.checkAccessRecursively(item, abilities)) {
         let itemHtml = '';
+        const uniqueTitle = `${item.title}-${item.id}`;
         console.log('item', item);
         if (item.items && item.items.length > 0) {
-          itemHtml += `<Collapsible asChild defaultOpen={true} open={isMenuOpen('${item.title}')} className="group/collapsible text-sm my-1"><SidebarMenuItem><CollapsibleTrigger asChild><SidebarMenuButton className="text-sm" tooltip="${item.title}" onClick={()=>handleToggle('${item.title}')}><Icons name="${item.icon}" className="icon-white" /><p className="break-words text-sm">${item.title}</p><ChevronRight className={\`ml-auto transform transition-transform duration-300 ease-in-out \${isMenuOpen('${item.title}') ? 'rotate-90' : ''}\`} /></SidebarMenuButton></CollapsibleTrigger><CollapsibleContent><SidebarMenuSub>${this.buildMenuString(item.items, abilities)}</SidebarMenuSub></CollapsibleContent></SidebarMenuItem></Collapsible>`;
+          itemHtml += `<Collapsible asChild defaultOpen={true} open={isMenuOpen('${uniqueTitle}')} className="group/collapsible text-sm my-1"><SidebarMenuItem><CollapsibleTrigger asChild><SidebarMenuButton className="text-sm" tooltip="${uniqueTitle}" onClick={()=>handleToggle('${uniqueTitle}')}><Icons name="${item.icon}" className="icon-white" /><p className="break-words text-sm">${item.title}</p><ChevronRight className={\`ml-auto transform transition-transform duration-300 ease-in-out \${isMenuOpen('${uniqueTitle}') ? 'rotate-90' : ''}\`} /></SidebarMenuButton></CollapsibleTrigger><CollapsibleContent><SidebarMenuSub>${this.buildMenuString(item.items, abilities)}</SidebarMenuSub></CollapsibleContent></SidebarMenuItem></Collapsible>`;
         } else {
-          itemHtml += `<SidebarMenuSubItem onMouseEnter={() => setHoveredItemId('${item.title}')} onMouseLeave={() => setHoveredItemId(null)}><SidebarMenuSubButton asChild isActive={activePath==="/dashboard/${item.url}"}><Link prefetch={true} href="/dashboard/${item.url}" className="py-4"><Icons name="${item.icon}" className={ hoveredItemId === '${item.title}' || activePath === "/dashboard/${item.url}" ? 'icon-white text-white' : 'icon-white text-white'}/><p className="break-words text-sm">${item.title}</p></Link></SidebarMenuSubButton></SidebarMenuSubItem>`;
+          itemHtml += `<SidebarMenuSubItem onMouseEnter={() => setHoveredItemId('${uniqueTitle}')} onMouseLeave={() => setHoveredItemId(null)}><SidebarMenuSubButton asChild isActive={activePath==="/dashboard/${item.url}"}><Link prefetch={true} href="/dashboard/${item.url}" className="py-4"><Icons name="${item.icon}" className={ hoveredItemId === '${uniqueTitle}' || activePath === "/dashboard/${item.url}" ? 'icon-white text-white' : 'icon-white text-white'}/><p className="break-words text-sm">${item.title}</p></Link></SidebarMenuSubButton></SidebarMenuSubItem>`;
         }
         return itemHtml.trim();
       }
@@ -302,6 +303,7 @@ export class UtilsService {
     });
     return menuHtml.replace(/\s+/g, ' ').trim();
   };
+
   async getDataMenuSidebar(trx: any) {
     try {
       const result = await trx

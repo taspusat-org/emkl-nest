@@ -104,7 +104,6 @@ export class MenuService {
     trx: any,
   ) {
     try {
-      console.log('pagination', pagination);
       let { page, limit } = pagination;
 
       page = page ?? 1;
@@ -464,7 +463,6 @@ export class MenuService {
 
       const menuData = await this.utilsService.getDataMenuSidebar(trx);
       const sortedMenuData = this.sortMenuData(menuData);
-
       const menuString = this.utilsService.buildMenuString(
         sortedMenuData,
         abilities,

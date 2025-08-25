@@ -144,7 +144,6 @@ export class ParameterService {
       throw new Error(`Error creating parameter: ${error.message}`);
     }
   }
-
   async findAll({
     search,
     filters,
@@ -157,9 +156,22 @@ export class ParameterService {
       page = page ?? 1;
       limit = limit ?? 0;
 
+      if (isLookUp) {
+        const acoCountResult = await dbMssql(this.tableName)
+          .count('id as total')
+          .first();
+
+        const acoCount = acoCountResult?.total || 0;
+
+        if (Number(acoCount) > 500) {
+          return { data: { type: 'json' } };
+        } else {
+          limit = 0;
+        }
+      }
+
       // Membuat cache key berdasarkan filters.grp
       const cacheKey = `parameter-grp-${filters?.grp || 'default'}`;
-
       // Cek apakah data sudah ada di cache
       const cachedData = await this.redisService.get(cacheKey);
 
@@ -219,12 +231,12 @@ export class ParameterService {
       }
 
       const parameters = await query;
+      const responseType = Number(total) > 500 ? 'json' : 'local';
 
-      // Simpan data hasil query ke dalam Redis cache
-      await this.redisService.set(cacheKey, JSON.stringify(parameters));
-
-      return {
+      // Format objek hasil query yang akan disimpan di Redis
+      const responseObject = {
         data: parameters,
+        type: responseType,
         total,
         pagination: {
           currentPage: page,
@@ -233,6 +245,164 @@ export class ParameterService {
           itemsPerPage: limit,
         },
       };
+
+      // Simpan data hasil query ke dalam Redis cache
+      await this.redisService.set(cacheKey, JSON.stringify(responseObject));
+
+      return responseObject;
+    } catch (error) {
+      console.error('Error fetching parameters:', error);
+      throw new Error('Failed to fetch parameters');
+    }
+  }
+  async findAllApproval({
+    search,
+    filters,
+    pagination,
+    sort,
+    isLookUp,
+  }: FindAllParams) {
+    try {
+      let { page, limit } = pagination ?? {};
+      page = page ?? 1;
+      limit = limit ?? 0; // 0 = tanpa paging
+
+      // Early lookup size gate (mengikuti pola awal)
+      if (isLookUp) {
+        const acoCountResult = await dbMssql(this.tableName)
+          .count('id as total')
+          .first();
+        const acoCount = acoCountResult?.total || 0;
+        if (Number(acoCount) > 500) {
+          return { data: { type: 'json' } };
+        } else {
+          limit = 0;
+        }
+      }
+
+      const offset = (page - 1) * (limit || 0);
+
+      // ==== Helper & konstanta ====
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+
+      const escapeJsonKey = (k: string) => String(k).replace(/"/g, '\\"');
+
+      // Terapkan kondisi umum (search + filters) ke sebuah builder
+      const attachCommonConditions = (qb: any) => {
+        // Pastikan hanya baris dengan JSON valid
+        qb.whereRaw(`ISJSON(${memoExpr}) = 1`);
+
+        // Search ke kolom text + seluruh nilai JSON
+        if (search) {
+          qb.andWhere((builder: any) => {
+            builder.orWhere('text', 'like', `%${search}%`).orWhereRaw(
+              `EXISTS (
+                   SELECT 1
+                   FROM OPENJSON(${memoExpr}) j2
+                   WHERE CONVERT(nvarchar(4000), j2.value) LIKE ?
+                 )`,
+              [`%${search}%`],
+            );
+          });
+        }
+
+        // Filters
+        if (filters) {
+          for (const [key, value] of Object.entries(filters)) {
+            if (!value) continue;
+
+            if (key === 'created_at' || key === 'updated_at') {
+              qb.andWhereRaw(`FORMAT(${key}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`, [
+                `%${value}%`,
+              ]);
+            } else if (key === 'json') {
+              // filters.json = { "SINGKATAN":"BIAYA", "NILAI YA":"12" }
+              if (value && typeof value === 'object') {
+                for (const [jk, jv] of Object.entries(
+                  value as Record<string, string>,
+                )) {
+                  const safeKey = escapeJsonKey(jk);
+                  qb.andWhereRaw(
+                    `JSON_VALUE(${memoExpr}, '$."${safeKey}"') LIKE ?`,
+                    [`%${jv}%`],
+                  );
+                }
+              }
+            } else {
+              // kolom biasa
+              qb.andWhere(key, 'like', `%${value}%`);
+            }
+          }
+        }
+      };
+
+      // ==== Query DATA ====
+      const dataQuery = dbMssql(this.tableName).select(
+        'id',
+        'grp',
+        'subgrp',
+        'kelompok',
+        'text',
+        'memo', // JSON mentah
+        dbMssql.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+        dbMssql.raw(`JSON_VALUE(${memoExpr}, '$.SINGKATAN') AS singkatan`),
+        dbMssql.raw(`JSON_VALUE(${memoExpr}, '$.WARNA') AS warna`),
+        dbMssql.raw(
+          `JSON_VALUE(${memoExpr}, '$.WARNATULISAN') AS warna_tulisan`,
+        ),
+        dbMssql.raw(`JSON_VALUE(${memoExpr}, '$."NILAI YA"') AS nilai_ya`),
+        dbMssql.raw(
+          `JSON_VALUE(${memoExpr}, '$."NILAI TIDAK"') AS nilai_tidak`,
+        ),
+        dbMssql.raw(`JSON_VALUE(${memoExpr}, '$."ROLE YA"') AS role_ya`),
+        dbMssql.raw(`JSON_VALUE(${memoExpr}, '$."ROLE TIDAK"') AS role_tidak`),
+        dbMssql.raw(
+          `JSON_VALUE(${memoExpr}, '$."KETERANGAN WAJIB ISI"') AS keterangan_wajib_isi`,
+        ),
+        'type',
+        dbMssql.raw('[default] AS [default]'),
+        'modifiedby',
+        'info',
+        dbMssql.raw("FORMAT(created_at, 'dd-MM-yyyy HH:mm:ss') AS created_at"),
+        dbMssql.raw("FORMAT(updated_at, 'dd-MM-yyyy HH:mm:ss') AS updated_at"),
+      );
+
+      attachCommonConditions(dataQuery);
+
+      // Sorting (biarkan pakai alias; SQL Server mendukung ORDER BY alias di SELECT atas)
+      if (sort?.sortBy && sort?.sortDirection) {
+        dataQuery.orderBy(sort.sortBy, sort.sortDirection);
+      }
+
+      if (limit > 0) {
+        dataQuery.limit(limit).offset(offset);
+      }
+
+      // ==== Query COUNT (pakai kondisi yang sama) ====
+      const countQuery = dbMssql(this.tableName).count('id as total');
+      attachCommonConditions(countQuery);
+      const countRes = await countQuery.first();
+      const total = Number(countRes?.total ?? 0);
+      const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+
+      // ==== Eksekusi DATA ====
+      const parameters = await dataQuery;
+
+      // ==== Bentuk respons + cache ====
+      const responseType = total > 500 ? 'json' : 'local';
+      const responseObject = {
+        data: parameters,
+        type: responseType,
+        total,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+        },
+      };
+
+      return responseObject;
     } catch (error) {
       console.error('Error fetching parameters:', error);
       throw new Error('Failed to fetch parameters');

@@ -124,6 +124,33 @@ export class ParameterController {
 
     return this.parameterService.findAll(params);
   }
+  @Get('approval')
+  @UsePipes(new ZodValidationPipe(FindAllSchema))
+  async findAllApproval(@Query() query: FindAllDto) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
+
+    const sortParams = {
+      sortBy: sortBy || 'grp',
+      sortDirection: sortDirection || 'asc',
+    };
+
+    const pagination = {
+      page: page || 1, // Jika page tidak ada, set ke 1
+      limit: limit === 0 || !limit ? undefined : limit, // Jika limit 0, tidak ada pagination
+    };
+
+    const params: FindAllParams = {
+      search,
+      filters,
+      isLookUp: isLookUp === 'true', // Convert isLookUp to boolean
+
+      pagination,
+      sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
+    };
+
+    return this.parameterService.findAllApproval(params);
+  }
 
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {

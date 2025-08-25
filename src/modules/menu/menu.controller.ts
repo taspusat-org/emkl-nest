@@ -29,10 +29,14 @@ import {
 import { Response } from 'express';
 import * as fs from 'fs';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
+import { UtilsService } from 'src/utils/utils.service';
 
 @Controller('menu')
 export class MenuController {
-  constructor(private readonly menuService: MenuService) {}
+  constructor(
+    private readonly menuService: MenuService,
+    private readonly utilsService: UtilsService,
+  ) {}
   @Get('sidebar')
   menuSidebar(@Query('userId') userId: number) {
     return this.menuService.getMenuSidebar(userId);
@@ -180,6 +184,29 @@ export class MenuController {
     }
   }
 
+  @Get('/permission/:id')
+  async permission(@Param('id') id: string) {
+    const trx = await dbMssql.transaction();
+    try {
+      console.log('id', id);
+      const result = await this.utilsService.fetchUserRolesAndAbilities(
+        +id,
+        trx,
+      );
+      console.log('result', result);
+      if (!result) {
+        throw new Error('Data not found');
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      console.error('Error fetching data by id:', error);
+
+      await trx.rollback();
+      throw new Error('Failed to fetch data by id');
+    }
+  }
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
