@@ -1,4 +1,9 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateMarketinggroupDto } from './dto/create-marketinggroup.dto';
 import { UpdateMarketinggroupDto } from './dto/update-marketinggroup.dto';
 import { RedisService } from 'src/common/redis/redis.service';
@@ -14,7 +19,7 @@ export class MarketinggroupService {
     private readonly logTrailService: LogtrailService,
   ) {}
   private readonly tableName = 'marketinggroup';
-  
+
   async create(createMarketinggroupDto: any, trx: any) {
     try {
       const {
@@ -115,21 +120,13 @@ export class MarketinggroupService {
           'mg.marketing_id',
           'mg.statusaktif',
           'mg.modifiedby',
-          trx.raw(
-            "FORMAT(mg.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at",
-          ),
-          trx.raw(
-            "FORMAT(mg.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at",
-          ),
+          trx.raw("FORMAT(mg.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(mg.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'statusaktif.memo as statusaktif_memo',
           'statusaktif.text as statusaktif_text',
-          'marketing.nama as marketing_nama'
+          'marketing.nama as marketing_nama',
         ])
-        .leftJoin(
-          'marketing',
-          'mg.marketing_id',
-          'marketing.id',
-        )
+        .leftJoin('marketing', 'mg.marketing_id', 'marketing.id')
         .leftJoin(
           'parameter as statusaktif',
           'mg.statusaktif',
@@ -155,15 +152,15 @@ export class MarketinggroupService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw(
-                "FORMAT(mg.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?",
-                [key, `%${sanitizedValue}%`],
-              );
+              query.andWhereRaw("FORMAT(mg.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'statusaktif_text') {
               query.andWhere(`statusaktif.text`, '=', sanitizedValue);
             } else if (key === 'marketing_nama') {
               query.andWhere(`marketing.nama`, 'like', `%${sanitizedValue}%`);
-            }else {
+            } else {
               query.andWhere(`mg.${key}`, 'like', `%${sanitizedValue}%`);
             }
           }
@@ -254,11 +251,9 @@ export class MarketinggroupService {
       );
 
       // Cari index item yang baru saja diupdate
-      let itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === id,
-      );
+      let itemIndex = filteredData.findIndex((item) => Number(item.id) === id);
       if (itemIndex === -1) {
-        itemIndex = 0
+        itemIndex = 0;
       }
       const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
       const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;

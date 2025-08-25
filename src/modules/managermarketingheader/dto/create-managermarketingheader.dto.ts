@@ -45,6 +45,7 @@ export const CreateManagermarketingHeaderSchema = z
       .array(CreateManagermarketingDetailSchema)
       .min(1, { message: 'Details minimal 1 data' }),
   })
+
   .superRefine((data, ctx) => {
     if (data.details && Array.isArray(data.details)) {
       data.details.forEach((detail, index) => {
@@ -56,23 +57,23 @@ export const CreateManagermarketingHeaderSchema = z
           : null;
         const persentase = detail.persentase ? Number(detail.persentase) : null;
 
-        // Cek nominalakhir > nominalawal
+        // cek Nominal Akhir > Nominal Awal
         if (
           nominalawal !== null &&
           nominalakhir !== null &&
           nominalakhir <= nominalawal
         ) {
           ctx.addIssue({
-            path: ['nominalakhir', index, 'nominalakhir'],
+            path: ['details', index, 'nominalakhir'],
             code: z.ZodIssueCode.custom,
             message: `Nominal Akhir > Nominal Awal !`,
           });
         }
 
-        // Cek persentase ≤ 100
+        // cek persentase ≤ 100
         if (persentase !== null && persentase > 100) {
           ctx.addIssue({
-            path: ['persentase', index, 'persentase'],
+            path: ['details', index, 'persentase'],
             code: z.ZodIssueCode.custom,
             message: `Persentase < 100 !`,
           });

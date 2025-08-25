@@ -232,7 +232,7 @@ export class PelayaranController {
       throw new Error('Failed to fetch data by id');
     }
   }
-  
+
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {

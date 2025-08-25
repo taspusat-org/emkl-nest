@@ -1,6 +1,6 @@
-import { z } from "zod";
+import { z } from 'zod';
 export const UpdateJenisbiayamarketingSchema = z.object({
- nama: z
+  nama: z
     .string()
     .trim()
     .min(1, { message: 'Nama Jenis Biaya Marketing Wajib Diisi' })
@@ -11,5 +11,7 @@ export const UpdateJenisbiayamarketingSchema = z.object({
     .int({ message: 'Status Aktif Wajib Angka' })
     .nonnegative({ message: 'Status Aktif Tidak Boleh Angka Negatif' }), // Ensure non-negative
   modifiedby: z.string().nullable().optional(),
-})
-export type UpdateJenisbiayamarketingDto = z.infer<typeof UpdateJenisbiayamarketingSchema>;
+});
+export type UpdateJenisbiayamarketingDto = z.infer<
+  typeof UpdateJenisbiayamarketingSchema
+>;

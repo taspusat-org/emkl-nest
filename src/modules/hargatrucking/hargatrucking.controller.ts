@@ -117,11 +117,6 @@ export class HargatruckingController {
     }
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.hargatruckingService.findOne(+id);
-  }
-
   @UseGuards(AuthGuard)
   @Put('update/:id')
   //@HARGA-TRUCKING
@@ -185,5 +180,9 @@ export class HargatruckingController {
 
       throw new InternalServerErrorException('Failed to delete bank');
     }
+  }
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.hargatruckingService.findOne(+id);
   }
 }

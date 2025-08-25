@@ -26,12 +26,12 @@ export class MarketingService {
     private readonly marketingBiayaService: MarketingbiayaService,
     private readonly marketingManagerService: MarketingmanagerService,
     private readonly marketingProsesFeeService: MarketingprosesfeeService,
-    private readonly marketingDetailService: MarketingdetailService
+    private readonly marketingDetailService: MarketingdetailService,
   ) {}
 
   async create(data: any, trx: any) {
     try {
-      let cabang_id
+      let cabang_id;
       // const time = this.utilService.getTime();
       const {
         sortBy,
@@ -53,19 +53,19 @@ export class MarketingService {
         marketingprosesfee,
         marketingdetail,
         ...insertData
-      } = data      
+      } = data;
       insertData.updated_at = this.utilService.getTime();
       insertData.created_at = this.utilService.getTime();
       // console.log(
       //   'masuk sinii',
-      //   'data', insertData, 
+      //   'data', insertData,
       //   'marketingorderan', marketingorderan,
       //   'marketingbiaya', marketingbiaya,
       //   'marketingmanager', marketingmanager,
       //   'marketingprosesfee', marketingprosesfee,
       //   'marketingdetail', marketingdetail
       // );
-      
+
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           const value = insertData[key];
@@ -78,73 +78,108 @@ export class MarketingService {
           }
         }
       });
-      
+
       if (data.karyawan_id != null) {
-        const cekIdCabang = await dbHr('karyawan').select('id', 'namakaryawan', 'cabang_id').where('id', insertData.karyawan_id).first();
-        const cekNamaCabang = await dbHr('cabang').select('nama').where('id', cekIdCabang.cabang_id).first();
-        const getIdCabangEmkl = await trx('cabang').select('id').where('nama', cekNamaCabang.nama).first();
-        cabang_id = (getIdCabangEmkl || getIdCabangEmkl?.id) ? getIdCabangEmkl?.id : 26
+        const cekIdCabang = await dbHr('karyawan')
+          .select('id', 'namakaryawan', 'cabang_id')
+          .where('id', insertData.karyawan_id)
+          .first();
+        const cekNamaCabang = await dbHr('cabang')
+          .select('nama')
+          .where('id', cekIdCabang.cabang_id)
+          .first();
+        const getIdCabangEmkl = await trx('cabang')
+          .select('id')
+          .where('nama', cekNamaCabang.nama)
+          .first();
+        cabang_id =
+          getIdCabangEmkl || getIdCabangEmkl?.id ? getIdCabangEmkl?.id : 26;
         // console.log('tes', cekIdCabang.cabang_id, cekNamaCabang, cekNamaCabang.nama, getIdCabangEmkl, cabang_id);
       }
 
       const insertDataWithCabangId = {
         ...insertData,
-        cabang_id: cabang_id
-      }
-      
+        cabang_id: cabang_id,
+      };
 
-      const insertNewData = await trx(this.tableName).insert(insertDataWithCabangId).returning('*');
+      const insertNewData = await trx(this.tableName)
+        .insert(insertDataWithCabangId)
+        .returning('*');
 
       if (marketingorderan.length > 0) {
         const morderanWithMarketingId = marketingorderan.map((detail: any) => ({
           ...detail,
           marketing_id: insertNewData[0].id,
-          modifiedby: insertDataWithCabangId.modifiedby
-        }))
+          modifiedby: insertDataWithCabangId.modifiedby,
+        }));
         // console.log('morderanWithMarketingId', morderanWithMarketingId);
-        await this.marketingOrderanService.create(morderanWithMarketingId, insertNewData[0].id, trx)
+        await this.marketingOrderanService.create(
+          morderanWithMarketingId,
+          insertNewData[0].id,
+          trx,
+        );
       }
-      
+
       if (marketingbiaya.length > 0) {
         const mbiayaWithMarketingId = marketingbiaya.map((detail: any) => ({
           ...detail,
-          marketing_id: insertNewData[0].id, 
-          modifiedby: insertDataWithCabangId.modifiedby
-        }))
+          marketing_id: insertNewData[0].id,
+          modifiedby: insertDataWithCabangId.modifiedby,
+        }));
         // console.log('mbiayaWithMarketingId', mbiayaWithMarketingId);
-        await this.marketingBiayaService.create(mbiayaWithMarketingId, insertNewData[0].id, trx)
+        await this.marketingBiayaService.create(
+          mbiayaWithMarketingId,
+          insertNewData[0].id,
+          trx,
+        );
       }
-      
+
       if (marketingmanager.length > 0) {
-        const marketingManagerWithMarketingId = marketingmanager.map((detail: any) => ({
-          ...detail,
-          marketing_id: insertNewData[0].id, 
-          modifiedby: insertDataWithCabangId.modifiedby
-        }))
+        const marketingManagerWithMarketingId = marketingmanager.map(
+          (detail: any) => ({
+            ...detail,
+            marketing_id: insertNewData[0].id,
+            modifiedby: insertDataWithCabangId.modifiedby,
+          }),
+        );
         // console.log('marketingManagerWithMarketingId', marketingManagerWithMarketingId);
-        await this.marketingManagerService.create(marketingManagerWithMarketingId, insertNewData[0].id, trx)
+        await this.marketingManagerService.create(
+          marketingManagerWithMarketingId,
+          insertNewData[0].id,
+          trx,
+        );
       }
 
       if (marketingprosesfee.length > 0) {
-        const mprosesfeeWithMarketingId = marketingprosesfee.map((detail: any) => ({
-          ...detail,
-          marketing_id: insertNewData[0].id,
-          modifiedby: insertDataWithCabangId.modifiedby
-        }))
+        const mprosesfeeWithMarketingId = marketingprosesfee.map(
+          (detail: any) => ({
+            ...detail,
+            marketing_id: insertNewData[0].id,
+            modifiedby: insertDataWithCabangId.modifiedby,
+          }),
+        );
         // console.log('mprosesfeeWithMarketingId', mprosesfeeWithMarketingId);
-        await this.marketingProsesFeeService.create(mprosesfeeWithMarketingId, insertNewData[0].id, trx)
+        await this.marketingProsesFeeService.create(
+          mprosesfeeWithMarketingId,
+          insertNewData[0].id,
+          trx,
+        );
       }
 
       console.log('marketingdetail', marketingdetail);
-      
+
       if (marketingdetail.length > 0) {
         const mdetailWithMarketingId = marketingdetail.map((detail: any) => ({
           ...detail,
           marketing_id: insertNewData[0].id,
-          modifiedby: insertDataWithCabangId.modifiedby
-        }))
+          modifiedby: insertDataWithCabangId.modifiedby,
+        }));
         console.log('mdetailWithMarketingId', mdetailWithMarketingId);
-        await this.marketingDetailService.create(mdetailWithMarketingId, insertNewData[0].id, trx)
+        await this.marketingDetailService.create(
+          mdetailWithMarketingId,
+          insertNewData[0].id,
+          trx,
+        );
       }
 
       const newItem = insertNewData[0];
@@ -159,16 +194,21 @@ export class MarketingService {
         trx,
       );
 
-      let dataIndex = filteredItems.findIndex((item) => Number(item.id) === newItem.id);  // Cari index item baru di hasil yang sudah difilter
+      let dataIndex = filteredItems.findIndex(
+        (item) => Number(item.id) === newItem.id,
+      ); // Cari index item baru di hasil yang sudah difilter
       if (dataIndex === -1) {
         dataIndex = 0;
       }
 
       const pageNumber = Math.floor(dataIndex / limit) + 1;
       const endIndex = pageNumber * limit;
-      const limitedItems = filteredItems.slice(0, endIndex);  // Ambil data hingga halaman yang mencakup item baru
+      const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
 
-      await this.redisService.set(`${this.tableName}-allItems`, JSON.stringify(limitedItems),);
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
@@ -187,23 +227,24 @@ export class MarketingService {
         pageNumber,
         dataIndex,
       };
-
     } catch (error) {
       throw new Error(`Error: ${error.message}`);
     }
   }
 
   async findAll(
-    { search, filters, pagination, sort, isLookUp } : FindAllParams,
-    trx: any
+    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+    trx: any,
   ) {
     try {
       let { page, limit } = pagination;
       page = page ?? 1;
-      limit = limit ?? 0;  
+      limit = limit ?? 0;
 
       if (isLookUp) {
-        const totalData = await trx(this.tableName).count('id as total').first();
+        const totalData = await trx(this.tableName)
+          .count('id as total')
+          .first();
         const resultTotalData = totalData?.total || 0;
 
         if (Number(resultTotalData) > 500) {
@@ -218,40 +259,56 @@ export class MarketingService {
       }
 
       const query = trx(`${this.tableName} as u`)
-      .select([
-        'u.id',
-        'u.nama',
-        'u.keterangan',
-        'u.statusaktif',
-        'u.email',
-        'u.karyawan_id',
-        'u.tglmasuk',
-        'u.cabang_id',
-        'u.statustarget',
-        'u.statusbagifee',
-        'u.statusfeemanager',
-        // 'u.marketingmanager_id',
-        'u.marketinggroup_id',
-        'u.statusprafee',
-        'u.modifiedby',
-        'u.created_at',
-        'u.updated_at',
-        'statusaktif.text as statusaktif_nama',
-        'statusaktif.memo as memo',
-        'cabang.nama as cabang_nama',
-        'statustarget.text as statustarget_nama',
-        'statusbagifee.text as statusbagifee_nama',
-        'statusfeemanager.text as statusfeemanager_nama',
-        // 'marketinggroup'
-        'statusprafee.text as statusprafee_nama'
-      ])
-      .leftJoin('parameter as statusaktif', 'u.statusaktif', 'statusaktif.id')
-      .leftJoin('cabang', 'u.cabang_id', 'cabang.id')
-      .leftJoin('parameter as statustarget', 'u.statustarget', 'statustarget.id')
-      .leftJoin('parameter as statusbagifee', 'u.statusbagifee', 'statusbagifee.id')
-      .leftJoin('parameter as statusfeemanager', 'u.statusfeemanager', 'statusfeemanager.id')
-      // .leftJoin('marketinggroup', 'u.marketinggroup', 'marketinggroup.id')
-      .leftJoin('parameter as statusprafee', 'u.statusprafee', 'statusprafee.id')
+        .select([
+          'u.id',
+          'u.nama',
+          'u.keterangan',
+          'u.statusaktif',
+          'u.email',
+          'u.karyawan_id',
+          'u.tglmasuk',
+          'u.cabang_id',
+          'u.statustarget',
+          'u.statusbagifee',
+          'u.statusfeemanager',
+          // 'u.marketingmanager_id',
+          'u.marketinggroup_id',
+          'u.statusprafee',
+          'u.modifiedby',
+          'u.created_at',
+          'u.updated_at',
+          'statusaktif.text as statusaktif_nama',
+          'statusaktif.memo as memo',
+          'cabang.nama as cabang_nama',
+          'statustarget.text as statustarget_nama',
+          'statusbagifee.text as statusbagifee_nama',
+          'statusfeemanager.text as statusfeemanager_nama',
+          // 'marketinggroup'
+          'statusprafee.text as statusprafee_nama',
+        ])
+        .leftJoin('parameter as statusaktif', 'u.statusaktif', 'statusaktif.id')
+        .leftJoin('cabang', 'u.cabang_id', 'cabang.id')
+        .leftJoin(
+          'parameter as statustarget',
+          'u.statustarget',
+          'statustarget.id',
+        )
+        .leftJoin(
+          'parameter as statusbagifee',
+          'u.statusbagifee',
+          'statusbagifee.id',
+        )
+        .leftJoin(
+          'parameter as statusfeemanager',
+          'u.statusfeemanager',
+          'statusfeemanager.id',
+        )
+        // .leftJoin('marketinggroup', 'u.marketinggroup', 'marketinggroup.id')
+        .leftJoin(
+          'parameter as statusprafee',
+          'u.statusprafee',
+          'statusprafee.id',
+        );
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
@@ -271,7 +328,7 @@ export class MarketingService {
             .orWhere('statusprafee.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
             .orWhere('u.created_at', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.updated_at', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.updated_at', 'like', `%${sanitizedValue}%`);
         });
       }
 
@@ -280,11 +337,19 @@ export class MarketingService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'tglmasuk') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'statusaktif_nama') {
-              query.andWhereRaw("statusaktif.text LIKE ?", [`%${sanitizedValue}%`]);
+              query.andWhereRaw('statusaktif.text LIKE ?', [
+                `%${sanitizedValue}%`,
+              ]);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
@@ -299,11 +364,11 @@ export class MarketingService {
 
       const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
-      const totalPages = Math.ceil(total / limit)
+      const totalPages = Math.ceil(total / limit);
       // console.log('result',result, 'total', total, 'totalPages',totalPages, 'page limit di findall');
 
       if (sort?.sortBy && sort.sortDirection) {
-        query.orderBy(sort.sortBy, sort.sortDirection)
+        query.orderBy(sort.sortBy, sort.sortDirection);
       }
 
       const data = await query;
@@ -318,10 +383,9 @@ export class MarketingService {
           currentPage: page,
           totalPages: totalPages,
           totalItems: total,
-          itemPerPage: limit
-        }
-      }
-
+          itemPerPage: limit,
+        },
+      };
     } catch (error) {
       console.error('Error fetching data marketing in service:', error);
       throw new Error('Failed to fetch data marketing in service');

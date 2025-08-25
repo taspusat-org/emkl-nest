@@ -56,27 +56,12 @@ export class DaftarBankController {
   ) {
     const trx = await dbMssql.transaction();
     try {
-      // validasi uniq nama
-
-      const daftarbankExist = await isRecordExist(
-        'nama',
-        data.nama,
-        'daftarbank',
-      );
-
-      if (daftarbankExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Daftar Bank dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
       data.modifiedby = req.user?.user?.username || 'unknown';
+
       const result = await this.DaftarBankService.create(data, trx);
+
       await trx.commit();
+      return result;
     } catch (error) {
       await trx.rollback();
       console.error('Error while creating daftar bank in controller', error);
@@ -89,16 +74,11 @@ export class DaftarBankController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to update daftar bank',
+          message: 'Failed to create daftar bank',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-  }
-
-  @Post('report-byselect')
-  async findAllByIds(@Body() ids: { id: number }[]) {
-    return this.DaftarBankService.findAllByIds(ids);
   }
 
   @Get()
@@ -135,6 +115,78 @@ export class DaftarBankController {
       throw new InternalServerErrorException('Failed to fetch DaftarBank');
     }
   }
+
+  @UseGuards(AuthGuard)
+  @Put(':id')
+  //@DaftarBank
+  async update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(UpdateDaftarBankSchema))
+    data: UpdateDaftarBankDto,
+    @Req() req,
+  ) {
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+
+      const result = await this.DaftarBankService.update(+id, data, trx);
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error updating DaftarBank in controller:', error);
+
+      if (error instanceof HttpException) {
+        throw error; // If it's already a HttpException, rethrow it
+      }
+
+      // Generic error handling, if something unexpected happens
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'Failed to update type akuntansi',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id')
+  //@DaftarBank
+  async delete(@Param('id') id: string, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.DaftarBankService.delete(
+        +id,
+        trx,
+        req.user?.user?.username,
+      );
+
+      if (result.status === 404) {
+        throw new NotFoundException(result.message);
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error deleting menu in controller:', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to delete menu');
+    }
+  }
+
+  @Post('report-byselect')
+  async findAllByIds(@Body() ids: { id: number }[]) {
+    return this.DaftarBankService.findAllByIds(ids);
+  }
+
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {
@@ -193,89 +245,6 @@ export class DaftarBankController {
     } catch (error) {
       console.error('Error exporting to Excel:', error);
       res.status(500).send('Failed to export file');
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Put(':id')
-  //@DaftarBank
-  async update(
-    @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateDaftarBankSchema))
-    data: UpdateDaftarBankDto,
-    @Req() req,
-  ) {
-    const trx = await dbMssql.transaction();
-    try {
-      const daftarbankExist = await isRecordExist(
-        'nama',
-        data.nama,
-        'daftarbank',
-        Number(id),
-      );
-
-      if (daftarbankExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Daftar Bank dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      data.modifiedby = req.user?.user?.username || 'unknown';
-
-      const result = await this.DaftarBankService.update(+id, data, trx);
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error updating DaftarBank in controller:', error);
-
-      if (error instanceof HttpException) {
-        throw error; // If it's already a HttpException, rethrow it
-      }
-
-      // Generic error handling, if something unexpected happens
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to update type akuntansi',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Delete(':id')
-  //@DaftarBank
-  async delete(@Param('id') id: string, @Req() req) {
-    const trx = await dbMssql.transaction();
-    try {
-      const result = await this.DaftarBankService.delete(
-        +id,
-        trx,
-        req.user?.user?.username,
-      );
-
-      if (result.status === 404) {
-        throw new NotFoundException(result.message);
-      }
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error deleting menu in controller:', error);
-
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to delete menu');
     }
   }
 

@@ -1,12 +1,19 @@
 import { z } from 'zod';
-
+import { isRecordExist } from 'src/utils/utils.service';
 export const CreateJenisOrderanSchema = z.object({
   nama: z
     .string()
-    .trim()
-    .min(1, { message: 'Jenis Orderan Wajib Diisi' })
-    .max(255),
-  keterangan: z.string().trim().min(1, { message: 'Keterangan Wajib Diisi' }),
+    .min(1, { message: 'Nama Wajib Diisi' })
+    .max(100)
+    .refine(
+      async (value) => {
+        const exists = await isRecordExist('nama', value, 'jenisorderan');
+        return !exists; // Validasi jika nama sudah ada
+      },
+      {
+        message: 'Container dengan dengan nama ini sudah ada',
+      },
+    ),
   statusaktif: z
     .number()
     .int({ message: 'Status Aktif Wajib Angka' })

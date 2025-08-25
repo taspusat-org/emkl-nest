@@ -30,4 +30,6 @@ export const CreateMarketinggroupSchema = z.object({
     .nonnegative({ message: 'Status Aktif Tidak Boleh Angka Negatif' }), // Ensure non-negative
   modifiedby: z.string().nullable().optional(),
 });
-export type CreateMarketinggroupDto = z.infer<typeof CreateMarketinggroupSchema>;
+export type CreateMarketinggroupDto = z.infer<
+  typeof CreateMarketinggroupSchema
+>;

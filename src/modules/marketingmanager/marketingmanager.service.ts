@@ -6,52 +6,68 @@ import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 
 @Injectable()
 export class MarketingmanagerService {
-  private readonly tableName = 'marketingmanager'
-  private readonly logger = new Logger(MarketingmanagerService.name)
+  private readonly tableName = 'marketingmanager';
+  private readonly logger = new Logger(MarketingmanagerService.name);
 
-  constructor (
-    // @Inject('REDIS_CLIENT') 
+  constructor(
+    // @Inject('REDIS_CLIENT')
     private readonly utilsService: UtilsService,
-    private readonly logTrailService: LogtrailService
+    private readonly logTrailService: LogtrailService,
   ) {}
 
-  async create(marketingManagerData: any, marketing_id: any = 0, trx: any = null) {
+  async create(
+    marketingManagerData: any,
+    marketing_id: any = 0,
+    trx: any = null,
+  ) {
     try {
-      let insertedData = null
-      let data: any = null
+      let insertedData = null;
+      let data: any = null;
       const tempTableName = `##temp_${Math.random().toString(36).substring(2, 15)}`;
-      const time = this.utilsService.getTime()
+      const time = this.utilsService.getTime();
       const logData: any[] = [];
       const mainDataToInsert: any[] = [];
       const columnInfo = await trx(this.tableName).columnInfo();
-      const tableTemp = await this.utilsService.createTempTable(this.tableName, trx, tempTableName)
+      const tableTemp = await this.utilsService.createTempTable(
+        this.tableName,
+        trx,
+        tempTableName,
+      );
 
       if (marketingManagerData.length === 0) {
-        await trx(this.tableName).delete().where('marketing_id', marketing_id)
+        await trx(this.tableName).delete().where('marketing_id', marketing_id);
         return;
       }
 
-      const fixData = marketingManagerData.map(({ managermarketing_nama, statusaktif_nama, ...marketingManagerData }) => ({
-        ...marketingManagerData
-      }))
+      const fixData = marketingManagerData.map(
+        ({
+          managermarketing_nama,
+          statusaktif_nama,
+          ...marketingManagerData
+        }) => ({
+          ...marketingManagerData,
+        }),
+      );
 
       for (data of fixData) {
-        let isDataChanged = false
+        let isDataChanged = false;
 
         Object.keys(data).forEach((key) => {
           if (typeof data[key] === 'string') {
             data[key] = data[key].toUpperCase();
           }
-        })
+        });
 
         if (data.id) {
-          const existingData = await trx(this.tableName).where('id', data.id).first();
+          const existingData = await trx(this.tableName)
+            .where('id', data.id)
+            .first();
           if (existingData) {
             const createdAt = {
               created_at: existingData.created_at,
-              updated_at: existingData.updated_at
-            }
-            Object.assign(data, createdAt)
+              updated_at: existingData.updated_at,
+            };
+            Object.assign(data, createdAt);
 
             if (this.utilsService.hasChanges(data, existingData)) {
               data.updated_at = time;
@@ -62,33 +78,33 @@ export class MarketingmanagerService {
         } else {
           const newTimestamps = {
             created_at: time,
-            updated_at: time
-          }
+            updated_at: time,
+          };
           Object.assign(data, newTimestamps);
           isDataChanged = true;
           data.aksi = 'CREATE';
         }
 
         if (!isDataChanged) {
-          data.aksi = 'NO UPDATE'
+          data.aksi = 'NO UPDATE';
         }
 
-        const { aksi, ...dataForInsert } = data
-        mainDataToInsert.push(dataForInsert)
+        const { aksi, ...dataForInsert } = data;
+        mainDataToInsert.push(dataForInsert);
         logData.push({
           ...data,
-          created_at: time
-        })
+          created_at: time,
+        });
       }
-      
-      await trx.raw(tableTemp) //CREATE TEMP TABLE
 
-      const jsonString = JSON.stringify(mainDataToInsert)
+      await trx.raw(tableTemp); //CREATE TEMP TABLE
+
+      const jsonString = JSON.stringify(mainDataToInsert);
       const mappingData = Object.keys(mainDataToInsert[0]).map((key) => [
         'value',
         `$.${key}`,
         key,
-      ]);      
+      ]);
 
       const openJson = await trx
         .from(trx.raw('OPENJSON(?)', [jsonString]))
@@ -97,26 +113,29 @@ export class MarketingmanagerService {
 
       await trx(tempTableName).insert(openJson);
 
-      
       const updatedData = await trx(this.tableName) // **Update or Insert into 'marketingmanager' with correct idheader**
-      .join(`${tempTableName}`, `${this.tableName}.id`, `${tempTableName}.id`)
-      .update({ 
-        marketing_id: trx.raw(`${tempTableName}.marketing_id`),
-        managermarketing_id: trx.raw(`${tempTableName}.managermarketing_id`),
-        statusaktif: trx.raw(`${tempTableName}.statusaktif`),
-        info: trx.raw(`${tempTableName}.info`),
-        modifiedby: trx.raw(`${tempTableName}.modifiedby`),
-        created_at: trx.raw(`${tempTableName}.created_at`),
-        updated_at: trx.raw(`${tempTableName}.updated_at`)
-      })
-      .returning('*')
-      .then((result: any) => result[0])
-      .catch((error: any) => {
-        console.error( 'Error inserting data marketing manager in service:', error, error.message);
-        throw error;
-      });  
+        .join(`${tempTableName}`, `${this.tableName}.id`, `${tempTableName}.id`)
+        .update({
+          marketing_id: trx.raw(`${tempTableName}.marketing_id`),
+          managermarketing_id: trx.raw(`${tempTableName}.managermarketing_id`),
+          statusaktif: trx.raw(`${tempTableName}.statusaktif`),
+          info: trx.raw(`${tempTableName}.info`),
+          modifiedby: trx.raw(`${tempTableName}.modifiedby`),
+          created_at: trx.raw(`${tempTableName}.created_at`),
+          updated_at: trx.raw(`${tempTableName}.updated_at`),
+        })
+        .returning('*')
+        .then((result: any) => result[0])
+        .catch((error: any) => {
+          console.error(
+            'Error inserting data marketing manager in service:',
+            error,
+            error.message,
+          );
+          throw error;
+        });
 
-      const insertedDataQuery = await trx(tempTableName)  // Handle insertion if no update occurs
+      const insertedDataQuery = await trx(tempTableName) // Handle insertion if no update occurs
         .select([
           'marketing_id',
           'managermarketing_id',
@@ -129,7 +148,11 @@ export class MarketingmanagerService {
         .where(`${tempTableName}.id`, '0');
 
       const getDeleted = await trx(this.tableName)
-        .leftJoin(`${tempTableName}`, 'marketingmanager.id', `${tempTableName}.id`)
+        .leftJoin(
+          `${tempTableName}`,
+          'marketingmanager.id',
+          `${tempTableName}.id`,
+        )
         .select(
           'marketingmanager.id',
           'marketingmanager.marketing_id',
@@ -149,11 +172,18 @@ export class MarketingmanagerService {
         pushToLog = Object.assign(getDeleted, { aksi: 'DELETE' });
       }
 
-      const pushToLogWithAction = pushToLog.map((entry) => ({ ...entry, aksi: 'DELETE' }));
+      const pushToLogWithAction = pushToLog.map((entry) => ({
+        ...entry,
+        aksi: 'DELETE',
+      }));
       const finalData = logData.concat(pushToLogWithAction);
 
       const deletedData = await trx(this.tableName)
-        .leftJoin(`${tempTableName}`, 'marketingmanager.id', `${tempTableName}.id`)
+        .leftJoin(
+          `${tempTableName}`,
+          'marketingmanager.id',
+          `${tempTableName}.id`,
+        )
         .whereNull(`${tempTableName}.id`)
         .where('marketingmanager.marketing_id', marketing_id)
         .del();
@@ -164,7 +194,10 @@ export class MarketingmanagerService {
           .returning('*')
           .then((result: any) => result[0])
           .catch((error: any) => {
-            console.error('Error inserting data marketing manager in service:', error);
+            console.error(
+              'Error inserting data marketing manager in service:',
+              error,
+            );
             throw error;
           });
       }
@@ -182,43 +215,54 @@ export class MarketingmanagerService {
         trx,
       );
 
-      console.log('return insertedData', insertedData, 'updatedData', updatedData);
+      console.log(
+        'return insertedData',
+        insertedData,
+        'updatedData',
+        updatedData,
+      );
       return updatedData || insertedData;
-
-
     } catch (error) {
-      throw new Error(`Error inserted marketing manager in service: ${error.message}`);
+      throw new Error(
+        `Error inserted marketing manager in service: ${error.message}`,
+      );
     }
   }
 
   async findAll(id: string, trx: any) {
-    const result = await trx((`${this.tableName} as p`))
-    .select(
-      'p.id',
-      'p.marketing_id',
-      'p.managermarketing_id',
-      'p.tglapproval',
-      'p.statusapproval',
-      'p.userapproval',
-      'p.statusaktif',
-      'statusaktif.memo',
-      'statusaktif.text as statusaktif_nama',
-      'statusapproval.memo',
-      'statusapproval.text as statusapproval_nama',
-      'r.nama as managermarketing_nama',
-      'q.nama as marketing_nama'
-    )
-    .leftJoin('parameter as statusaktif', 'p.statusaktif', 'statusaktif.id')
-    .leftJoin('parameter as statusapproval', 'p.statusaktif', 'statusapproval.id')
-    .leftJoin('marketing as q', 'p.marketing_id', 'q.id')
-    .leftJoin('managermarketing as r', 'p.managermarketing_id', 'r.id')
-    .where('p.marketing_id', id)
-    .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
-  
+    const result = await trx(`${this.tableName} as p`)
+      .select(
+        'p.id',
+        'p.marketing_id',
+        'p.managermarketing_id',
+        'p.tglapproval',
+        'p.statusapproval',
+        'p.userapproval',
+        'p.statusaktif',
+        'statusaktif.memo',
+        'statusaktif.text as statusaktif_nama',
+        'statusapproval.memo',
+        'statusapproval.text as statusapproval_nama',
+        'r.nama as managermarketing_nama',
+        'q.nama as marketing_nama',
+      )
+      .leftJoin('parameter as statusaktif', 'p.statusaktif', 'statusaktif.id')
+      .leftJoin(
+        'parameter as statusapproval',
+        'p.statusaktif',
+        'statusapproval.id',
+      )
+      .leftJoin('marketing as q', 'p.marketing_id', 'q.id')
+      .leftJoin('managermarketing as r', 'p.managermarketing_id', 'r.id')
+      .where('p.marketing_id', id)
+      .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
+
     console.log('result', result);
-    
+
     if (!result.length) {
-      this.logger.warn(`No data marketing manager found for id marketing_id: ${id}`);
+      this.logger.warn(
+        `No data marketing manager found for id marketing_id: ${id}`,
+      );
 
       return {
         status: false,

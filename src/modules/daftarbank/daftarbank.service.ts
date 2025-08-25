@@ -32,23 +32,30 @@ export class DaftarBankService {
         search,
         page,
         limit,
-        statusaktif_text,
-        ...insertData
+        nama,
+        keterangan,
+        statusaktif,
+        modifiedby,
+        created_at,
+        updated_at,
+        info,
       } = createDaftarBankDto;
-      insertData.updated_at = this.utilsService.getTime();
-      insertData.created_at = this.utilsService.getTime();
 
-      Object.keys(insertData).forEach((key) => {
-        if (typeof insertData[key] === 'string') {
-          insertData[key] = insertData[key].toUpperCase();
-        }
-      });
+      const insertData = {
+        nama: nama ? nama.toUpperCase() : null,
+        keterangan: keterangan ? keterangan.toUpperCase() : null,
+        statusaktif: statusaktif,
+        modifiedby: modifiedby,
+        created_at: created_at || this.utilsService.getTime(),
+        updated_at: updated_at || this.utilsService.getTime(),
+      };
 
+      // Insert the new item
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
 
-      const newItem = insertedItems[0];
+      const newItem = insertedItems[0]; // Get the inserted item
 
       const { data, pagination } = await this.findAll(
         {
@@ -56,7 +63,7 @@ export class DaftarBankService {
           filters,
           pagination: { page, limit },
           sort: { sortBy, sortDirection },
-          isLookUp: false,
+          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
         },
         trx,
       );
@@ -65,17 +72,18 @@ export class DaftarBankService {
         itemIndex = 0;
       }
 
+      // Optionally, you can find the page number or other info if needed
       const pageNumber = pagination?.currentPage;
 
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(data),
+        JSON.stringify(newItem),
       );
 
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'ADD JENIS MUATAN',
+          postingdari: 'ADD DAFTAR BANK',
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -91,7 +99,7 @@ export class DaftarBankService {
         itemIndex,
       };
     } catch (error) {
-      throw new Error(`Error creating jenis orderan: ${error.message}`);
+      throw new Error(`Error creating daftar bank: ${error.message}`);
     }
   }
 
@@ -272,7 +280,7 @@ export class DaftarBankService {
       const existingData = await trx(this.tableName).where('id', id).first();
 
       if (!existingData) {
-        throw new Error('Jenis Orderan not found');
+        throw new Error('daftar bank not found');
       }
 
       const {
@@ -329,7 +337,7 @@ export class DaftarBankService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'EDIT JENIS MUATAN',
+          postingdari: 'EDIT DAFTAR BANK',
           idtrans: id,
           nobuktitrans: id,
           aksi: 'EDIT',
@@ -348,8 +356,8 @@ export class DaftarBankService {
         itemIndex,
       };
     } catch (error) {
-      console.error('Error updating jenis orderan:', error);
-      throw new Error('Failed to update jenis orderan');
+      console.error('Error updating daftar bank:', error);
+      throw new Error('Failed to update daftar bank');
     }
   }
 
@@ -365,7 +373,7 @@ export class DaftarBankService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE JENIS MUATAN',
+          postingdari: 'DELETE DAFTAR BANK',
           idtrans: deletedData.id,
           nobuktitrans: deletedData.id,
           aksi: 'DELETE',
@@ -393,7 +401,7 @@ export class DaftarBankService {
     worksheet.mergeCells('A2:I2');
     worksheet.mergeCells('A3:I3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
-    worksheet.getCell('A2').value = 'LAPORAN JENIS MUATAN';
+    worksheet.getCell('A2').value = 'LAPORAN DAFTAR BANK';
     worksheet.getCell('A3').value = 'Data Export';
     worksheet.getCell('A1').alignment = {
       horizontal: 'center',

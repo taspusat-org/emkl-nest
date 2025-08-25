@@ -7,12 +7,7 @@ import { UtilsModule } from 'src/utils/utils.module';
 @Module({
   controllers: [MarketingprosesfeeController],
   providers: [MarketingprosesfeeService],
-  imports: [
-    LogtrailModule,
-    UtilsModule
-  ],
-  exports: [
-    MarketingprosesfeeService
-  ]
+  imports: [LogtrailModule, UtilsModule],
+  exports: [MarketingprosesfeeService],
 })
 export class MarketingprosesfeeModule {}

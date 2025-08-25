@@ -1,4 +1,9 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateJenisbiayamarketingDto } from './dto/create-jenisbiayamarketing.dto';
 import { UpdateJenisbiayamarketingDto } from './dto/update-jenisbiayamarketing.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
@@ -14,7 +19,7 @@ export class JenisbiayamarketingService {
     private readonly logTrailService: LogtrailService,
   ) {}
   private readonly tableName = 'jenisbiayamarketing';
-  
+
   async create(createEmklDto: any, trx: any) {
     try {
       const {
@@ -86,7 +91,6 @@ export class JenisbiayamarketingService {
     }
   }
 
-  
   async findAll(
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
     trx: any,
@@ -246,11 +250,9 @@ export class JenisbiayamarketingService {
       );
 
       // Cari index item yang baru saja diupdate
-      let itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === id,
-      );
+      let itemIndex = filteredData.findIndex((item) => Number(item.id) === id);
       if (itemIndex === -1) {
-        itemIndex = 0
+        itemIndex = 0;
       }
       const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
       const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;
