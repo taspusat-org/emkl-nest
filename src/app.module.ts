@@ -70,6 +70,7 @@ import { MarketingbiayaModule } from './modules/marketingbiaya/marketingbiaya.mo
 import { MarketingmanagerModule } from './modules/marketingmanager/marketingmanager.module';
 import { MarketingprosesfeeModule } from './modules/marketingprosesfee/marketingprosesfee.module';
 import { MarketingdetailModule } from './modules/marketingdetail/marketingdetail.module';
+import { JenisprosesfeeModule } from './modules/jenisprosesfee/jenisprosesfee.module';
 
 @Module({
   imports: [
@@ -141,6 +142,7 @@ import { MarketingdetailModule } from './modules/marketingdetail/marketingdetail
     MarketingmanagerModule,
     MarketingprosesfeeModule,
     MarketingdetailModule,
+    JenisprosesfeeModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

@@ -110,7 +110,7 @@ export class TypeAkuntansiController {
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error fetching all menus:', error);
+      console.error('Error fetching all type akuntansi ini controller:', error, error.message);
       throw new InternalServerErrorException('Failed to fetch type akuntansi');
     }
   }
@@ -119,7 +119,7 @@ export class TypeAkuntansiController {
   @Put(':id')
   //@TYPE-AKUNTANSI
   async update(
-    @Param('id') id: string,
+    @Param('id') dataId: string,
     @Body()
     data: UpdateTypeAkuntansiDto,
     @Req() req,
@@ -128,7 +128,7 @@ export class TypeAkuntansiController {
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.typeAkuntansiService.update(+id, data, trx);
+      const result = await this.typeAkuntansiService.update(+dataId, data, trx);
 
       await trx.commit();
       return result;
