@@ -125,25 +125,7 @@ export class TypeAkuntansiController {
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
-
     try {
-      const typeakuntansiExist = await isRecordExist(
-        'nama',
-        data.nama,
-        'typeakuntansi',
-        Number(id),
-      );
-
-      if (typeakuntansiExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Type Akuntansi dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.typeAkuntansiService.update(+id, data, trx);
