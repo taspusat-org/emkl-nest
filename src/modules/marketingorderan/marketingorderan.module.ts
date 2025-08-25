@@ -7,12 +7,7 @@ import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 @Module({
   controllers: [MarketingorderanController],
   providers: [MarketingorderanService],
-  imports: [
-    UtilsModule,
-    LogtrailModule
-  ],
-  exports: [
-    MarketingorderanService
-  ]
+  imports: [UtilsModule, LogtrailModule],
+  exports: [MarketingorderanService],
 })
 export class MarketingorderanModule {}

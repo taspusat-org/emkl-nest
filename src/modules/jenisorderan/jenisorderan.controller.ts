@@ -56,15 +56,11 @@ export class JenisOrderanController {
       data.modifiedby = req.user?.user?.username || 'unknown';
       const result = await this.JenisOrderanService.create(data, trx);
       await trx.commit();
+      return result;
     } catch (error) {
       await trx.rollback();
       throw new Error(`Error creating JenisOrderan: ${error.message}`);
     }
-  }
-
-  @Post('report-byselect')
-  async findAllByIds(@Body() ids: { id: number }[]) {
-    return this.JenisOrderanService.findAllByIds(ids);
   }
 
   @Get()
@@ -101,6 +97,61 @@ export class JenisOrderanController {
       throw new InternalServerErrorException('Failed to fetch JenisOrderan');
     }
   }
+
+  @UseGuards(AuthGuard)
+  @Put(':id')
+  //@JenisOrderan
+  async update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(UpdateJenisOrderanSchema))
+    data: UpdateJenisOrderanDto,
+    @Req() req,
+  ) {
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+
+      const result = await this.JenisOrderanService.update(+id, data, trx);
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error updating JenisOrderan in controller:', error);
+      throw new Error('Failed to update JenisOrderan');
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id')
+  //@JenisOrderan
+  async delete(@Param('id') id: string, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.JenisOrderanService.delete(
+        +id,
+        trx,
+        req.user?.user?.username,
+      );
+
+      if (result.status === 404) {
+        throw new NotFoundException(result.message);
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error deleting menu in controller:', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to delete menu');
+    }
+  }
+
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {
@@ -161,61 +212,10 @@ export class JenisOrderanController {
       res.status(500).send('Failed to export file');
     }
   }
-
-  @UseGuards(AuthGuard)
-  @Put(':id')
-  //@JenisOrderan
-  async update(
-    @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateJenisOrderanSchema))
-    data: UpdateJenisOrderanDto,
-    @Req() req,
-  ) {
-    const trx = await dbMssql.transaction();
-    try {
-      data.modifiedby = req.user?.user?.username || 'unknown';
-
-      const result = await this.JenisOrderanService.update(+id, data, trx);
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error updating JenisOrderan in controller:', error);
-      throw new Error('Failed to update JenisOrderan');
-    }
+  @Post('report-byselect')
+  async findAllByIds(@Body() ids: { id: number }[]) {
+    return this.JenisOrderanService.findAllByIds(ids);
   }
-
-  @UseGuards(AuthGuard)
-  @Delete(':id')
-  //@JenisOrderan
-  async delete(@Param('id') id: string, @Req() req) {
-    const trx = await dbMssql.transaction();
-    try {
-      const result = await this.JenisOrderanService.delete(
-        +id,
-        trx,
-        req.user?.user?.username,
-      );
-
-      if (result.status === 404) {
-        throw new NotFoundException(result.message);
-      }
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error deleting menu in controller:', error);
-
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to delete menu');
-    }
-  }
-
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const trx = await dbMssql.transaction();

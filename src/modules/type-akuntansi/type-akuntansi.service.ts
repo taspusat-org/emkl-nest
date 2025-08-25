@@ -381,7 +381,7 @@ export class TypeAkuntansiService {
         {
           search,
           filters,
-          pagination: { page, limit:0 },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },
@@ -392,7 +392,7 @@ export class TypeAkuntansiService {
         (item) => Number(item.id) === Number(id),
       );
       if (dataIndex === -1) {
-        dataIndex = 0
+        dataIndex = 0;
       }
       console.log('all dataa', filteredData, 'dataIndex', dataIndex);
 

@@ -49,29 +49,6 @@ export class ManagermarketingheaderController {
   ) {
     const trx = await dbMssql.transaction();
     try {
-      // if (data.details && Array.isArray(data.details)) {
-      //   for (const detail of data.details) {
-      //     if (detail.nominalawal >= detail.nominalakhir) {
-      //       throw new HttpException(
-      //         {
-      //           statusCode: HttpStatus.BAD_REQUEST,
-      //           message: `Nominal akhir (${detail.nominalakhir}) harus lebih besar dari nominal awal (${detail.nominalawal})`,
-      //         },
-      //         HttpStatus.BAD_REQUEST,
-      //       );
-      //     }
-
-      //     if (detail.persentase > 100) {
-      //       throw new HttpException(
-      //         {
-      //           statusCode: HttpStatus.BAD_REQUEST,
-      //           message: `Persentase (${detail.persentase}%) tidak boleh lebih dari 100%`,
-      //         },
-      //         HttpStatus.BAD_REQUEST,
-      //       );
-      //     }
-      //   }
-      // }
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.managermarketingheaderService.create(data, trx);
@@ -137,39 +114,12 @@ export class ManagermarketingheaderController {
     }
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.managermarketingheaderService.findOne(+id);
-  }
-
   @UseGuards(AuthGuard)
   @Put(':id')
+  //@MANAGER-MARKETING
   async update(@Param('id') id: string, @Body() data: any, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
-      if (data.details && Array.isArray(data.details)) {
-        for (const detail of data.details) {
-          if (detail.nominalawal >= detail.nominalakhir) {
-            throw new HttpException(
-              {
-                statusCode: HttpStatus.BAD_REQUEST,
-                message: `Nominal akhir (${detail.nominalakhir}) harus lebih besar dari nominal awal (${detail.nominalawal})`,
-              },
-              HttpStatus.BAD_REQUEST,
-            );
-          }
-
-          if (detail.persentase > 100) {
-            throw new HttpException(
-              {
-                statusCode: HttpStatus.BAD_REQUEST,
-                message: `Persentase (${detail.persentase}%) tidak boleh lebih dari 100%`,
-              },
-              HttpStatus.BAD_REQUEST,
-            );
-          }
-        }
-      }
       data.modifiedby = req.user?.user?.username || 'unknown';
       const result = await this.managermarketingheaderService.update(
         +id,
@@ -198,6 +148,7 @@ export class ManagermarketingheaderController {
 
   @UseGuards(AuthGuard)
   @Delete(':id')
+  //@MANAGER-MARKETING
   async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     const modifiedby = req.user?.user?.username || 'unknown';
@@ -217,5 +168,9 @@ export class ManagermarketingheaderController {
         `Error deleting manager marketing header: ${error.message}`,
       );
     }
+  }
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.managermarketingheaderService.findOne(+id);
   }
 }

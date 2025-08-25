@@ -9,6 +9,8 @@ import { dbMssql } from 'src/common/utils/db';
 import { RedisService } from 'src/common/redis/redis.service';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { LocksService } from '../locks/locks.service';
+import { GlobalService } from '../global/global.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -21,6 +23,8 @@ export class ContainerService {
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
+    private readonly globalService: GlobalService,
+    private readonly locksService: LocksService,
   ) {}
 
   async create(createContainerDto: any, trx: any) {
@@ -480,5 +484,32 @@ export class ContainerService {
     await workbook.xlsx.writeFile(tempFilePath);
 
     return tempFilePath;
+  }
+
+  async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
+    try {
+      if (aksi === 'EDIT') {
+        const forceEdit = await this.locksService.forceEdit(
+          this.tableName,
+          value,
+          editedby,
+          trx,
+        );
+
+        return forceEdit;
+      } else if (aksi === 'DELETE') {
+        const validasi = await this.globalService.checkUsed(
+          'hargatrucking',
+          'container_id',
+          value,
+          trx,
+        );
+
+        return validasi;
+      }
+    } catch (error) {
+      console.error('Error di checkValidasi:', error);
+      throw new InternalServerErrorException('Failed to check validation');
+    }
   }
 }
