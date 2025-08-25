@@ -24,6 +24,7 @@ export class MarketinggroupService {
         search,
         page,
         limit,
+        marketing_nama,
         statusaktif_text,
         ...insertData
       } = createMarketinggroupDto;
@@ -226,6 +227,7 @@ export class MarketinggroupService {
         search,
         page,
         limit,
+        marketing_nama,
         statusaktif_text,
         ...insertData
       } = data;

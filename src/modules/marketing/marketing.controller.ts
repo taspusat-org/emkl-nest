@@ -47,7 +47,7 @@ export class MarketingController {
     } = query
     
     const sortParams = {
-      sortBy: sortBy || 'nobukti',
+      sortBy: sortBy || 'nama',
       sortDirection: sortDirection || 'asc'
     }
 
