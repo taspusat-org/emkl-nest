@@ -6,7 +6,7 @@ const checkIfExistsNama = async (marketing_id: number) => {
     .from('marketinggroup')
     .where('marketing_id', marketing_id)
     .first();
-
+  console.log(result);
   return result ? true : false; // Return true jika ada, false jika tidak ada
 };
 
