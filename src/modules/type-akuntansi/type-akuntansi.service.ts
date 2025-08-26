@@ -132,7 +132,7 @@ export class TypeAkuntansiService {
       }
 
       const pageNumber = Math.floor(dataIndex / limit) + 1;
-      const endIndex = pageNumber * limit
+      const endIndex = pageNumber * limit;
       const limitedItems = data.slice(0, endIndex); // ambil data hingga halaman yang mencakup data baru
 
       await this.redisService.set(
@@ -333,7 +333,9 @@ export class TypeAkuntansiService {
 
   async update(dataId: number, data: any, trx: any) {
     try {
-      const existingData = await trx(this.tableName).where('id', dataId).first();
+      const existingData = await trx(this.tableName)
+        .where('id', dataId)
+        .first();
 
       if (!existingData) {
         // throw new Error('Data Not Found!');

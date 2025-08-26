@@ -20,7 +20,11 @@ import {
   CreateManagermarketingHeaderDto,
   CreateManagermarketingHeaderSchema,
 } from './dto/create-managermarketingheader.dto';
-import { UpdateManagermarketingheaderDto } from './dto/update-managermarketingheader.dto';
+import {
+  UpdateManagermarketingDetailDto,
+  UpdateManagermarketingHeaderDto,
+  UpdateManagermarketingHeaderSchema,
+} from './dto/update-managermarketingheader.dto';
 import {
   FindAllDto,
   FindAllParams,
@@ -117,7 +121,15 @@ export class ManagermarketingheaderController {
   @UseGuards(AuthGuard)
   @Put(':id')
   //@MANAGER-MARKETING
-  async update(@Param('id') id: string, @Body() data: any, @Req() req) {
+  async update(
+    @Param('id') id: string,
+    @Body(
+      new ZodValidationPipe(UpdateManagermarketingHeaderSchema),
+      KeyboardOnlyValidationPipe,
+    )
+    data: UpdateManagermarketingHeaderDto,
+    @Req() req,
+  ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';

@@ -5,7 +5,7 @@ import { FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Injectable()
 export class JenisprosesfeeService {
-  private readonly tableName = 'jenisprosesfee'
+  private readonly tableName = 'jenisprosesfee';
 
   // constructor(
   //   private readonly log
@@ -25,7 +25,9 @@ export class JenisprosesfeeService {
       limit = limit ?? 0;
 
       if (isLookUp) {
-        const jenisProsesFeeResult = await trx(this.tableName).count('id as total').first();
+        const jenisProsesFeeResult = await trx(this.tableName)
+          .count('id as total')
+          .first();
 
         const totalData = jenisProsesFeeResult?.total || 0;
         if (Number(totalData) > 500) {
@@ -47,7 +49,11 @@ export class JenisprosesfeeService {
           'statusaktif.memo as statusaktif_memo',
           'statusaktif.text as statusaktif_text',
         ])
-        .leftJoin('parameter as statusaktif', 'p.statusaktif', 'statusaktif.id');
+        .leftJoin(
+          'parameter as statusaktif',
+          'p.statusaktif',
+          'statusaktif.id',
+        );
 
       if (limit > 0) {
         const offset = (page - 1) * limit;
@@ -68,7 +74,10 @@ export class JenisprosesfeeService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(p.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(p.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'statusaktif_text') {
               query.andWhere(`statusaktif.text`, '=', sanitizedValue);
             } else {
@@ -99,7 +108,6 @@ export class JenisprosesfeeService {
           itemsPerPage: limit,
         },
       };
-
     } catch (error) {
       console.error('Error fetching data jenis proses fee in service:', error);
       throw new Error('Failed to fetch data jenis proses fee in service');

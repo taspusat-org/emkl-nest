@@ -1,10 +1,26 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UsePipes, Query, InternalServerErrorException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  UsePipes,
+  Query,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { JenisprosesfeeService } from './jenisprosesfee.service';
 import { CreateJenisprosesfeeDto } from './dto/create-jenisprosesfee.dto';
 import { UpdateJenisprosesfeeDto } from './dto/update-jenisprosesfee.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
-import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
 import { dbMssql } from 'src/common/utils/db';
 
 @Controller('jenisprosesfee')
@@ -14,7 +30,7 @@ export class JenisprosesfeeController {
   @UseGuards(AuthGuard)
   @Post()
   //@JENISPROSESFEE
-  async  create(@Body() createJenisprosesfeeDto: CreateJenisprosesfeeDto) {
+  async create(@Body() createJenisprosesfeeDto: CreateJenisprosesfeeDto) {
     return this.jenisprosesfeeService.create(createJenisprosesfeeDto);
   }
 
@@ -60,7 +76,10 @@ export class JenisprosesfeeController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateJenisprosesfeeDto: UpdateJenisprosesfeeDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateJenisprosesfeeDto: UpdateJenisprosesfeeDto,
+  ) {
     return this.jenisprosesfeeService.update(+id, updateJenisprosesfeeDto);
   }
 

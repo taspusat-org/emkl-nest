@@ -7,7 +7,6 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { CreateManagermarketingHeaderDto } from './dto/create-managermarketingheader.dto';
-import { UpdateManagermarketingheaderDto } from './dto/update-managermarketingheader.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { RedisService } from 'src/common/redis/redis.service';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';

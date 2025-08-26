@@ -57,7 +57,6 @@ export const CreateManagermarketingHeaderSchema = z
           : null;
         const persentase = detail.persentase ? Number(detail.persentase) : null;
 
-        // cek Nominal Akhir > Nominal Awal
         if (
           nominalawal !== null &&
           nominalakhir !== null &&
