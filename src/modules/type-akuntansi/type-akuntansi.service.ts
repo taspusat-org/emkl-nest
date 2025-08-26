@@ -40,6 +40,7 @@ export class TypeAkuntansiService {
         limit,
         statusaktif_text,
         akuntansi_nama,
+        id,
         ...insertData
       } = createData;
 
@@ -60,7 +61,7 @@ export class TypeAkuntansiService {
         {
           search,
           filters,
-          pagination: { page, limit },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },
@@ -130,20 +131,13 @@ export class TypeAkuntansiService {
         dataIndex = 0;
       }
 
-      const pageNumber = pagination?.currentPage;
-
-      // SEBELUM PAKE CARA YG TERBARU PANGGIL FUNGSI FINDALL
-      // const itemPerPage = data.limit || 30;
-
-      // const pageNumber = Math.floor(dataIndex / itemPerPage) + 1;
-      // const endIndex = pageNumber * itemPerPage
-
-      // ambil data hingga halaman yang mencakup data baru
-      // const limitedItems = filteredData.slice(0, endIndex);
+      const pageNumber = Math.floor(dataIndex / limit) + 1;
+      const endIndex = pageNumber * limit;
+      const limitedItems = data.slice(0, endIndex); // ambil data hingga halaman yang mencakup data baru
 
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(data),
+        JSON.stringify(limitedItems),
       );
 
       await this.logTrailService.create(
@@ -256,7 +250,7 @@ export class TypeAkuntansiService {
         }
       }
       // console.log('KENAPA DATANYA KOSONG', await query, search, filters, pagination, sort, limit);
-      console.log('KENAPA DATANYA KOSONG', await query, filters);
+      // console.log('KENAPA DATANYA KOSONG', await query, filters);
 
       const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
@@ -337,9 +331,11 @@ export class TypeAkuntansiService {
   //   }
   // }
 
-  async update(id: number, data: any, trx: any) {
+  async update(dataId: number, data: any, trx: any) {
     try {
-      const existingData = await trx(this.tableName).where('id', id).first();
+      const existingData = await trx(this.tableName)
+        .where('id', dataId)
+        .first();
 
       if (!existingData) {
         // throw new Error('Data Not Found!');
@@ -361,6 +357,7 @@ export class TypeAkuntansiService {
         limit,
         statusaktif_text,
         akuntansi_nama,
+        id,
         ...updateData
       } = data;
 
@@ -381,7 +378,7 @@ export class TypeAkuntansiService {
         {
           search,
           filters,
-          pagination: { page, limit:0 },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },
@@ -392,9 +389,9 @@ export class TypeAkuntansiService {
         (item) => Number(item.id) === Number(id),
       );
       if (dataIndex === -1) {
-        dataIndex = 0
+        dataIndex = 0;
       }
-      console.log('all dataa', filteredData, 'dataIndex', dataIndex);
+      // console.log('all dataa', filteredData, 'dataIndex', dataIndex);
 
       if (dataIndex === -1) {
         throw new Error('Updated item not found in all items');
@@ -408,7 +405,7 @@ export class TypeAkuntansiService {
       const limitedItems = filteredData.slice(0, endIndex);
 
       await this.redisService.set(
-        `${this.tableName}-allitems`,
+        `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
       );
 

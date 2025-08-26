@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { MarketingbiayaService } from './marketingbiaya.service';
 import { CreateMarketingbiayaDto } from './dto/create-marketingbiaya.dto';
 import { UpdateMarketingbiayaDto } from './dto/update-marketingbiaya.dto';
@@ -18,12 +26,15 @@ export class MarketingbiayaController {
     const trx = await dbMssql.transaction();
     try {
       const result = await this.marketingbiayaService.findAll(id, trx);
-      
+
       trx.commit();
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error fetching data marketing ordean in controller ', error);
+      console.error(
+        'Error fetching data marketing ordean in controller ',
+        error,
+      );
     }
   }
 
@@ -33,7 +44,10 @@ export class MarketingbiayaController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateMarketingbiayaDto: UpdateMarketingbiayaDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateMarketingbiayaDto: UpdateMarketingbiayaDto,
+  ) {
     return this.marketingbiayaService.update(+id, updateMarketingbiayaDto);
   }
 

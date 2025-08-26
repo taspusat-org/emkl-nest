@@ -81,11 +81,6 @@ export class TujuankapalController {
     }
   }
 
-  @Post('report-byselect')
-  async findAllByIds(@Body() ids: { id: number }[]) {
-    return this.tujuankapalService.findAllByIds(ids);
-  }
-
   @Get()
   //@TUJUANKAPAL
   @UsePipes(new ZodValidationPipe(FindAllSchema))
@@ -122,6 +117,63 @@ export class TujuankapalController {
     }
   }
 
+  @UseGuards(AuthGuard)
+  @Put('update/:id')
+  //@TUJUANKAPAL
+  async update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(UpdateTujuankapalSchema))
+    data: UpdateTujuankapalDto,
+    @Req() req,
+  ) {
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+
+      const result = await this.tujuankapalService.update(+id, data, trx);
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error updating Tujuan Kapal in controller:', error);
+      throw new Error('Failed to update Tujuan Kapal');
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id')
+  //@TUJUANKAPAL
+  async delete(@Param('id') id: string, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.tujuankapalService.delete(
+        +id,
+        trx,
+        req.user?.user?.username,
+      );
+
+      if (result.status === 404) {
+        throw new NotFoundException(result.message);
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error deleting container in controller:', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to delete container');
+    }
+  }
+  @Post('report-byselect')
+  async findAllByIds(@Body() ids: { id: number }[]) {
+    return this.tujuankapalService.findAllByIds(ids);
+  }
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {
@@ -199,60 +251,6 @@ export class TujuankapalController {
 
       await trx.rollback();
       throw new Error('Failed to fetch data by id');
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Put('update/:id')
-  //@TUJUANKAPAL
-  async update(
-    @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateTujuankapalSchema))
-    data: UpdateTujuankapalDto,
-    @Req() req,
-  ) {
-    const trx = await dbMssql.transaction();
-    try {
-      data.modifiedby = req.user?.user?.username || 'unknown';
-
-      const result = await this.tujuankapalService.update(+id, data, trx);
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error updating Tujuan Kapal in controller:', error);
-      throw new Error('Failed to update Tujuan Kapal');
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Delete(':id')
-  //@TUJUANKAPAL
-  async delete(@Param('id') id: string, @Req() req) {
-    const trx = await dbMssql.transaction();
-    try {
-      const result = await this.tujuankapalService.delete(
-        +id,
-        trx,
-        req.user?.user?.username,
-      );
-
-      if (result.status === 404) {
-        throw new NotFoundException(result.message);
-      }
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error deleting container in controller:', error);
-
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to delete container');
     }
   }
 }

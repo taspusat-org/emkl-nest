@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod';
 
 export const CreateMarketingSchema = z.object({
   nama: z.string().min(1, { message: 'Nama Wajib Diisi' }),
@@ -20,6 +20,6 @@ export const CreateMarketingSchema = z.object({
   marketinggroup_nama: z.string().nullable().optional(),
   statusprafee: z.number().nullable(),
   statusprafee_nama: z.string().nullable().optional(),
-})
+});
 
 export type CreateMarketingDto = z.infer<typeof CreateMarketingSchema>;

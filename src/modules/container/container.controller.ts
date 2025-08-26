@@ -121,6 +121,60 @@ export class ContainerController {
     }
   }
 
+  @UseGuards(AuthGuard)
+  @Put('update/:id')
+  //@CONTAINER
+  async update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(UpdateContainerSchema))
+    data: UpdateContainerDto,
+    @Req() req,
+  ) {
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+
+      const result = await this.containerService.update(+id, data, trx);
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error updating container in controller:', error);
+      throw new Error('Failed to update container');
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id')
+  //@CONTAINER
+  async delete(@Param('id') id: string, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.containerService.delete(
+        +id,
+        trx,
+        req.user?.user?.username,
+      );
+
+      if (result.status === 404) {
+        throw new NotFoundException(result.message);
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error deleting container in controller:', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to delete container');
+    }
+  }
+
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {
@@ -201,57 +255,26 @@ export class ContainerController {
     }
   }
 
+  @Post('check-validation')
   @UseGuards(AuthGuard)
-  @Put('update/:id')
-  //@CONTAINER
-  async update(
-    @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateContainerSchema))
-    data: UpdateContainerDto,
-    @Req() req,
-  ) {
+  async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
+    const { aksi, value } = body;
     const trx = await dbMssql.transaction();
+    const editedby = req.user?.user?.username;
+
     try {
-      data.modifiedby = req.user?.user?.username || 'unknown';
-
-      const result = await this.containerService.update(+id, data, trx);
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error updating container in controller:', error);
-      throw new Error('Failed to update container');
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Delete(':id')
-  //@CONTAINER
-  async delete(@Param('id') id: string, @Req() req) {
-    const trx = await dbMssql.transaction();
-    try {
-      const result = await this.containerService.delete(
-        +id,
+      const forceEdit = await this.containerService.checkValidasi(
+        aksi,
+        value,
+        editedby,
         trx,
-        req.user?.user?.username,
       );
-
-      if (result.status === 404) {
-        throw new NotFoundException(result.message);
-      }
-
-      await trx.commit();
-      return result;
+      trx.commit();
+      return forceEdit;
     } catch (error) {
-      await trx.rollback();
-      console.error('Error deleting container in controller:', error);
-
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to delete container');
+      trx.rollback();
+      console.error('Error checking validation:', error);
+      throw new InternalServerErrorException('Failed to check validation');
     }
   }
 }

@@ -56,6 +56,7 @@ export class JenisMuatanController {
       data.modifiedby = req.user?.user?.username || 'unknown';
       const result = await this.JenisMuatanService.create(data, trx);
       await trx.commit();
+      return result;
     } catch (error) {
       await trx.rollback();
       throw new Error(`Error creating JenisMuatan: ${error.message}`);
@@ -99,66 +100,6 @@ export class JenisMuatanController {
       trx.rollback();
       console.error('Error fetching all JenisMuatan:', error);
       throw new InternalServerErrorException('Failed to fetch JenisMuatan');
-    }
-  }
-  @Get('/export')
-  async exportToExcel(@Query() params: any, @Res() res: Response) {
-    try {
-      const { data } = await this.findAll(params);
-
-      if (!Array.isArray(data)) {
-        throw new Error('Data is not an array or is undefined.');
-      }
-
-      const tempFilePath = await this.JenisMuatanService.exportToExcel(data);
-
-      const fileStream = fs.createReadStream(tempFilePath);
-
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-      res.setHeader(
-        'Content-Disposition',
-        'attachment; filename="laporan_JenisMuatan.xlsx"',
-      );
-
-      fileStream.pipe(res);
-    } catch (error) {
-      console.error('Error exporting to Excel:', error);
-      res.status(500).send('Failed to export file');
-    }
-  }
-
-  @Post('/export-byselect')
-  async exportToExcelBySelect(
-    @Body() ids: { id: number }[],
-    @Res() res: Response,
-  ) {
-    try {
-      const data = await this.JenisMuatanService.findAllByIds(ids);
-
-      if (!Array.isArray(data)) {
-        throw new Error('Data is not an array or is undefined.');
-      }
-
-      const tempFilePath = await this.JenisMuatanService.exportToExcel(data);
-
-      const fileStream = fs.createReadStream(tempFilePath);
-
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-      res.setHeader(
-        'Content-Disposition',
-        'attachment; filename="laporan_JenisMuatan.xlsx"',
-      );
-
-      fileStream.pipe(res);
-    } catch (error) {
-      console.error('Error exporting to Excel:', error);
-      res.status(500).send('Failed to export file');
     }
   }
 
@@ -232,6 +173,66 @@ export class JenisMuatanController {
 
       await trx.rollback();
       throw new Error('Failed to fetch data by id');
+    }
+  }
+  @Get('/export')
+  async exportToExcel(@Query() params: any, @Res() res: Response) {
+    try {
+      const { data } = await this.findAll(params);
+
+      if (!Array.isArray(data)) {
+        throw new Error('Data is not an array or is undefined.');
+      }
+
+      const tempFilePath = await this.JenisMuatanService.exportToExcel(data);
+
+      const fileStream = fs.createReadStream(tempFilePath);
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_JenisMuatan.xlsx"',
+      );
+
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      res.status(500).send('Failed to export file');
+    }
+  }
+
+  @Post('/export-byselect')
+  async exportToExcelBySelect(
+    @Body() ids: { id: number }[],
+    @Res() res: Response,
+  ) {
+    try {
+      const data = await this.JenisMuatanService.findAllByIds(ids);
+
+      if (!Array.isArray(data)) {
+        throw new Error('Data is not an array or is undefined.');
+      }
+
+      const tempFilePath = await this.JenisMuatanService.exportToExcel(data);
+
+      const fileStream = fs.createReadStream(tempFilePath);
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_JenisMuatan.xlsx"',
+      );
+
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      res.status(500).send('Failed to export file');
     }
   }
 }

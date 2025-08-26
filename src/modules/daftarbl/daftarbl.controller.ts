@@ -96,11 +96,6 @@ export class DaftarblController {
     }
   }
 
-  @Post('report-byselect')
-  async findAllByIds(@Body() ids: { id: number }[]) {
-    return this.daftarblService.findAllByIds(ids);
-  }
-
   @Get()
   //@DAFTARBL
   @UsePipes(new ZodValidationPipe(FindAllSchema))
@@ -137,6 +132,64 @@ export class DaftarblController {
     }
   }
 
+  @UseGuards(AuthGuard)
+  @Put('update/:id')
+  //@DAFTARBL
+  async update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(UpdateDaftarblSchema))
+    data: UpdateDaftarblDto,
+    @Req() req,
+  ) {
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+
+      const result = await this.daftarblService.update(+id, data, trx);
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error updating daftar bl in controller:', error);
+      throw new Error('Failed to update daftar bl');
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id')
+  //@DAFTARBL
+  async delete(@Param('id') id: string, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.daftarblService.delete(
+        +id,
+        trx,
+        req.user?.user?.username,
+      );
+
+      if (result.status === 404) {
+        throw new NotFoundException(result.message);
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error deleting daftar bl in controller:', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to delete daftar bl');
+    }
+  }
+
+  @Post('report-byselect')
+  async findAllByIds(@Body() ids: { id: number }[]) {
+    return this.daftarblService.findAllByIds(ids);
+  }
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {
@@ -214,60 +267,6 @@ export class DaftarblController {
 
       await trx.rollback();
       throw new Error('Failed to fetch data by id');
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Put('update/:id')
-  //@DAFTARBL
-  async update(
-    @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateDaftarblSchema))
-    data: UpdateDaftarblDto,
-    @Req() req,
-  ) {
-    const trx = await dbMssql.transaction();
-    try {
-      data.modifiedby = req.user?.user?.username || 'unknown';
-
-      const result = await this.daftarblService.update(+id, data, trx);
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error updating daftar bl in controller:', error);
-      throw new Error('Failed to update daftar bl');
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Delete(':id')
-  //@DAFTARBL
-  async delete(@Param('id') id: string, @Req() req) {
-    const trx = await dbMssql.transaction();
-    try {
-      const result = await this.daftarblService.delete(
-        +id,
-        trx,
-        req.user?.user?.username,
-      );
-
-      if (result.status === 404) {
-        throw new NotFoundException(result.message);
-      }
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error deleting daftar bl in controller:', error);
-
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to delete daftar bl');
     }
   }
 }

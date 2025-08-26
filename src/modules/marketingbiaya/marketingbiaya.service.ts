@@ -6,52 +6,68 @@ import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 
 @Injectable()
 export class MarketingbiayaService {
-  private readonly tableName = 'marketingbiaya'
-  private readonly logger = new Logger(MarketingbiayaService.name)
+  private readonly tableName = 'marketingbiaya';
+  private readonly logger = new Logger(MarketingbiayaService.name);
 
-  constructor (
-    // @Inject('REDIS_CLIENT') 
+  constructor(
+    // @Inject('REDIS_CLIENT')
     private readonly utilsService: UtilsService,
-    private readonly logTrailService: LogtrailService
+    private readonly logTrailService: LogtrailService,
   ) {}
 
-  async create(marketingBiayaData: any, marketing_id: any = 0, trx: any = null) {
+  async create(
+    marketingBiayaData: any,
+    marketing_id: any = 0,
+    trx: any = null,
+  ) {
     try {
-      let insertedData = null
-      let data: any = null
+      let insertedData = null;
+      let data: any = null;
       const tempTableName = `##temp_${Math.random().toString(36).substring(2, 15)}`;
-      const time = this.utilsService.getTime()
+      const time = this.utilsService.getTime();
       const logData: any[] = [];
       const mainDataToInsert: any[] = [];
       const columnInfo = await trx(this.tableName).columnInfo();
-      const tableTemp = await this.utilsService.createTempTable(this.tableName, trx, tempTableName)
+      const tableTemp = await this.utilsService.createTempTable(
+        this.tableName,
+        trx,
+        tempTableName,
+      );
 
       if (marketingBiayaData.length === 0) {
-        await trx(this.tableName).delete().where('marketing_id', marketing_id)
+        await trx(this.tableName).delete().where('marketing_id', marketing_id);
         return;
-      }      
+      }
 
-      const fixData = marketingBiayaData.map(({ statusaktif_nama, jenisbiayamarketing_nama, ...marketingBiayaData }) => ({
-        ...marketingBiayaData
-      }))
+      const fixData = marketingBiayaData.map(
+        ({
+          statusaktif_nama,
+          jenisbiayamarketing_nama,
+          ...marketingBiayaData
+        }) => ({
+          ...marketingBiayaData,
+        }),
+      );
 
       for (data of fixData) {
-        let isDataChanged = false
+        let isDataChanged = false;
 
         Object.keys(data).forEach((key) => {
           if (typeof data[key] === 'string') {
             data[key] = data[key].toUpperCase();
           }
-        })
+        });
 
         if (data.id) {
-          const existingData = await trx(this.tableName).where('id', data.id).first();
+          const existingData = await trx(this.tableName)
+            .where('id', data.id)
+            .first();
           if (existingData) {
             const createdAt = {
               created_at: existingData.created_at,
-              updated_at: existingData.updated_at
-            }
-            Object.assign(data, createdAt)
+              updated_at: existingData.updated_at,
+            };
+            Object.assign(data, createdAt);
 
             if (this.utilsService.hasChanges(data, existingData)) {
               data.updated_at = time;
@@ -62,33 +78,33 @@ export class MarketingbiayaService {
         } else {
           const newTimestamps = {
             created_at: time,
-            updated_at: time
-          }
+            updated_at: time,
+          };
           Object.assign(data, newTimestamps);
           isDataChanged = true;
           data.aksi = 'CREATE';
         }
 
         if (!isDataChanged) {
-          data.aksi = 'NO UPDATE'
+          data.aksi = 'NO UPDATE';
         }
 
-        const { aksi, ...dataForInsert } = data
-        mainDataToInsert.push(dataForInsert)
+        const { aksi, ...dataForInsert } = data;
+        mainDataToInsert.push(dataForInsert);
         logData.push({
           ...data,
-          created_at: time
-        })
-      }      
-      
-      await trx.raw(tableTemp) //CREATE TEMP TABLE
+          created_at: time,
+        });
+      }
 
-      const jsonString = JSON.stringify(mainDataToInsert)
+      await trx.raw(tableTemp); //CREATE TEMP TABLE
+
+      const jsonString = JSON.stringify(mainDataToInsert);
       const mappingData = Object.keys(mainDataToInsert[0]).map((key) => [
         'value',
         `$.${key}`,
         key,
-      ]);      
+      ]);
 
       const openJson = await trx
         .from(trx.raw('OPENJSON(?)', [jsonString]))
@@ -100,24 +116,30 @@ export class MarketingbiayaService {
 
       const updatedData = await trx(this.tableName) // **Update or Insert into 'marketingbiaya' with correct idheader**
         .join(`${tempTableName}`, `${this.tableName}.id`, `${tempTableName}.id`)
-        .update({ 
+        .update({
           marketing_id: trx.raw(`${tempTableName}.marketing_id`),
-          jenisbiayamarketing_id: trx.raw(`${tempTableName}.jenisbiayamarketing_id`),
+          jenisbiayamarketing_id: trx.raw(
+            `${tempTableName}.jenisbiayamarketing_id`,
+          ),
           nominal: trx.raw(`${tempTableName}.nominal`),
           statusaktif: trx.raw(`${tempTableName}.statusaktif`),
           info: trx.raw(`${tempTableName}.info`),
           modifiedby: trx.raw(`${tempTableName}.modifiedby`),
           created_at: trx.raw(`${tempTableName}.created_at`),
-          updated_at: trx.raw(`${tempTableName}.updated_at`)
+          updated_at: trx.raw(`${tempTableName}.updated_at`),
         })
         .returning('*')
         .then((result: any) => result[0])
         .catch((error: any) => {
-          console.error( 'Error inserting data marketing biaya in service:', error, error.message);
+          console.error(
+            'Error inserting data marketing biaya in service:',
+            error,
+            error.message,
+          );
           throw error;
         });
-        
-      const insertedDataQuery = await trx(tempTableName)  // Handle insertion if no update occurs
+
+      const insertedDataQuery = await trx(tempTableName) // Handle insertion if no update occurs
         .select([
           'marketing_id',
           'jenisbiayamarketing_id',
@@ -131,7 +153,11 @@ export class MarketingbiayaService {
         .where(`${tempTableName}.id`, '0');
 
       const getDeleted = await trx(this.tableName)
-        .leftJoin(`${tempTableName}`, 'marketingbiaya.id', `${tempTableName}.id`)
+        .leftJoin(
+          `${tempTableName}`,
+          'marketingbiaya.id',
+          `${tempTableName}.id`,
+        )
         .select(
           'marketingbiaya.id',
           'marketingbiaya.marketing_id',
@@ -152,12 +178,19 @@ export class MarketingbiayaService {
         pushToLog = Object.assign(getDeleted, { aksi: 'DELETE' });
       }
 
-      const pushToLogWithAction = pushToLog.map((entry) => ({ ...entry, aksi: 'DELETE' }));
+      const pushToLogWithAction = pushToLog.map((entry) => ({
+        ...entry,
+        aksi: 'DELETE',
+      }));
 
       const finalData = logData.concat(pushToLogWithAction);
 
       const deletedData = await trx(this.tableName)
-        .leftJoin(`${tempTableName}`, 'marketingbiaya.id', `${tempTableName}.id`)
+        .leftJoin(
+          `${tempTableName}`,
+          'marketingbiaya.id',
+          `${tempTableName}.id`,
+        )
         .whereNull(`${tempTableName}.id`)
         .where('marketingbiaya.marketing_id', marketing_id)
         .del();
@@ -168,7 +201,10 @@ export class MarketingbiayaService {
           .returning('*')
           .then((result: any) => result[0])
           .catch((error: any) => {
-            console.error('Error inserting data marketing biaya in service:', error);
+            console.error(
+              'Error inserting data marketing biaya in service:',
+              error,
+            );
             throw error;
           });
       }
@@ -186,34 +222,43 @@ export class MarketingbiayaService {
         trx,
       );
 
-      console.log('haii return insertedData', insertedData, 'updatedData', updatedData);
+      console.log(
+        'haii return insertedData',
+        insertedData,
+        'updatedData',
+        updatedData,
+      );
       return updatedData || insertedData;
     } catch (error) {
-      throw new Error(`Error inserted marketing biaya in service: ${error.message}`);
+      throw new Error(
+        `Error inserted marketing biaya in service: ${error.message}`,
+      );
     }
   }
 
   async findAll(id: string, trx: any) {
-    const result = await trx((`${this.tableName} as p`))
-    .select(
-      'p.id',
-      'p.marketing_id',
-      'p.jenisbiayamarketing_id',
-      'p.nominal',
-      'p.statusaktif',
-      'q.memo',
-      'q.text as statusaktif_nama',
-      'r.nama as jenisbiayamarketing_nama',
-      's.nama as marketing_nama'
-    )
-    .leftJoin('parameter as q', 'p.statusaktif', 'q.id')
-    .leftJoin('jenisbiayamarketing as r', 'p.jenisbiayamarketing_id', 'r.id')
-    .leftJoin('marketing as s', 'p.marketing_id', 's.id')
-    .where('p.marketing_id', id)
-    .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
-    
+    const result = await trx(`${this.tableName} as p`)
+      .select(
+        'p.id',
+        'p.marketing_id',
+        'p.jenisbiayamarketing_id',
+        'p.nominal',
+        'p.statusaktif',
+        'q.memo',
+        'q.text as statusaktif_nama',
+        'r.nama as jenisbiayamarketing_nama',
+        's.nama as marketing_nama',
+      )
+      .leftJoin('parameter as q', 'p.statusaktif', 'q.id')
+      .leftJoin('jenisbiayamarketing as r', 'p.jenisbiayamarketing_id', 'r.id')
+      .leftJoin('marketing as s', 'p.marketing_id', 's.id')
+      .where('p.marketing_id', id)
+      .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
+
     if (!result.length) {
-      this.logger.warn(`No data marketing biaya found for id marketing_id: ${id}`);
+      this.logger.warn(
+        `No data marketing biaya found for id marketing_id: ${id}`,
+      );
 
       return {
         status: false,

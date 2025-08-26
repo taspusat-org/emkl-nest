@@ -6,7 +6,7 @@ const checkIfExistsNama = async (marketing_id: number) => {
     .from('marketinggroup')
     .where('marketing_id', marketing_id)
     .first();
-
+  console.log(result);
   return result ? true : false; // Return true jika ada, false jika tidak ada
 };
 
@@ -30,4 +30,6 @@ export const CreateMarketinggroupSchema = z.object({
     .nonnegative({ message: 'Status Aktif Tidak Boleh Angka Negatif' }), // Ensure non-negative
   modifiedby: z.string().nullable().optional(),
 });
-export type CreateMarketinggroupDto = z.infer<typeof CreateMarketinggroupSchema>;
+export type CreateMarketinggroupDto = z.infer<
+  typeof CreateMarketinggroupSchema
+>;

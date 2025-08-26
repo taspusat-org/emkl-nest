@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { MarketingmanagerService } from './marketingmanager.service';
 import { CreateMarketingmanagerDto } from './dto/create-marketingmanager.dto';
 import { UpdateMarketingmanagerDto } from './dto/update-marketingmanager.dto';
@@ -6,7 +14,9 @@ import { dbMssql } from 'src/common/utils/db';
 
 @Controller('marketingmanager')
 export class MarketingmanagerController {
-  constructor(private readonly marketingmanagerService: MarketingmanagerService) {}
+  constructor(
+    private readonly marketingmanagerService: MarketingmanagerService,
+  ) {}
 
   @Post()
   create(@Body() createMarketingmanagerDto: CreateMarketingmanagerDto) {
@@ -18,15 +28,18 @@ export class MarketingmanagerController {
     const trx = await dbMssql.transaction();
     try {
       console.log('masukk kesinii?');
-      
+
       const result = await this.marketingmanagerService.findAll(id, trx);
       console.log('return data from service', result);
-      
+
       trx.commit();
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error fetching data marketing ordean in controller ', error);
+      console.error(
+        'Error fetching data marketing ordean in controller ',
+        error,
+      );
     }
   }
 
@@ -36,7 +49,10 @@ export class MarketingmanagerController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateMarketingmanagerDto: UpdateMarketingmanagerDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateMarketingmanagerDto: UpdateMarketingmanagerDto,
+  ) {
     return this.marketingmanagerService.update(+id, updateMarketingmanagerDto);
   }
 

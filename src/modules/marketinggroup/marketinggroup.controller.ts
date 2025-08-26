@@ -21,7 +21,10 @@ import {
   CreateMarketinggroupDto,
   CreateMarketinggroupSchema,
 } from './dto/create-marketinggroup.dto';
-import { UpdateMarketinggroupDto, UpdateMarketinggroupSchema } from './dto/update-marketinggroup.dto';
+import {
+  UpdateMarketinggroupDto,
+  UpdateMarketinggroupSchema,
+} from './dto/update-marketinggroup.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
@@ -120,23 +123,15 @@ export class MarketinggroupController {
   ) {
     const trx = await dbMssql.transaction();
     try {
-      
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.marketinggroupService.update(
-        +id,
-        data,
-        trx,
-      );
+      const result = await this.marketinggroupService.update(+id, data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error(
-        'Error updating marketing group in controller:',
-        error,
-      );
+      console.error('Error updating marketing group in controller:', error);
       // Ensure any other errors get caught and returned
       if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
@@ -173,10 +168,7 @@ export class MarketinggroupController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error(
-        'Error deleting marketing group in controller:',
-        error,
-      );
+      console.error('Error deleting marketing group in controller:', error);
 
       if (error instanceof NotFoundException) {
         throw error;

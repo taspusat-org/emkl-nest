@@ -33,4 +33,6 @@ export const CreateJenisbiayamarketingSchema = z.object({
     .nonnegative({ message: 'Status Aktif Tidak Boleh Angka Negatif' }), // Ensure non-negative
   modifiedby: z.string().nullable().optional(),
 });
-export type CreateJenisbiayamarketingDto = z.infer<typeof CreateJenisbiayamarketingSchema>;
+export type CreateJenisbiayamarketingDto = z.infer<
+  typeof CreateJenisbiayamarketingSchema
+>;

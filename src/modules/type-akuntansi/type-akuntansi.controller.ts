@@ -110,7 +110,11 @@ export class TypeAkuntansiController {
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error fetching all menus:', error);
+      console.error(
+        'Error fetching all type akuntansi ini controller:',
+        error,
+        error.message,
+      );
       throw new InternalServerErrorException('Failed to fetch type akuntansi');
     }
   }
@@ -119,34 +123,16 @@ export class TypeAkuntansiController {
   @Put(':id')
   //@TYPE-AKUNTANSI
   async update(
-    @Param('id') id: string,
+    @Param('id') dataId: string,
     @Body()
     data: UpdateTypeAkuntansiDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
-
     try {
-      const typeakuntansiExist = await isRecordExist(
-        'nama',
-        data.nama,
-        'typeakuntansi',
-        Number(id),
-      );
-
-      if (typeakuntansiExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Type Akuntansi dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.typeAkuntansiService.update(+id, data, trx);
+      const result = await this.typeAkuntansiService.update(+dataId, data, trx);
 
       await trx.commit();
       return result;
