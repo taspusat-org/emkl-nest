@@ -121,17 +121,6 @@ export class BankController {
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const checkCoa = data.coa === data.coagantung;
-
-      if (checkCoa && data.coa !== 0 && data.coagantung !== 0) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Coa dan Coa Gantung tidak boleh sama `,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.bankService.update(+id, data, trx);
