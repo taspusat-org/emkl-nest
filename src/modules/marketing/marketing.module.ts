@@ -23,7 +23,7 @@ import { MarketingdetailModule } from '../marketingdetail/marketingdetail.module
     MarketingbiayaModule,
     MarketingmanagerModule,
     MarketingprosesfeeModule,
-    MarketingdetailModule
-  ]
+    MarketingdetailModule,
+  ],
 })
 export class MarketingModule {}
