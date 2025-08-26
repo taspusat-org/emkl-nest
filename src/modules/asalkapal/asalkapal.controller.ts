@@ -3,26 +3,28 @@ import {
   Get,
   Post,
   Body,
-  Patch,
+  Put,
   Param,
   Delete,
-  Query,
-  UsePipes,
-  Req,
   UseGuards,
-  InternalServerErrorException,
+  Req,
   HttpException,
   HttpStatus,
-  Put,
+  UsePipes,
+  Query,
   NotFoundException,
+  InternalServerErrorException,
+  Res,
 } from '@nestjs/common';
 import { AsalkapalService } from './asalkapal.service';
 import {
-  CreateAsalkapalDto,
+  CreateAsalKapalDto,
   CreateAsalKapalSchema,
 } from './dto/create-asalkapal.dto';
+import { dbMssql } from 'src/common/utils/db';
+import { AuthGuard } from '../auth/auth.guard';
 import {
-  UpdateAsalkapalDto,
+  UpdateAsalKapalDto,
   UpdateAsalKapalSchema,
 } from './dto/update-asalkapal.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
@@ -31,9 +33,9 @@ import {
   FindAllParams,
   FindAllSchema,
 } from 'src/common/interfaces/all.interface';
-import { string } from 'zod';
-import { dbMssql } from 'src/common/utils/db';
-import { AuthGuard } from '../auth/auth.guard';
+import { Response } from 'express';
+import * as fs from 'fs';
+import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
 import { isRecordExist } from 'src/utils/utils.service';
 
 @Controller('asalkapal')
@@ -41,15 +43,17 @@ export class AsalkapalController {
   constructor(private readonly asalkapalService: AsalkapalService) {}
 
   @UseGuards(AuthGuard)
-  //@ASALKAPAL
   @Post()
+  //@KAPAL
   async create(
-    @Body(new ZodValidationPipe(CreateAsalKapalSchema))
-    data: CreateAsalkapalDto,
+    @Body(
+      new ZodValidationPipe(CreateAsalKapalSchema),
+      KeyboardOnlyValidationPipe,
+    )
+    data: CreateAsalKapalDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
-
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
@@ -59,19 +63,37 @@ export class AsalkapalController {
       return result;
     } catch (error) {
       await trx.rollback();
-      throw new Error(`Error creating parameter: ${error.message}`);
+      console.error('Error while creating type asalkapal in controller', error);
+
+      if (error instanceof HttpException) {
+        throw error; // If it's already a HttpException, rethrow it
+      }
+
+      // Generic error handling, if something unexpected happens
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'Failed to create asalkapal',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
-  @UseGuards(AuthGuard)
-  //@ASALKAPAL
+  @Post('report-byselect')
+  async findAllByIds(@Body() ids: { id: number }[]) {
+    return this.asalkapalService.findAllByIds(ids);
+  }
+
   @Get()
+  //@KAPAL
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
       query;
+
     const sortParams = {
-      sortBy: sortBy || 'nama',
+      sortBy: sortBy || 'id',
       sortDirection: sortDirection || 'asc',
     };
 
@@ -84,81 +106,112 @@ export class AsalkapalController {
       search,
       filters,
       pagination,
-      isLookUp: isLookUp === 'true',
-
       sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
+      isLookUp: isLookUp === 'true',
     };
     const trx = await dbMssql.transaction();
     try {
       const result = await this.asalkapalService.findAll(params, trx);
+      trx.commit();
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error fetching all asalkapals:', error);
+      throw new InternalServerErrorException('Failed to fetch asalkapals');
+    }
+  }
+
+  @Get('/export')
+  async exportToExcel(@Query() params: any, @Res() res: Response) {
+    try {
+      const { data } = await this.findAll(params);
+
+      if (!Array.isArray(data)) {
+        throw new Error('Data is not an array or is undefined.');
+      }
+
+      const tempFilePath = await this.asalkapalService.exportToExcel(data);
+
+      const fileStream = fs.createReadStream(tempFilePath);
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_asalkapal.xlsx"',
+      );
+
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      res.status(500).send('Failed to export file');
+    }
+  }
+
+  @Post('/export-byselect')
+  async exportToExcelBySelect(
+    @Body() ids: { id: number }[],
+    @Res() res: Response,
+  ) {
+    try {
+      const data = await this.asalkapalService.findAllByIds(ids);
+
+      if (!Array.isArray(data)) {
+        throw new Error('Data is not an array or is undefined.');
+      }
+
+      const tempFilePath = await this.asalkapalService.exportToExcel(data);
+
+      const fileStream = fs.createReadStream(tempFilePath);
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_asalkapal.xlsx"',
+      );
+
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      res.status(500).send('Failed to export file');
+    }
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.asalkapalService.getById(+id, trx);
+      if (!result) {
+        throw new Error('Data not found');
+      }
+
       await trx.commit();
       return result;
     } catch (error) {
+      console.error('Error fetching data by id:', error);
+
       await trx.rollback();
-      throw new Error(`Error fetching kapal: ${error.message}`);
-    }
-  }
-
-  @Post('check-validation')
-  //@ASALKAPAL
-  @UseGuards(AuthGuard)
-  async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
-    const { aksi, value } = body;
-    console.log('body', body);
-    const trx = await dbMssql.transaction();
-    const editedby = req.user?.user?.username;
-
-    try {
-      const forceEdit = await this.asalkapalService.checkValidasi(
-        aksi,
-        value,
-        editedby,
-        trx,
-      );
-      trx.commit();
-      return forceEdit;
-    } catch (error) {
-      trx.rollback();
-      console.error('Error checking validation:', error);
-      throw new InternalServerErrorException('Failed to check validation');
+      throw new Error('Failed to fetch data by id');
     }
   }
 
   @UseGuards(AuthGuard)
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.asalkapalService.findOne(+id);
-  }
-
-  @UseGuards(AuthGuard)
-  @Put(':id')
-  //@ASALKAPAL
+  @Put('update/:id')
+  //@KAPAL
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateAsalKapalSchema))
-    data: UpdateAsalkapalDto,
+    data: UpdateAsalKapalDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
-
     try {
-      const asalkapalExist = await isRecordExist(
-        'keterangan',
-        data.keterangan,
-        'asalkapal',
-        Number(id),
-      );
-
-      if (asalkapalExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Type Akuntansi dengan keterangan ${data.keterangan} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.asalkapalService.update(+id, data, trx);
@@ -167,46 +220,38 @@ export class AsalkapalController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error(
-        'Error while updating type akuntansi in controller:',
-        error,
-      );
-
-      // Ensure any other errors get caught and returned
-      if (error instanceof HttpException) {
-        throw error; // If it's already a HttpException, rethrow it
-      }
-
-      // Generic error handling, if something unexpected happens
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to update type akuntansi',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      console.error('Error updating asalkapal in controller:', error);
+      throw new Error('Failed to update asalkapal');
     }
   }
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  //@ASALKAPAL
-  async delete(@Param('id') id: string) {
+  //@KAPAL
+  async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.asalkapalService.delete(+id, trx);
+      const result = await this.asalkapalService.delete(
+        +id,
+        trx,
+        req.user?.user?.username,
+      );
+
       if (result.status === 404) {
         throw new NotFoundException(result.message);
       }
+
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error deleting menu in controller:', error);
+      console.error('Error deleting asalkapal in controller:', error);
+
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to delete menu');
+
+      throw new InternalServerErrorException('Failed to delete asalkapal');
     }
   }
 }
