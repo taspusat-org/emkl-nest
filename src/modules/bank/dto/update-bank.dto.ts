@@ -62,15 +62,17 @@ export const UpdateBankSchema = z
   .superRefine(async (data, ctx) => {
     const coaValue = data.coa;
     const coaGantungValue = data.coagantung;
-
-    if (coaValue != null && coaGantungValue != null) {
-      if (coaValue === coaGantungValue) {
-        ctx.addIssue({
-          path: ['coagantung'],
-          code: z.ZodIssueCode.custom,
-          message: 'COA dan COA Gantung tidak boleh sama',
-        });
-      }
+    console.log(coaValue, 'ini coaaa');
+    if (
+      typeof coaValue === 'number' &&
+      typeof coaGantungValue === 'number' &&
+      coaValue === coaGantungValue
+    ) {
+      ctx.addIssue({
+        path: ['coagantung'],
+        code: z.ZodIssueCode.custom,
+        message: 'COA dan COA Gantung tidak boleh sama',
+      });
     }
   });
 
