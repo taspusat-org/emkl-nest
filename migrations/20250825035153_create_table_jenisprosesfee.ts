@@ -1,5 +1,4 @@
-import type { Knex } from "knex";
-
+import type { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable('jenisprosesfee', (table) => {
@@ -11,11 +10,9 @@ export async function up(knex: Knex): Promise<void> {
     table.string('modifiedby', 200).nullable(); // modifiedby as varchar(200)
     table.specificType('created_at', 'datetime').defaultTo(knex.fn.now()); // closing (datetime)
     table.specificType('updated_at', 'datetime').defaultTo(knex.fn.now()); // closing (datetime)
-  })
+  });
 }
-
 
 export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropSchemaIfExists('jenisprosesfee');
 }
-

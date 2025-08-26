@@ -6,8 +6,6 @@ import { AuthModule } from '../auth/auth.module';
 @Module({
   controllers: [JenisprosesfeeController],
   providers: [JenisprosesfeeService],
-  imports: [
-    AuthModule
-  ]
+  imports: [AuthModule],
 })
 export class JenisprosesfeeModule {}

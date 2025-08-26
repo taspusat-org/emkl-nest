@@ -110,7 +110,11 @@ export class TypeAkuntansiController {
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error fetching all type akuntansi ini controller:', error, error.message);
+      console.error(
+        'Error fetching all type akuntansi ini controller:',
+        error,
+        error.message,
+      );
       throw new InternalServerErrorException('Failed to fetch type akuntansi');
     }
   }
