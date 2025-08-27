@@ -27,6 +27,7 @@ export class TypeAkuntansiService {
     private readonly globalService: GlobalService,
     private readonly locksService: LocksService,
     private readonly logTrailService: LogtrailService,
+    private readonly utilsService: UtilsService,
   ) {}
 
   async create(createData: any, trx: any) {
@@ -53,10 +54,12 @@ export class TypeAkuntansiService {
       const insertedData = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
-      console.log(insertedData, 'HEREEE');
 
       const newData = insertedData[0];
 
+      // Ambil data utk dimasukkan ke temp table
+      // ==== NEW ==== kalau kamu sudah menambahkan flag forTemp di findAll,
+      // set forTemp: true agar created_at/updated_at tidak di-FORMAT dan kolom ekstra tidak dipilih
       const { data, pagination } = await this.findAll(
         {
           search,
@@ -64,63 +67,60 @@ export class TypeAkuntansiService {
           pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
+          // forTemp: true, // <-- aktifkan kalau kamu sudah implement opsi ini di findAll
         },
         trx,
       );
+      console.log('data', data.length);
+      console.log('pagination222', pagination);
+      // ==== NEW ==== buat nama temp table (pakai # cukup, biar scope-nya tetap di connection trx)
+      const tempTableName = `##temp_${Math.random().toString(36).slice(2)}`;
 
-      // const query = trx(`${this.tableName} as u`)
-      //   .select([
-      //     'u.id as id',
-      //     'u.nama',
-      //     'u.order',
-      //     'u.keterangan',
-      //     'u.akuntansi_id',
-      //     'u.statusaktif',
-      //     'u.modifiedby',
-      //     dbMssql.raw(
-      //       "FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at",
-      //     ),
-      //     dbMssql.raw(
-      //       "FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at",
-      //     ),
-      //     'p.memo',
-      //     'p.text',
-      //     'q.nama'
-      //   ])
-      //   .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
-      //   .leftJoin('akuntansi as q', 'u.akuntansi_id', 'q.id')
-      //   .orderBy(sortBy ? `u.${sortBy}` : 'u.id', sortDirection || 'desc')
-      //   .where('u.id', '<=', newData.id)
+      // ==== NEW ==== buat DDL temp table dari skema tabel asli (pakai createTempTable yg sudah diperbaiki)
+      const ddl = await this.utilsService.createTempTable(
+        this.tableName,
+        trx,
+        tempTableName,
+      );
+      await trx.raw(ddl);
 
-      // if (filters) {
-      //   for (const [key, value] of Object.entries(filters)) {
-      //     if (value) {
-      //       if (key === 'created_at' || key === 'uodated_at') {
-      //         query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [key, `%${value}%`]);
-      //       } else if (key === 'statusaktif_text' || key === 'memo') {
-      //         query.andWhere(`p.text`, '=', value);
-      //       } else if (key === 'akuntansi') {
-      //         query.andWhere('q.nama', 'like', `%${value}%`)
-      //       } else {
-      //         query.andWhere(`u.${key}`, 'like', `%${value}%`);
-      //       }
-      //     }
-      //   }
-      // }
+      // ==== NEW ==== ambil daftar kolom asli, untuk mem-"pick" kolom yang valid saja
+      const colInfo = await trx(this.tableName).columnInfo();
+      const baseCols = Object.keys(colInfo);
 
-      // if (search) {
-      //   query.where(builder => {
-      //     builder
-      //       .orWhere('u.nama', 'like', `%${search}%`)
-      //       .orWhere('u.order', 'like', `%${search}%`)
-      //       .orWhere('u.keterangan', 'like', `%${search}%`)
-      //       .orWhere('q.nama', 'like', `%${search}%`)
-      //       .orWhere('p.text', 'like', `%${search}%`)
-      //       .orWhere('u.modifiedby', 'like', `%${search}%`)
-      //       .orWhere('u.created_at', 'like', `%${search}%`)
-      //       .orWhere('u.updated_at', 'like', `%${search}%`)
-      //   })
-      // }
+      // ==== NEW ==== normalisasi baris yang akan di-insert ke temp:
+      // - drop kolom ekstra yang tidak ada di tabel asli (memo, statusaktif_text, akuntansi_nama, dll)
+      // - parse tanggal kalau keburu diformat string (dd-MM-yyyy HH:mm:ss)
+      const rowsForTemp = data.map((row: any) => {
+        const obj: any = {};
+        for (const c of baseCols) {
+          let v = row[c];
+          if (
+            (c === 'created_at' || c === 'updated_at') &&
+            typeof v === 'string'
+          ) {
+            // parse "dd-MM-yyyy HH:mm:ss" -> Date, agar MSSQL bisa masuk ke datetime/datetime2
+            // contoh robust parsing
+            const m = v.match(
+              /^(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/,
+            );
+            if (m) {
+              const [_, dd, MM, yyyy, HH, mm, ss] = m;
+              v = new Date(
+                Number(yyyy),
+                Number(MM) - 1,
+                Number(dd),
+                Number(HH),
+                Number(mm),
+                Number(ss),
+                0,
+              );
+            }
+          }
+          obj[c] = v ?? null;
+        }
+        return obj;
+      });
 
       // const filteredData = await query; // ambil hasil query yg udh di filter
 
@@ -135,6 +135,7 @@ export class TypeAkuntansiService {
       const endIndex = pageNumber * limit;
       const limitedItems = data.slice(0, endIndex); // ambil data hingga halaman yang mencakup data baru
 
+      // simpan cache & log seperti sebelumnya
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
@@ -153,11 +154,7 @@ export class TypeAkuntansiService {
         trx,
       );
 
-      return {
-        newData,
-        pageNumber,
-        dataIndex,
-      };
+      return { newData };
     } catch (error) {
       throw new Error(`Error creating type akuntansi: ${error.message}`);
     }
@@ -172,7 +169,7 @@ export class TypeAkuntansiService {
       let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
-      limit = limit ?? 0;
+      limit = 0;
 
       if (isLookUp) {
         const totalData = await trx(this.tableName)
@@ -209,11 +206,6 @@ export class TypeAkuntansiService {
         ])
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
         .leftJoin('akuntansi as ak', 'u.akuntansi_id', 'ak.id');
-
-      if (limit > 0) {
-        const offset = (page - 1) * limit;
-        query.limit(Number(limit)).offset(offset);
-      }
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
@@ -262,6 +254,7 @@ export class TypeAkuntansiService {
       }
 
       const data = await query;
+      console.log('data', data);
       const responseType = Number(total) > 500 ? 'json' : 'local';
 
       return {
