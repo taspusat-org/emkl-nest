@@ -1,11 +1,14 @@
 import { z } from 'zod';
 
 export const UpdateAkuntansiSchema = z.object({
-  namaakuntansi: z.string().max(255).optional(), // Nullable field
-  keterangan: z.string().max(255).optional(), // Nullable field
-  statusaktif: z.number().max(50).optional(), // Nullable field
-  modifiedby: z.string().max(255).optional(), // Nullable field
-  info: z.string().max(255).optional(), // Nullable field
+  nama: z.string(),
+  keterangan: z.string(),
+  statusaktif: z
+    .number()
+    .int({ message: 'statusaktif must be an integer' })
+    .min(0, { message: 'statusaktif must be a non-negative integer' }),
+  info: z.string().nullable().optional(),
+  modifiedby: z.string().nullable().optional(),
 });
 
 export type UpdateAkuntansiDto = z.infer<typeof UpdateAkuntansiSchema>;
