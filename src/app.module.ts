@@ -72,6 +72,7 @@ import { MarketingprosesfeeModule } from './modules/marketingprosesfee/marketing
 import { MarketingdetailModule } from './modules/marketingdetail/marketingdetail.module';
 import { JenisprosesfeeModule } from './modules/jenisprosesfee/jenisprosesfee.module';
 import { ShipperModule } from './modules/shipper/shipper.module';
+import { ValidatorFactoryModule } from './modules/validator-factory/validator-factory.module';
 
 @Module({
   imports: [
@@ -144,10 +145,8 @@ import { ShipperModule } from './modules/shipper/shipper.module';
     MarketingprosesfeeModule,
     MarketingdetailModule,
     JenisprosesfeeModule,
-    ShipperModule,
   ],
   controllers: [],
-  providers: [RabbitmqService], // global],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

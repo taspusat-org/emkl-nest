@@ -428,9 +428,9 @@ export function parseDDMMYYYY(dateString: string): Date | null {
 // Fungsi validasi dinamis untuk cek apakah data sudah ada berdasarkan kolom tertentu
 export async function isRecordExist(
   column: string,
-  value: string,
+  value: string | number,
   table: string,
-  excludeId?: number,
+  excludeId?: number | string,
 ): Promise<boolean> {
   const existingRecordQuery = dbMssql(table) // Ganti dengan query builder yang Anda pakai, misalnya knex.js
     .select('*')

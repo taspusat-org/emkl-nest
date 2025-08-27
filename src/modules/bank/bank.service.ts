@@ -122,7 +122,7 @@ export class BankService {
   ) {
     try {
       // default pagination
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
       limit = limit ?? 0;

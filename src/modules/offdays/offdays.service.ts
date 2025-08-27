@@ -138,7 +138,7 @@ export class OffdaysService {
   }
   async findAll({ search, filters, pagination, sort }: FindAllParams) {
     try {
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
       limit = limit ?? 0;
@@ -226,7 +226,7 @@ export class OffdaysService {
   }
   async findAllTrado({ search, filters, pagination, sort }: FindAllParams) {
     try {
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
       limit = limit ?? 0;
@@ -420,7 +420,7 @@ export class OffdaysService {
     sort,
   }: FindAllParams) {
     try {
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
       limit = limit ?? 0;
@@ -614,7 +614,7 @@ export class OffdaysService {
     sort,
   }: FindAllParams) {
     try {
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
       const offset = (page - 1) * limit;

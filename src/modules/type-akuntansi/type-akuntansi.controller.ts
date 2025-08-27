@@ -32,11 +32,10 @@ import {
 import {
   CreateTypeAkuntansiDto,
   CreateTypeAkuntansiSchema,
-} from './dto/create-type-akuntansi.dto';
-import {
   UpdateTypeAkuntansiDto,
   UpdateTypeAkuntansiSchema,
-} from './dto/update-type-akuntansi.dto';
+} from './dto/create-type-akuntansi.dto';
+import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 
 @Controller('type-akuntansi')
 export class TypeAkuntansiController {
@@ -46,7 +45,10 @@ export class TypeAkuntansiController {
   @Post()
   //@TYPE-AKUNTANSI
   async create(
-    @Body(new ZodValidationPipe(CreateTypeAkuntansiSchema))
+    @Body(
+      new InjectMethodPipe('create'),
+      new ZodValidationPipe(CreateTypeAkuntansiSchema),
+    )
     data: CreateTypeAkuntansiDto,
     @Req() req,
   ) {
@@ -124,7 +126,10 @@ export class TypeAkuntansiController {
   //@TYPE-AKUNTANSI
   async update(
     @Param('id') dataId: string,
-    @Body()
+    @Body(
+      new InjectMethodPipe('update'),
+      new ZodValidationPipe(UpdateTypeAkuntansiSchema),
+    )
     data: UpdateTypeAkuntansiDto,
     @Req() req,
   ) {
