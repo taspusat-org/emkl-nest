@@ -186,10 +186,6 @@ export class DaftarblController {
     }
   }
 
-  @Post('report-byselect')
-  async findAllByIds(@Body() ids: { id: number }[]) {
-    return this.daftarblService.findAllByIds(ids);
-  }
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {
@@ -217,6 +213,10 @@ export class DaftarblController {
       console.error('Error exporting to Excel:', error);
       res.status(500).send('Failed to export file');
     }
+  }
+  @Post('report-byselect')
+  async findAllByIds(@Body() ids: { id: number }[]) {
+    return this.daftarblService.findAllByIds(ids);
   }
 
   @Post('/export-byselect')

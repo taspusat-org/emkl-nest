@@ -182,11 +182,6 @@ export class DaftarBankController {
     }
   }
 
-  @Post('report-byselect')
-  async findAllByIds(@Body() ids: { id: number }[]) {
-    return this.DaftarBankService.findAllByIds(ids);
-  }
-
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {

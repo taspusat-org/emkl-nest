@@ -208,7 +208,8 @@ export class ManagermarketingdetailService {
   }
 
   async findAll(id: string, trx: any) {
-    const result = await trx(`${this.tableName} as p`)
+    const result = await trx
+      .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
       .select([
         'p.id',
         'p.managermarketing_id', // Updated field name
@@ -223,7 +224,11 @@ export class ManagermarketingdetailService {
         'g.memo',
         'g.text',
       ])
-      .leftJoin('parameter as g', 'p.statusaktif', 'g.id')
+      .leftJoin(
+        trx.raw('parameter as g WITH (READUNCOMMITTED)'),
+        'p.statusaktif',
+        'g.id',
+      )
       .where('p.managermarketing_id', id) // Updated field name
       .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
 

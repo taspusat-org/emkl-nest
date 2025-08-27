@@ -157,7 +157,8 @@ export class ManagermarketingheaderService {
         }
       }
 
-      const query = trx(`${this.tableName} as u`)
+      const query = trx
+        .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
         .select([
           'u.id as id',
           'u.nama', // keterangan (nvarchar(max))
@@ -175,9 +176,21 @@ export class ManagermarketingheaderService {
           'p2.text as statusmentor_text',
           'p3.text as statusleader_text',
         ])
-        .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
-        .leftJoin('parameter as p2', 'u.statusmentor', 'p2.id')
-        .leftJoin('parameter as p3', 'u.statusleader', 'p3.id');
+        .leftJoin(
+          trx.raw('parameter as p WITH (READUNCOMMITTED)'),
+          'u.statusaktif',
+          'p.id',
+        )
+        .leftJoin(
+          trx.raw('parameter as p2 WITH (READUNCOMMITTED)'),
+          'u.statusmentor',
+          'p2.id',
+        )
+        .leftJoin(
+          trx.raw('parameter as p3 WITH (READUNCOMMITTED)'),
+          'u.statusleader',
+          'p3.id',
+        );
 
       if (limit > 0) {
         const offset = (page - 1) * limit;

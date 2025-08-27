@@ -34,7 +34,8 @@ import {
 import { dbMssql } from 'src/common/utils/db';
 import { AuthGuard } from '../auth/auth.guard';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
-import { isRecordExist } from 'src/utils/utils.service';
+import { Response } from 'express';
+import * as fs from 'fs';
 @Controller('alatbayar')
 export class AlatbayarController {
   constructor(private readonly alatbayarService: AlatbayarService) {}
@@ -177,6 +178,35 @@ export class AlatbayarController {
       }
 
       throw new InternalServerErrorException('Failed to delete alat bayar');
+    }
+  }
+
+  @Get('/export')
+  async exportToExcel(@Query() params: any, @Res() res: Response) {
+    try {
+      const { data } = await this.findAll(params);
+
+      if (!Array.isArray(data)) {
+        throw new Error('Data is not an array or is undefined.');
+      }
+
+      const tempFilePath = await this.alatbayarService.exportToExcel(data);
+
+      const fileStream = fs.createReadStream(tempFilePath);
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_container.xlsx"',
+      );
+
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      res.status(500).send('Failed to export file');
     }
   }
 }
