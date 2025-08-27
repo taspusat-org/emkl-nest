@@ -3,7 +3,7 @@ export interface FindAllParams {
   filters?: Record<string, string | number>;
   isLookUp?: boolean;
   karyawanId?: number; // Opsional
-  pagination: {
+  pagination?: {
     page?: number; // Opsional
     limit?: number; // Opsional
   };

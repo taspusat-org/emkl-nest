@@ -190,7 +190,7 @@ export class RoleService {
   }
   async findAll({ search, filters, pagination, sort }: FindAllParams) {
     try {
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
 
       // Default page dan limit
       page = page ?? 1;

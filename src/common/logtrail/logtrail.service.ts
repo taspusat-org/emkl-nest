@@ -35,7 +35,7 @@ export class LogtrailService {
 
   async findAll({ search, filters, pagination, sort }: FindAllParams) {
     try {
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
       limit = limit ?? 0;

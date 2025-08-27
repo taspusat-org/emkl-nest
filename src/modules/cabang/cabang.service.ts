@@ -142,7 +142,7 @@ export class CabangService {
 
   async findAll({ search, filters, pagination, sort }: FindAllParams) {
     try {
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
       limit = limit ?? 0;
@@ -233,7 +233,7 @@ export class CabangService {
 
   async findAllbyHr({ search, filters, pagination, sort }: FindAllParams) {
     try {
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
       limit = limit ?? 0;

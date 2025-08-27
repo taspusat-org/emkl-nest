@@ -12,11 +12,54 @@ import { GlobalService } from './global.service';
 import { CreateGlobalDto } from './dto/create-global.dto';
 import { UpdateGlobalDto } from './dto/update-global.dto';
 import { dbMssql } from 'src/common/utils/db';
+import { ValidatorFactoryService } from '../validator-factory/validator-factory.service';
 
 @Controller('global')
 export class GlobalController {
-  constructor(private readonly globalService: GlobalService) {}
+  constructor(
+    private readonly globalService: GlobalService,
+    private readonly validatorFactoryService: ValidatorFactoryService,
+  ) {}
 
+  @Post('approval')
+  async approval(@Body() body: any) {
+    const trx = await dbMssql.transaction();
+    try {
+      const validator = await this.globalService.approval(body, trx);
+      console.log('validator', validator);
+      await trx.commit();
+      return validator;
+    } catch (error) {
+      await trx.rollback();
+      return error;
+    }
+  }
+  @Post('nonapproval')
+  async unapproval(@Body() body: any) {
+    const trx = await dbMssql.transaction();
+    try {
+      const validator = await this.globalService.nonApproval(body, trx);
+
+      await trx.commit();
+      return validator;
+    } catch (error) {
+      await trx.rollback();
+      return error;
+    }
+  }
+  @Post('check-approval')
+  async check(@Body() body: any) {
+    const trx = await dbMssql.transaction();
+    try {
+      const validator = await this.globalService.checkData(body, trx);
+
+      await trx.commit();
+      return validator;
+    } catch (error) {
+      await trx.rollback();
+      return error;
+    }
+  }
   // @Post()
   // create(@Body() createGlobalDto: CreateGlobalDto) {
   //   return this.globalService.create(createGlobalDto);
