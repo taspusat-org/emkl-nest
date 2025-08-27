@@ -11,7 +11,7 @@ export const CreateJenisMuatanSchema = z.object({
         return !exists; // Validasi jika nama sudah ada
       },
       {
-        message: 'Container dengan dengan nama ini sudah ada',
+        message: 'Jenis Muatan dengan dengan nama ini sudah ada',
       },
     ),
   keterangan: z.string().trim().min(1, { message: 'Keterangan Wajib Diisi' }),

@@ -157,24 +157,6 @@ export class JenisMuatanController {
     }
   }
 
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const trx = await dbMssql.transaction();
-    try {
-      const result = await this.JenisMuatanService.getById(+id, trx);
-      if (!result) {
-        throw new Error('Data not found');
-      }
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      console.error('Error fetching data by id:', error);
-
-      await trx.rollback();
-      throw new Error('Failed to fetch data by id');
-    }
-  }
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {

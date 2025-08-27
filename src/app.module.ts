@@ -71,6 +71,7 @@ import { MarketingmanagerModule } from './modules/marketingmanager/marketingmana
 import { MarketingprosesfeeModule } from './modules/marketingprosesfee/marketingprosesfee.module';
 import { MarketingdetailModule } from './modules/marketingdetail/marketingdetail.module';
 import { JenisprosesfeeModule } from './modules/jenisprosesfee/jenisprosesfee.module';
+import { ShipperModule } from './modules/shipper/shipper.module';
 
 @Module({
   imports: [
@@ -143,6 +144,7 @@ import { JenisprosesfeeModule } from './modules/jenisprosesfee/jenisprosesfee.mo
     MarketingprosesfeeModule,
     MarketingdetailModule,
     JenisprosesfeeModule,
+    ShipperModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],
