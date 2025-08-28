@@ -17,6 +17,7 @@ import { LocksModule } from '../locks/locks.module';
     LogtrailModule,
     GlobalModule,
     LocksModule,
+    UtilsModule,
   ],
   controllers: [TypeAkuntansiController],
   providers: [TypeAkuntansiService],

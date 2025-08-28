@@ -482,11 +482,6 @@ export class GlobalService {
     };
   }
 
-  async approvalNonApproval(data: any, trx: any) {
-    try {
-    } catch (error) {}
-  }
-
   findAll() {
     return `This action returns all global`;
   }

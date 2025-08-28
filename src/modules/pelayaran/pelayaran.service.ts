@@ -79,12 +79,13 @@ export class PelayaranService {
         {
           search,
           filters,
-          pagination: { page, limit },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },
         trx,
       );
+
       let itemIndex = data.findIndex((item) => item.id === newItem.id);
       if (itemIndex === -1) {
         itemIndex = 0;
