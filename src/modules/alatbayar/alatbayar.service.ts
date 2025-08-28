@@ -138,8 +138,6 @@ export class AlatbayarService {
           'ab.statusaktif',
           'ab.info',
           'ab.modifiedby',
-          'ab.editing_by',
-          trx.raw("FORMAT(ab.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
           trx.raw("FORMAT(ab.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(ab.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'p1.text as statuslangsungcair_text',
@@ -182,7 +180,6 @@ export class AlatbayarService {
             .orWhere('p.text', 'like', `%${val}%`)
             .orWhere('ab.info', 'like', `%${val}%`)
             .orWhere('ab.modifiedby', 'like', `%${val}%`)
-            .orWhere('ab.editing_by', 'like', `%${val}%`),
         );
       }
 
@@ -193,7 +190,7 @@ export class AlatbayarService {
           const val = String(rawValue).replace(/\[/g, '[[]');
 
           // tanggal / timestamp
-          if (['editing_at', 'created_at', 'updated_at'].includes(key)) {
+          if (['created_at', 'updated_at'].includes(key)) {
             query.andWhereRaw("FORMAT(ab.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
               key,
               `%${val}%`,
@@ -201,7 +198,7 @@ export class AlatbayarService {
           }
           // kolom teks lainnya
           else if (
-            ['nama', 'keterangan', 'info', 'modifiedby', 'editing_by'].includes(
+            ['nama', 'keterangan', 'info', 'modifiedby'].includes(
               key,
             )
           ) {
