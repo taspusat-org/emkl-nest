@@ -71,8 +71,8 @@ import { MarketingmanagerModule } from './modules/marketingmanager/marketingmana
 import { MarketingprosesfeeModule } from './modules/marketingprosesfee/marketingprosesfee.module';
 import { MarketingdetailModule } from './modules/marketingdetail/marketingdetail.module';
 import { JenisprosesfeeModule } from './modules/jenisprosesfee/jenisprosesfee.module';
-import { ShipperModule } from './modules/shipper/shipper.module';
-import { ValidatorFactoryModule } from './modules/validator-factory/validator-factory.module';
+import { DivisiModule } from './modules/divisi/divisi.module';
+import { JabatanModule } from './modules/jabatan/jabatan.module';
 
 @Module({
   imports: [
@@ -145,8 +145,11 @@ import { ValidatorFactoryModule } from './modules/validator-factory/validator-fa
     MarketingprosesfeeModule,
     MarketingdetailModule,
     JenisprosesfeeModule,
+    DivisiModule,
+    JabatanModule,
   ],
   controllers: [],
+  providers: [RabbitmqService], // global],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
