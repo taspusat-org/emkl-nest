@@ -10,6 +10,7 @@ import { MarketingbiayaModule } from '../marketingbiaya/marketingbiaya.module';
 import { MarketingmanagerModule } from '../marketingmanager/marketingmanager.module';
 import { MarketingprosesfeeModule } from '../marketingprosesfee/marketingprosesfee.module';
 import { MarketingdetailModule } from '../marketingdetail/marketingdetail.module';
+import { LocksModule } from '../locks/locks.module';
 
 @Module({
   controllers: [MarketingController],
@@ -24,6 +25,7 @@ import { MarketingdetailModule } from '../marketingdetail/marketingdetail.module
     MarketingmanagerModule,
     MarketingprosesfeeModule,
     MarketingdetailModule,
+    LocksModule
   ],
 })
 export class MarketingModule {}
