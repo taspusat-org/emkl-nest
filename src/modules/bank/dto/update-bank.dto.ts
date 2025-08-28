@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const UpdateBankSchema = z
   .object({
-    nama: z.string().trim().min(1, { message: 'KETERANGAN is required' }),
+    nama: z.string().trim().min(1, { message: 'NAMA is required' }),
 
     keterangan: z.string().trim().min(1, { message: 'KETERANGAN is required' }),
 

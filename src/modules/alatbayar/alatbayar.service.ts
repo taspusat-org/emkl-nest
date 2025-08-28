@@ -398,6 +398,7 @@ export class AlatbayarService {
         vertical: 'middle',
       };
       worksheet.getCell(cellKey).font = {
+        name: 'Tahoma',
         size: i === 0 ? 14 : 10,
         bold: true,
       };
@@ -422,7 +423,10 @@ export class AlatbayarService {
         fgColor: { argb: 'FFFF00' },
       };
       cell.font = { bold: true, name: 'Tahoma', size: 10 };
-      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.alignment = {
+        horizontal: index === 0 ? 'right' : 'center',
+        vertical: 'middle',
+      };
       cell.border = {
         top: { style: 'thin' },
         left: { style: 'thin' },
@@ -447,7 +451,7 @@ export class AlatbayarService {
         cell.value = value ?? '';
         cell.font = { name: 'Tahoma', size: 10 };
         cell.alignment = {
-          horizontal: colIndex === 0 ? 'center' : 'left',
+          horizontal: colIndex === 0 ? 'right' : 'left',
           vertical: 'middle',
         };
         cell.border = {
@@ -470,6 +474,8 @@ export class AlatbayarService {
         col.width = maxLength + 2;
       });
 
+    worksheet.getColumn(1).width = 6;
+
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
@@ -477,7 +483,7 @@ export class AlatbayarService {
 
     const tempFilePath = path.resolve(
       tempDir,
-      `laporan_bank_${Date.now()}.xlsx`,
+      `laporan_alatbayar_${Date.now()}.xlsx`,
     );
     await workbook.xlsx.writeFile(tempFilePath);
 
