@@ -1,4 +1,5 @@
 import {
+  HttpStatus,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -15,6 +16,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Workbook } from 'exceljs';
 import { RelasiService } from '../relasi/relasi.service';
+import { ParameterService } from '../parameter/parameter.service';
 
 @Injectable()
 export class PelayaranService {
@@ -24,6 +26,7 @@ export class PelayaranService {
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
     private readonly relasiService: RelasiService,
+    private readonly parameterService: ParameterService,
   ) {}
   async create(createPelayaranDto: any, trx: any) {
     try {
@@ -76,12 +79,13 @@ export class PelayaranService {
         {
           search,
           filters,
-          pagination: { page, limit },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },
         trx,
       );
+
       let itemIndex = data.findIndex((item) => item.id === newItem.id);
       if (itemIndex === -1) {
         itemIndex = 0;
@@ -122,7 +126,7 @@ export class PelayaranService {
     trx: any,
   ) {
     try {
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
 
@@ -505,5 +509,74 @@ export class PelayaranService {
     await workbook.xlsx.writeFile(tempFilePath);
 
     return tempFilePath;
+  }
+  async approval(data: any, trx: any) {
+    try {
+      if (data.text === 'AKTIF') {
+        const checkValidation = await trx(this.tableName)
+          .whereIn('id', data.transaksi_id)
+          .andWhere('statusaktif', data.value);
+        console.log(checkValidation);
+        if (checkValidation && checkValidation.length > 0) {
+          // Ambil semua nama yg sudah aktif
+          const namaList = checkValidation
+            .map((row: any) => row.nama)
+            .join(', ');
+          return {
+            status: HttpStatus.BAD_REQUEST,
+            message: `Data ${namaList} sudah berstatus AKTIF. Proses tidak bisa dilanjutkan`,
+          };
+        }
+        await trx(this.tableName)
+          .update({ statusaktif: data.value })
+          .whereIn('id', data.transaksi_id);
+      }
+
+      return {
+        status: HttpStatus.OK,
+        message: 'Proses non approval berhasil dijalankan.',
+      };
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to delete data');
+    }
+  }
+  async nonApproval(data: any, trx: any) {
+    try {
+      if (data.text === 'AKTIF') {
+        const checkValidation = await trx(this.tableName)
+          .whereIn('id', data.transaksi_id)
+          .andWhere('statusaktif', data.value)
+          .select('nama');
+        if (checkValidation && checkValidation.length > 0) {
+          // Data sudah berstatus NON AKTIF (alias status sama), maka hentikan proses
+          const namaList = checkValidation
+            .map((row: any) => row.nama)
+            .join(', ');
+          return {
+            status: HttpStatus.BAD_REQUEST,
+            message: `Data ${namaList} sudah berstatus NON AKTIF. Proses tidak bisa dilanjutkan.`,
+          };
+        }
+        // Jika data valid untuk di-non-approve, update statusaktif-nya
+        await trx(this.tableName)
+          .whereIn('id', data.transaksi_id)
+          .update({ statusaktif: data.value });
+      }
+      // Bisa tambahkan log trail di sini jika diperlukan, tinggal di-uncomment dan sesuaikan variabelnya
+      return {
+        status: HttpStatus.OK,
+        message: 'Proses non approval berhasil dijalankan.',
+      };
+    } catch (error) {
+      console.error('Error in nonApproval:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to process non approval');
+    }
   }
 }

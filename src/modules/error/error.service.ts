@@ -141,7 +141,7 @@ export class ErrorService {
 
   async findAll({ search, filters, pagination, sort }: FindAllParams) {
     try {
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
       const offset = (page - 1) * limit;
@@ -227,7 +227,7 @@ export class ErrorService {
   }
   async ReportExcelAll({ search, filters, pagination, sort }: FindAllParams) {
     try {
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
       limit = limit ?? 0;

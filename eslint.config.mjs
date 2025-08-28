@@ -42,6 +42,7 @@ export default tseslint.config(
       '@typescript-eslint/restrict-template-expressions': 'off',
       '@typescript-eslint/no-useless-escape': 'off',
       '@typescript-eslint/no-misused-promises': 'off',
+      '@typescript-eslint/no-prototype-builtins': 'off',
     },
   },
 );

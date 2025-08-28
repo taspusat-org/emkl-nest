@@ -11,6 +11,9 @@ import { RedisService } from 'src/common/redis/redis.service';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
+import * as fs from 'fs';
+import * as path from 'path';
+import { Workbook, Column } from 'exceljs';
 
 @Injectable()
 export class AlatbayarService {
@@ -105,7 +108,7 @@ export class AlatbayarService {
   ) {
     try {
       // set default pagination
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
       limit = limit ?? 0;
@@ -123,7 +126,8 @@ export class AlatbayarService {
       }
 
       // bangun query dasar
-      const query = trx(`${this.tableName} as ab`)
+      const query = trx
+        .from(trx.raw(`${this.tableName} as ab WITH (READUNCOMMITTED)`))
         .select([
           'ab.id',
           'ab.nama',
@@ -136,22 +140,34 @@ export class AlatbayarService {
           'ab.modifiedby',
           'ab.editing_by',
           trx.raw("FORMAT(ab.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
-          trx.raw(
-            "FORMAT(ab.created_at,    'dd-MM-yyyy HH:mm:ss') as created_at",
-          ),
-          trx.raw(
-            "FORMAT(ab.updated_at,    'dd-MM-yyyy HH:mm:ss') as updated_at",
-          ),
+          trx.raw("FORMAT(ab.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(ab.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'p1.text as statuslangsungcair_text',
           'p2.text as statusdefault_text',
           'p3.text as statusbank_text',
           'p.text',
           'p.memo',
         ])
-        .leftJoin('parameter as p1', 'ab.statuslangsungcair', 'p1.id')
-        .leftJoin('parameter as p2', 'ab.statusdefault', 'p2.id')
-        .leftJoin('parameter as p3', 'ab.statusbank', 'p3.id')
-        .leftJoin('parameter as p', 'ab.statusaktif', 'p.id');
+        .leftJoin(
+          trx.raw('parameter as p1 WITH (READUNCOMMITTED)'),
+          'ab.statuslangsungcair',
+          'p1.id',
+        )
+        .leftJoin(
+          trx.raw('parameter as p2 WITH (READUNCOMMITTED)'),
+          'ab.statusdefault',
+          'p2.id',
+        )
+        .leftJoin(
+          trx.raw('parameter as p3 WITH (READUNCOMMITTED)'),
+          'ab.statusbank',
+          'p3.id',
+        )
+        .leftJoin(
+          trx.raw('parameter as p WITH (READUNCOMMITTED)'),
+          'ab.statusaktif',
+          'p.id',
+        );
 
       // full-text search pada kolom teks
       if (search) {
@@ -364,5 +380,107 @@ export class AlatbayarService {
       }
       throw new InternalServerErrorException('Failed to delete data');
     }
+  }
+
+  async exportToExcel(data: any[]) {
+    const workbook = new Workbook();
+    const worksheet = workbook.addWorksheet('Data Export');
+
+    worksheet.mergeCells('A1:G1');
+    worksheet.mergeCells('A2:G2');
+    worksheet.mergeCells('A3:G3');
+    worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
+    worksheet.getCell('A2').value = 'LAPORAN ALAT BAYAR';
+    worksheet.getCell('A3').value = 'Data Export';
+    ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
+      worksheet.getCell(cellKey).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+      };
+      worksheet.getCell(cellKey).font = {
+        size: i === 0 ? 14 : 10,
+        bold: true,
+      };
+    });
+
+    const headers = [
+      'NO.',
+      'NAMA',
+      'KETERANGAN',
+      'STATUS LANGSUNG CAIR',
+      'STATUS DEFAULT',
+      'STATUS BANK',
+      'STATUS AKTIF',
+    ];
+
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(5, index + 1);
+      cell.value = header;
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFF00' },
+      };
+      cell.font = { bold: true, name: 'Tahoma', size: 10 };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+    });
+
+    data.forEach((row, rowIndex) => {
+      const currentRow = rowIndex + 6;
+      const rowValues = [
+        rowIndex + 1,
+        row.nama,
+        row.keterangan,
+        row.statuslangsungcair_text,
+        row.statusdefault_text,
+        row.statusbank_text,
+        row.text,
+      ];
+      rowValues.forEach((value, colIndex) => {
+        const cell = worksheet.getCell(currentRow, colIndex + 1);
+        cell.value = value ?? '';
+        cell.font = { name: 'Tahoma', size: 10 };
+        cell.alignment = {
+          horizontal: colIndex === 0 ? 'center' : 'left',
+          vertical: 'middle',
+        };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+      });
+    });
+
+    worksheet.columns
+      .filter((c): c is Column => !!c)
+      .forEach((col) => {
+        let maxLength = 0;
+        col.eachCell({ includeEmpty: true }, (cell) => {
+          const cellValue = cell.value ? cell.value.toString() : '';
+          maxLength = Math.max(maxLength, cellValue.length);
+        });
+        col.width = maxLength + 2;
+      });
+
+    const tempDir = path.resolve(process.cwd(), 'tmp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const tempFilePath = path.resolve(
+      tempDir,
+      `laporan_bank_${Date.now()}.xlsx`,
+    );
+    await workbook.xlsx.writeFile(tempFilePath);
+
+    return tempFilePath;
   }
 }

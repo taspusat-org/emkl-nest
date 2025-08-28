@@ -152,7 +152,7 @@ export class ParameterService {
     isLookUp,
   }: FindAllParams) {
     try {
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
 
@@ -359,6 +359,7 @@ export class ParameterService {
         dbMssql.raw(
           `JSON_VALUE(${memoExpr}, '$."KETERANGAN WAJIB ISI"') AS keterangan_wajib_isi`,
         ),
+        dbMssql.raw(`JSON_VALUE(${memoExpr}, '$."ICON"') AS icon`),
         'type',
         dbMssql.raw('[default] AS [default]'),
         'modifiedby',

@@ -8,7 +8,9 @@ import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { UtilsService } from 'src/utils/utils.service';
 import { RedisService } from 'src/common/redis/redis.service';
-
+import * as fs from 'fs';
+import * as path from 'path';
+import { Workbook, Column } from 'exceljs';
 @Injectable()
 export class HargatruckingService {
   constructor(
@@ -103,7 +105,7 @@ export class HargatruckingService {
   ) {
     try {
       // default pagination
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
       limit = limit ?? 0;
@@ -120,7 +122,8 @@ export class HargatruckingService {
         limit = 0;
       }
 
-      const query = trx(`${this.tableName} as b`)
+      const query = trx
+        .from(trx.raw(`${this.tableName} as b WITH (READUNCOMMITTED)`))
         .select([
           'b.id',
           'b.tarifdetail_id',
@@ -142,11 +145,31 @@ export class HargatruckingService {
           'p3.nama as container_text',
           'p4.nama as jenisorderan_text',
         ])
-        .leftJoin('parameter as p', 'b.statusaktif', 'p.id')
-        .leftJoin('tujuankapal as p1', 'b.tujuankapal_id', 'p1.id')
-        .leftJoin('emkl as p2', 'b.emkl_id', 'p2.id')
-        .leftJoin('container as p3', 'b.container_id', 'p3.id')
-        .leftJoin('jenisorderan as p4', 'b.jenisorderan_id', 'p4.id');
+        .leftJoin(
+          trx.raw('parameter as p WITH (READUNCOMMITTED)'),
+          'b.statusaktif',
+          'p.id',
+        )
+        .leftJoin(
+          trx.raw('tujuankapal as p1 WITH (READUNCOMMITTED)'),
+          'b.tujuankapal_id',
+          'p1.id',
+        )
+        .leftJoin(
+          trx.raw('emkl as p2 WITH (READUNCOMMITTED)'),
+          'b.emkl_id',
+          'p2.id',
+        )
+        .leftJoin(
+          trx.raw('container as p3 WITH (READUNCOMMITTED)'),
+          'b.container_id',
+          'p3.id',
+        )
+        .leftJoin(
+          trx.raw('jenisorderan as p4 WITH (READUNCOMMITTED)'),
+          'b.jenisorderan_id',
+          'p4.id',
+        );
 
       if (search) {
         const val = String(search).replace(/\[/g, '[[]');
@@ -217,10 +240,6 @@ export class HargatruckingService {
       console.error('Error fetching harga trucking data:', error);
       throw new Error('Failed to fetch harga trucking data');
     }
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} hargatrucking`;
   }
 
   async update(id: number, data: any, trx: any) {
@@ -344,5 +363,109 @@ export class HargatruckingService {
       }
       throw new InternalServerErrorException('Failed to delete data');
     }
+  }
+
+  async exportToExcel(data: any[]) {
+    const workbook = new Workbook();
+    const worksheet = workbook.addWorksheet('Data Export');
+
+    worksheet.mergeCells('A1:H1');
+    worksheet.mergeCells('A2:H2');
+    worksheet.mergeCells('A3:H3');
+    worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
+    worksheet.getCell('A2').value = 'LAPORAN HARGA TRUCKING';
+    worksheet.getCell('A3').value = 'Data Export';
+    ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
+      worksheet.getCell(cellKey).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+      };
+      worksheet.getCell(cellKey).font = {
+        size: i === 0 ? 14 : 10,
+        bold: true,
+      };
+    });
+
+    const headers = [
+      'NO.',
+      'TUJUAN KAPAL',
+      'EMKL',
+      'KETERANGAN',
+      'CONTAINER',
+      'JENIS ORDERAN',
+      'NOMINAL',
+      'STATUS AKTIF',
+    ];
+
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(5, index + 1);
+      cell.value = header;
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFF00' },
+      };
+      cell.font = { bold: true, name: 'Tahoma', size: 10 };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+    });
+
+    data.forEach((row, rowIndex) => {
+      const currentRow = rowIndex + 6;
+      const rowValues = [
+        rowIndex + 1,
+        row.tujuankapal_text,
+        row.emkl_text,
+        row.keterangan,
+        row.container_text,
+        row.jenisorderan_text,
+        row.nominal,
+        row.text,
+      ];
+      rowValues.forEach((value, colIndex) => {
+        const cell = worksheet.getCell(currentRow, colIndex + 1);
+        cell.value = value ?? '';
+        cell.font = { name: 'Tahoma', size: 10 };
+        cell.alignment = {
+          horizontal: colIndex === 0 ? 'center' : 'left',
+          vertical: 'middle',
+        };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+      });
+    });
+
+    worksheet.columns
+      .filter((c): c is Column => !!c)
+      .forEach((col) => {
+        let maxLength = 0;
+        col.eachCell({ includeEmpty: true }, (cell) => {
+          const cellValue = cell.value ? cell.value.toString() : '';
+          maxLength = Math.max(maxLength, cellValue.length);
+        });
+        col.width = maxLength + 2;
+      });
+
+    const tempDir = path.resolve(process.cwd(), 'tmp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const tempFilePath = path.resolve(
+      tempDir,
+      `laporan_hargatrucking_${Date.now()}.xlsx`,
+    );
+    await workbook.xlsx.writeFile(tempFilePath);
+
+    return tempFilePath;
   }
 }

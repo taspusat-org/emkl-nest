@@ -103,7 +103,7 @@ export class AkunpusatService {
       // Use default empty object if filters is undefined
       filters = filters ?? {};
 
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
       limit = limit ?? 0;

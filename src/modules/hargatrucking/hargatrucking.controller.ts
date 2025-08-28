@@ -36,6 +36,8 @@ import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
 import { dbMssql } from 'src/common/utils/db';
 import { any } from 'zod';
+import { Response } from 'express';
+import * as fs from 'fs';
 
 @Controller('hargatrucking')
 export class HargatruckingController {
@@ -181,8 +183,32 @@ export class HargatruckingController {
       throw new InternalServerErrorException('Failed to delete bank');
     }
   }
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.hargatruckingService.findOne(+id);
+  @Get('/export')
+  async exportToExcel(@Query() params: any, @Res() res: Response) {
+    try {
+      const { data } = await this.findAll(params);
+
+      if (!Array.isArray(data)) {
+        throw new Error('Data is not an array or is undefined.');
+      }
+
+      const tempFilePath = await this.hargatruckingService.exportToExcel(data);
+
+      const fileStream = fs.createReadStream(tempFilePath);
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_harga_trucking.xlsx"',
+      );
+
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      res.status(500).send('Failed to export file');
+    }
   }
 }

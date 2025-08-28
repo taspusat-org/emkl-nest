@@ -131,10 +131,8 @@ export class AuthService {
     try {
       // Decode the refresh token
       const decoded = this.jwtService.verify(oldRefreshToken);
-      console.log('decoded', decoded, decoded.sub);
       // Check if the refresh token is still valid
       if (!decoded || !decoded.sub) {
-        console.log('masuk');
         throw new UnauthorizedException('Refresh token tidak valid');
       }
 
