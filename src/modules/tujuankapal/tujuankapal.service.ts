@@ -486,6 +486,8 @@ export class TujuankapalService {
       });
 
     worksheet.getColumn(1).width = 6;
+    worksheet.getColumn(4).width = 15;
+    worksheet.getColumn(5).width = 15;
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
