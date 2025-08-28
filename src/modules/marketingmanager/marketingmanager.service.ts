@@ -257,8 +257,6 @@ export class MarketingmanagerService {
       .where('p.marketing_id', id)
       .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
 
-    console.log('result', result);
-
     if (!result.length) {
       this.logger.warn(
         `No data marketing manager found for id marketing_id: ${id}`,
