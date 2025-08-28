@@ -193,7 +193,6 @@ export class MenuController {
         +id,
         trx,
       );
-      console.log('result', result);
       if (!result) {
         throw new Error('Data not found');
       }

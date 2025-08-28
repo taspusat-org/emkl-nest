@@ -39,12 +39,13 @@ export class TypeAkuntansiService {
         search,
         page,
         limit,
+        method,
         statusaktif_text,
         akuntansi_nama,
         id,
         ...insertData
       } = createData;
-
+      console.log('insertData', insertData);
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();

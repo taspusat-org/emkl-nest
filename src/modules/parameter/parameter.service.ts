@@ -122,7 +122,6 @@ export class ParameterService {
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
       );
-      await this.redisService.del('parameter-*');
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
@@ -168,16 +167,6 @@ export class ParameterService {
         } else {
           limit = 0;
         }
-      }
-
-      // Membuat cache key berdasarkan filters.grp
-      const cacheKey = `parameter-grp-${filters?.grp || 'default'}`;
-      // Cek apakah data sudah ada di cache
-      const cachedData = await this.redisService.get(cacheKey);
-
-      if (cachedData) {
-        // Jika data ada di cache, langsung return dari cache
-        return JSON.parse(cachedData);
       }
 
       // Jika tidak ada di cache, lakukan query ke database
@@ -245,9 +234,6 @@ export class ParameterService {
           itemsPerPage: limit,
         },
       };
-
-      // Simpan data hasil query ke dalam Redis cache
-      await this.redisService.set(cacheKey, JSON.stringify(responseObject));
 
       return responseObject;
     } catch (error) {
