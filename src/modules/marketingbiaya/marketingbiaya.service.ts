@@ -3,6 +3,7 @@ import { CreateMarketingbiayaDto } from './dto/create-marketingbiaya.dto';
 import { UpdateMarketingbiayaDto } from './dto/update-marketingbiaya.dto';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Injectable()
 export class MarketingbiayaService {
@@ -41,7 +42,7 @@ export class MarketingbiayaService {
 
       const fixData = marketingBiayaData.map(
         ({
-          statusaktif_nama,
+          statusaktifBiaya_nama,
           jenisbiayamarketing_nama,
           ...marketingBiayaData
         }) => ({
@@ -236,42 +237,88 @@ export class MarketingbiayaService {
     }
   }
 
-  async findAll(id: string, trx: any) {
-    const result = await trx(`${this.tableName} as p`)
-      .select(
-        'p.id',
-        'p.marketing_id',
-        'p.jenisbiayamarketing_id',
-        'p.nominal',
-        'p.statusaktif',
-        'q.memo',
-        'q.text as statusaktif_nama',
-        'r.nama as jenisbiayamarketing_nama',
-        's.nama as marketing_nama',
-      )
-      .leftJoin('parameter as q', 'p.statusaktif', 'q.id')
-      .leftJoin('jenisbiayamarketing as r', 'p.jenisbiayamarketing_id', 'r.id')
-      .leftJoin('marketing as s', 'p.marketing_id', 's.id')
-      .where('p.marketing_id', id)
-      .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
+  async findAll(
+    id: string, 
+    trx: any,
+    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+  ) {
+    try {
+      let { page, limit } = pagination;
+      page = page ?? 1;
+      limit = limit ?? 0;
+    
+      const query = trx(`${this.tableName} as u`)
+        .select(
+          'u.id',
+          'u.marketing_id',
+          'u.jenisbiayamarketing_id',
+          'u.nominal',
+          'u.statusaktif',
+          'p.memo',
+          'p.text as statusaktif_nama',
+          'q.nama as marketing_nama',
+          'r.nama as jenisbiayamarketing_nama',
+        )
+        .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
+        .leftJoin('marketing as q', 'u.marketing_id', 'q.id')
+        .leftJoin('jenisbiayamarketing as r', 'u.jenisbiayamarketing_id', 'r.id')
+        .where('u.marketing_id', id)
+        .orderBy('u.created_at', 'desc'); // Optional: Order by creation date
 
-    if (!result.length) {
-      this.logger.warn(
-        `No data marketing biaya found for id marketing_id: ${id}`,
-      );
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+        query.where((builder) => {
+          builder
+            .orWhere('u.nominal', 'like', `%${sanitizedValue}%`)
+            // .orWhere('p.text', 'like', `%${sanitizedValue}%`)
+            .orWhere('q.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('r.nama', 'like', `%${sanitizedValue}%`)
+        });
+      }
+
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+          if (value) {
+            if (key === 'statusaktif_nama') {
+              query.andWhere(`p.id`, '=', sanitizedValue);
+            } else if (key === 'marketing_nama') {
+              query.andWhere('q.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'jenisbiayamarketing_nama') {
+              query.andWhere('r.nama', 'like', `%${sanitizedValue}%`);
+            } else {
+              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+            }
+          }
+        }
+      }
+
+      if (sort?.sortBy && sort?.sortDirection) {
+        query.orderBy(sort.sortBy, sort.sortDirection);
+      }
+
+      const result = await query;
+      if (!result.length) {
+        this.logger.warn(
+          `No data marketing biaya found for id marketing_id: ${id}`,
+        );
+
+        return {
+          status: false,
+          message: 'No Data marketing biaya Found',
+          data: [],
+        };
+      }
 
       return {
-        status: false,
-        message: 'No Data marketing biaya Found',
-        data: [],
+        status: true,
+        message: 'marketing biaya data fetched successfully',
+        data: result,
       };
+    } catch (error) {
+      console.error('Error to findAll Marketing Biaya', error, error.message);
+      throw new Error(error);
     }
-
-    return {
-      status: true,
-      message: 'marketing biaya data fetched successfully',
-      data: result,
-    };
   }
 
   findOne(id: number) {

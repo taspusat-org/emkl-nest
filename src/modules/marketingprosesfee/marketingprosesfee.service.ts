@@ -3,6 +3,7 @@ import { CreateMarketingprosesfeeDto } from './dto/create-marketingprosesfee.dto
 import { UpdateMarketingprosesfeeDto } from './dto/update-marketingprosesfee.dto';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Injectable()
 export class MarketingprosesfeeService {
@@ -38,17 +39,9 @@ export class MarketingprosesfeeService {
         await trx(this.tableName).delete().where('marketing_id', marketing_id);
         return;
       }
-
-      const fixData = marketingProsesFeeData.map(
-        ({
-          statusaktif_nama,
-          jenisprosesfee_nama,
-          statuspotong_nama,
-          ...marketingProsesFeeData
-        }) => ({
-          ...marketingProsesFeeData,
-        }),
-      );
+      const fixData = marketingProsesFeeData.map(({ statusaktif_nama, jenisprosesfee_nama, statuspotongbiayakantor_nama, ...marketingProsesFeeData }) => ({
+        ...marketingProsesFeeData
+      }))
 
       for (data of fixData) {
         let isDataChanged = false;
@@ -241,45 +234,99 @@ export class MarketingprosesfeeService {
     }
   }
 
-  async findAll(id: string, trx: any) {
-    const result = await trx(`${this.tableName} as p`)
+  async findAll(
+    id: string, 
+    trx: any,
+    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+  ) {
+    try {
+      let { page, limit } = pagination;
+      page = page ?? 1;
+      limit = limit ?? 0;
+      
+      const query = trx((`${this.tableName} as u`))
       .select(
-        'p.id',
-        'p.marketing_id',
-        'p.jenisprosesfee_id',
-        'p.statuspotongbiayakantor',
-        'p.statusaktif',
-        'statusaktif.memo',
-        'statusaktif.text as statusaktif_nama',
-        'statuspotong.memo as statuspotongbiayakantor_memo',
+        'u.id',
+        'u.marketing_id',
+        'u.jenisprosesfee_id',
+        'u.statuspotongbiayakantor',
+        'u.statusaktif',
+        'p.nama as marketing_nama',
+        'q.nama as jenisprosesfee_nama',
         'statuspotong.text as statuspotongbiayakantor_nama',
-        'q.nama as marketing_nama',
-        // 'r.nama as jenisprosesfee_nama'
+        // 'statuspotong.memo as statuspotongbiayakantor_memo',
+        'statusaktif.text as statusaktif_nama',
+        'statusaktif.memo as memo',
       )
-      .leftJoin('parameter as statusaktif', 'p.statusaktif', 'statusaktif.id')
-      .leftJoin('parameter as statuspotong', 'p.statusaktif', 'statuspotong.id')
-      .leftJoin('marketing as q', 'p.marketing_id', 'q.id')
-      // .leftJoin('jenisprosesfee as r', 'p.jenisprosesfee_id', 'r.id')
-      .where('p.marketing_id', id)
-      .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
+      .leftJoin('marketing as p', 'u.marketing_id', 'p.id')
+      .leftJoin('jenisprosesfee as q', 'u.jenisprosesfee_id', 'q.id')
+      .leftJoin('parameter as statuspotong', 'u.statuspotongbiayakantor', 'statuspotong.id')
+      .leftJoin('parameter as statusaktif', 'u.statusaktif', 'statusaktif.id')
+      .where('u.marketing_id', id)
+      .orderBy('u.created_at', 'desc'); 
+      
+      console.log('search', search, 'page', page, 'limit', limit, 'filters', filters);
 
-    if (!result.length) {
-      this.logger.warn(
-        `No data marketing proses fee found for id marketing_id: ${id}`,
-      );
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+        query.where((builder) => {
+          builder
+            .orWhere('p.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('q.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('statuspotong.text', 'like', `%${sanitizedValue}%`)
+            // .orWhere('statusaktif.text', 'like', `%${sanitizedValue}%`)
+        });
+      }
+
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+          if (value) {
+            if (key === 'statusaktif_nama') {
+              query.andWhere(`statusaktif.id`, '=', sanitizedValue);
+            } else if (key === 'statuspotongbiayakantor_nama') {
+              query.andWhere('statuspotong.text', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'marketing_nama') {
+              query.andWhere('p.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'jenisprosesfee_nama') {
+              query.andWhere('q.nama', 'like', `%${sanitizedValue}%`);
+            } else {
+              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+            }
+          }
+        }
+      }
+      
+      if (sort?.sortBy && sort?.sortDirection) {
+        if (sort.sortBy === 'marketing_nama') {
+          query.orderBy('p.nama', sort.sortDirection);
+        } else {
+          query.orderBy(sort.sortBy, sort.sortDirection);
+        }
+      }
+
+      const result = await query;
+      console.log('result', result);
+
+      if (!result.length) {
+        this.logger.warn(`No data marketing proses fee found for id marketing_id: ${id}`);
+
+        return {
+          status: false,
+          message: 'No Data marketing proses fee Found',
+          data: [],
+        };
+      }
 
       return {
-        status: false,
-        message: 'No Data marketing proses fee Found',
-        data: [],
+        status: true,
+        message: 'marketing proses fee data fetched successfully',
+        data: result,
       };
+    } catch (error) {
+      console.error('Error to findAll Marketing Proses Fee', error);
+      throw new Error(error);
     }
-
-    return {
-      status: true,
-      message: 'marketing proses fee data fetched successfully',
-      data: result,
-    };
   }
 
   findOne(id: number) {

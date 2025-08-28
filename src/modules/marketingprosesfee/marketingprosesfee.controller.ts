@@ -1,16 +1,9 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, InternalServerErrorException } from '@nestjs/common';
 import { MarketingprosesfeeService } from './marketingprosesfee.service';
 import { CreateMarketingprosesfeeDto } from './dto/create-marketingprosesfee.dto';
 import { UpdateMarketingprosesfeeDto } from './dto/update-marketingprosesfee.dto';
 import { dbMssql } from 'src/common/utils/db';
+import { FindAllDto, FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Controller('marketingprosesfee')
 export class MarketingprosesfeeController {
@@ -24,19 +17,40 @@ export class MarketingprosesfeeController {
   }
 
   @Get(':id')
-  async findAll(@Param('id') id: string) {
+  async findAll(
+    @Param('id') id: string,
+    @Query() query: FindAllDto
+  ) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } = query;
+
+    const sortParams = {
+      sortBy: sortBy || 'marketing_nama',
+      sortDirection: sortDirection || 'asc',
+    };
+
+    const pagination = {
+      page: page || 1,
+      limit: limit === 0 || !limit ? undefined : limit,
+    };
+
+    const params: FindAllParams = {
+      search,
+      filters,
+      pagination,
+      isLookUp: isLookUp === 'true',
+      sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
+    };
+
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.marketingprosesfeeService.findAll(id, trx);
-
+      const result = await this.marketingprosesfeeService.findAll(id, trx, params);
+      
       trx.commit();
       return result;
     } catch (error) {
       trx.rollback();
-      console.error(
-        'Error fetching data marketing proses fee in controller ',
-        error,
-      );
+      console.error('Error fetching data marketing proses fee in controller ', error, error.message);
+      throw new InternalServerErrorException('Failed to fetch marketing ordean in controller');
     }
   }
 
