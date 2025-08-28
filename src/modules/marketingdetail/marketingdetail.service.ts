@@ -237,7 +237,7 @@ export class MarketingdetailService {
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
   ) {
     try {
-      let { page, limit } = pagination;
+      let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
 
