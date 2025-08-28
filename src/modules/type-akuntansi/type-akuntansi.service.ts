@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Workbook } from 'exceljs';
+import { Column, Workbook } from 'exceljs';
 import { dbMssql } from 'src/common/utils/db';
 import { UtilsService } from 'src/utils/utils.service';
 import { GlobalService } from '../global/global.service';
@@ -501,41 +501,36 @@ export class TypeAkuntansiService {
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Data Export');
 
-    worksheet.mergeCells('A1:D1');
-    worksheet.mergeCells('A2:D2');
-    worksheet.mergeCells('A3:D3');
+    worksheet.mergeCells('A1:F1');
+    worksheet.mergeCells('A2:F2');
+    worksheet.mergeCells('A3:F3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
     worksheet.getCell('A2').value = 'LAPORAN TYPE AKUNTANSI';
     worksheet.getCell('A3').value = 'Data Export';
-    worksheet.getCell('A1').alignment = {
-      horizontal: 'center',
-      vertical: 'middle',
-    };
-    worksheet.getCell('A2').alignment = {
-      horizontal: 'center',
-      vertical: 'middle',
-    };
-    worksheet.getCell('A3').alignment = {
-      horizontal: 'center',
-      vertical: 'middle',
-    };
-    worksheet.getCell('A1').font = { size: 14, bold: true };
-    worksheet.getCell('A2').font = { bold: true };
-    worksheet.getCell('A3').font = { bold: true };
+    ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
+      worksheet.getCell(cellKey).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+      };
+      worksheet.getCell(cellKey).font = {
+        name: 'Tahoma',
+        size: i === 0 ? 14 : 10,
+        bold: true,
+      };
+    });
 
     // Mendefinisikan header kolom
     const headers = [
-      'No.',
-      'Nama',
-      'Order',
-      'Keterangan',
-      'Akuntansi',
-      'Status Aktif',
+      'NO.',
+      'NAMA',
+      'ORDER',
+      'KETERANGAN',
+      'AKUNTANSI',
+      'STATUS AKTIF',
     ];
 
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(5, index + 1);
-
       cell.value = header;
       cell.fill = {
         type: 'pattern',
@@ -543,7 +538,21 @@ export class TypeAkuntansiService {
         fgColor: { argb: 'FFFF00' },
       };
       cell.font = { bold: true, name: 'Tahoma', size: 10 };
-      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.alignment = { 
+        horizontal: 'center', 
+        vertical: 'middle' 
+      };
+
+      // if (index === 2) {
+      //   cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      //   cell.numFmt = '0'; // angka polos tanpa ribuan / desimal
+      // } else {
+      //   cell.alignment = {
+      //     horizontal: index === 0 ? 'right' : 'left',
+      //     vertical: 'middle',
+      //   };
+      // }
+
       cell.border = {
         top: { style: 'thin' },
         left: { style: 'thin' },
@@ -552,36 +561,63 @@ export class TypeAkuntansiService {
       };
     });
 
-    // Mengisi data ke dalam Excel dengan nomor urut sebagai ID
     data.forEach((row, rowIndex) => {
-      worksheet.getCell(rowIndex + 6, 1).value = rowIndex + 1; // Nomor urut (ID)
-      worksheet.getCell(rowIndex + 6, 2).value = row.nama;
-      worksheet.getCell(rowIndex + 6, 3).value = row.email;
-      worksheet.getCell(rowIndex + 6, 4).value = row.text;
+      const currentRow = rowIndex + 6;
+      const rowValues = [
+        rowIndex + 1, 
+        row.nama, 
+        row.order, 
+        row.keterangan, 
+        row.akuntansi_nama, 
+        row.statusaktif_text
+      ];
 
-      // Menambahkan border untuk setiap cell
-      for (let col = 1; col <= headers.length; col++) {
-        const cell = worksheet.getCell(rowIndex + 6, col);
+      rowValues.forEach((value, colIndex) => {
+        const cell = worksheet.getCell(currentRow, colIndex + 1);
+
+        if (colIndex === 2) {
+          cell.value = Number(value)
+          cell.numFmt = '0'; // format angka dengan ribuan
+          cell.alignment = {
+          horizontal:'right',
+          vertical: 'middle',
+        };
+        } else {
+          cell.value = value ?? '';
+          cell.alignment = {
+          horizontal: colIndex === 0 ? 'right' : 'left',
+          vertical: 'middle',
+        };
+        }
+
+        // cell.value = value ?? '';
         cell.font = { name: 'Tahoma', size: 10 };
+        // cell.alignment = {
+        //   horizontal: colIndex === 0 ? 'right' : 'left',
+        //   vertical: 'middle',
+        // };
         cell.border = {
           top: { style: 'thin' },
           left: { style: 'thin' },
           bottom: { style: 'thin' },
           right: { style: 'thin' },
         };
-      }
+      });
     });
 
-    // Mengatur lebar kolom
-    worksheet.getColumn(1).width = 10; // Lebar untuk nomor urut
-    worksheet.getColumn(2).width = 30;
-    worksheet.getColumn(3).width = 30;
-    worksheet.getColumn(4).width = 30;
-    worksheet.getColumn(5).width = 15;
-    worksheet.getColumn(6).width = 20;
-    worksheet.getColumn('F').numFmt = 'dd-mm-yyyy hh:mm:ss';
+    worksheet.columns
+      .filter((c): c is Column => !!c)
+      .forEach((col) => {
+        let maxLength = 0;
+        col.eachCell({ includeEmpty: true }, (cell) => {
+          const cellValue = cell.value ? cell.value.toString() : '';
+          maxLength = Math.max(maxLength, cellValue.length);
+        });
+        col.width = maxLength + 2;
+      });
 
-    // Simpan file Excel ke direktori sementara
+    worksheet.getColumn(1).width = 6;
+
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
@@ -589,10 +625,10 @@ export class TypeAkuntansiService {
 
     const tempFilePath = path.resolve(
       tempDir,
-      `laporan_ccemail${Date.now()}.xlsx`,
+      `laporan_type_akuntansi_${Date.now()}.xlsx`,
     );
     await workbook.xlsx.writeFile(tempFilePath);
 
-    return tempFilePath; // Kembalikan path file sementara
+    return tempFilePath;
   }
 }
