@@ -200,7 +200,7 @@ export class AlatbayarController {
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_container.xlsx"',
+        'attachment; filename="laporan_alatbayar.xlsx"',
       );
 
       fileStream.pipe(res);

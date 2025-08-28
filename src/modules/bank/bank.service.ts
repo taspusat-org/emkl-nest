@@ -237,17 +237,6 @@ export class BankService {
           'p10.id',
         );
 
-      if (filters?.tglDari && filters?.tglSampai) {
-        // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
-        const tglDariFormatted = formatDateToSQL(String(filters?.tglDari)); // Fungsi untuk format
-        const tglSampaiFormatted = formatDateToSQL(String(filters?.tglSampai));
-
-        // Menggunakan whereBetween dengan tanggal yang sudah diformat
-        query.whereBetween('b.created_at', [
-          tglDariFormatted,
-          tglSampaiFormatted,
-        ]);
-      }
       if (search) {
         const val = String(search).replace(/\[/g, '[[]');
 
@@ -478,42 +467,35 @@ export class BankService {
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Data Export');
 
-    // Header perusahaan
-    // Header perusahaan
     worksheet.mergeCells('A1:G1');
     worksheet.mergeCells('A2:G2');
     worksheet.mergeCells('A3:G3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
     worksheet.getCell('A2').value = 'LAPORAN BANK';
     worksheet.getCell('A3').value = 'Data Export';
-    worksheet.getCell('A1').alignment = {
-      horizontal: 'center',
-      vertical: 'middle',
-    };
-    worksheet.getCell('A2').alignment = {
-      horizontal: 'center',
-      vertical: 'middle',
-    };
-    worksheet.getCell('A3').alignment = {
-      horizontal: 'center',
-      vertical: 'middle',
-    };
-    worksheet.getCell('A1').font = { size: 14, bold: true };
-    worksheet.getCell('A2').font = { bold: true };
-    worksheet.getCell('A3').font = { bold: true };
 
-    // Header kolom sesuai database
+    ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
+      worksheet.getCell(cellKey).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+      };
+      worksheet.getCell(cellKey).font = {
+        name: 'Tahoma',
+        size: i === 0 ? 14 : 10,
+        bold: true,
+      };
+    });
+
     const headers = [
       'NO.',
       'NAMA',
       'KETERANGAN',
-      'KETERANGAN COA',
-      'KETERANGAN COA GANTUNG',
+      'COA',
+      'COA GANTUNG',
       'STATUS BANK',
       'STATUS AKTIF',
     ];
 
-    // Styling header
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(5, index + 1);
       cell.value = header;
@@ -523,7 +505,10 @@ export class BankService {
         fgColor: { argb: 'FFFF00' },
       };
       cell.font = { bold: true, name: 'Tahoma', size: 10 };
-      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.alignment = {
+        horizontal: index === 0 ? 'right' : 'center', // header NO. -> kanan
+        vertical: 'middle',
+      };
       cell.border = {
         top: { style: 'thin' },
         left: { style: 'thin' },
@@ -532,7 +517,8 @@ export class BankService {
       };
     });
 
-    // Data rows
+    worksheet.getRow(5).height = 18;
+
     data.forEach((row, rowIndex) => {
       const currentRow = rowIndex + 6;
 
@@ -554,17 +540,20 @@ export class BankService {
           bottom: { style: 'thin' },
           right: { style: 'thin' },
         };
+        cell.alignment = {
+          horizontal: col === 1 ? 'right' : 'left', // NO. rata kanan
+          vertical: 'middle',
+        };
       }
     });
 
-    // Set column widths
     worksheet.getColumn(1).width = 6; // NO
     worksheet.getColumn(2).width = 20; // NAMA
     worksheet.getColumn(3).width = 30; // KETERANGAN
-    worksheet.getColumn(4).width = 25; // COA
-    worksheet.getColumn(5).width = 25; // KETERANGAN COA
-    worksheet.getColumn(6).width = 25; // COA GANTUNG
-    worksheet.getColumn(7).width = 25; // KETERANGAN COA GANTUNG
+    worksheet.getColumn(4).width = 25; // KETERANGAN COA
+    worksheet.getColumn(5).width = 25; // KETERANGAN COA GANTUNG
+    worksheet.getColumn(6).width = 20; // STATUS BANK
+    worksheet.getColumn(7).width = 15; // STATUS AKTIF
 
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
