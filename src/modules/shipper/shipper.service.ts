@@ -11,6 +11,9 @@ import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { RedisService } from 'src/common/redis/redis.service';
 import { RelasiService } from '../relasi/relasi.service';
+import * as fs from 'fs';
+import * as path from 'path';
+import { Workbook, Column } from 'exceljs';
 @Injectable()
 export class ShipperService {
   constructor(
@@ -584,5 +587,111 @@ export class ShipperService {
       }
       throw new InternalServerErrorException('Failed to delete data');
     }
+  }
+
+  async exportToExcel(data: any[]) {
+    const workbook = new Workbook();
+    const worksheet = workbook.addWorksheet('Data Export');
+
+    worksheet.mergeCells('A1:G1');
+    worksheet.mergeCells('A2:G2');
+    worksheet.mergeCells('A3:G3');
+    worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
+    worksheet.getCell('A2').value = 'LAPORAN SHIPPER';
+    worksheet.getCell('A3').value = 'Data Export';
+    ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
+      worksheet.getCell(cellKey).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+      };
+      worksheet.getCell(cellKey).font = {
+        name: 'Tahoma',
+        size: i === 0 ? 14 : 10,
+        bold: true,
+      };
+    });
+
+    const headers = [
+      'NO.',
+      'NAMA',
+      'KETERANGAN',
+      'KODE PROSPEK',
+      'NPWP',
+      'NIK',
+      'TELEPON',
+    ];
+
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(5, index + 1);
+      cell.value = header;
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFF00' },
+      };
+      cell.font = { bold: true, name: 'Tahoma', size: 10 };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+    });
+
+    data.forEach((row, rowIndex) => {
+      const currentRow = rowIndex + 6;
+      const rowValues = [
+        rowIndex + 1,
+        row.nama,
+        row.keterangan,
+        row.kodeprospek,
+        row.npwp,
+        row.nik,
+        row.telp,
+      ];
+      rowValues.forEach((value, colIndex) => {
+        const cell = worksheet.getCell(currentRow, colIndex + 1);
+        cell.value = value ?? '';
+        cell.font = { name: 'Tahoma', size: 10 };
+        cell.alignment = {
+          horizontal: colIndex === 0 ? 'right' : 'left',
+          vertical: 'middle',
+        };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+      });
+    });
+
+    worksheet.columns
+      .filter((c): c is Column => !!c)
+      .forEach((col) => {
+        let maxLength = 0;
+        col.eachCell({ includeEmpty: true }, (cell) => {
+          const cellValue = cell.value ? cell.value.toString() : '';
+          maxLength = Math.max(maxLength, cellValue.length);
+        });
+        col.width = maxLength + 2;
+      });
+
+    worksheet.getColumn(1).width = 6;
+    worksheet.getColumn(6).width = 20;
+    worksheet.getColumn(7).width = 20;
+    const tempDir = path.resolve(process.cwd(), 'tmp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const tempFilePath = path.resolve(
+      tempDir,
+      `laporan_container_${Date.now()}.xlsx`,
+    );
+    await workbook.xlsx.writeFile(tempFilePath);
+
+    return tempFilePath;
   }
 }
