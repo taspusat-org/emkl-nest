@@ -83,11 +83,6 @@ export class SandarkapalController {
     }
   }
 
-  @Post('report-byselect')
-  async findAllByIds(@Body() ids: { id: number }[]) {
-    return this.sandarkapalService.findAllByIds(ids);
-  }
-
   @Get()
   //@SANDARKAPAL
   @UsePipes(new ZodValidationPipe(FindAllSchema))
@@ -122,6 +117,65 @@ export class SandarkapalController {
       console.error('Error fetching all sandarkapals:', error);
       throw new InternalServerErrorException('Failed to fetch sandarkapals');
     }
+  }
+
+  @UseGuards(AuthGuard)
+  @Put('update/:id')
+  //@SANDARKAPAL
+  async update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(UpdateSandarkapalSchema))
+    data: UpdateSandarkapalDto,
+    @Req() req,
+  ) {
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+
+      const result = await this.sandarkapalService.update(+id, data, trx);
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error updating sandarkapal in controller:', error);
+      throw new Error('Failed to update sandarkapal');
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id')
+  //@SANDARKAPAL
+  async delete(@Param('id') id: string, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.sandarkapalService.delete(
+        +id,
+        trx,
+        req.user?.user?.username,
+      );
+
+      if (result.status === 404) {
+        throw new NotFoundException(result.message);
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error deleting sandarkapal in controller:', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to delete sandarkapal');
+    }
+  }
+
+  @Post('report-byselect')
+  async findAllByIds(@Body() ids: { id: number }[]) {
+    return this.sandarkapalService.findAllByIds(ids);
   }
 
   @Get('/export')
@@ -201,60 +255,6 @@ export class SandarkapalController {
 
       await trx.rollback();
       throw new Error('Failed to fetch data by id');
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Put('update/:id')
-  //@SANDARKAPAL
-  async update(
-    @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateSandarkapalSchema))
-    data: UpdateSandarkapalDto,
-    @Req() req,
-  ) {
-    const trx = await dbMssql.transaction();
-    try {
-      data.modifiedby = req.user?.user?.username || 'unknown';
-
-      const result = await this.sandarkapalService.update(+id, data, trx);
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error updating sandarkapal in controller:', error);
-      throw new Error('Failed to update sandarkapal');
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Delete(':id')
-  //@SANDARKAPAL
-  async delete(@Param('id') id: string, @Req() req) {
-    const trx = await dbMssql.transaction();
-    try {
-      const result = await this.sandarkapalService.delete(
-        +id,
-        trx,
-        req.user?.user?.username,
-      );
-
-      if (result.status === 404) {
-        throw new NotFoundException(result.message);
-      }
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error deleting sandarkapal in controller:', error);
-
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to delete sandarkapal');
     }
   }
 }

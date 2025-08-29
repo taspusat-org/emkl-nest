@@ -432,8 +432,10 @@ export class AsalkapalService {
 
     const headers = [
       'NO.',
-      'NAMA',
+      'CABANG',
       'KETERANGAN',
+      'NOMINAL',
+      'CONTAINER',
       'STATUS AKTIF',
       'MODIFIED BY',
       'CREATED AT',
@@ -460,12 +462,14 @@ export class AsalkapalService {
       const currentRow = rowIndex + 6;
 
       worksheet.getCell(currentRow, 1).value = rowIndex + 1;
-      worksheet.getCell(currentRow, 2).value = row.nama;
+      worksheet.getCell(currentRow, 2).value = row.cabang;
       worksheet.getCell(currentRow, 3).value = row.keterangan;
-      worksheet.getCell(currentRow, 4).value = row.text;
-      worksheet.getCell(currentRow, 5).value = row.modifiedby;
-      worksheet.getCell(currentRow, 6).value = row.created_at;
-      worksheet.getCell(currentRow, 7).value = row.updated_at;
+      worksheet.getCell(currentRow, 4).value = row.nomnial;
+      worksheet.getCell(currentRow, 5).value = row.container;
+      worksheet.getCell(currentRow, 6).value = row.text;
+      worksheet.getCell(currentRow, 7).value = row.modifiedby;
+      worksheet.getCell(currentRow, 8).value = row.created_at;
+      worksheet.getCell(currentRow, 9).value = row.updated_at;
 
       for (let col = 1; col <= headers.length; col++) {
         const cell = worksheet.getCell(currentRow, col);
@@ -486,6 +490,8 @@ export class AsalkapalService {
     worksheet.getColumn(5).width = 15;
     worksheet.getColumn(6).width = 20;
     worksheet.getColumn(7).width = 20;
+    worksheet.getColumn(8).width = 20;
+    worksheet.getColumn(9).width = 20;
 
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
