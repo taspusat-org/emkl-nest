@@ -34,6 +34,8 @@ import { PengembaliankasgantungheaderModule } from './modules/pengembaliankasgan
 import { PengembaliankasgantungdetailModule } from './modules/pengembaliankasgantungdetail/pengembaliankasgantungdetail.module';
 import { KasgantungheaderModule } from './modules/kasgantungheader/kasgantungheader.module';
 import { KasgantungdetailModule } from './modules/kasgantungdetail/kasgantungdetail.module';
+import { JurnalumumheaderModule } from './modules/jurnalumumheader/jurnalumumheader.module';
+import { JurnalumumdetailModule } from './modules/jurnalumumdetail/jurnalumumdetail.module';
 import { RelasiModule } from './modules/relasi/relasi.module';
 import { AlatbayarModule } from './modules/alatbayar/alatbayar.module';
 import { BankModule } from './modules/bank/bank.module';
@@ -109,6 +111,8 @@ import { ShipperModule } from './modules/shipper/shipper.module';
     PengembaliankasgantungdetailModule,
     KasgantungheaderModule,
     KasgantungdetailModule,
+    JurnalumumheaderModule,
+    JurnalumumdetailModule,
     RelasiModule,
     AlatbayarModule,
     BankModule,

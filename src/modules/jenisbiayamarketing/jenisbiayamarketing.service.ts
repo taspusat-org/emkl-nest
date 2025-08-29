@@ -218,7 +218,9 @@ export class JenisbiayamarketingService {
 
   async update(dataId: number, data: any, trx: any) {
     try {
-      const existingData = await trx(this.tableName).where('id', dataId).first();
+      const existingData = await trx(this.tableName)
+        .where('id', dataId)
+        .first();
 
       if (!existingData) {
         throw new Error('Jenis Biaya Marketing not found');
@@ -258,7 +260,9 @@ export class JenisbiayamarketingService {
       );
 
       // Cari index item yang baru saja diupdate
-      let itemIndex = filteredData.findIndex((item) => Number(item.id) === dataId);
+      let itemIndex = filteredData.findIndex(
+        (item) => Number(item.id) === dataId,
+      );
       if (itemIndex === -1) {
         itemIndex = 0;
       }
@@ -331,89 +335,89 @@ export class JenisbiayamarketingService {
       throw new InternalServerErrorException('Failed to delete data');
     }
   }
-  
-    async exportToExcel(data: any[]) {
-      const workbook = new Workbook();
-      const worksheet = workbook.addWorksheet('Data Export');
-  
-      worksheet.mergeCells('A1:I1');
-      worksheet.mergeCells('A2:I2');
-      worksheet.mergeCells('A3:I3');
-      worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
-      worksheet.getCell('A2').value = 'LAPORAN JENIS BIAYA MARKETING';
-      worksheet.getCell('A3').value = 'Data Export';
-      worksheet.getCell('A1').alignment = {
-        horizontal: 'center',
-        vertical: 'middle',
+
+  async exportToExcel(data: any[]) {
+    const workbook = new Workbook();
+    const worksheet = workbook.addWorksheet('Data Export');
+
+    worksheet.mergeCells('A1:I1');
+    worksheet.mergeCells('A2:I2');
+    worksheet.mergeCells('A3:I3');
+    worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
+    worksheet.getCell('A2').value = 'LAPORAN JENIS BIAYA MARKETING';
+    worksheet.getCell('A3').value = 'Data Export';
+    worksheet.getCell('A1').alignment = {
+      horizontal: 'center',
+      vertical: 'middle',
+    };
+    worksheet.getCell('A2').alignment = {
+      horizontal: 'center',
+      vertical: 'middle',
+    };
+    worksheet.getCell('A3').alignment = {
+      horizontal: 'center',
+      vertical: 'middle',
+    };
+    worksheet.getCell('A1').font = { size: 14, bold: true };
+    worksheet.getCell('A2').font = { bold: true };
+    worksheet.getCell('A3').font = { bold: true };
+
+    const headers = ['NO.', 'NAMA', 'KETERANGAN', 'STATUS AKTIF'];
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(5, index + 1);
+      cell.value = header;
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFF00' },
       };
-      worksheet.getCell('A2').alignment = {
-        horizontal: 'center',
-        vertical: 'middle',
+      cell.font = { bold: true, name: 'Tahoma', size: 10 };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
       };
-      worksheet.getCell('A3').alignment = {
-        horizontal: 'center',
-        vertical: 'middle',
-      };
-      worksheet.getCell('A1').font = { size: 14, bold: true };
-      worksheet.getCell('A2').font = { bold: true };
-      worksheet.getCell('A3').font = { bold: true };
-  
-      const headers = ['NO.', 'NAMA', 'KETERANGAN', 'STATUS AKTIF'];
-      headers.forEach((header, index) => {
-        const cell = worksheet.getCell(5, index + 1);
-        cell.value = header;
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFFF00' },
-        };
-        cell.font = { bold: true, name: 'Tahoma', size: 10 };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    data.forEach((row, rowIndex) => {
+      const currentRow = rowIndex + 6;
+
+      worksheet.getCell(currentRow, 1).value = rowIndex + 1;
+      worksheet.getCell(currentRow, 2).value = row.nama;
+      worksheet.getCell(currentRow, 3).value = row.keterangan;
+      worksheet.getCell(currentRow, 4).value = row.statusaktif_text;
+
+      for (let col = 1; col <= headers.length; col++) {
+        const cell = worksheet.getCell(currentRow, col);
+        cell.font = { name: 'Tahoma', size: 10 };
         cell.border = {
           top: { style: 'thin' },
           left: { style: 'thin' },
           bottom: { style: 'thin' },
           right: { style: 'thin' },
         };
-      });
-      data.forEach((row, rowIndex) => {
-        const currentRow = rowIndex + 6;
-  
-        worksheet.getCell(currentRow, 1).value = rowIndex + 1;
-        worksheet.getCell(currentRow, 2).value = row.nama;
-        worksheet.getCell(currentRow, 3).value = row.keterangan;
-        worksheet.getCell(currentRow, 4).value = row.statusaktif_text;
-  
-        for (let col = 1; col <= headers.length; col++) {
-          const cell = worksheet.getCell(currentRow, col);
-          cell.font = { name: 'Tahoma', size: 10 };
-          cell.border = {
-            top: { style: 'thin' },
-            left: { style: 'thin' },
-            bottom: { style: 'thin' },
-            right: { style: 'thin' },
-          };
-        }
-      });
-  
-      worksheet.getColumn(1).width = 10;
-      worksheet.getColumn(2).width = 30;
-      worksheet.getColumn(3).width = 30;
-      worksheet.getColumn(4).width = 20;
-  
-      const tempDir = path.resolve(process.cwd(), 'tmp');
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
       }
-  
-      const tempFilePath = path.resolve(
-        tempDir,
-        `laporan_jenisbiayamarketing${Date.now()}.xlsx`,
-      );
-      await workbook.xlsx.writeFile(tempFilePath);
-  
-      return tempFilePath;
+    });
+
+    worksheet.getColumn(1).width = 10;
+    worksheet.getColumn(2).width = 30;
+    worksheet.getColumn(3).width = 30;
+    worksheet.getColumn(4).width = 20;
+
+    const tempDir = path.resolve(process.cwd(), 'tmp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
     }
+
+    const tempFilePath = path.resolve(
+      tempDir,
+      `laporan_jenisbiayamarketing${Date.now()}.xlsx`,
+    );
+    await workbook.xlsx.writeFile(tempFilePath);
+
+    return tempFilePath;
+  }
 
   async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
     try {

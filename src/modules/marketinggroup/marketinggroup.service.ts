@@ -218,7 +218,9 @@ export class MarketinggroupService {
 
   async update(dataId: number, data: any, trx: any) {
     try {
-      const existingData = await trx(this.tableName).where('id', dataId).first();
+      const existingData = await trx(this.tableName)
+        .where('id', dataId)
+        .first();
 
       if (!existingData) {
         throw new Error('Marketing Group not found');
@@ -259,7 +261,9 @@ export class MarketinggroupService {
       );
 
       // Cari index item yang baru saja diupdate
-      let itemIndex = filteredData.findIndex((item) => Number(item.id) === dataId);
+      let itemIndex = filteredData.findIndex(
+        (item) => Number(item.id) === dataId,
+      );
       if (itemIndex === -1) {
         itemIndex = 0;
       }

@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, InternalServerErrorException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { MarketingorderanService } from './marketingorderan.service';
 import { CreateMarketingorderanDto } from './dto/create-marketingorderan.dto';
 import { UpdateMarketingorderanDto } from './dto/update-marketingorderan.dto';
@@ -17,11 +27,9 @@ export class MarketingorderanController {
   }
 
   @Get(':id')
-  async findAll(
-    @Param('id') id: string,
-    @Query() query: FindAllDto
-  ) {
-    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } = query;
+  async findAll(@Param('id') id: string, @Query() query: FindAllDto) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
 
     const sortParams = {
       sortBy: sortBy || 'nama',
@@ -32,7 +40,7 @@ export class MarketingorderanController {
       page: page || 1,
       limit: limit === 0 || !limit ? undefined : limit,
     };
-    
+
     const params: FindAllParams = {
       search,
       filters,
@@ -43,14 +51,24 @@ export class MarketingorderanController {
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.marketingorderanService.findAll(id, trx, params);
-      
+      const result = await this.marketingorderanService.findAll(
+        id,
+        trx,
+        params,
+      );
+
       trx.commit();
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error fetching data marketing orderan in controller ', error, error.message);
-      throw new InternalServerErrorException('Failed to fetch marketing orderan in controller');
+      console.error(
+        'Error fetching data marketing orderan in controller ',
+        error,
+        error.message,
+      );
+      throw new InternalServerErrorException(
+        'Failed to fetch marketing orderan in controller',
+      );
     }
   }
 

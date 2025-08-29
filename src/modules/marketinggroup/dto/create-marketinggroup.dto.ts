@@ -10,12 +10,17 @@ const baseFields = {
     .nonnegative({ message: 'Status Aktif Tidak Boleh Angka Negatif' }), // Ensure non-negative
   modifiedby: z.string().nullable().optional(),
 };
-export const CreateMarketinggroupSchema = z.object({
-    ...baseFields,  
-})
+export const CreateMarketinggroupSchema = z
+  .object({
+    ...baseFields,
+  })
   .superRefine(async (data, ctx) => {
     // Cek unik hanya untuk create (excludeId tidak ada)
-    const existsName = await isRecordExist('marketing_id', data.marketing_id, 'marketinggroup');
+    const existsName = await isRecordExist(
+      'marketing_id',
+      data.marketing_id,
+      'marketinggroup',
+    );
     if (existsName) {
       ctx.addIssue({
         path: ['marketing_nama'],
@@ -52,4 +57,6 @@ export const UpdateMarketinggroupSchema = z
     }
     // Validasi khusus update bisa diletakkan di sini
   });
-export type UpdateMarketinggroupDto = z.infer<typeof UpdateMarketinggroupSchema>;
+export type UpdateMarketinggroupDto = z.infer<
+  typeof UpdateMarketinggroupSchema
+>;

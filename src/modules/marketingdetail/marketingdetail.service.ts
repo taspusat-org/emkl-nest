@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { CreateMarketingdetailDto } from './dto/create-marketingdetail.dto';
 import { UpdateMarketingdetailDto } from './dto/update-marketingdetail.dto';
 import { UtilsService } from 'src/utils/utils.service';
@@ -30,10 +34,16 @@ export class MarketingdetailService {
       const time = this.utilsService.getTime();
       const logData: any[] = [];
       const mainDataToInsert: any[] = [];
-      const tableTemp = await this.utilsService.createTempTable(this.tableName, trx, tempTableName);
+      const tableTemp = await this.utilsService.createTempTable(
+        this.tableName,
+        trx,
+        tempTableName,
+      );
 
       if (marketingDetailData.length === 0) {
-        await trx(this.tableName).delete().where('marketingprosesfee_id', marketingprosesfee_id);
+        await trx(this.tableName)
+          .delete()
+          .where('marketingprosesfee_id', marketingprosesfee_id);
         return;
       }
 
@@ -53,7 +63,9 @@ export class MarketingdetailService {
         });
 
         if (data.id) {
-          const existingData = await trx(this.tableName).where('id', data.id).first();
+          const existingData = await trx(this.tableName)
+            .where('id', data.id)
+            .first();
 
           if (existingData) {
             const createdAt = {
@@ -107,11 +119,13 @@ export class MarketingdetailService {
       await trx(tempTableName).insert(openJson);
 
       // **Update or Insert into 'marketingorderan' with correct idheader**
-      const updatedData = await trx(this.tableName) 
+      const updatedData = await trx(this.tableName)
         .join(`${tempTableName}`, `${this.tableName}.id`, `${tempTableName}.id`)
         .update({
           marketing_id: trx.raw(`${tempTableName}.marketing_id`),
-          marketingprosesfee_id: trx.raw(`${tempTableName}.marketingprosesfee_id`),
+          marketingprosesfee_id: trx.raw(
+            `${tempTableName}.marketingprosesfee_id`,
+          ),
           nominalawal: trx.raw(`${tempTableName}.nominalawal`),
           nominalakhir: trx.raw(`${tempTableName}.nominalakhir`),
           persentase: trx.raw(`${tempTableName}.persentase`),
@@ -227,12 +241,14 @@ export class MarketingdetailService {
       );
       return updatedData || insertedData;
     } catch (error) {
-      throw new Error(`Error inserted marketing detail in service: ${error.message}`);
+      throw new Error(
+        `Error inserted marketing detail in service: ${error.message}`,
+      );
     }
   }
 
   async findAll(
-    id: string, 
+    id: string,
     trx: any,
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
   ) {
@@ -241,25 +257,25 @@ export class MarketingdetailService {
       page = page ?? 1;
       limit = limit ?? 0;
 
-      const query = trx((`${this.tableName} as u`))
-      .select(
-        'u.id',
-        'u.marketing_id',
-        'u.marketingprosesfee_id',
-        'u.nominalawal',
-        'u.nominalakhir',
-        'u.persentase',
-        'u.statusaktif',
-        'p.nama as marketing_nama',
-        'q.memo',
-        'q.text as statusaktif_nama',
-      )
-      .leftJoin('marketing as p', 'u.marketing_id', 'p.id')
-      // .leftJoin('marketingprosesfee as r', 'p.marketingprosesfee_id', 'r.id')
-      .leftJoin('parameter as q', 'u.statusaktif', 'q.id')
-      .where('u.marketingprosesfee_id', id)
-      .orderBy('u.created_at', 'desc'); 
-      
+      const query = trx(`${this.tableName} as u`)
+        .select(
+          'u.id',
+          'u.marketing_id',
+          'u.marketingprosesfee_id',
+          'u.nominalawal',
+          'u.nominalakhir',
+          'u.persentase',
+          'u.statusaktif',
+          'p.nama as marketing_nama',
+          'q.memo',
+          'q.text as statusaktif_nama',
+        )
+        .leftJoin('marketing as p', 'u.marketing_id', 'p.id')
+        // .leftJoin('marketingprosesfee as r', 'p.marketingprosesfee_id', 'r.id')
+        .leftJoin('parameter as q', 'u.statusaktif', 'q.id')
+        .where('u.marketingprosesfee_id', id)
+        .orderBy('u.created_at', 'desc');
+
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
@@ -267,7 +283,7 @@ export class MarketingdetailService {
             .orWhere('p.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('u.nominalawal', 'like', `%${sanitizedValue}%`)
             .orWhere('u.nominalakhir', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.persentase', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.persentase', 'like', `%${sanitizedValue}%`);
         });
       }
 
@@ -326,19 +342,24 @@ export class MarketingdetailService {
         );
 
         return forceEdit;
-      // } else if (aksi === 'DELETE') {
-      //   const validasi = await this.globalService.checkUsed(
-      //     'akunpusat',
-      //     'type_id',
-      //     value,
-      //     trx,
-      //   );
+        // } else if (aksi === 'DELETE') {
+        //   const validasi = await this.globalService.checkUsed(
+        //     'akunpusat',
+        //     'type_id',
+        //     value,
+        //     trx,
+        //   );
 
-      //   return validasi;
+        //   return validasi;
       }
     } catch (error) {
-      console.error('Error check validasi edit marketing detail di function checkValidasi:', error);
-      throw new InternalServerErrorException('Failed to check validation edit marketing');
+      console.error(
+        'Error check validasi edit marketing detail di function checkValidasi:',
+        error,
+      );
+      throw new InternalServerErrorException(
+        'Failed to check validation edit marketing',
+      );
     }
   }
 

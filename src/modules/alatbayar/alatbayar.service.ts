@@ -179,7 +179,7 @@ export class AlatbayarService {
             .orWhere('p3.text', 'like', `%${val}%`)
             .orWhere('p.text', 'like', `%${val}%`)
             .orWhere('ab.info', 'like', `%${val}%`)
-            .orWhere('ab.modifiedby', 'like', `%${val}%`)
+            .orWhere('ab.modifiedby', 'like', `%${val}%`),
         );
       }
 
@@ -197,11 +197,7 @@ export class AlatbayarService {
             ]);
           }
           // kolom teks lainnya
-          else if (
-            ['nama', 'keterangan', 'info', 'modifiedby'].includes(
-              key,
-            )
-          ) {
+          else if (['nama', 'keterangan', 'info', 'modifiedby'].includes(key)) {
             query.andWhere(`ab.${key}`, 'like', `%${val}%`);
           }
           // kolom numerik

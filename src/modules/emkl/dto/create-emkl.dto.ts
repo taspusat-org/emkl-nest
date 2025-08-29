@@ -20,7 +20,12 @@ const baseFields = {
     .trim()
     .min(1, { message: 'No Telepon Wajib Diisi' })
     .max(14),
-  email: z.string().trim().email({ message: "Email tidak valid" }).optional().or(z.literal("")),
+  email: z
+    .string()
+    .trim()
+    .email({ message: 'Email tidak valid' })
+    .optional()
+    .or(z.literal('')),
   fax: z.string().trim().nullable().optional(),
   alamatweb: z.string().trim().nullable().optional(),
   top: z
@@ -48,9 +53,10 @@ const baseFields = {
     .nonnegative({ message: 'Status Aktif Tidak Boleh Angka Negatif' }), // Ensure non-negative
   modifiedby: z.string().nullable().optional(),
 };
-export const CreateEmklSchema = z.object({
-    ...baseFields
-})
+export const CreateEmklSchema = z
+  .object({
+    ...baseFields,
+  })
   .superRefine(async (data, ctx) => {
     // Cek unik hanya untuk create (excludeId tidak ada)
     const existsName = await isRecordExist('nama', data.nama, 'emkl');
@@ -65,7 +71,6 @@ export const CreateEmklSchema = z.object({
   });
 export type CreateEmklDto = z.infer<typeof CreateEmklSchema>;
 
-
 export const UpdateEmklSchema = z
   .object({
     ...baseFields,
@@ -74,12 +79,7 @@ export const UpdateEmklSchema = z
   })
   .superRefine(async (data, ctx) => {
     // Exclude diri sendiri dari pengecekan unik
-    const existsName = await isRecordExist(
-      'nama',
-      data.nama,
-      'emkl',
-      data.id,
-    );
+    const existsName = await isRecordExist('nama', data.nama, 'emkl', data.id);
     if (existsName) {
       ctx.addIssue({
         path: ['nama'],

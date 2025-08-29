@@ -25,7 +25,7 @@ import { LocksModule } from '../locks/locks.module';
     MarketingmanagerModule,
     MarketingprosesfeeModule,
     MarketingdetailModule,
-    LocksModule
+    LocksModule,
   ],
 })
 export class MarketingModule {}

@@ -1,4 +1,9 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateMarketingDto } from './dto/create-marketing.dto';
 // import { UpdateMarketingDto } from './dto/update-marketing.dto';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
@@ -82,19 +87,30 @@ export class MarketingService {
       });
 
       if (data.karyawan_id != null) {
-        const cekIdCabang = await dbHr('karyawan').select('id', 'namakaryawan', 'cabang_id').where('id', insertData.karyawan_id).first();
-        const cekNamaCabang = await dbHr('cabang').select('nama').where('id', cekIdCabang.cabang_id).first();
-        const getIdCabangEmkl = await trx('cabang').select('id').where('nama', cekNamaCabang.nama).first();
+        const cekIdCabang = await dbHr('karyawan')
+          .select('id', 'namakaryawan', 'cabang_id')
+          .where('id', insertData.karyawan_id)
+          .first();
+        const cekNamaCabang = await dbHr('cabang')
+          .select('nama')
+          .where('id', cekIdCabang.cabang_id)
+          .first();
+        const getIdCabangEmkl = await trx('cabang')
+          .select('id')
+          .where('nama', cekNamaCabang.nama)
+          .first();
         cabang_id = getIdCabangEmkl?.id ? getIdCabangEmkl?.id : 2;
         // console.log('tes', cekIdCabang.cabang_id, cekNamaCabang, cekNamaCabang.nama, getIdCabangEmkl, cabang_id);
       }
 
       const insertDataWithCabangId = {
         ...insertData,
-        cabang_id: cabang_id
-      }
-      
-      const insertNewData = await trx(this.tableName).insert(insertDataWithCabangId).returning('*');
+        cabang_id: cabang_id,
+      };
+
+      const insertNewData = await trx(this.tableName)
+        .insert(insertDataWithCabangId)
+        .returning('*');
 
       if (marketingorderan.length > 0) {
         const morderanWithMarketingId = marketingorderan.map((detail: any) => ({
@@ -125,24 +141,35 @@ export class MarketingService {
       }
 
       if (marketingmanager.length > 0) {
-        const marketingManagerWithMarketingId = marketingmanager.map((detail: any) => ({
-          ...detail,
-          marketing_id: insertNewData[0].id, 
-          modifiedby: insertDataWithCabangId.modifiedby
-        }))
-        await this.marketingManagerService.create(marketingManagerWithMarketingId, insertNewData[0].id, trx)
+        const marketingManagerWithMarketingId = marketingmanager.map(
+          (detail: any) => ({
+            ...detail,
+            marketing_id: insertNewData[0].id,
+            modifiedby: insertDataWithCabangId.modifiedby,
+          }),
+        );
+        await this.marketingManagerService.create(
+          marketingManagerWithMarketingId,
+          insertNewData[0].id,
+          trx,
+        );
       }
 
       if (marketingprosesfee.length > 0) {
-        const mprosesfeeWithMarketingId = marketingprosesfee.map((detail: any) => ({
-          ...detail,
-          marketing_id: insertNewData[0].id,
-          modifiedby: insertDataWithCabangId.modifiedby
-        }))
-        await this.marketingProsesFeeService.create(mprosesfeeWithMarketingId, insertNewData[0].id, trx)
+        const mprosesfeeWithMarketingId = marketingprosesfee.map(
+          (detail: any) => ({
+            ...detail,
+            marketing_id: insertNewData[0].id,
+            modifiedby: insertDataWithCabangId.modifiedby,
+          }),
+        );
+        await this.marketingProsesFeeService.create(
+          mprosesfeeWithMarketingId,
+          insertNewData[0].id,
+          trx,
+        );
       }
 
-      
       // if (marketingdetail.length > 0) {
       //   const mdetailWithMarketingId = marketingdetail.map((detail: any) => ({
       //     ...detail,
@@ -160,12 +187,12 @@ export class MarketingService {
           filters,
           pagination: { page, limit },
           sort: { sortBy, sortDirection },
-          isLookUp: false, 
+          isLookUp: false,
         },
         trx,
       );
 
-      let dataIndex = filteredItems.findIndex((item) => item.id === newItem.id); 
+      let dataIndex = filteredItems.findIndex((item) => item.id === newItem.id);
       if (dataIndex === -1) {
         dataIndex = 0;
       }
@@ -228,29 +255,35 @@ export class MarketingService {
       }
 
       const tempTableMarketingGroup = `##temp_${Math.random().toString(36).substring(2, 15)}`;
-      const tempMarketingGroup = await this.utilService.createTempTable('marketinggroup', trx, tempTableMarketingGroup)
+      const tempMarketingGroup = await this.utilService.createTempTable(
+        'marketinggroup',
+        trx,
+        tempTableMarketingGroup,
+      );
       await trx.raw(tempMarketingGroup);
-      await trx.raw(`ALTER TABLE ${tempTableMarketingGroup} ADD marketinggroup_nama nvarchar(200) NULL`);      
+      await trx.raw(
+        `ALTER TABLE ${tempTableMarketingGroup} ADD marketinggroup_nama nvarchar(200) NULL`,
+      );
 
       const getMarketingGroup = await trx('marketinggroup as a')
-      .select([
-        'a.id',
-        'a.marketing_id',
-        'a.statusaktif',
-        'a.info',
-        'a.modifiedby',
-        'a.created_at',
-        'a.updated_at',
-        'marketing.nama as marketinggroup_nama',
-      ])
-      .leftJoin('marketing', 'a.marketing_id', 'marketing.id')
+        .select([
+          'a.id',
+          'a.marketing_id',
+          'a.statusaktif',
+          'a.info',
+          'a.modifiedby',
+          'a.created_at',
+          'a.updated_at',
+          'marketing.nama as marketinggroup_nama',
+        ])
+        .leftJoin('marketing', 'a.marketing_id', 'marketing.id');
 
-      const jsonString = JSON.stringify(getMarketingGroup)
+      const jsonString = JSON.stringify(getMarketingGroup);
       const mappingData = Object.keys(getMarketingGroup[0]).map((key) => [
         'value',
         `$.${key}`,
         key,
-      ]);      
+      ]);
 
       const openJson = await trx
         .from(trx.raw('OPENJSON(?)', [jsonString]))
@@ -260,42 +293,62 @@ export class MarketingService {
       await trx(tempTableMarketingGroup).insert(openJson);
 
       const query = trx(`${this.tableName} as u`)
-      .select([
-        'u.id',
-        'u.nama',
-        'u.keterangan',
-        'u.statusaktif',
-        'u.email',
-        'u.karyawan_id',
-        trx.raw("FORMAT(u.tglmasuk, 'dd-MM-yyyy') as tglmasuk"),
-        'u.cabang_id',
-        'u.statustarget',
-        'u.statusbagifee',
-        'u.statusfeemanager',
-        // 'u.marketingmanager_id',
-        'u.marketinggroup_id',
-        'u.statusprafee',
-        'u.modifiedby',
-        trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-        trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-        'statusaktif.text as statusaktif_nama',
-        'statusaktif.memo as memo',
-        'cabang.nama as cabang_nama',
-        'statustarget.text as statustarget_nama',
-        'statusbagifee.text as statusbagifee_nama',
-        'statusfeemanager.text as statusfeemanager_nama',
-        `tmg.marketinggroup_nama as marketinggroup_nama`,
-        'statusprafee.text as statusprafee_nama',
-        'karyawan.namakaryawan as karyawan_nama'
-      ])
-      .leftJoin('parameter as statusaktif', 'u.statusaktif', 'statusaktif.id')
-      .leftJoin('cabang', 'u.cabang_id', 'cabang.id')
-      .leftJoin('parameter as statustarget', 'u.statustarget', 'statustarget.id')
-      .leftJoin('parameter as statusbagifee', 'u.statusbagifee', 'statusbagifee.id')
-      .leftJoin('parameter as statusfeemanager', 'u.statusfeemanager', 'statusfeemanager.id')
-      .leftJoin(`${tempTableMarketingGroup} as tmg`, 'u.marketinggroup_id', `tmg.id`)
-      .leftJoin(`hr.dbo.karyawan as karyawan`, 'u.karyawan_id', 'karyawan.id')
-      .leftJoin('parameter as statusprafee', 'u.statusprafee', 'statusprafee.id')
+        .select([
+          'u.id',
+          'u.nama',
+          'u.keterangan',
+          'u.statusaktif',
+          'u.email',
+          'u.karyawan_id',
+          trx.raw("FORMAT(u.tglmasuk, 'dd-MM-yyyy') as tglmasuk"),
+          'u.cabang_id',
+          'u.statustarget',
+          'u.statusbagifee',
+          'u.statusfeemanager',
+          // 'u.marketingmanager_id',
+          'u.marketinggroup_id',
+          'u.statusprafee',
+          'u.modifiedby',
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+          'statusaktif.text as statusaktif_nama',
+          'statusaktif.memo as memo',
+          'cabang.nama as cabang_nama',
+          'statustarget.text as statustarget_nama',
+          'statusbagifee.text as statusbagifee_nama',
+          'statusfeemanager.text as statusfeemanager_nama',
+          `tmg.marketinggroup_nama as marketinggroup_nama`,
+          'statusprafee.text as statusprafee_nama',
+          'karyawan.namakaryawan as karyawan_nama',
+        ])
+        .leftJoin('parameter as statusaktif', 'u.statusaktif', 'statusaktif.id')
+        .leftJoin('cabang', 'u.cabang_id', 'cabang.id')
+        .leftJoin(
+          'parameter as statustarget',
+          'u.statustarget',
+          'statustarget.id',
+        )
+        .leftJoin(
+          'parameter as statusbagifee',
+          'u.statusbagifee',
+          'statusbagifee.id',
+        )
+        .leftJoin(
+          'parameter as statusfeemanager',
+          'u.statusfeemanager',
+          'statusfeemanager.id',
+        )
+        .leftJoin(
+          `${tempTableMarketingGroup} as tmg`,
+          'u.marketinggroup_id',
+          `tmg.id`,
+        )
+        .leftJoin(`hr.dbo.karyawan as karyawan`, 'u.karyawan_id', 'karyawan.id')
+        .leftJoin(
+          'parameter as statusprafee',
+          'u.statusprafee',
+          'statusprafee.id',
+        );
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
@@ -306,7 +359,9 @@ export class MarketingService {
             // .orWhere('statusaktif.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.email', 'like', `%${sanitizedValue}%`)
             .orWhere('karyawan.namakaryawan', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.tglmasuk, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.tglmasuk, 'dd-MM-yyyy') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
             .orWhere('cabang.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('statustarget.text', 'like', `%${sanitizedValue}%`)
             .orWhere('statusbagifee.text', 'like', `%${sanitizedValue}%`)
@@ -324,23 +379,41 @@ export class MarketingService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'tglmasuk') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'karyawan_nama') {
-              query.andWhereRaw("karyawan.namakaryawan LIKE ?", [`%${sanitizedValue}%`]);
+              query.andWhereRaw('karyawan.namakaryawan LIKE ?', [
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'cabang_nama') {
-              query.andWhereRaw("cabang.nama LIKE ?", [`%${sanitizedValue}%`]);
+              query.andWhereRaw('cabang.nama LIKE ?', [`%${sanitizedValue}%`]);
             } else if (key === 'marketinggroup_nama') {
-              query.andWhereRaw("tmg.marketinggroup_nama LIKE ?", [`%${sanitizedValue}%`]);
+              query.andWhereRaw('tmg.marketinggroup_nama LIKE ?', [
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'statustarget_nama') {
-              query.andWhereRaw("statustarget.text LIKE ?", [`%${sanitizedValue}%`]);
+              query.andWhereRaw('statustarget.text LIKE ?', [
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'statusbagifee_nama') {
-              query.andWhereRaw("statusbagifee.text LIKE ?", [`%${sanitizedValue}%`]);
+              query.andWhereRaw('statusbagifee.text LIKE ?', [
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'statusfeemanager_nama') {
-              query.andWhereRaw("statusfeemanager.text LIKE ?", [`%${sanitizedValue}%`]);
+              query.andWhereRaw('statusfeemanager.text LIKE ?', [
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'statusprafee_nama') {
-              query.andWhereRaw("statusprafee.text LIKE ?", [`%${sanitizedValue}%`]);
+              query.andWhereRaw('statusprafee.text LIKE ?', [
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'statusaktif_nama') {
               query.andWhere('statusaktif.id', '=', sanitizedValue);
             } else {
@@ -362,13 +435,13 @@ export class MarketingService {
 
       if (sort?.sortBy && sort.sortDirection) {
         if (sort?.sortBy === 'marketinggroup') {
-          query.orderBy('tmg.marketinggroup_nama', sort.sortDirection)
+          query.orderBy('tmg.marketinggroup_nama', sort.sortDirection);
         } else if (sort?.sortBy === 'karyawan') {
           // query.orderBy('karyawan.nama', sort.sortDirection)
         } else if (sort?.sortBy === 'cabang') {
           // query.orderBy('cabang.nama', sort.sortDirection)
         } else {
-          query.orderBy(sort.sortBy, sort.sortDirection)
+          query.orderBy(sort.sortBy, sort.sortDirection);
         }
       }
 
@@ -405,9 +478,11 @@ export class MarketingService {
       page = page ?? 1;
       limit = limit ?? 0;
       const offset = (page - 1) * limit;
-      
+
       if (isLookUp) {
-        const karyawanHrCount = await dbHr('karyawan').count('id as total').first();
+        const karyawanHrCount = await dbHr('karyawan')
+          .count('id as total')
+          .first();
         const totalDataKaryawanHr = karyawanHrCount?.total || 0;
         // console.log('isLookUp', isLookUp, 'karyawanHrCount', karyawanHrCount, 'totalDataKaryawanHr', totalDataKaryawanHr);
 
@@ -418,8 +493,14 @@ export class MarketingService {
         }
       }
 
-      const getIdStatusAktif = await dbHr('parameter').select('id').where('grp', '=', 'STATUS AKTIF').where('text', '=', 'AKTIF').first();      
-      const query = dbHr('karyawan').select('id', 'namakaryawan').where('statusaktif', '=', getIdStatusAktif.id);
+      const getIdStatusAktif = await dbHr('parameter')
+        .select('id')
+        .where('grp', '=', 'STATUS AKTIF')
+        .where('text', '=', 'AKTIF')
+        .first();
+      const query = dbHr('karyawan')
+        .select('id', 'namakaryawan')
+        .where('statusaktif', '=', getIdStatusAktif.id);
 
       if (limit > 0) {
         query.limit(limit).offset(offset);
@@ -449,7 +530,7 @@ export class MarketingService {
       }
 
       const dataLookupKaryawan = await query;
-      
+
       return {
         data: dataLookupKaryawan,
         total,
@@ -462,8 +543,14 @@ export class MarketingService {
         },
       };
     } catch (error) {
-      console.error('Error fetching data lookup karyawan hr in service marketing:', error, error.message);
-      throw new Error('Failed to fetch data lookup karyawan hr in service marketing');
+      console.error(
+        'Error fetching data lookup karyawan hr in service marketing:',
+        error,
+        error.message,
+      );
+      throw new Error(
+        'Failed to fetch data lookup karyawan hr in service marketing',
+      );
     }
   }
 
@@ -473,7 +560,7 @@ export class MarketingService {
 
   async update(id: number, data: any, trx: any) {
     try {
-      let cabang_id
+      let cabang_id;
       const {
         sortBy,
         sortDirection,
@@ -493,7 +580,7 @@ export class MarketingService {
         marketingmanager,
         marketingprosesfee,
         ...insertData
-      } = data      
+      } = data;
       insertData.updated_at = this.utilService.getTime();
       insertData.created_at = this.utilService.getTime();
 
@@ -509,18 +596,28 @@ export class MarketingService {
           }
         }
       });
-      
+
       if (data.karyawan_id != null) {
-        const cekIdCabang = await dbHr('karyawan').select('id', 'namakaryawan', 'cabang_id').where('id', insertData.karyawan_id).first();
-        const cekNamaCabang = await dbHr('cabang').select('nama').where('id', cekIdCabang.cabang_id).first();
-        const getIdCabangEmkl = await trx('cabang').select('id').where('nama', cekNamaCabang.nama).first();
-        cabang_id = (getIdCabangEmkl || getIdCabangEmkl?.id) ? getIdCabangEmkl?.id : 26
+        const cekIdCabang = await dbHr('karyawan')
+          .select('id', 'namakaryawan', 'cabang_id')
+          .where('id', insertData.karyawan_id)
+          .first();
+        const cekNamaCabang = await dbHr('cabang')
+          .select('nama')
+          .where('id', cekIdCabang.cabang_id)
+          .first();
+        const getIdCabangEmkl = await trx('cabang')
+          .select('id')
+          .where('nama', cekNamaCabang.nama)
+          .first();
+        cabang_id =
+          getIdCabangEmkl || getIdCabangEmkl?.id ? getIdCabangEmkl?.id : 26;
       }
 
       const insertDataWithCabangId = {
         ...insertData,
-        cabang_id: cabang_id
-      }
+        cabang_id: cabang_id,
+      };
 
       const existingData = await trx(this.tableName).where('id', id).first();
       const hasChanges = this.utilService.hasChanges(
@@ -531,39 +628,57 @@ export class MarketingService {
       if (hasChanges) {
         insertDataWithCabangId.updated_at = this.utilService.getTime();
 
-        await trx(this.tableName).where('id', id).update(insertDataWithCabangId);
+        await trx(this.tableName)
+          .where('id', id)
+          .update(insertDataWithCabangId);
       }
 
       if (marketingorderan.length > 0) {
         const morderanWithMarketingId = marketingorderan.map((detail: any) => ({
           ...detail,
-          modifiedby: insertDataWithCabangId.modifiedby
-        }))
-        await this.marketingOrderanService.create(morderanWithMarketingId, id, trx)
+          modifiedby: insertDataWithCabangId.modifiedby,
+        }));
+        await this.marketingOrderanService.create(
+          morderanWithMarketingId,
+          id,
+          trx,
+        );
       }
-      
+
       if (marketingbiaya.length > 0) {
         const mbiayaWithMarketingId = marketingbiaya.map((detail: any) => ({
-          ...detail, 
-          modifiedby: insertDataWithCabangId.modifiedby
-        }))
-        await this.marketingBiayaService.create(mbiayaWithMarketingId, id, trx)
+          ...detail,
+          modifiedby: insertDataWithCabangId.modifiedby,
+        }));
+        await this.marketingBiayaService.create(mbiayaWithMarketingId, id, trx);
       }
-      
+
       if (marketingmanager.length > 0) {
-        const marketingManagerWithMarketingId = marketingmanager.map((detail: any) => ({
-          ...detail, 
-          modifiedby: insertDataWithCabangId.modifiedby
-        }))
-        await this.marketingManagerService.create(marketingManagerWithMarketingId, id, trx)
+        const marketingManagerWithMarketingId = marketingmanager.map(
+          (detail: any) => ({
+            ...detail,
+            modifiedby: insertDataWithCabangId.modifiedby,
+          }),
+        );
+        await this.marketingManagerService.create(
+          marketingManagerWithMarketingId,
+          id,
+          trx,
+        );
       }
 
       if (marketingprosesfee.length > 0) {
-        const mprosesfeeWithMarketingId = marketingprosesfee.map((detail: any) => ({
-          ...detail,
-          modifiedby: insertDataWithCabangId.modifiedby
-        }))
-        await this.marketingProsesFeeService.create(mprosesfeeWithMarketingId, id, trx)
+        const mprosesfeeWithMarketingId = marketingprosesfee.map(
+          (detail: any) => ({
+            ...detail,
+            modifiedby: insertDataWithCabangId.modifiedby,
+          }),
+        );
+        await this.marketingProsesFeeService.create(
+          mprosesfeeWithMarketingId,
+          id,
+          trx,
+        );
       }
 
       const { data: filteredItems } = await this.findAll(
@@ -585,9 +700,12 @@ export class MarketingService {
 
       const pageNumber = Math.floor(dataIndex / limit) + 1;
       const endIndex = pageNumber * limit;
-      const limitedItems = filteredItems.slice(0, endIndex);  // Ambil data hingga halaman yang mencakup item baru
+      const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
 
-      await this.redisService.set(`${this.tableName}-allItems`, JSON.stringify(limitedItems));
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
@@ -609,7 +727,6 @@ export class MarketingService {
         pageNumber,
         dataIndex,
       };
-
     } catch (error) {
       throw new Error(`Error: ${error.message}`);
     }
@@ -617,12 +734,37 @@ export class MarketingService {
 
   async delete(id: number, trx: any, modifiedby: string) {
     try {
-      const deletedData = await this.utilService.lockAndDestroy(id, this.tableName, 'id', trx);
+      const deletedData = await this.utilService.lockAndDestroy(
+        id,
+        this.tableName,
+        'id',
+        trx,
+      );
 
-      const deletedMarketingOrderan = await this.utilService.lockAndDestroy(id, 'marketingorderan', 'marketing_id', trx);
-      const deletedMarketingBiaya = await this.utilService.lockAndDestroy(id, 'marketingbiaya', 'marketing_id', trx);
-      const deletedMarketingManager = await this.utilService.lockAndDestroy(id, 'marketingmanager', 'marketing_id', trx);
-      const deletedMarketingProsesFee = await this.utilService.lockAndDestroy(id, 'marketingprosesfee', 'marketing_id', trx);
+      const deletedMarketingOrderan = await this.utilService.lockAndDestroy(
+        id,
+        'marketingorderan',
+        'marketing_id',
+        trx,
+      );
+      const deletedMarketingBiaya = await this.utilService.lockAndDestroy(
+        id,
+        'marketingbiaya',
+        'marketing_id',
+        trx,
+      );
+      const deletedMarketingManager = await this.utilService.lockAndDestroy(
+        id,
+        'marketingmanager',
+        'marketing_id',
+        trx,
+      );
+      const deletedMarketingProsesFee = await this.utilService.lockAndDestroy(
+        id,
+        'marketingprosesfee',
+        'marketing_id',
+        trx,
+      );
 
       await this.logTrailService.create(
         {
@@ -693,7 +835,9 @@ export class MarketingService {
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to delete data marketing in service');
+      throw new InternalServerErrorException(
+        'Failed to delete data marketing in service',
+      );
     }
   }
 
@@ -708,15 +852,15 @@ export class MarketingService {
         );
 
         return forceEdit;
-      // } else if (aksi === 'DELETE') {
-      //   const validasi = await this.globalService.checkUsed(
-      //     'akunpusat',
-      //     'type_id',
-      //     value,
-      //     trx,
-      //   );
+        // } else if (aksi === 'DELETE') {
+        //   const validasi = await this.globalService.checkUsed(
+        //     'akunpusat',
+        //     'type_id',
+        //     value,
+        //     trx,
+        //   );
 
-      //   return validasi;
+        //   return validasi;
       }
     } catch (error) {
       console.error('Error di checkValidasi:', error);

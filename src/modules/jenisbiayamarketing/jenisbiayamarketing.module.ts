@@ -9,7 +9,14 @@ import { GlobalModule } from '../global/global.module';
 import { LocksModule } from '../locks/locks.module';
 
 @Module({
-  imports: [AuthModule, RedisModule, UtilsModule, LogtrailModule, GlobalModule, LocksModule],
+  imports: [
+    AuthModule,
+    RedisModule,
+    UtilsModule,
+    LogtrailModule,
+    GlobalModule,
+    LocksModule,
+  ],
   controllers: [JenisbiayamarketingController],
   providers: [JenisbiayamarketingService],
 })

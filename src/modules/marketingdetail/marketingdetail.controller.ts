@@ -28,11 +28,8 @@ export class MarketingdetailController {
 
   @UseGuards(AuthGuard)
   @Post()
-  async create(
-    @Body() data: any,
-    @Req() req,
-  ) {
-    let result
+  async create(@Body() data: any, @Req() req) {
+    let result;
 
     const {
       sortBy,
@@ -50,7 +47,7 @@ export class MarketingdetailController {
       marketingdetail,
       ...insertData
     } = data;
-    
+
     const trx = await dbMssql.transaction();
 
     try {
@@ -61,7 +58,7 @@ export class MarketingdetailController {
           marketingprosesfee_id: marketingprosesfee_id,
           modifiedby: req.user?.user?.modifiedby || 'unknown',
         }));
-        
+
         result = await this.marketingdetailService.create(
           marketingDetailData,
           marketingprosesfee_id,
@@ -69,8 +66,8 @@ export class MarketingdetailController {
         );
       } else {
         return {
-          message: "Tidak ada data marketing detail yg diinput"
-        }
+          message: 'Tidak ada data marketing detail yg diinput',
+        };
       }
 
       // const result = await this.marketingdetailService.create(data, trx);
@@ -97,12 +94,10 @@ export class MarketingdetailController {
   }
 
   @Get(':id')
-  async findAll(
-    @Param('id') id: string,
-    @Query() query: FindAllDto
-  ) {
-    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } = query;
-    
+  async findAll(@Param('id') id: string, @Query() query: FindAllDto) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
+
     const sortParams = {
       sortBy: sortBy || 'nama',
       sortDirection: sortDirection || 'asc',
@@ -112,7 +107,7 @@ export class MarketingdetailController {
       page: page || 1,
       limit: limit === 0 || !limit ? undefined : limit,
     };
-    
+
     const params: FindAllParams = {
       search,
       filters,
@@ -131,10 +126,12 @@ export class MarketingdetailController {
       trx.rollback();
       console.error(
         'Error fetching data marketing detail in controller ',
-        error, 
-        error.message
+        error,
+        error.message,
       );
-      throw new InternalServerErrorException('Failed to fetch marketing detail in controller');
+      throw new InternalServerErrorException(
+        'Failed to fetch marketing detail in controller',
+      );
     }
   }
 

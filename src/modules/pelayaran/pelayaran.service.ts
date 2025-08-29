@@ -295,7 +295,9 @@ export class PelayaranService {
 
   async update(dataId: number, data: any, trx: any) {
     try {
-      const existingData = await trx(this.tableName).where('id', dataId).first();
+      const existingData = await trx(this.tableName)
+        .where('id', dataId)
+        .first();
 
       if (!existingData) {
         throw new Error('Pelayaran not found');

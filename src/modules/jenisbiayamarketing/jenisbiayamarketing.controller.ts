@@ -204,7 +204,8 @@ export class JenisbiayamarketingController {
         throw new Error('Data is not an array or is undefined.');
       }
 
-      const tempFilePath = await this.jenisbiayamarketingService.exportToExcel(data);
+      const tempFilePath =
+        await this.jenisbiayamarketingService.exportToExcel(data);
 
       const fileStream = fs.createReadStream(tempFilePath);
 
@@ -242,7 +243,7 @@ export class JenisbiayamarketingController {
       throw new Error('Failed to fetch data by id');
     }
   }
-  
+
   @Post('check-validation')
   @UseGuards(AuthGuard)
   async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {

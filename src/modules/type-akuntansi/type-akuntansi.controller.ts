@@ -219,32 +219,29 @@ export class TypeAkuntansiController {
   }
 
   @Get('/export')
-  async exportToExcel(
-    @Query() params: any,
-    @Res() res: Response
-  ) {
+  async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {
       console.log('masuk sini?');
-      
+
       const { data } = await this.findAll(params);
 
       if (!Array.isArray(data)) {
-        throw new Error('Data is not an array or is undefined')
+        throw new Error('Data is not an array or is undefined');
       }
 
       const tempFilePath = await this.typeAkuntansiService.exportToExcel(data);
-      const fileStream = fs.createReadStream(tempFilePath)
+      const fileStream = fs.createReadStream(tempFilePath);
 
       res.setHeader(
         'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      )
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_typeakuntansi.xlsx"'
-      )
+        'attachment; filename="laporan_typeakuntansi.xlsx"',
+      );
 
-      fileStream.pipe(res)
+      fileStream.pipe(res);
     } catch (error) {
       console.error('Error exporting to Excel:', error);
       res.status(500).send('Failed to export file');

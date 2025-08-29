@@ -241,32 +241,32 @@ export class MarketingorderanService {
   }
 
   async findAll(
-    id: string, 
+    id: string,
     trx: any,
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
   ) {
-    try { 
+    try {
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
 
-      const query = trx((`${this.tableName} as p`))
-      .select(
-        'p.id',
-        'p.marketing_id',
-        'p.nama',
-        'p.keterangan',
-        'p.singkatan',
-        'p.statusaktif',
-        'q.memo',
-        'q.text as statusaktif_nama',
-        'r.nama as marketing_nama'
-      )
-      .leftJoin('parameter as q', 'p.statusaktif', 'q.id')
-      .leftJoin('marketing as r', 'p.marketing_id', 'r.id')
-      .where('p.marketing_id', id)
-      .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
-      
+      const query = trx(`${this.tableName} as p`)
+        .select(
+          'p.id',
+          'p.marketing_id',
+          'p.nama',
+          'p.keterangan',
+          'p.singkatan',
+          'p.statusaktif',
+          'q.memo',
+          'q.text as statusaktif_nama',
+          'r.nama as marketing_nama',
+        )
+        .leftJoin('parameter as q', 'p.statusaktif', 'q.id')
+        .leftJoin('marketing as r', 'p.marketing_id', 'r.id')
+        .where('p.marketing_id', id)
+        .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
+
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
@@ -275,7 +275,7 @@ export class MarketingorderanService {
             .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
             .orWhere('p.singkatan', 'like', `%${sanitizedValue}%`)
             // .orWhere('q.text', 'like', `%${sanitizedValue}%`)
-            .orWhere('r.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('r.nama', 'like', `%${sanitizedValue}%`);
         });
       }
 
@@ -299,9 +299,11 @@ export class MarketingorderanService {
       }
 
       const result = await query;
-      
+
       if (!result.length) {
-        this.logger.warn(`No data marketing orderan found for id marketing_id: ${id}`);
+        this.logger.warn(
+          `No data marketing orderan found for id marketing_id: ${id}`,
+        );
 
         return {
           status: false,

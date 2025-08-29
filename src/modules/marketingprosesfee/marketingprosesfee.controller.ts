@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, InternalServerErrorException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { MarketingprosesfeeService } from './marketingprosesfee.service';
 import { CreateMarketingprosesfeeDto } from './dto/create-marketingprosesfee.dto';
 import { UpdateMarketingprosesfeeDto } from './dto/update-marketingprosesfee.dto';
@@ -17,11 +27,9 @@ export class MarketingprosesfeeController {
   }
 
   @Get(':id')
-  async findAll(
-    @Param('id') id: string,
-    @Query() query: FindAllDto
-  ) {
-    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } = query;
+  async findAll(@Param('id') id: string, @Query() query: FindAllDto) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
 
     const sortParams = {
       sortBy: sortBy || 'marketing_nama',
@@ -43,14 +51,24 @@ export class MarketingprosesfeeController {
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.marketingprosesfeeService.findAll(id, trx, params);
-      
+      const result = await this.marketingprosesfeeService.findAll(
+        id,
+        trx,
+        params,
+      );
+
       trx.commit();
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error fetching data marketing proses fee in controller ', error, error.message);
-      throw new InternalServerErrorException('Failed to fetch marketing ordean in controller');
+      console.error(
+        'Error fetching data marketing proses fee in controller ',
+        error,
+        error.message,
+      );
+      throw new InternalServerErrorException(
+        'Failed to fetch marketing ordean in controller',
+      );
     }
   }
 

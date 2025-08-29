@@ -25,11 +25,9 @@ export class MarketingbiayaController {
   }
 
   @Get(':id')
-  async findAll(
-    @Param('id') id: string,
-    @Query() query: FindAllDto
-  ) {
-    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } = query;
+  async findAll(@Param('id') id: string, @Query() query: FindAllDto) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
 
     const sortParams = {
       sortBy: sortBy || 'nominal',
@@ -40,7 +38,7 @@ export class MarketingbiayaController {
       page: page || 1,
       limit: limit === 0 || !limit ? undefined : limit,
     };
-    
+
     const params: FindAllParams = {
       search,
       filters,
@@ -56,8 +54,14 @@ export class MarketingbiayaController {
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error fetching data marketing biaya in controller ', error, error.message);
-      throw new InternalServerErrorException('Failed to fetch marketing biaya in controller');
+      console.error(
+        'Error fetching data marketing biaya in controller ',
+        error,
+        error.message,
+      );
+      throw new InternalServerErrorException(
+        'Failed to fetch marketing biaya in controller',
+      );
     }
   }
 

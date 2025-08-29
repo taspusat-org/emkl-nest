@@ -3,7 +3,7 @@ import { isRecordExist } from 'src/utils/utils.service';
 import { z } from 'zod';
 
 const baseFields = {
- nama: z
+  nama: z
     .string()
     .trim()
     .min(1, { message: 'Nama Jenis Biaya Marketing Wajib Diisi' })
@@ -15,12 +15,17 @@ const baseFields = {
     .nonnegative({ message: 'Status Aktif Tidak Boleh Angka Negatif' }), // Ensure non-negative
   modifiedby: z.string().nullable().optional(),
 };
-export const CreateJenisbiayamarketingSchema = z.object({
-  ...baseFields,
-})
+export const CreateJenisbiayamarketingSchema = z
+  .object({
+    ...baseFields,
+  })
   .superRefine(async (data, ctx) => {
     // Cek unik hanya untuk create (excludeId tidak ada)
-    const existsName = await isRecordExist('nama', data.nama, 'jenisbiayamarketing');
+    const existsName = await isRecordExist(
+      'nama',
+      data.nama,
+      'jenisbiayamarketing',
+    );
     if (existsName) {
       ctx.addIssue({
         path: ['nama'],
@@ -30,7 +35,9 @@ export const CreateJenisbiayamarketingSchema = z.object({
     }
     // Validasi khusus penambahan create dapat disimpan di sini
   });
-export type CreateJenisbiayamarketingDto = z.infer<typeof CreateJenisbiayamarketingSchema>;
+export type CreateJenisbiayamarketingDto = z.infer<
+  typeof CreateJenisbiayamarketingSchema
+>;
 
 export const UpdateJenisbiayamarketingSchema = z
   .object({
@@ -55,4 +62,6 @@ export const UpdateJenisbiayamarketingSchema = z
     }
     // Validasi khusus update bisa diletakkan di sini
   });
-export type UpdateJenisbiayamarketingDto = z.infer<typeof UpdateJenisbiayamarketingSchema>;
+export type UpdateJenisbiayamarketingDto = z.infer<
+  typeof UpdateJenisbiayamarketingSchema
+>;

@@ -8,12 +8,12 @@ import { RedisService } from 'src/common/redis/redis.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import {
-  HttpException, 
-  HttpStatus, 
-  Inject, 
-  Injectable, 
-  InternalServerErrorException, 
-  NotFoundException 
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 
 @Injectable()
@@ -49,13 +49,13 @@ export class JenisprosesfeeService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-      
+
       const insertedData = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
 
       const newData = insertedData[0];
-      
+
       const { data, pagination } = await this.findAll(
         {
           search,
@@ -75,7 +75,7 @@ export class JenisprosesfeeService {
 
       const pageNumber = Math.floor(dataIndex / limit) + 1;
       const endIndex = pageNumber * limit;
-      const limitedItems = data.slice(0, endIndex); 
+      const limitedItems = data.slice(0, endIndex);
 
       await this.redisService.set(
         `${this.tableName}-allItems`,
@@ -101,7 +101,9 @@ export class JenisprosesfeeService {
         dataIndex,
       };
     } catch (error) {
-      throw new Error(`Error creating jenis proses fee in service: ${error.message}`);
+      throw new Error(
+        `Error creating jenis proses fee in service: ${error.message}`,
+      );
     }
   }
 
@@ -156,7 +158,7 @@ export class JenisprosesfeeService {
             //   `%${sanitizedValue}%`,
             // ])
             .orWhere('p.created_at', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.updated_at', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.updated_at', 'like', `%${sanitizedValue}%`);
         });
       }
 
@@ -344,7 +346,9 @@ export class JenisprosesfeeService {
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to delete data jenis proses fee ini service');
+      throw new InternalServerErrorException(
+        'Failed to delete data jenis proses fee ini service',
+      );
     }
   }
 
@@ -398,12 +402,7 @@ export class JenisprosesfeeService {
     });
 
     // Mendefinisikan header kolom
-    const headers = [
-      'NO.',
-      'NAMA',
-      'KETERANGAN',
-      'STATUS AKTIF',
-    ];
+    const headers = ['NO.', 'NAMA', 'KETERANGAN', 'STATUS AKTIF'];
 
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(5, index + 1);
@@ -414,9 +413,9 @@ export class JenisprosesfeeService {
         fgColor: { argb: 'FFFF00' },
       };
       cell.font = { bold: true, name: 'Tahoma', size: 10 };
-      cell.alignment = { 
-        horizontal: 'center', 
-        vertical: 'middle' 
+      cell.alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
       };
 
       cell.border = {
@@ -430,10 +429,10 @@ export class JenisprosesfeeService {
     data.forEach((row, rowIndex) => {
       const currentRow = rowIndex + 6;
       const rowValues = [
-        rowIndex + 1, 
-        row.nama, 
-        row.keterangan, 
-        row.statusaktif_nama
+        rowIndex + 1,
+        row.nama,
+        row.keterangan,
+        row.statusaktif_nama,
       ];
 
       rowValues.forEach((value, colIndex) => {
@@ -480,7 +479,7 @@ export class JenisprosesfeeService {
 
     return tempFilePath;
   }
-  
+
   findOne(id: number) {
     return `This action returns a #${id} jenisprosesfee`;
   }

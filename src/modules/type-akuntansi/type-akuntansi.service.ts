@@ -539,9 +539,9 @@ export class TypeAkuntansiService {
         fgColor: { argb: 'FFFF00' },
       };
       cell.font = { bold: true, name: 'Tahoma', size: 10 };
-      cell.alignment = { 
-        horizontal: 'center', 
-        vertical: 'middle' 
+      cell.alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
       };
 
       // if (index === 2) {
@@ -565,30 +565,30 @@ export class TypeAkuntansiService {
     data.forEach((row, rowIndex) => {
       const currentRow = rowIndex + 6;
       const rowValues = [
-        rowIndex + 1, 
-        row.nama, 
-        row.order, 
-        row.keterangan, 
-        row.akuntansi_nama, 
-        row.statusaktif_text
+        rowIndex + 1,
+        row.nama,
+        row.order,
+        row.keterangan,
+        row.akuntansi_nama,
+        row.statusaktif_text,
       ];
 
       rowValues.forEach((value, colIndex) => {
         const cell = worksheet.getCell(currentRow, colIndex + 1);
 
         if (colIndex === 2) {
-          cell.value = Number(value)
+          cell.value = Number(value);
           cell.numFmt = '0'; // format angka dengan ribuan
           cell.alignment = {
-          horizontal:'right',
-          vertical: 'middle',
-        };
+            horizontal: 'right',
+            vertical: 'middle',
+          };
         } else {
           cell.value = value ?? '';
           cell.alignment = {
-          horizontal: colIndex === 0 ? 'right' : 'left',
-          vertical: 'middle',
-        };
+            horizontal: colIndex === 0 ? 'right' : 'left',
+            vertical: 'middle',
+          };
         }
 
         // cell.value = value ?? '';

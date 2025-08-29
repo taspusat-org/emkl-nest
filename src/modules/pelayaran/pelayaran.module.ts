@@ -10,7 +10,6 @@ import { ParameterModule } from '../parameter/parameter.module';
 // import { GlobalModule } from '../global/global.module';
 import { LocksModule } from '../locks/locks.module';
 
-
 @Module({
   imports: [
     RedisModule,
@@ -19,8 +18,8 @@ import { LocksModule } from '../locks/locks.module';
     LogtrailModule,
     RelasiModule,
     ParameterModule,
-    // GlobalModule, 
-    LocksModule
+    // GlobalModule,
+    LocksModule,
   ],
   controllers: [PelayaranController],
   providers: [PelayaranService],

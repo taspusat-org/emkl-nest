@@ -301,7 +301,9 @@ export class EmklService {
 
   async update(dataId: number, data: any, trx: any) {
     try {
-      const existingData = await trx(this.tableName).where('id', dataId).first();
+      const existingData = await trx(this.tableName)
+        .where('id', dataId)
+        .first();
 
       if (!existingData) {
         throw new Error('Emkl not found');
@@ -476,7 +478,27 @@ export class EmklService {
     worksheet.getCell('A2').font = { bold: true };
     worksheet.getCell('A3').font = { bold: true };
 
-    const headers = ['NO.', 'NAMA', 'CONTACT PERSON', 'ALAMAT', 'KOTA', 'KODE POS', 'NO TELP', 'EMAIL', 'FAX', 'ALAMAT WEB', 'TOP', 'NPWP', 'NAMA PAJAK', 'ALAMAT PAJAK', 'COA GIRO', 'COA PIUTANG', 'COA HUTANG', 'STATUS TRADO', 'STATUS AKTIF'];
+    const headers = [
+      'NO.',
+      'NAMA',
+      'CONTACT PERSON',
+      'ALAMAT',
+      'KOTA',
+      'KODE POS',
+      'NO TELP',
+      'EMAIL',
+      'FAX',
+      'ALAMAT WEB',
+      'TOP',
+      'NPWP',
+      'NAMA PAJAK',
+      'ALAMAT PAJAK',
+      'COA GIRO',
+      'COA PIUTANG',
+      'COA HUTANG',
+      'STATUS TRADO',
+      'STATUS AKTIF',
+    ];
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(5, index + 1);
       cell.value = header;
@@ -519,7 +541,7 @@ export class EmklService {
 
       for (let col = 1; col <= headers.length; col++) {
         const cell = worksheet.getCell(currentRow, col);
-        if(col == 11) {
+        if (col == 11) {
           worksheet.getCell(currentRow, col).alignment = {
             horizontal: 'right',
           };
