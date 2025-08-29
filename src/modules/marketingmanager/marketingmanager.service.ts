@@ -11,7 +11,7 @@ export class MarketingmanagerService {
   private readonly logger = new Logger(MarketingmanagerService.name);
 
   constructor(
-    // @Inject('REDIS_CLIENT') 
+    // @Inject('REDIS_CLIENT')
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
@@ -39,7 +39,7 @@ export class MarketingmanagerService {
         await trx(this.tableName).delete().where('marketing_id', marketing_id);
         return;
       }
- 
+
       const fixData = marketingManagerData.map(
         ({
           managermarketing_nama,
@@ -231,7 +231,7 @@ export class MarketingmanagerService {
   }
 
   async findAll(
-    id: string, 
+    id: string,
     trx: any,
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
   ) {
@@ -258,7 +258,11 @@ export class MarketingmanagerService {
         )
         .leftJoin('marketing as p', 'u.marketing_id', 'p.id')
         .leftJoin('managermarketing as q', 'u.managermarketing_id', 'q.id')
-        .leftJoin('parameter as statusapproval', 'u.statusapproval', 'statusapproval.id')
+        .leftJoin(
+          'parameter as statusapproval',
+          'u.statusapproval',
+          'statusapproval.id',
+        )
         .leftJoin('parameter as statusaktif', 'u.statusaktif', 'statusaktif.id')
         .where('u.marketing_id', id)
         .orderBy('u.created_at', 'desc');
@@ -269,8 +273,10 @@ export class MarketingmanagerService {
           builder
             .orWhere('p.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('q.nama', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.tglapproval, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
-            .orWhere('u.userapproval', 'like', `%${sanitizedValue}%`)
+            .orWhereRaw("FORMAT(u.tglapproval, 'dd-MM-yyyy') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
+            .orWhere('u.userapproval', 'like', `%${sanitizedValue}%`);
         });
       }
 
@@ -281,13 +287,19 @@ export class MarketingmanagerService {
             if (key === 'statusaktif_nama') {
               query.andWhere(`statusaktif.id`, '=', sanitizedValue);
             } else if (key === 'statusapproval_nama') {
-              query.andWhere('statusapproval.id', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'statusapproval.id',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'marketing_nama') {
               query.andWhere('p.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'managermarketing_nama') {
               query.andWhere('q.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'tglapproval') {
-              query.andWhereRaw("FORMAT(u.tglapproval, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
+              query.andWhereRaw("FORMAT(u.tglapproval, 'dd-MM-yyyy') LIKE ?", [
+                `%${sanitizedValue}%`,
+              ]);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }

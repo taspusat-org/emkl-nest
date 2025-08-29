@@ -1,4 +1,20 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, UsePipes, Query, HttpException, HttpStatus, InternalServerErrorException, Put } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
+  UsePipes,
+  Query,
+  HttpException,
+  HttpStatus,
+  InternalServerErrorException,
+  Put,
+} from '@nestjs/common';
 import { MarketingService } from './marketing.service';
 import {
   CreateMarketingDto,
@@ -25,8 +41,8 @@ export class MarketingController {
   async create(
     @Body(
       new ZodValidationPipe(CreateMarketingSchema),
-      KeyboardOnlyValidationPipe
-    ) 
+      KeyboardOnlyValidationPipe,
+    )
     data: CreateMarketingDto,
     @Req() req,
   ) {
@@ -91,18 +107,16 @@ export class MarketingController {
     } catch (error) {
       trx.rollback();
       console.error('Error in findAll Controller Marketing:', error);
-      throw new InternalServerErrorException('Failed to fetch marketing in controller');
+      throw new InternalServerErrorException(
+        'Failed to fetch marketing in controller',
+      );
     }
   }
 
   @UseGuards(AuthGuard)
   @Put(':id')
   //@MARKETING
-  async update(
-    @Param('id') id: string, 
-    @Body() data: any,
-    @Req() req
-  ) {
+  async update(@Param('id') id: string, @Body() data: any, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
@@ -121,10 +135,7 @@ export class MarketingController {
   @UseGuards(AuthGuard)
   @Delete(':id')
   //@MARKETING
-  async delete(
-    @Param('id') id: string,
-    @Req() req
-  ) {
+  async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     const modifiedby = req.user?.user?.username || 'unknown';
     try {
@@ -165,8 +176,9 @@ export class MarketingController {
   }
 
   @Get('/getLookupKaryawan')
-  async findAllLookupKaryawan(@Query() query: FindAllDto){
-    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } = query;
+  async findAllLookupKaryawan(@Query() query: FindAllDto) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
 
     const sortParams = {
       sortBy: sortBy || 'namakaryawan',
@@ -177,7 +189,7 @@ export class MarketingController {
       page: page || 1, // Jika page tidak ada, set ke 1
       limit: limit === 0 || !limit ? undefined : limit, // Jika limit 0, tidak ada pagination
     };
-    
+
     const params: FindAllParams = {
       search,
       filters,
@@ -193,5 +205,4 @@ export class MarketingController {
   findOne(@Param('id') id: string) {
     return this.marketingService.findOne(+id);
   }
-
 }

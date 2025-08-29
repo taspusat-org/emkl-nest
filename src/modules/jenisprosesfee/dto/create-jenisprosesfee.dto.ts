@@ -35,7 +35,9 @@ export const CreateJenisProsesFeeSchema = z
     }
     // Validasi khusus penambahan create dapat disimpan di sini
   });
-export type CreateJenisProsesFeeDto = z.infer<typeof CreateJenisProsesFeeSchema>;
+export type CreateJenisProsesFeeDto = z.infer<
+  typeof CreateJenisProsesFeeSchema
+>;
 
 // ------------------------
 // 3. KHUSUS UPDATE
@@ -55,7 +57,7 @@ export const UpdateJenisProsesFeeSchema = z
       data.id,
     );
     console.log('existsName', existsName);
-    
+
     if (existsName) {
       ctx.addIssue({
         path: ['nama'],
@@ -65,4 +67,6 @@ export const UpdateJenisProsesFeeSchema = z
     }
     // Validasi khusus update bisa diletakkan di sini
   });
-export type UpdateJenisProsesFeeDto = z.infer<typeof UpdateJenisProsesFeeSchema>;
+export type UpdateJenisProsesFeeDto = z.infer<
+  typeof UpdateJenisProsesFeeSchema
+>;

@@ -238,7 +238,7 @@ export class MarketingbiayaService {
   }
 
   async findAll(
-    id: string, 
+    id: string,
     trx: any,
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
   ) {
@@ -246,7 +246,7 @@ export class MarketingbiayaService {
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
-    
+
       const query = trx(`${this.tableName} as u`)
         .select(
           'u.id',
@@ -261,7 +261,11 @@ export class MarketingbiayaService {
         )
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
         .leftJoin('marketing as q', 'u.marketing_id', 'q.id')
-        .leftJoin('jenisbiayamarketing as r', 'u.jenisbiayamarketing_id', 'r.id')
+        .leftJoin(
+          'jenisbiayamarketing as r',
+          'u.jenisbiayamarketing_id',
+          'r.id',
+        )
         .where('u.marketing_id', id)
         .orderBy('u.created_at', 'desc'); // Optional: Order by creation date
 
@@ -272,7 +276,7 @@ export class MarketingbiayaService {
             .orWhere('u.nominal', 'like', `%${sanitizedValue}%`)
             // .orWhere('p.text', 'like', `%${sanitizedValue}%`)
             .orWhere('q.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('r.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('r.nama', 'like', `%${sanitizedValue}%`);
         });
       }
 

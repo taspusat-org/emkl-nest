@@ -27,12 +27,10 @@ export class MarketingmanagerController {
   }
 
   @Get(':id')
-  async findAll(
-    @Param('id') id: string,
-    @Query() query: FindAllDto
-  ) {
-    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } = query;
-    
+  async findAll(@Param('id') id: string, @Query() query: FindAllDto) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
+
     const sortParams = {
       sortBy: sortBy || 'managermarketing',
       sortDirection: sortDirection || 'asc',
@@ -42,7 +40,7 @@ export class MarketingmanagerController {
       page: page || 1,
       limit: limit === 0 || !limit ? undefined : limit,
     };
-    
+
     const params: FindAllParams = {
       search,
       filters,
@@ -53,14 +51,24 @@ export class MarketingmanagerController {
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.marketingmanagerService.findAll(id, trx, params);
+      const result = await this.marketingmanagerService.findAll(
+        id,
+        trx,
+        params,
+      );
 
       trx.commit();
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error fetching data marketing manager in controller ', error, error.message);
-      throw new InternalServerErrorException('Failed to fetch marketing manager in controller');
+      console.error(
+        'Error fetching data marketing manager in controller ',
+        error,
+        error.message,
+      );
+      throw new InternalServerErrorException(
+        'Failed to fetch marketing manager in controller',
+      );
     }
   }
 

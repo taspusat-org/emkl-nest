@@ -5,7 +5,7 @@ import { z } from 'zod';
 // 1. BASE FIELDS
 // ------------------------
 const baseFields = {
-   nama: z
+  nama: z
     .string()
     .trim()
     .min(1, { message: 'Nama Pelayaran Wajib Diisi' })
@@ -17,9 +17,11 @@ const baseFields = {
     .nonnegative({ message: 'Status Aktif Tidak Boleh Angka Negatif' }), // Ensure non-negative
   modifiedby: z.string().nullable().optional(),
 };
-export const CreatePelayaranSchema = z.object({
-  ...baseFields,
-}).superRefine(async (data, ctx) => {
+export const CreatePelayaranSchema = z
+  .object({
+    ...baseFields,
+  })
+  .superRefine(async (data, ctx) => {
     // Cek unik hanya untuk create (excludeId tidak ada)
     const existsName = await isRecordExist('nama', data.nama, 'pelayaran');
     if (existsName) {
@@ -30,15 +32,17 @@ export const CreatePelayaranSchema = z.object({
       });
     }
     // Validasi khusus penambahan create dapat disimpan di sini
-  });;
+  });
 export type CreatePelayaranDto = z.infer<typeof CreatePelayaranSchema>;
 
-export const UpdatePelayaranSchema = z.object({
-  ...baseFields,
+export const UpdatePelayaranSchema = z
+  .object({
+    ...baseFields,
     id: z.number({ required_error: 'Id wajib diisi untuk update' }),
-}).superRefine(async (data, ctx) => {
+  })
+  .superRefine(async (data, ctx) => {
     // Cek unik hanya untuk create (excludeId tidak ada)
-   const existsName = await isRecordExist(
+    const existsName = await isRecordExist(
       'nama',
       data.nama,
       'pelayaran',
@@ -52,5 +56,5 @@ export const UpdatePelayaranSchema = z.object({
       });
     }
     // Validasi khusus penambahan create dapat disimpan di sini
-  });;
+  });
 export type UpdatePelayaranDto = z.infer<typeof UpdatePelayaranSchema>;

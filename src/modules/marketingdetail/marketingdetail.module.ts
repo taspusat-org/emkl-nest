@@ -9,12 +9,7 @@ import { LocksModule } from '../locks/locks.module';
 @Module({
   controllers: [MarketingdetailController],
   providers: [MarketingdetailService],
-  imports: [
-    UtilsModule, 
-    LogtrailModule,
-    AuthModule,
-    LocksModule
-  ],
+  imports: [UtilsModule, LogtrailModule, AuthModule, LocksModule],
   exports: [MarketingdetailService],
 })
 export class MarketingdetailModule {}

@@ -125,7 +125,11 @@ export class MarketinggroupController {
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.marketinggroupService.update(+dataId, data, trx);
+      const result = await this.marketinggroupService.update(
+        +dataId,
+        data,
+        trx,
+      );
 
       await trx.commit();
       return result;
@@ -179,7 +183,7 @@ export class MarketinggroupController {
       );
     }
   }
-  
+
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {
@@ -226,7 +230,7 @@ export class MarketinggroupController {
       throw new Error('Failed to fetch data by id');
     }
   }
-  
+
   @Post('check-validation')
   @UseGuards(AuthGuard)
   async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {

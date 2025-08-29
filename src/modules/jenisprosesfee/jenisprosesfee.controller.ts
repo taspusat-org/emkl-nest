@@ -22,11 +22,11 @@ import {
   FindAllParams,
   FindAllSchema,
 } from 'src/common/interfaces/all.interface';
-import { 
-  CreateJenisProsesFeeDto, 
-  CreateJenisProsesFeeSchema, 
-  UpdateJenisProsesFeeDto, 
-  UpdateJenisProsesFeeSchema 
+import {
+  CreateJenisProsesFeeDto,
+  CreateJenisProsesFeeSchema,
+  UpdateJenisProsesFeeDto,
+  UpdateJenisProsesFeeSchema,
 } from './dto/create-jenisprosesfee.dto';
 import * as fs from 'fs';
 import { Response } from 'express';
@@ -48,10 +48,10 @@ export class JenisprosesfeeController {
     @Body(
       new InjectMethodPipe('create'),
       new ZodValidationPipe(CreateJenisProsesFeeSchema),
-      KeyboardOnlyValidationPipe
-    ) 
+      KeyboardOnlyValidationPipe,
+    )
     data: CreateJenisProsesFeeDto,
-    @Req() req
+    @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
@@ -63,7 +63,10 @@ export class JenisprosesfeeController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating Jenis Proses Fee in controller', error);
+      console.error(
+        'Error while creating Jenis Proses Fee in controller',
+        error,
+      );
 
       if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
@@ -122,17 +125,21 @@ export class JenisprosesfeeController {
     @Param('id') dataId: string,
     @Body(
       new InjectMethodPipe('update'),
-      new ZodValidationPipe(UpdateJenisProsesFeeSchema)
-    ) 
+      new ZodValidationPipe(UpdateJenisProsesFeeSchema),
+    )
     data: UpdateJenisProsesFeeDto,
-    @Req() req
+    @Req() req,
   ) {
     const trx = await dbMssql.transaction();
 
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.jenisprosesfeeService.update(+dataId, data, trx);
+      const result = await this.jenisprosesfeeService.update(
+        +dataId,
+        data,
+        trx,
+      );
 
       await trx.commit();
       return result;
@@ -144,7 +151,7 @@ export class JenisprosesfeeController {
       );
 
       if (error instanceof HttpException) {
-        throw error; 
+        throw error;
       }
 
       throw new HttpException(
@@ -177,13 +184,18 @@ export class JenisprosesfeeController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error deleting data jenis proses fee in controller: ', error);
+      console.error(
+        'Error deleting data jenis proses fee in controller: ',
+        error,
+      );
 
       if (error instanceof NotFoundException) {
         throw error;
       }
 
-      throw new InternalServerErrorException('Failed to delete data jenis proses fee in controller');
+      throw new InternalServerErrorException(
+        'Failed to delete data jenis proses fee in controller',
+      );
     }
   }
 
@@ -211,30 +223,27 @@ export class JenisprosesfeeController {
   }
 
   @Get('/export')
-  async exportToExcel(
-    @Query() params: any,
-    @Res() res: Response
-  ) {
+  async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {
       const { data } = await this.findAll(params);
 
       if (!Array.isArray(data)) {
-        throw new Error('Data is not an array or is undefined')
+        throw new Error('Data is not an array or is undefined');
       }
 
       const tempFilePath = await this.jenisprosesfeeService.exportToExcel(data);
-      const fileStream = fs.createReadStream(tempFilePath)
+      const fileStream = fs.createReadStream(tempFilePath);
 
       res.setHeader(
         'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      )
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_jenisprosesfee.xlsx"'
-      )
+        'attachment; filename="laporan_jenisprosesfee.xlsx"',
+      );
 
-      fileStream.pipe(res)
+      fileStream.pipe(res);
     } catch (error) {
       console.error('Error exporting to Excel:', error);
       res.status(500).send('Failed to export file');
