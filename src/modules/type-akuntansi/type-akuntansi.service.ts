@@ -56,7 +56,7 @@ export class TypeAkuntansiService {
         .insert(insertData)
         .returning('*');
 
-      const newData = insertedData[0];
+      const newItem = insertedData[0];
 
       // Ambil data utk dimasukkan ke temp table
       // ==== NEW ==== kalau kamu sudah menambahkan flag forTemp di findAll,
@@ -72,90 +72,33 @@ export class TypeAkuntansiService {
         },
         trx,
       );
-      console.log('data', data.length);
-      console.log('pagination222', pagination);
-      // ==== NEW ==== buat nama temp table (pakai # cukup, biar scope-nya tetap di connection trx)
-      const tempTableName = `##temp_${Math.random().toString(36).slice(2)}`;
-
-      // ==== NEW ==== buat DDL temp table dari skema tabel asli (pakai createTempTable yg sudah diperbaiki)
-      const ddl = await this.utilsService.createTempTable(
-        this.tableName,
-        trx,
-        tempTableName,
-      );
-      await trx.raw(ddl);
-
-      // ==== NEW ==== ambil daftar kolom asli, untuk mem-"pick" kolom yang valid saja
-      const colInfo = await trx(this.tableName).columnInfo();
-      const baseCols = Object.keys(colInfo);
-
-      // ==== NEW ==== normalisasi baris yang akan di-insert ke temp:
-      // - drop kolom ekstra yang tidak ada di tabel asli (memo, statusaktif_text, akuntansi_nama, dll)
-      // - parse tanggal kalau keburu diformat string (dd-MM-yyyy HH:mm:ss)
-      const rowsForTemp = data.map((row: any) => {
-        const obj: any = {};
-        for (const c of baseCols) {
-          let v = row[c];
-          if (
-            (c === 'created_at' || c === 'updated_at') &&
-            typeof v === 'string'
-          ) {
-            // parse "dd-MM-yyyy HH:mm:ss" -> Date, agar MSSQL bisa masuk ke datetime/datetime2
-            // contoh robust parsing
-            const m = v.match(
-              /^(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/,
-            );
-            if (m) {
-              const [_, dd, MM, yyyy, HH, mm, ss] = m;
-              v = new Date(
-                Number(yyyy),
-                Number(MM) - 1,
-                Number(dd),
-                Number(HH),
-                Number(mm),
-                Number(ss),
-                0,
-              );
-            }
-          }
-          obj[c] = v ?? null;
-        }
-        return obj;
-      });
-
-      // const filteredData = await query; // ambil hasil query yg udh di filter
-
-      // cari index data baru di hasil query yg udh di filter
-      let dataIndex = data.findIndex((item) => item.id === newData.id);
-
-      if (dataIndex === -1) {
-        dataIndex = 0;
+      let itemIndex = data.findIndex((item) => item.id === newItem.id);
+      if (itemIndex === -1) {
+        itemIndex = 0;
       }
 
-      const pageNumber = Math.floor(dataIndex / limit) + 1;
-      const endIndex = pageNumber * limit;
-      const limitedItems = data.slice(0, endIndex); // ambil data hingga halaman yang mencakup data baru
-
+      // Optionally, you can find the page number or other info if needed
+      const pageNumber = pagination?.currentPage;
       // simpan cache & log seperti sebelumnya
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
+        JSON.stringify(data),
       );
 
       await this.logTrailService.create(
         {
           namatable: this.tableName,
           postingdari: 'ADD TYPE AKUNTANSI',
-          idtrans: newData.id,
-          nobuktitrans: newData.id,
+          idtrans: newItem.id,
+          nobuktitrans: newItem.id,
           aksi: 'ADD',
-          datajson: JSON.stringify(newData),
-          modifiedby: newData.modifiedby,
+          datajson: JSON.stringify(newItem),
+          modifiedby: newItem.modifiedby,
         },
         trx,
       );
 
-      return { newData };
+      return { newItem, pageNumber, itemIndex };
     } catch (error) {
       throw new Error(`Error creating type akuntansi: ${error.message}`);
     }
