@@ -1,6 +1,8 @@
+import { dbMssql } from 'src/common/utils/db';
+import { isRecordExist } from 'src/utils/utils.service';
 import { z } from 'zod';
 
-export const CreateEmklSchema = z.object({
+const baseFields = {
   nama: z.string().trim().min(1, { message: 'Nama EMKL Wajib Diisi' }).max(255),
   contactperson: z
     .string()
@@ -45,5 +47,46 @@ export const CreateEmklSchema = z.object({
     .int({ message: 'Status Aktif Wajib Angka' })
     .nonnegative({ message: 'Status Aktif Tidak Boleh Angka Negatif' }), // Ensure non-negative
   modifiedby: z.string().nullable().optional(),
-});
+};
+export const CreateEmklSchema = z.object({
+    ...baseFields
+})
+  .superRefine(async (data, ctx) => {
+    // Cek unik hanya untuk create (excludeId tidak ada)
+    const existsName = await isRecordExist('nama', data.nama, 'emkl');
+    if (existsName) {
+      ctx.addIssue({
+        path: ['nama'],
+        code: 'custom',
+        message: 'Emkl dengan nama ini sudah ada',
+      });
+    }
+    // Validasi khusus penambahan create dapat disimpan di sini
+  });
 export type CreateEmklDto = z.infer<typeof CreateEmklSchema>;
+
+
+export const UpdateEmklSchema = z
+  .object({
+    ...baseFields,
+    id: z.number({ required_error: 'Id wajib diisi untuk update' }),
+    // Field atau aturan khusus update bisa ditambah di sini
+  })
+  .superRefine(async (data, ctx) => {
+    // Exclude diri sendiri dari pengecekan unik
+    const existsName = await isRecordExist(
+      'nama',
+      data.nama,
+      'emkl',
+      data.id,
+    );
+    if (existsName) {
+      ctx.addIssue({
+        path: ['nama'],
+        code: 'custom',
+        message: 'Emkl dengan nama ini sudah ada',
+      });
+    }
+    // Validasi khusus update bisa diletakkan di sini
+  });
+export type UpdateEmklDto = z.infer<typeof UpdateEmklSchema>;

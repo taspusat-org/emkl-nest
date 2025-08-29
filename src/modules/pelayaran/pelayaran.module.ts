@@ -7,6 +7,9 @@ import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 import { AuthModule } from '../auth/auth.module';
 import { RelasiModule } from '../relasi/relasi.module';
 import { ParameterModule } from '../parameter/parameter.module';
+// import { GlobalModule } from '../global/global.module';
+import { LocksModule } from '../locks/locks.module';
+
 
 @Module({
   imports: [
@@ -16,6 +19,8 @@ import { ParameterModule } from '../parameter/parameter.module';
     LogtrailModule,
     RelasiModule,
     ParameterModule,
+    // GlobalModule, 
+    LocksModule
   ],
   controllers: [PelayaranController],
   providers: [PelayaranService],

@@ -6,7 +6,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CreatePelayaranDto } from './dto/create-pelayaran.dto';
-import { UpdatePelayaranDto } from './dto/update-pelayaran.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { RedisService } from 'src/common/redis/redis.service';
 import { UtilsService } from 'src/utils/utils.service';
@@ -17,6 +16,8 @@ import * as path from 'path';
 import { Workbook } from 'exceljs';
 import { RelasiService } from '../relasi/relasi.service';
 import { ParameterService } from '../parameter/parameter.service';
+// import { GlobalService } from '../global/global.service';
+import { LocksService } from '../locks/locks.service';
 
 @Injectable()
 export class PelayaranService {
@@ -27,6 +28,8 @@ export class PelayaranService {
     private readonly logTrailService: LogtrailService,
     private readonly relasiService: RelasiService,
     private readonly parameterService: ParameterService,
+    // private readonly globalService: GlobalService,
+    private readonly locksService: LocksService,
   ) {}
   async create(createPelayaranDto: any, trx: any) {
     try {
@@ -38,6 +41,7 @@ export class PelayaranService {
         page,
         limit,
         statusaktif_text,
+        id,
         ...insertData
       } = createPelayaranDto;
       insertData.updated_at = this.utilsService.getTime();
@@ -289,9 +293,9 @@ export class PelayaranService {
     }
   }
 
-  async update(id: number, data: any, trx: any) {
+  async update(dataId: number, data: any, trx: any) {
     try {
-      const existingData = await trx(this.tableName).where('id', id).first();
+      const existingData = await trx(this.tableName).where('id', dataId).first();
 
       if (!existingData) {
         throw new Error('Pelayaran not found');
@@ -305,6 +309,7 @@ export class PelayaranService {
         page,
         limit,
         statusaktif_text,
+        id,
         ...insertData
       } = data;
       Object.keys(insertData).forEach((key) => {
@@ -315,7 +320,7 @@ export class PelayaranService {
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
       if (hasChanges) {
         insertData.updated_at = this.utilsService.getTime();
-        await trx(this.tableName).where('id', id).update(insertData);
+        await trx(this.tableName).where('id', dataId).update(insertData);
       }
 
       const { data: filteredData, pagination } = await this.findAll(
@@ -331,7 +336,7 @@ export class PelayaranService {
 
       // Cari index item yang baru saja diupdate
       const itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === id,
+        (item) => Number(item.id) === dataId,
       );
       if (itemIndex === -1) {
         throw new Error('Updated item not found in all items');
@@ -367,8 +372,8 @@ export class PelayaranService {
         {
           namatabel: this.tableName,
           postingdari: 'EDIT PELAYARAN',
-          idtrans: id,
-          nobuktitrans: id,
+          idtrans: dataId,
+          nobuktitrans: dataId,
           aksi: 'EDIT',
           datajson: JSON.stringify(data),
           modifiedby: data.modifiedby,
@@ -378,7 +383,7 @@ export class PelayaranService {
 
       return {
         updatedItem: {
-          id,
+          dataId,
           ...data,
         },
         pageNumber,
@@ -386,7 +391,7 @@ export class PelayaranService {
       };
     } catch (error) {
       console.error('Error updating pelayaran:', error);
-      throw new Error('Failed to update pelayaran');
+      throw new Error('Failed to update pelayaran oye');
     }
   }
 
@@ -478,7 +483,7 @@ export class PelayaranService {
       worksheet.getCell(currentRow, 1).value = rowIndex + 1;
       worksheet.getCell(currentRow, 2).value = row.nama;
       worksheet.getCell(currentRow, 3).value = row.keterangan;
-      worksheet.getCell(currentRow, 4).value = row.text;
+      worksheet.getCell(currentRow, 4).value = row.statusaktif_text;
 
       for (let col = 1; col <= headers.length; col++) {
         const cell = worksheet.getCell(currentRow, col);
@@ -577,6 +582,37 @@ export class PelayaranService {
         throw error;
       }
       throw new InternalServerErrorException('Failed to process non approval');
+    }
+  }
+  async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
+    try {
+      if (aksi === 'EDIT') {
+        const forceEdit = await this.locksService.forceEdit(
+          this.tableName,
+          value,
+          editedby,
+          trx,
+        );
+
+        return forceEdit;
+      } else if (aksi === 'DELETE') {
+        const getRelasi = await trx(this.tableName).where('id', value).first();
+        const validasi = {
+          status: 'success',
+          message: 'Data aman untuk dihapus.',
+        };
+        // const validasi = await this.globalService.checkUsed(
+        //   'pengeluaranheader',
+        //   'relasi_id',
+        //   getRelasi.relasi_id,
+        //   trx,
+        // );
+
+        return validasi;
+      }
+    } catch (error) {
+      console.error('Error di checkValidasi:', error);
+      throw new InternalServerErrorException('Failed to check validation');
     }
   }
 }

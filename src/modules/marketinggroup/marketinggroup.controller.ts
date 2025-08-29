@@ -15,16 +15,15 @@ import {
   InternalServerErrorException,
   Put,
   NotFoundException,
+  Res,
 } from '@nestjs/common';
 import { MarketinggroupService } from './marketinggroup.service';
 import {
   CreateMarketinggroupDto,
   CreateMarketinggroupSchema,
-} from './dto/create-marketinggroup.dto';
-import {
   UpdateMarketinggroupDto,
   UpdateMarketinggroupSchema,
-} from './dto/update-marketinggroup.dto';
+} from './dto/create-marketinggroup.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
@@ -34,7 +33,8 @@ import {
   FindAllParams,
   FindAllSchema,
 } from 'src/common/interfaces/all.interface';
-import { isRecordExist } from 'src/utils/utils.service';
+import { Response } from 'express';
+import * as fs from 'fs';
 
 @Controller('marketinggroup')
 export class MarketinggroupController {
@@ -116,7 +116,7 @@ export class MarketinggroupController {
   @Put(':id')
   //@MARKETING-GROUP
   async update(
-    @Param('id') id: string,
+    @Param('id') dataId: string,
     @Body(new ZodValidationPipe(UpdateMarketinggroupSchema))
     data: UpdateMarketinggroupDto,
     @Req() req,
@@ -125,7 +125,7 @@ export class MarketinggroupController {
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.marketinggroupService.update(+id, data, trx);
+      const result = await this.marketinggroupService.update(+dataId, data, trx);
 
       await trx.commit();
       return result;
@@ -179,7 +179,35 @@ export class MarketinggroupController {
       );
     }
   }
+  
+  @Get('/export')
+  async exportToExcel(@Query() params: any, @Res() res: Response) {
+    try {
+      const { data } = await this.findAll(params);
 
+      if (!Array.isArray(data)) {
+        throw new Error('Data is not an array or is undefined.');
+      }
+
+      const tempFilePath = await this.marketinggroupService.exportToExcel(data);
+
+      const fileStream = fs.createReadStream(tempFilePath);
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_marketinggroup.xlsx"',
+      );
+
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      res.status(500).send('Failed to export file');
+    }
+  }
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
@@ -196,6 +224,29 @@ export class MarketinggroupController {
 
       await trx.rollback();
       throw new Error('Failed to fetch data by id');
+    }
+  }
+  
+  @Post('check-validation')
+  @UseGuards(AuthGuard)
+  async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
+    const { aksi, value } = body;
+    const trx = await dbMssql.transaction();
+    const editedby = req.user?.user?.username;
+
+    try {
+      const forceEdit = await this.marketinggroupService.checkValidasi(
+        aksi,
+        value,
+        editedby,
+        trx,
+      );
+      trx.commit();
+      return forceEdit;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error checking validation:', error);
+      throw new InternalServerErrorException('Failed to check validation');
     }
   }
 }

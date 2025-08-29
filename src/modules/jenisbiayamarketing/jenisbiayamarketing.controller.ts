@@ -15,16 +15,15 @@ import {
   HttpStatus,
   Put,
   NotFoundException,
+  Res,
 } from '@nestjs/common';
 import { JenisbiayamarketingService } from './jenisbiayamarketing.service';
 import {
   CreateJenisbiayamarketingDto,
   CreateJenisbiayamarketingSchema,
-} from './dto/create-jenisbiayamarketing.dto';
-import {
   UpdateJenisbiayamarketingDto,
   UpdateJenisbiayamarketingSchema,
-} from './dto/update-jenisbiayamarketing.dto';
+} from './dto/create-jenisbiayamarketing.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
   FindAllDto,
@@ -35,6 +34,8 @@ import { dbMssql } from 'src/common/utils/db';
 import { AuthGuard } from '../auth/auth.guard';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
 import { isRecordExist } from 'src/utils/utils.service';
+import { Response } from 'express';
+import * as fs from 'fs';
 
 @Controller('jenisbiayamarketing')
 export class JenisbiayamarketingController {
@@ -120,33 +121,17 @@ export class JenisbiayamarketingController {
   @Put(':id')
   //@JENIS-BIAYA-MARKETING
   async update(
-    @Param('id') id: string,
+    @Param('id') dataId: string,
     @Body(new ZodValidationPipe(UpdateJenisbiayamarketingSchema))
     data: UpdateJenisbiayamarketingDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const emklExist = await isRecordExist(
-        'nama',
-        data.nama,
-        'jenisbiayamarketing',
-        Number(id),
-      );
-
-      if (emklExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Jenis biaya marketing dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.jenisbiayamarketingService.update(
-        +id,
+        +dataId,
         data,
         trx,
       );
@@ -210,6 +195,35 @@ export class JenisbiayamarketingController {
     }
   }
 
+  @Get('/export')
+  async exportToExcel(@Query() params: any, @Res() res: Response) {
+    try {
+      const { data } = await this.findAll(params);
+
+      if (!Array.isArray(data)) {
+        throw new Error('Data is not an array or is undefined.');
+      }
+
+      const tempFilePath = await this.jenisbiayamarketingService.exportToExcel(data);
+
+      const fileStream = fs.createReadStream(tempFilePath);
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_pelayaran.xlsx"',
+      );
+
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      res.status(500).send('Failed to export file');
+    }
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
@@ -226,6 +240,29 @@ export class JenisbiayamarketingController {
 
       await trx.rollback();
       throw new Error('Failed to fetch data by id');
+    }
+  }
+  
+  @Post('check-validation')
+  @UseGuards(AuthGuard)
+  async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
+    const { aksi, value } = body;
+    const trx = await dbMssql.transaction();
+    const editedby = req.user?.user?.username;
+
+    try {
+      const forceEdit = await this.jenisbiayamarketingService.checkValidasi(
+        aksi,
+        value,
+        editedby,
+        trx,
+      );
+      trx.commit();
+      return forceEdit;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error checking validation:', error);
+      throw new InternalServerErrorException('Failed to check validation');
     }
   }
 }
