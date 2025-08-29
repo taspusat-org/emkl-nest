@@ -73,6 +73,7 @@ import { MarketingdetailModule } from './modules/marketingdetail/marketingdetail
 import { JenisprosesfeeModule } from './modules/jenisprosesfee/jenisprosesfee.module';
 import { DivisiModule } from './modules/divisi/divisi.module';
 import { JabatanModule } from './modules/jabatan/jabatan.module';
+import { ShipperModule } from './modules/shipper/shipper.module';
 
 @Module({
   imports: [
@@ -147,6 +148,7 @@ import { JabatanModule } from './modules/jabatan/jabatan.module';
     JenisprosesfeeModule,
     DivisiModule,
     JabatanModule,
+    ShipperModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

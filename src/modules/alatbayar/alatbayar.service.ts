@@ -471,6 +471,13 @@ export class AlatbayarService {
         col.width = maxLength + 2;
       });
 
+    const adjustCols = [5, 6, 7];
+    adjustCols.forEach((colIndex) => {
+      const col = worksheet.getColumn(colIndex);
+      const currentWidth = col.width ?? 20;
+      col.width = Math.max(10, currentWidth / 2);
+    });
+
     worksheet.getColumn(1).width = 6;
 
     const tempDir = path.resolve(process.cwd(), 'tmp');

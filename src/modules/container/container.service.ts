@@ -468,6 +468,7 @@ export class ContainerService {
       });
 
     worksheet.getColumn(1).width = 6;
+    worksheet.getColumn(4).width = 20;
 
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
