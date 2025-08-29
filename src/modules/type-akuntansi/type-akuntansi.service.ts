@@ -72,9 +72,9 @@ export class TypeAkuntansiService {
         },
         trx,
       );
-      let itemIndex = data.findIndex((item) => item.id === newItem.id);
-      if (itemIndex === -1) {
-        itemIndex = 0;
+      let dataIndex = data.findIndex((item) => item.id === newItem.id);
+      if (dataIndex === -1) {
+        dataIndex = 0;
       }
 
       // Optionally, you can find the page number or other info if needed
@@ -98,7 +98,7 @@ export class TypeAkuntansiService {
         trx,
       );
 
-      return { newItem, pageNumber, itemIndex };
+      return { newItem, pageNumber, dataIndex };
     } catch (error) {
       throw new Error(`Error creating type akuntansi: ${error.message}`);
     }
