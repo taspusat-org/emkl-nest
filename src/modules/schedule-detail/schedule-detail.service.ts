@@ -8,6 +8,8 @@ import {
 } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { ScheduleKapalService } from '../schedule-kapal/schedule-kapal.service';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
+import { dbMssql } from 'src/common/utils/db';
 
 @Injectable()
 export class ScheduleDetailService {
@@ -337,8 +339,19 @@ export class ScheduleDetailService {
     return updatedData || insertedData;
   }
 
-  async findAll(id: string, trx: any) {
-    const result = await trx(`${this.tableName} as p`)
+  async findAll(
+    id: string, 
+    trx: any,
+    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+  ) {
+    try {
+      const { tglDari, tglSampai, ...filtersWithoutTanggal } = filters ?? {};
+      
+      let { page, limit } = pagination ?? {};
+      page = page ?? 1;
+      limit = limit ?? 0;
+
+      const query = trx(`${this.tableName} as p`)
       .select(
         'p.id',
         'p.schedule_id',
@@ -371,29 +384,142 @@ export class ScheduleDetailService {
       .leftJoin('pelayaran as pel', 'p.pelayaran_id', 'pel.id')
       .leftJoin('kapal', 'p.kapal_id', 'kapal.id')
       .leftJoin('tujuankapal as q', 'p.tujuankapal_id', 'q.id')
-      .where('schedule_id', id)
-      .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
+      .where('schedule_id', id); 
 
-    if (!result.length) {
-      this.logger.warn(
-        `No data schedule detail found for id schedule header: ${id}`,
-      );
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+        query.where((builder) => {
+          builder
+            .orWhere('p.nobukti', 'like', `%${sanitizedValue}%`)
+            .orWhere('pel.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('kapal.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('q.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.tglberangkat', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.tgltiba', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.etb', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.eta', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.etd', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.voyberangkat', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.voytiba', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.closing', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.etatujuan', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.etdtujuan', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
+        });
+      }
+
+      if (filtersWithoutTanggal) {
+        for (const [key, value] of Object.entries(filtersWithoutTanggal)) {
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+          if (value) {
+            if (key === 'pelayaran') {
+              query.andWhere(`pel.nama`, 'like', `%${sanitizedValue}%`);
+            } else if (key === 'kapal') {
+              query.andWhere('kapal.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'tujuankapal') {
+              query.andWhere('q.nama', 'like', `%${sanitizedValue}%`);
+            } else {
+              query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
+            }
+          }
+        }
+      }
+
+      if (sort?.sortBy && sort?.sortDirection) {
+        if (sort?.sortBy === 'pelayaran') {
+          query.orderBy(`pel.nama`, sort.sortDirection);
+        } else if (sort?.sortBy === 'kapal') {
+          query.orderBy(`kapal.nama`, sort.sortDirection);
+        } else if (sort?.sortBy === 'tujuankapal') {
+          query.orderBy(`q.nama`, sort.sortDirection);
+        } else {
+          query.orderBy(sort.sortBy, sort.sortDirection);
+        }
+      }
+
+      const result = await query;
+
+      if (!result.length) {
+        this.logger.warn(
+          `No data schedule detail found for id schedule header: ${id}`,
+        );
+        return {
+          status: false,
+          message: 'No Data Schedule Detail Found',
+          data: [],
+        };
+      }
+
       return {
-        status: false,
-        message: 'No Data Schedule Detail Found',
-        data: [],
+        status: true,
+        message: 'Schedule Detail data fetched successfully',
+        data: result,
       };
+    } catch (error) {
+      console.error('Error to findAll Schedule detail in service', error);
+      throw new Error(error);
     }
 
-    return {
-      status: true,
-      message: 'Schedule Detail data fetched successfully',
-      data: result,
-    };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} scheduleDetail`;
+  async getScheduleDetailForExport(id: any) {
+    try {
+      const result = await dbMssql(`${this.tableName} as p`)
+      .select(
+        'p.id',
+        'p.schedule_id',
+        'p.nobukti',
+        'p.pelayaran_id',
+        'p.kapal_id',
+        'p.tujuankapal_id',
+        'p.schedulekapal_id',
+        dbMssql.raw("FORMAT(p.tglberangkat, 'dd-MM-yyyy') as tglberangkat"),
+        dbMssql.raw("FORMAT(p.tgltiba, 'dd-MM-yyyy') as tgltiba"),
+        dbMssql.raw("FORMAT(p.etb, 'dd-MM-yyyy') as etb"),
+        dbMssql.raw("FORMAT(p.eta, 'dd-MM-yyyy') as eta"),
+        dbMssql.raw("FORMAT(p.etd, 'dd-MM-yyyy') as etd"),
+        'p.voyberangkat',
+        'p.voytiba',
+        dbMssql.raw("FORMAT(p.closing, 'dd-MM-yyyy HH:mm:ss') as closing"),
+        dbMssql.raw(
+          "FORMAT(p.closing, 'dd-MM-yyyy hh:mm tt') as closingForDateTime",
+        ),
+        dbMssql.raw("FORMAT(p.etatujuan, 'dd-MM-yyyy') as etatujuan"),
+        dbMssql.raw("FORMAT(p.etdtujuan, 'dd-MM-yyyy') as etdtujuan"),
+        'p.keterangan',
+        'p.modifiedby',
+        dbMssql.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+        dbMssql.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+        'pel.nama as pelayaran_nama',
+        'kapal.nama as kapal_nama',
+        'q.nama as tujuankapal_nama',
+      )
+      .leftJoin('pelayaran as pel', 'p.pelayaran_id', 'pel.id')
+      .leftJoin('kapal', 'p.kapal_id', 'kapal.id')
+      .leftJoin('tujuankapal as q', 'p.tujuankapal_id', 'q.id')
+      .where('schedule_id', id)
+      .orderBy('p.id', 'asc');
+
+      if (!result.length) {
+        this.logger.warn(
+          `No data schedule detail found for id schedule header: ${id}`,
+        );
+        return {
+          status: false,
+          message: 'No Data Schedule Detail Found',
+          data: [],
+        };
+      }
+
+      return {
+        status: true,
+        message: 'Schedule Detail data fetched successfully',
+        data: result,
+      }; 
+    } catch (error) {
+      console.error('Error to get Schedule detail for export in service', error);
+      throw new Error(error);
+    }
   }
 
   update(id: number, updateScheduleDetailDto: UpdateScheduleDetailDto) {
