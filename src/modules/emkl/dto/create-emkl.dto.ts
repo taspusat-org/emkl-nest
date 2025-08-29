@@ -20,14 +20,14 @@ const baseFields = {
     .trim()
     .min(1, { message: 'No Telepon Wajib Diisi' })
     .max(14),
-  email: z.string().trim().nullable().optional(),
+  email: z.string().trim().email({ message: "Email tidak valid" }).optional().or(z.literal("")),
   fax: z.string().trim().nullable().optional(),
   alamatweb: z.string().trim().nullable().optional(),
   top: z
     .number()
     .int({ message: 'TOP Wajib Angka' })
     .nonnegative({ message: 'TOP Tidak Boleh Angka Negatif' }), // Ensure non-negative
-  npwp: z.string().trim().min(1, { message: 'NPWP Wajib Diisi' }).max(16),
+  npwp: z.string().trim().min(1, { message: 'NPWP Wajib Diisi' }).max(20),
   namapajak: z
     .string()
     .trim()
