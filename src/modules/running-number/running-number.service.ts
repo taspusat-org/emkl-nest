@@ -12,25 +12,42 @@ export class RunningNumberService {
     statusformat: string,
   ) {
     console.log('type', type == 'RESET BULAN');
-    console.log('type', type);
+    console.log('type', type, year, month);
 
     if (type === 'RESET BULAN') {
-      // Get all the 'nobukti' values for the given month and order them
+      // Create date objects for start and end of month
+      const startDate = new Date(year, month - 1, 1); // month is 0-indexed in Date
+      const endDate = new Date(year, month, 1); // This automatically handles year overflow
+
+      // Format dates as YYYY-MM-DD strings
+      const formatDate = (date: Date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      };
+
+      const startDateStr = formatDate(startDate);
+      const endDateStr = formatDate(endDate);
+
       const rows = await trx(table)
         .select('nobukti')
-        .where('tglbukti', '>=', `${year}-${month}-01`)
-        .andWhere('tglbukti', '<', `${year}-${month + 1}-01`)
+        .where('tglbukti', '>=', startDateStr)
+        .andWhere('tglbukti', '<', endDateStr)
         .orderBy('nobukti', 'asc');
 
       return rows;
     }
 
     if (type === 'RESET TAHUN') {
+      const startDate = `${year}-01-01`;
+      const endDate = `${year + 1}-01-01`;
+
       return trx(table)
         .forUpdate()
-        .where('tglbukti', '>=', `${year}-01-01`)
-        .andWhere('tglbukti', '<', `${year + 1}-01-01`)
-        .orderBy('nobukti', 'desc') // Descending order to get the latest
+        .where('tglbukti', '>=', startDate)
+        .andWhere('tglbukti', '<', endDate)
+        .orderBy('nobukti', 'desc')
         .first();
     }
 
@@ -40,7 +57,6 @@ export class RunningNumberService {
       .orderBy('nobukti', 'desc')
       .first();
   }
-
   async saveRunningNumber(
     table: string,
     data: { nobukti: string; tglbukti: string; statusformat: string },

@@ -30,7 +30,6 @@ export class KasgantungheaderService {
   private readonly tableName = 'kasgantungheader';
   async create(data: any, trx: any) {
     try {
-      data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
       const {
         sortBy,
         sortDirection,
@@ -50,6 +49,8 @@ export class KasgantungheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
+      insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
+      console.log('insertData', insertData);
       const parameter = await trx('parameter')
         .select('*')
         .where('grp', 'PENERIMAAN GANTUNG')

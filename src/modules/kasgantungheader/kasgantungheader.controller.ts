@@ -49,6 +49,7 @@ export class KasgantungheaderController {
       return result;
     } catch (error) {
       await trx.rollback();
+      console.error('error', error);
       throw new Error(`Error: ${error.message}`);
     }
   }
@@ -90,6 +91,50 @@ export class KasgantungheaderController {
       throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
+
+  @UseGuards(AuthGuard)
+  @Put(':id')
+  //@KAS-GANTUNG
+  async update(@Param('id') id: string, @Body() data: any, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+      console.log('data', data);
+      const result = await this.kasgantungheaderService.update(+id, data, trx);
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error updating menu in controller:', error);
+      throw new Error('Failed to update menu');
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id')
+  //@KAS-GANTUNG
+  async delete(@Param('id') id: string, @Req() req) {
+    const trx = await dbMssql.transaction();
+    const modifiedby = req.user?.user?.username || 'unknown';
+    try {
+      const result = await this.kasgantungheaderService.delete(
+        +id,
+        trx,
+        modifiedby,
+      );
+
+      trx.commit();
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error deleting pengembaliankasgantungheader:', error);
+      throw new Error(
+        `Error deleting pengembaliankasgantungheader: ${error.message}`,
+      );
+    }
+  }
+
   @Get('list')
   //@KAS-GANTUNG
   @UsePipes(new ZodValidationPipe(FindAllSchema))
@@ -143,46 +188,6 @@ export class KasgantungheaderController {
     return this.kasgantungheaderService.findOne(+id);
   }
 
-  @UseGuards(AuthGuard)
-  @Put(':id')
-  async update(@Param('id') id: string, @Body() data: any, @Req() req) {
-    const trx = await dbMssql.transaction();
-    try {
-      data.modifiedby = req.user?.user?.username || 'unknown';
-      console.log('data', data);
-      const result = await this.kasgantungheaderService.update(+id, data, trx);
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error updating menu in controller:', error);
-      throw new Error('Failed to update menu');
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Delete(':id')
-  async delete(@Param('id') id: string, @Req() req) {
-    const trx = await dbMssql.transaction();
-    const modifiedby = req.user?.user?.username || 'unknown';
-    try {
-      const result = await this.kasgantungheaderService.delete(
-        +id,
-        trx,
-        modifiedby,
-      );
-
-      trx.commit();
-      return result;
-    } catch (error) {
-      trx.rollback();
-      console.error('Error deleting pengembaliankasgantungheader:', error);
-      throw new Error(
-        `Error deleting pengembaliankasgantungheader: ${error.message}`,
-      );
-    }
-  }
   @Post('check-validation')
   @UseGuards(AuthGuard)
   async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
