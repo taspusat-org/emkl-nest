@@ -47,11 +47,12 @@ export class GlobalService {
           isValid: false,
         };
       }
-
+      console.log('data', data);
       // ========================================
       // VALIDASI BERDASARKAN STATUS
       // ========================================
       if (data.text === 'AKTIF') {
+        console.log('data3', data);
         // Validasi 2a: Check apakah ada data yang sudah AKTIF di table utama
         const checkValidation = mainData.filter(
           (row: any) => row.statusaktif === data.value,
@@ -69,6 +70,7 @@ export class GlobalService {
           };
         }
       } else {
+        console.log('data4', data);
         // Validasi 3: Check untuk status non-AKTIF (APPROVED)
         const checkStatusPendukung = await trx('statuspendukung')
           .whereIn('transaksi_id', data.transaksi_id)
@@ -152,6 +154,7 @@ export class GlobalService {
 
       if (data.text === 'AKTIF') {
         // Check validation pada data yang sudah di-lock
+        console.log('data1', data);
         const checkValidation = lockedMainData.filter(
           (row: any) => row.statusaktif === data.value,
         );
@@ -170,6 +173,7 @@ export class GlobalService {
             .whereIn('id', data.transaksi_id);
         }
       } else {
+        console.log('data2', data);
         // Branch untuk non-AKTIF status
         const checkStatusPendukung = await trx('statuspendukung')
           .whereIn('transaksi_id', data.transaksi_id)
@@ -269,10 +273,6 @@ export class GlobalService {
           (row: any) => row.statusaktif === data.value,
         );
 
-        const checkStatusPendukung = await trx('statuspendukung')
-          .whereIn('transaksi_id', data.transaksi_id)
-          .where('statuspendukung', data.value);
-
         if (checkValidation && checkValidation.length > 0) {
           const namaList = checkValidation
             .map((row: any) => row.nama)
@@ -281,51 +281,11 @@ export class GlobalService {
             status: HttpStatus.BAD_REQUEST,
             message: `Data ${namaList} sudah berstatus NON AKTIF. Proses tidak bisa dilanjutkan.`,
           };
-        } else if (checkStatusPendukung && checkStatusPendukung.length > 0) {
-          const namaList = lockedMainData
-            .map((row: any) => row.nama)
-            .join(', ');
-          return {
-            status: HttpStatus.BAD_REQUEST,
-            message: `Data ${namaList} sudah berstatus NON AKTIF di status pendukung. Proses tidak bisa dilanjutkan.`,
-          };
         } else {
           // Update statusaktif (data sudah di-lock)
           await trx(data.tableName)
             .update({ statusaktif: data.value, updated_at })
             .whereIn('id', data.transaksi_id);
-
-          // Looping untuk insert/update ke statuspendukung
-          for (const transaksiId of data.transaksi_id) {
-            // Cek apakah data sudah ada (dengan locking)
-            const existing = await trx('statuspendukung')
-              .where({
-                statusdatapendukung: data.id,
-                transaksi_id: transaksiId,
-              })
-              .forUpdate() // LOCK ROW SPECIFIC
-              .first();
-
-            if (existing) {
-              // Jika ADA: UPDATE
-              await trx('statuspendukung')
-                .where({
-                  statusdatapendukung: data.id,
-                  transaksi_id: transaksiId,
-                })
-                .update({
-                  statuspendukung: data.value,
-                  keterangan: data.keterangan,
-                  updated_at,
-                });
-            } else {
-              // Jika TIDAK ADA: INSERT
-              await trx('statuspendukung').insert({
-                ...payloadBase,
-                transaksi_id: transaksiId,
-              });
-            }
-          }
         }
       } else {
         // Branch untuk non-AKTIF status
