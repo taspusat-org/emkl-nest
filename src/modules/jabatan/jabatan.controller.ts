@@ -170,25 +170,6 @@ export class JabatanController {
     }
   }
 
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const trx = await dbMssql.transaction();
-    try {
-      const result = await this.jabatanService.getById(+id, trx);
-      if (!result) {
-        throw new Error('Data not found');
-      }
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      console.error('Error fetching data by id:', error);
-
-      await trx.rollback();
-      throw new Error('Failed to fetch data by id');
-    }
-  }
-
   @Post('report-byselect')
   async findAllByIds(@Body() ids: { id: number }[]) {
     return this.jabatanService.findAllByIds(ids);
@@ -220,6 +201,25 @@ export class JabatanController {
     } catch (error) {
       console.error('Error exporting to Excel:', error);
       res.status(500).send('Failed to export file');
+    }
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.jabatanService.getById(+id, trx);
+      if (!result) {
+        throw new Error('Data not found');
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      console.error('Error fetching data by id:', error);
+
+      await trx.rollback();
+      throw new Error('Failed to fetch data by id');
     }
   }
 

@@ -398,9 +398,9 @@ export class KapalService {
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Data Export');
 
-    worksheet.mergeCells('A1:I1');
-    worksheet.mergeCells('A2:I2');
-    worksheet.mergeCells('A3:I3');
+    worksheet.mergeCells('A1:H1');
+    worksheet.mergeCells('A2:H2');
+    worksheet.mergeCells('A3:H3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
     worksheet.getCell('A2').value = 'LAPORAN KAPAL';
     worksheet.getCell('A3').value = 'Data Export';
@@ -424,6 +424,7 @@ export class KapalService {
       'NO.',
       'NAMA',
       'KETERANGAN',
+      'PELAYARAN',
       'STATUS AKTIF',
       'MODIFIED BY',
       'CREATED AT',
@@ -452,10 +453,11 @@ export class KapalService {
       worksheet.getCell(currentRow, 1).value = rowIndex + 1;
       worksheet.getCell(currentRow, 2).value = row.nama;
       worksheet.getCell(currentRow, 3).value = row.keterangan;
-      worksheet.getCell(currentRow, 4).value = row.text;
-      worksheet.getCell(currentRow, 5).value = row.modifiedby;
-      worksheet.getCell(currentRow, 6).value = row.created_at;
-      worksheet.getCell(currentRow, 7).value = row.updated_at;
+      worksheet.getCell(currentRow, 4).value = row.pelayaran;
+      worksheet.getCell(currentRow, 5).value = row.text;
+      worksheet.getCell(currentRow, 6).value = row.modifiedby;
+      worksheet.getCell(currentRow, 7).value = row.created_at;
+      worksheet.getCell(currentRow, 8).value = row.updated_at;
 
       for (let col = 1; col <= headers.length; col++) {
         const cell = worksheet.getCell(currentRow, col);
@@ -476,6 +478,7 @@ export class KapalService {
     worksheet.getColumn(5).width = 15;
     worksheet.getColumn(6).width = 20;
     worksheet.getColumn(7).width = 20;
+    worksheet.getColumn(8).width = 20;
 
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {

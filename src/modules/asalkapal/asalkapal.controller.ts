@@ -44,7 +44,7 @@ export class AsalkapalController {
 
   @UseGuards(AuthGuard)
   @Post()
-  //@KAPAL
+  //@ASALKAPAL
   async create(
     @Body(
       new ZodValidationPipe(CreateAsalKapalSchema),
@@ -80,13 +80,8 @@ export class AsalkapalController {
     }
   }
 
-  @Post('report-byselect')
-  async findAllByIds(@Body() ids: { id: number }[]) {
-    return this.asalkapalService.findAllByIds(ids);
-  }
-
   @Get()
-  //@KAPAL
+  //@ASALKAPAL
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
@@ -119,6 +114,65 @@ export class AsalkapalController {
       console.error('Error fetching all asalkapals:', error);
       throw new InternalServerErrorException('Failed to fetch asalkapals');
     }
+  }
+
+  @UseGuards(AuthGuard)
+  @Put('update/:id')
+  //@ASALKAPAL
+  async update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(UpdateAsalKapalSchema))
+    data: UpdateAsalKapalDto,
+    @Req() req,
+  ) {
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+
+      const result = await this.asalkapalService.update(+id, data, trx);
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error updating asalkapal in controller:', error);
+      throw new Error('Failed to update asalkapal');
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id')
+  //@ASALKAPAL
+  async delete(@Param('id') id: string, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.asalkapalService.delete(
+        +id,
+        trx,
+        req.user?.user?.username,
+      );
+
+      if (result.status === 404) {
+        throw new NotFoundException(result.message);
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error deleting asalkapal in controller:', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to delete asalkapal');
+    }
+  }
+
+  @Post('report-byselect')
+  async findAllByIds(@Body() ids: { id: number }[]) {
+    return this.asalkapalService.findAllByIds(ids);
   }
 
   @Get('/export')
@@ -198,60 +252,6 @@ export class AsalkapalController {
 
       await trx.rollback();
       throw new Error('Failed to fetch data by id');
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Put('update/:id')
-  //@KAPAL
-  async update(
-    @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateAsalKapalSchema))
-    data: UpdateAsalKapalDto,
-    @Req() req,
-  ) {
-    const trx = await dbMssql.transaction();
-    try {
-      data.modifiedby = req.user?.user?.username || 'unknown';
-
-      const result = await this.asalkapalService.update(+id, data, trx);
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error updating asalkapal in controller:', error);
-      throw new Error('Failed to update asalkapal');
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Delete(':id')
-  //@KAPAL
-  async delete(@Param('id') id: string, @Req() req) {
-    const trx = await dbMssql.transaction();
-    try {
-      const result = await this.asalkapalService.delete(
-        +id,
-        trx,
-        req.user?.user?.username,
-      );
-
-      if (result.status === 404) {
-        throw new NotFoundException(result.message);
-      }
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      await trx.rollback();
-      console.error('Error deleting asalkapal in controller:', error);
-
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to delete asalkapal');
     }
   }
 }
