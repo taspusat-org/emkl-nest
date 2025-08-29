@@ -11,7 +11,7 @@ export const CreateJenisOrderanSchema = z.object({
         return !exists; // Validasi jika nama sudah ada
       },
       {
-        message: 'Container dengan dengan nama ini sudah ada',
+        message: 'Jenis Orderan dengan dengan nama ini sudah ada',
       },
     ),
   statusaktif: z

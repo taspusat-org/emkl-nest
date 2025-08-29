@@ -408,6 +408,7 @@ export class JenisOrderanService {
         vertical: 'middle',
       };
       worksheet.getCell(cellKey).font = {
+        name: 'Tahoma',
         size: i === 0 ? 14 : 10,
         bold: true,
       };
@@ -441,7 +442,7 @@ export class JenisOrderanService {
         cell.value = value ?? '';
         cell.font = { name: 'Tahoma', size: 10 };
         cell.alignment = {
-          horizontal: colIndex === 0 ? 'center' : 'left',
+          horizontal: colIndex === 0 ? 'right' : 'left',
           vertical: 'middle',
         };
         cell.border = {
@@ -463,6 +464,9 @@ export class JenisOrderanService {
         });
         col.width = maxLength + 2;
       });
+
+    worksheet.getColumn(1).width = 6;
+    worksheet.getColumn(4).width = 20;
 
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {

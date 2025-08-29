@@ -422,6 +422,7 @@ export class TujuankapalService {
         vertical: 'middle',
       };
       worksheet.getCell(cellKey).font = {
+        name: 'Tahoma',
         size: i === 0 ? 14 : 10,
         bold: true,
       };
@@ -461,7 +462,7 @@ export class TujuankapalService {
         cell.value = value ?? '';
         cell.font = { name: 'Tahoma', size: 10 };
         cell.alignment = {
-          horizontal: colIndex === 0 ? 'center' : 'left',
+          horizontal: colIndex === 0 ? 'right' : 'left',
           vertical: 'middle',
         };
         cell.border = {
@@ -484,6 +485,9 @@ export class TujuankapalService {
         col.width = maxLength + 2;
       });
 
+    worksheet.getColumn(1).width = 6;
+    worksheet.getColumn(4).width = 15;
+    worksheet.getColumn(5).width = 15;
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });

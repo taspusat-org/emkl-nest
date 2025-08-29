@@ -138,8 +138,6 @@ export class AlatbayarService {
           'ab.statusaktif',
           'ab.info',
           'ab.modifiedby',
-          'ab.editing_by',
-          trx.raw("FORMAT(ab.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
           trx.raw("FORMAT(ab.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(ab.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'p1.text as statuslangsungcair_text',
@@ -182,7 +180,6 @@ export class AlatbayarService {
             .orWhere('p.text', 'like', `%${val}%`)
             .orWhere('ab.info', 'like', `%${val}%`)
             .orWhere('ab.modifiedby', 'like', `%${val}%`)
-            .orWhere('ab.editing_by', 'like', `%${val}%`),
         );
       }
 
@@ -193,7 +190,7 @@ export class AlatbayarService {
           const val = String(rawValue).replace(/\[/g, '[[]');
 
           // tanggal / timestamp
-          if (['editing_at', 'created_at', 'updated_at'].includes(key)) {
+          if (['created_at', 'updated_at'].includes(key)) {
             query.andWhereRaw("FORMAT(ab.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
               key,
               `%${val}%`,
@@ -201,7 +198,7 @@ export class AlatbayarService {
           }
           // kolom teks lainnya
           else if (
-            ['nama', 'keterangan', 'info', 'modifiedby', 'editing_by'].includes(
+            ['nama', 'keterangan', 'info', 'modifiedby'].includes(
               key,
             )
           ) {
@@ -398,6 +395,7 @@ export class AlatbayarService {
         vertical: 'middle',
       };
       worksheet.getCell(cellKey).font = {
+        name: 'Tahoma',
         size: i === 0 ? 14 : 10,
         bold: true,
       };
@@ -422,7 +420,10 @@ export class AlatbayarService {
         fgColor: { argb: 'FFFF00' },
       };
       cell.font = { bold: true, name: 'Tahoma', size: 10 };
-      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.alignment = {
+        horizontal: index === 0 ? 'right' : 'center',
+        vertical: 'middle',
+      };
       cell.border = {
         top: { style: 'thin' },
         left: { style: 'thin' },
@@ -447,7 +448,7 @@ export class AlatbayarService {
         cell.value = value ?? '';
         cell.font = { name: 'Tahoma', size: 10 };
         cell.alignment = {
-          horizontal: colIndex === 0 ? 'center' : 'left',
+          horizontal: colIndex === 0 ? 'right' : 'left',
           vertical: 'middle',
         };
         cell.border = {
@@ -470,6 +471,15 @@ export class AlatbayarService {
         col.width = maxLength + 2;
       });
 
+    const adjustCols = [5, 6, 7];
+    adjustCols.forEach((colIndex) => {
+      const col = worksheet.getColumn(colIndex);
+      const currentWidth = col.width ?? 20;
+      col.width = Math.max(10, currentWidth / 2);
+    });
+
+    worksheet.getColumn(1).width = 6;
+
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
@@ -477,7 +487,7 @@ export class AlatbayarService {
 
     const tempFilePath = path.resolve(
       tempDir,
-      `laporan_bank_${Date.now()}.xlsx`,
+      `laporan_alatbayar_${Date.now()}.xlsx`,
     );
     await workbook.xlsx.writeFile(tempFilePath);
 

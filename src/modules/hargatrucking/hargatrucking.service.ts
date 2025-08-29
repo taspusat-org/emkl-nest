@@ -381,6 +381,7 @@ export class HargatruckingService {
         vertical: 'middle',
       };
       worksheet.getCell(cellKey).font = {
+        name: 'Tahoma',
         size: i === 0 ? 14 : 10,
         bold: true,
       };
@@ -431,10 +432,17 @@ export class HargatruckingService {
         const cell = worksheet.getCell(currentRow, colIndex + 1);
         cell.value = value ?? '';
         cell.font = { name: 'Tahoma', size: 10 };
-        cell.alignment = {
-          horizontal: colIndex === 0 ? 'center' : 'left',
-          vertical: 'middle',
-        };
+
+        if (colIndex === 6) {
+          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          cell.numFmt = '#,##0'; // Format angka dengan pemisah ribuan
+        } else {
+          cell.alignment = {
+            horizontal: colIndex === 0 ? 'right' : 'left',
+            vertical: 'middle',
+          };
+        }
+
         cell.border = {
           top: { style: 'thin' },
           left: { style: 'thin' },
@@ -455,6 +463,8 @@ export class HargatruckingService {
         col.width = maxLength + 2;
       });
 
+    worksheet.getColumn(1).width = 6;
+    worksheet.getColumn(8).width = 20;
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });

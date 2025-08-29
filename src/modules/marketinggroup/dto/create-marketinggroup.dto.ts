@@ -1,35 +1,55 @@
 import { dbMssql } from 'src/common/utils/db';
+import { isRecordExist } from 'src/utils/utils.service';
 import { z } from 'zod';
-const checkIfExistsNama = async (marketing_id: number) => {
-  const result = await dbMssql
-    .select('*')
-    .from('marketinggroup')
-    .where('marketing_id', marketing_id)
-    .first();
-  console.log(result);
-  return result ? true : false; // Return true jika ada, false jika tidak ada
-};
 
-export const CreateMarketinggroupSchema = z.object({
-  marketing_id: z
-    .number()
-    .int({ message: 'Marketing Wajib Diisi' })
-    .refine(
-      async (value) => {
-        console.log('value', value);
-        const exists = await checkIfExistsNama(value);
-        return !exists; // Validasi jika nama sudah ada
-      },
-      {
-        message: 'Marketing dengan nama ini sudah dibuat group',
-      },
-    ),
+const baseFields = {
+  marketing_id: z.number().int({ message: 'Marketing Wajib Diisi' }),
   statusaktif: z
     .number()
     .int({ message: 'Status Aktif Wajib Angka' })
     .nonnegative({ message: 'Status Aktif Tidak Boleh Angka Negatif' }), // Ensure non-negative
   modifiedby: z.string().nullable().optional(),
-});
+};
+export const CreateMarketinggroupSchema = z.object({
+    ...baseFields,  
+})
+  .superRefine(async (data, ctx) => {
+    // Cek unik hanya untuk create (excludeId tidak ada)
+    const existsName = await isRecordExist('marketing_id', data.marketing_id, 'marketinggroup');
+    if (existsName) {
+      ctx.addIssue({
+        path: ['marketing_nama'],
+        code: 'custom',
+        message: 'Marketing Group dengan nama ini sudah ada',
+      });
+    }
+    // Validasi khusus penambahan create dapat disimpan di sini
+  });
 export type CreateMarketinggroupDto = z.infer<
   typeof CreateMarketinggroupSchema
 >;
+
+export const UpdateMarketinggroupSchema = z
+  .object({
+    ...baseFields,
+    id: z.number({ required_error: 'Id wajib diisi untuk update' }),
+    // Field atau aturan khusus update bisa ditambah di sini
+  })
+  .superRefine(async (data, ctx) => {
+    // Exclude diri sendiri dari pengecekan unik
+    const existsName = await isRecordExist(
+      'marketing_id',
+      data.marketing_id,
+      'marketinggroup',
+      data.id,
+    );
+    if (existsName) {
+      ctx.addIssue({
+        path: ['marketing_nama'],
+        code: 'custom',
+        message: 'Marketing Group dengan nama ini sudah ada',
+      });
+    }
+    // Validasi khusus update bisa diletakkan di sini
+  });
+export type UpdateMarketinggroupDto = z.infer<typeof UpdateMarketinggroupSchema>;

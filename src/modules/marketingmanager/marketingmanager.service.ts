@@ -3,6 +3,7 @@ import { CreateMarketingmanagerDto } from './dto/create-marketingmanager.dto';
 import { UpdateMarketingmanagerDto } from './dto/update-marketingmanager.dto';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Injectable()
 export class MarketingmanagerService {
@@ -10,7 +11,7 @@ export class MarketingmanagerService {
   private readonly logger = new Logger(MarketingmanagerService.name);
 
   constructor(
-    // @Inject('REDIS_CLIENT')
+    // @Inject('REDIS_CLIENT') 
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
@@ -38,11 +39,11 @@ export class MarketingmanagerService {
         await trx(this.tableName).delete().where('marketing_id', marketing_id);
         return;
       }
-
+ 
       const fixData = marketingManagerData.map(
         ({
           managermarketing_nama,
-          statusaktif_nama,
+          statusaktifManager_nama,
           ...marketingManagerData
         }) => ({
           ...marketingManagerData,
@@ -229,53 +230,102 @@ export class MarketingmanagerService {
     }
   }
 
-  async findAll(id: string, trx: any) {
-    const result = await trx(`${this.tableName} as p`)
-      .select(
-        'p.id',
-        'p.marketing_id',
-        'p.managermarketing_id',
-        'p.tglapproval',
-        'p.statusapproval',
-        'p.userapproval',
-        'p.statusaktif',
-        'statusaktif.memo',
-        'statusaktif.text as statusaktif_nama',
-        'statusapproval.memo',
-        'statusapproval.text as statusapproval_nama',
-        'r.nama as managermarketing_nama',
-        'q.nama as marketing_nama',
-      )
-      .leftJoin('parameter as statusaktif', 'p.statusaktif', 'statusaktif.id')
-      .leftJoin(
-        'parameter as statusapproval',
-        'p.statusaktif',
-        'statusapproval.id',
-      )
-      .leftJoin('marketing as q', 'p.marketing_id', 'q.id')
-      .leftJoin('managermarketing as r', 'p.managermarketing_id', 'r.id')
-      .where('p.marketing_id', id)
-      .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
+  async findAll(
+    id: string, 
+    trx: any,
+    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+  ) {
+    try {
+      let { page, limit } = pagination ?? {};
+      page = page ?? 1;
+      limit = limit ?? 0;
 
-    console.log('result', result);
+      const query = trx(`${this.tableName} as u`)
+        .select(
+          'u.id',
+          'u.marketing_id',
+          'u.managermarketing_id',
+          trx.raw("FORMAT(u.tglapproval, 'dd-MM-yyyy') as tglapproval"),
+          'u.statusapproval',
+          'u.userapproval',
+          'u.statusaktif',
+          'p.nama as marketing_nama',
+          'q.nama as managermarketing_nama',
+          'statusapproval.text as statusapproval_nama',
+          'statusaktif.text as statusaktif_nama',
+          'statusaktif.memo',
+          'statusapproval.memo as approvalmemo',
+        )
+        .leftJoin('marketing as p', 'u.marketing_id', 'p.id')
+        .leftJoin('managermarketing as q', 'u.managermarketing_id', 'q.id')
+        .leftJoin('parameter as statusapproval', 'u.statusapproval', 'statusapproval.id')
+        .leftJoin('parameter as statusaktif', 'u.statusaktif', 'statusaktif.id')
+        .where('u.marketing_id', id)
+        .orderBy('u.created_at', 'desc');
 
-    if (!result.length) {
-      this.logger.warn(
-        `No data marketing manager found for id marketing_id: ${id}`,
-      );
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+        query.where((builder) => {
+          builder
+            .orWhere('p.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('q.nama', 'like', `%${sanitizedValue}%`)
+            .orWhereRaw("FORMAT(u.tglapproval, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhere('u.userapproval', 'like', `%${sanitizedValue}%`)
+        });
+      }
+
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+          if (value) {
+            if (key === 'statusaktif_nama') {
+              query.andWhere(`statusaktif.id`, '=', sanitizedValue);
+            } else if (key === 'statusapproval_nama') {
+              query.andWhere('statusapproval.id', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'marketing_nama') {
+              query.andWhere('p.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'managermarketing_nama') {
+              query.andWhere('q.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'tglapproval') {
+              query.andWhereRaw("FORMAT(u.tglapproval, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
+            } else {
+              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+            }
+          }
+        }
+      }
+
+      if (sort?.sortBy && sort?.sortDirection) {
+        if (sort?.sortBy === 'managermarketing') {
+          query.orderBy('q.nama', sort.sortDirection);
+        } else {
+          query.orderBy(sort.sortBy, sort.sortDirection);
+        }
+      }
+
+      const result = await query;
+
+      if (!result.length) {
+        this.logger.warn(
+          `No data marketing manager found for id marketing_id: ${id}`,
+        );
+
+        return {
+          status: false,
+          message: 'No Data marketing manager Found',
+          data: [],
+        };
+      }
 
       return {
-        status: false,
-        message: 'No Data marketing manager Found',
-        data: [],
+        status: true,
+        message: 'marketing manager data fetched successfully',
+        data: result,
       };
+    } catch (error) {
+      console.error('Error to findAll Marketing Manager', error);
+      throw new Error(error);
     }
-
-    return {
-      status: true,
-      message: 'marketing manager data fetched successfully',
-      data: result,
-    };
   }
 
   findOne(id: number) {

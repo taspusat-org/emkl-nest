@@ -3,6 +3,7 @@ import { CreateMarketingorderanDto } from './dto/create-marketingorderan.dto';
 import { UpdateMarketingorderanDto } from './dto/update-marketingorderan.dto';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { UtilsService } from 'src/utils/utils.service';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Injectable()
 export class MarketingorderanService {
@@ -40,7 +41,7 @@ export class MarketingorderanService {
       }
 
       const fixData = marketingOrderanData.map(
-        ({ statusaktif_nama, ...marketingOrderanData }) => ({
+        ({ statusaktifOrderan_nama, ...marketingOrderanData }) => ({
           ...marketingOrderanData,
         }),
       );
@@ -239,8 +240,17 @@ export class MarketingorderanService {
     }
   }
 
-  async findAll(id: string, trx: any) {
-    const result = await trx(`${this.tableName} as p`)
+  async findAll(
+    id: string, 
+    trx: any,
+    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+  ) {
+    try { 
+      let { page, limit } = pagination ?? {};
+      page = page ?? 1;
+      limit = limit ?? 0;
+
+      const query = trx((`${this.tableName} as p`))
       .select(
         'p.id',
         'p.marketing_id',
@@ -250,32 +260,65 @@ export class MarketingorderanService {
         'p.statusaktif',
         'q.memo',
         'q.text as statusaktif_nama',
-        'r.nama as marketing_nama',
+        'r.nama as marketing_nama'
       )
       .leftJoin('parameter as q', 'p.statusaktif', 'q.id')
       .leftJoin('marketing as r', 'p.marketing_id', 'r.id')
       .where('p.marketing_id', id)
       .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
+      
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+        query.where((builder) => {
+          builder
+            .orWhere('p.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.singkatan', 'like', `%${sanitizedValue}%`)
+            // .orWhere('q.text', 'like', `%${sanitizedValue}%`)
+            .orWhere('r.nama', 'like', `%${sanitizedValue}%`)
+        });
+      }
 
-    // console.log('result', result);
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+          if (value) {
+            if (key === 'statusaktif_nama') {
+              query.andWhere(`q.id`, '=', sanitizedValue);
+            } else if (key === 'marketing_nama') {
+              query.andWhere('r.nama', 'like', `%${sanitizedValue}%`);
+            } else {
+              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+            }
+          }
+        }
+      }
 
-    if (!result.length) {
-      this.logger.warn(
-        `No data marketing orderan found for id marketing_id: ${id}`,
-      );
+      if (sort?.sortBy && sort?.sortDirection) {
+        query.orderBy(sort.sortBy, sort.sortDirection);
+      }
+
+      const result = await query;
+      
+      if (!result.length) {
+        this.logger.warn(`No data marketing orderan found for id marketing_id: ${id}`);
+
+        return {
+          status: false,
+          message: 'No Data marketing orderan Found',
+          data: [],
+        };
+      }
 
       return {
-        status: false,
-        message: 'No Data marketing orderan Found',
-        data: [],
+        status: true,
+        message: 'marketing orderan data fetched successfully',
+        data: result,
       };
+    } catch (error) {
+      console.error('Error to findAll Marketing Orderan', error);
+      throw new Error(error);
     }
-
-    return {
-      status: true,
-      message: 'marketing orderan data fetched successfully',
-      data: result,
-    };
   }
 
   findOne(id: number) {
