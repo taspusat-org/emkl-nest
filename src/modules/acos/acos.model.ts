@@ -6,17 +6,17 @@ import { CreateAcosDto } from './dto/create-aco.dto';
 
 export class AcosModel {
   static async syncAcos(username: string) {
+    const acosEntries: CreateAcosDto[] = [];
+
+    // BAGIAN 1: Scanning dari file controller (kode existing)
     const controllersPath = 'src/modules/**/*.controller.ts';
     const files = glob.sync(controllersPath);
-    const acosEntries: CreateAcosDto[] = [];
 
     for (const file of files) {
       const content = fs.readFileSync(file, 'utf-8');
-
       // Regex to match HTTP methods and comments
       const regex =
-        /@(Get|Post|Put|Delete|Patch)\([^)]*\)[\s\S]*?\/\/@([\w\- ]+)/g;
-
+        /@(Get|Post|Put|Delete|Patch)$[^)]*$[\s\S]*?\/\/@([\w\- ]+)/g;
       let match;
 
       // Capture all matches for HTTP methods and class names
@@ -33,6 +33,48 @@ export class AcosModel {
           });
         }
       }
+    }
+
+    // BAGIAN 2: Generate dari tabel parameter dengan YA dan TIDAK
+    try {
+      // Query tabel parameter dengan filter grp = 'DATA PENDUKUNG'
+      const parameterEntries = await dbMssql('parameter')
+        .select('subgrp', 'text')
+        .where('grp', 'DATA PENDUKUNG')
+        .whereNotNull('subgrp') // Pastikan subgrp tidak null
+        .whereNotNull('text') // Pastikan text tidak null
+        .andWhere('subgrp', '!=', '') // Pastikan subgrp tidak kosong
+        .andWhere('text', '!=', ''); // Pastikan text tidak kosong
+
+      // Transform data parameter menjadi format ACOS dengan YA dan TIDAK
+      for (const param of parameterEntries) {
+        if (param.subgrp && param.text) {
+          const classValue = param.subgrp.trim();
+          const baseMethodValue = param.text.trim();
+
+          // Array untuk suffix YA dan TIDAK
+          const suffixes = ['YA', 'TIDAK'];
+
+          // Buat 2 entry untuk setiap parameter (YA dan TIDAK)
+          for (const suffix of suffixes) {
+            const methodValue = `${baseMethodValue} -> ${suffix}`;
+
+            acosEntries.push({
+              class: classValue,
+              method: methodValue,
+              nama: `${classValue}->${methodValue}`,
+              modifiedby: username,
+            });
+          }
+        }
+      }
+
+      console.log(
+        `Found ${parameterEntries.length} entries from parameter table, generated ${parameterEntries.length * 2} ACOS entries`,
+      );
+    } catch (error) {
+      console.error('Error fetching parameter data:', error);
+      // Lanjutkan proses meskipun ada error pada query parameter
     }
 
     if (acosEntries.length === 0) {
@@ -77,7 +119,31 @@ export class AcosModel {
       // Insert new entries if any
       if (newEntries.length > 0) {
         const result = await dbMssql('acos').insert(newEntries).returning('*');
-        return { success: true, data: result };
+
+        // Log summary hasil sync
+        const controllerCount = newEntries.filter((e) =>
+          ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].includes(e.method),
+        ).length;
+
+        // Identifikasi parameter entries berdasarkan adanya simbol arrow (→)
+        const parameterCount = newEntries.filter((e) =>
+          e.method.includes('->'),
+        ).length;
+
+        return {
+          success: true,
+          data: result,
+          summary: {
+            totalNewEntries: newEntries.length,
+            fromControllers: controllerCount,
+            fromParameters: parameterCount,
+            parameterYA: newEntries.filter((e) => e.method.includes('-> YA'))
+              .length,
+            parameterTIDAK: newEntries.filter((e) =>
+              e.method.includes('-> TIDAK'),
+            ).length,
+          },
+        };
       } else {
         return { success: true, message: 'No new ACOS entries to sync.' };
       }
