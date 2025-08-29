@@ -36,18 +36,6 @@ export const CreateTypeAkuntansiSchema = z
         message: 'Type Akuntansi dengan nama ini sudah ada',
       });
     }
-    const existsOrder = await isRecordExist(
-      'order',
-      data.order,
-      'typeakuntansi',
-    );
-    if (existsOrder) {
-      ctx.addIssue({
-        path: ['order'],
-        code: 'custom',
-        message: 'Type Akuntansi dengan order ini sudah ada',
-      });
-    }
     // Validasi khusus penambahan create dapat disimpan di sini
   });
 export type CreateTypeAkuntansiDto = z.infer<typeof CreateTypeAkuntansiSchema>;
@@ -73,19 +61,6 @@ export const UpdateTypeAkuntansiSchema = z
         path: ['nama'],
         code: 'custom',
         message: 'Type Akuntansi dengan nama ini sudah ada',
-      });
-    }
-    const existsOrder = await isRecordExist(
-      'order',
-      data.order,
-      'typeakuntansi',
-      data.id,
-    );
-    if (existsOrder) {
-      ctx.addIssue({
-        path: ['order'],
-        code: 'custom',
-        message: 'Type Akuntansi dengan order ini sudah ada',
       });
     }
     // Validasi khusus update bisa diletakkan di sini
