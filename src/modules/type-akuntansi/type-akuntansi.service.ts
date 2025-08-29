@@ -352,6 +352,7 @@ export class TypeAkuntansiService {
         statusaktif_text,
         akuntansi_nama,
         id,
+        method,
         ...updateData
       } = data;
 
