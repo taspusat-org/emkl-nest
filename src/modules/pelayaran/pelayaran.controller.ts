@@ -21,11 +21,9 @@ import { PelayaranService } from './pelayaran.service';
 import {
   CreatePelayaranDto,
   CreatePelayaranSchema,
-} from './dto/create-pelayaran.dto';
-import {
   UpdatePelayaranDto,
   UpdatePelayaranSchema,
-} from './dto/update-pelayaran.dto';
+} from './dto/create-pelayaran.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
   FindAllDto,
@@ -56,21 +54,21 @@ export class PelayaranController {
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const pelayaranExist = await isRecordExist(
-        'nama',
-        data.nama,
-        'pelayaran',
-      );
+      // const pelayaranExist = await isRecordExist(
+      //   'nama',
+      //   data.nama,
+      //   'pelayaran',
+      // );
 
-      if (pelayaranExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `pelayaran dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+      // if (pelayaranExist) {
+      //   throw new HttpException(
+      //     {
+      //       statusCode: HttpStatus.BAD_REQUEST,
+      //       message: `pelayaran dengan nama ${data.nama} sudah ada`,
+      //     },
+      //     HttpStatus.BAD_REQUEST,
+      //   );
+      // }
       data.modifiedby = req.user?.user?.username || 'unknown';
       const result = await this.pelayaranService.create(data, trx);
       await trx.commit();
@@ -136,32 +134,16 @@ export class PelayaranController {
   @Put(':id')
   //@PELAYARAN
   async update(
-    @Param('id') id: string,
+    @Param('id') dataId: string,
     @Body(new ZodValidationPipe(UpdatePelayaranSchema))
     data: UpdatePelayaranDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
-      const pelayaranExist = await isRecordExist(
-        'nama',
-        data.nama,
-        'pelayaran',
-        Number(id),
-      );
-
-      if (pelayaranExist) {
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: `Pelayaran dengan nama ${data.nama} sudah ada`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.pelayaranService.update(+id, data, trx);
+      const result = await this.pelayaranService.update(+dataId, data, trx);
 
       await trx.commit();
       return result;
@@ -177,7 +159,7 @@ export class PelayaranController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to update pelayaran',
+          message: 'Failed to update pelayaran sip',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -211,25 +193,6 @@ export class PelayaranController {
       }
 
       throw new InternalServerErrorException('Failed to delete pelayaran');
-    }
-  }
-
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const trx = await dbMssql.transaction();
-    try {
-      const result = await this.pelayaranService.getById(+id, trx);
-      if (!result) {
-        throw new Error('Data not found');
-      }
-
-      await trx.commit();
-      return result;
-    } catch (error) {
-      console.error('Error fetching data by id:', error);
-
-      await trx.rollback();
-      throw new Error('Failed to fetch data by id');
     }
   }
 
@@ -291,6 +254,48 @@ export class PelayaranController {
     } catch (error) {
       console.error('Error exporting to Excel:', error);
       res.status(500).send('Failed to export file');
+    }
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.pelayaranService.getById(+id, trx);
+      if (!result) {
+        throw new Error('Data not found');
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      console.error('Error fetching data by id:', error);
+
+      await trx.rollback();
+      throw new Error('Failed to fetch data by id');
+    }
+  }
+
+  @Post('check-validation')
+  @UseGuards(AuthGuard)
+  async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
+    const { aksi, value } = body;
+    const trx = await dbMssql.transaction();
+    const editedby = req.user?.user?.username;
+
+    try {
+      const forceEdit = await this.pelayaranService.checkValidasi(
+        aksi,
+        value,
+        editedby,
+        trx,
+      );
+      trx.commit();
+      return forceEdit;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error checking validation:', error);
+      throw new InternalServerErrorException('Failed to check validation');
     }
   }
 }
