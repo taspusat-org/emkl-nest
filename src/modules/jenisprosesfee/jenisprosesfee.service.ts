@@ -1,18 +1,108 @@
-import { Injectable } from '@nestjs/common';
-import { CreateJenisprosesfeeDto } from './dto/create-jenisprosesfee.dto';
-import { UpdateJenisprosesfeeDto } from './dto/update-jenisprosesfee.dto';
+import * as fs from 'fs';
+import * as path from 'path';
+import { Column, Workbook } from 'exceljs';
+import { LocksService } from '../locks/locks.service';
+import { UtilsService } from 'src/utils/utils.service';
+import { GlobalService } from '../global/global.service';
+import { RedisService } from 'src/common/redis/redis.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
+import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import {
+  HttpException, 
+  HttpStatus, 
+  Inject, 
+  Injectable, 
+  InternalServerErrorException, 
+  NotFoundException 
+} from '@nestjs/common';
 
 @Injectable()
 export class JenisprosesfeeService {
   private readonly tableName = 'jenisprosesfee';
 
-  // constructor(
-  //   private readonly log
-  // ) {}
+  constructor(
+    @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
+    private readonly utilService: UtilsService,
+    private readonly locksService: LocksService,
+    private readonly utilsService: UtilsService,
+    private readonly globalService: GlobalService,
+    private readonly logTrailService: LogtrailService,
+  ) {}
 
-  create(createJenisprosesfeeDto: CreateJenisprosesfeeDto) {
-    return 'This action adds a new jenisprosesfee';
+  async create(createData: any, trx: any) {
+    try {
+      const {
+        sortBy,
+        sortDirection,
+        filters,
+        search,
+        page,
+        limit,
+        statusaktif_nama,
+        id,
+        method,
+        ...insertData
+      } = createData;
+
+      Object.keys(insertData).forEach((key) => {
+        if (typeof insertData[key] === 'string') {
+          insertData[key] = insertData[key].toUpperCase();
+        }
+      });
+      
+      const insertedData = await trx(this.tableName)
+        .insert(insertData)
+        .returning('*');
+
+      const newData = insertedData[0];
+      
+      const { data, pagination } = await this.findAll(
+        {
+          search,
+          filters,
+          pagination: { page, limit: 0 },
+          sort: { sortBy, sortDirection },
+          isLookUp: false,
+          // forTemp: true, // <-- aktifkan kalau kamu sudah implement opsi ini di findAll
+        },
+        trx,
+      );
+
+      let dataIndex = data.findIndex((item) => item.id === newData.id);
+      if (dataIndex === -1) {
+        dataIndex = 0;
+      }
+
+      const pageNumber = Math.floor(dataIndex / limit) + 1;
+      const endIndex = pageNumber * limit;
+      const limitedItems = data.slice(0, endIndex); 
+
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: `ADD MARKETING`,
+          idtrans: newData.id,
+          nobuktitrans: newData.id,
+          aksi: 'ADD',
+          datajson: JSON.stringify(newData),
+          modifiedby: newData.modifiedby,
+        },
+        trx,
+      );
+
+      return {
+        newData,
+        pageNumber,
+        dataIndex,
+      };
+    } catch (error) {
+      throw new Error(`Error creating jenis proses fee in service: ${error.message}`);
+    }
   }
 
   async findAll(
@@ -46,8 +136,8 @@ export class JenisprosesfeeService {
           'p.modifiedby',
           trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          'statusaktif.memo as statusaktif_memo',
-          'statusaktif.text as statusaktif_text',
+          'statusaktif.memo',
+          'statusaktif.text as statusaktif_nama',
         ])
         .leftJoin(
           'parameter as statusaktif',
@@ -55,17 +145,18 @@ export class JenisprosesfeeService {
           'statusaktif.id',
         );
 
-      if (limit > 0) {
-        const offset = (page - 1) * limit;
-        query.limit(limit).offset(offset);
-      }
-
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
           builder
             .orWhere('p.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`);
+            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.modifiedby', 'like', `%${sanitizedValue}%`)
+            // .orWhereRaw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+            //   `%${sanitizedValue}%`,
+            // ])
+            .orWhere('p.created_at', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.updated_at', 'like', `%${sanitizedValue}%`)
         });
       }
 
@@ -78,22 +169,27 @@ export class JenisprosesfeeService {
                 key,
                 `%${sanitizedValue}%`,
               ]);
-            } else if (key === 'statusaktif_text') {
-              query.andWhere(`statusaktif.text`, '=', sanitizedValue);
+            } else if (key === 'statusaktif_nama') {
+              query.andWhere(`statusaktif.id`, '=', sanitizedValue);
             } else {
               query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
             }
           }
         }
       }
-      const result = await trx(this.tableName).count('id as total').first();
-      const total = result?.total as number;
-      const totalPages = Math.ceil(total / limit);
+
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.limit(limit).offset(offset);
+      }
 
       if (sort?.sortBy && sort?.sortDirection) {
         query.orderBy(sort.sortBy, sort.sortDirection);
       }
 
+      const result = await trx(this.tableName).count('id as total').first();
+      const total = result?.total as number;
+      const totalPages = Math.ceil(total / limit);
       const data = await query;
       const responseType = Number(total) > 500 ? 'json' : 'local';
 
@@ -105,24 +201,287 @@ export class JenisprosesfeeService {
           currentPage: page,
           totalPages: totalPages,
           totalItems: total,
-          itemsPerPage: limit,
+          itemsPerPage: limit > 0 ? limit : total,
         },
       };
     } catch (error) {
       console.error('Error fetching data jenis proses fee in service:', error);
-      throw new Error('Failed to fetch data jenis proses fee in service');
+      throw new Error(error);
     }
   }
 
+  async update(dataId: number, data: any, trx: any) {
+    try {
+      const existingData = await trx(this.tableName)
+        .where('id', dataId)
+        .first();
+
+      if (!existingData) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.BAD_REQUEST,
+            message: 'Data Not Found!',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const {
+        sortBy,
+        sortDirection,
+        filters,
+        search,
+        page,
+        limit,
+        statusaktif_nama,
+        id,
+        method,
+        ...updateData
+      } = data;
+
+      Object.keys(updateData).forEach((key) => {
+        if (typeof updateData[key] === 'string') {
+          updateData[key] = updateData[key].toUpperCase();
+        }
+      });
+
+      const hasChanges = this.utilService.hasChanges(updateData, existingData);
+
+      if (hasChanges) {
+        updateData.updated_at = this.utilService.getTime();
+        await trx(this.tableName).where('id', id).update(updateData);
+      }
+
+      const { data: filteredData, pagination } = await this.findAll(
+        {
+          search,
+          filters,
+          pagination: { page, limit: 0 },
+          sort: { sortBy, sortDirection },
+          isLookUp: false,
+        },
+        trx,
+      );
+
+      let dataIndex = filteredData.findIndex(
+        (item) => Number(item.id) === Number(id),
+      );
+
+      if (dataIndex === -1) {
+        dataIndex = 0;
+      }
+
+      const itemsPerPage = limit || 30;
+      const pageNumber = Math.floor(dataIndex / itemsPerPage) + 1;
+      const endIndex = pageNumber * itemsPerPage;
+      const limitedItems = filteredData.slice(0, endIndex);
+
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'EDIT JENIS PROSES FEE',
+          idtrans: id,
+          nobuktitrans: id,
+          aksi: 'EDIT',
+          datajson: JSON.stringify(data),
+          modifiedby: data.modifiedby,
+        },
+        trx,
+      );
+
+      return {
+        newItems: {
+          id,
+          ...data,
+        },
+        pageNumber,
+        dataIndex,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error; // If it's already a HttpException, rethrow it
+      }
+
+      console.error('Error updating jenis proses fee in service:', error);
+      throw new Error('Failed to update jenis proses fee in service');
+    }
+  }
+
+  async delete(id: number, trx: any, modifiedby: string) {
+    try {
+      const deletedData = await this.utilService.lockAndDestroy(
+        id,
+        this.tableName,
+        'id',
+        trx,
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE JENIS PROSES FEE',
+          idtrans: id,
+          nobuktitrans: id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedData),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+
+      return {
+        status: 200,
+        message: 'Data deleted successfully',
+        deletedData,
+      };
+    } catch (error) {
+      console.error('Error deleting data jenis proses fee in service: ', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to delete data jenis proses fee ini service');
+    }
+  }
+
+  async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
+    try {
+      if (aksi === 'EDIT') {
+        const forceEdit = await this.locksService.forceEdit(
+          this.tableName,
+          value,
+          editedby,
+          trx,
+        );
+
+        return forceEdit;
+      } else if (aksi === 'DELETE') {
+        const validasi = await this.globalService.checkUsed(
+          'marketingprosesfee',
+          'jenisprosesfee_id',
+          value,
+          trx,
+        );
+
+        return validasi;
+      }
+    } catch (error) {
+      console.error('Error di checkValidasi:', error);
+      throw new InternalServerErrorException('Failed to check validation');
+    }
+  }
+
+  async exportToExcel(data: any[]) {
+    const workbook = new Workbook();
+    const worksheet = workbook.addWorksheet('Data Export');
+
+    worksheet.mergeCells('A1:D1');
+    worksheet.mergeCells('A2:D2');
+    worksheet.mergeCells('A3:D3');
+    worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
+    worksheet.getCell('A2').value = 'LAPORAN JENIS PROSES FEE';
+    worksheet.getCell('A3').value = 'Data Export';
+    ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
+      worksheet.getCell(cellKey).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+      };
+      worksheet.getCell(cellKey).font = {
+        name: 'Tahoma',
+        size: i === 0 ? 14 : 10,
+        bold: true,
+      };
+    });
+
+    // Mendefinisikan header kolom
+    const headers = [
+      'NO.',
+      'NAMA',
+      'KETERANGAN',
+      'STATUS AKTIF',
+    ];
+
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(5, index + 1);
+      cell.value = header;
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFF00' },
+      };
+      cell.font = { bold: true, name: 'Tahoma', size: 10 };
+      cell.alignment = { 
+        horizontal: 'center', 
+        vertical: 'middle' 
+      };
+
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+    });
+
+    data.forEach((row, rowIndex) => {
+      const currentRow = rowIndex + 6;
+      const rowValues = [
+        rowIndex + 1, 
+        row.nama, 
+        row.keterangan, 
+        row.statusaktif_nama
+      ];
+
+      rowValues.forEach((value, colIndex) => {
+        const cell = worksheet.getCell(currentRow, colIndex + 1);
+
+        cell.value = value ?? '';
+        cell.font = { name: 'Tahoma', size: 10 };
+        cell.alignment = {
+          horizontal: colIndex === 0 ? 'right' : 'left',
+          vertical: 'middle',
+        };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+      });
+    });
+
+    worksheet.columns
+      .filter((c): c is Column => !!c)
+      .forEach((col) => {
+        let maxLength = 0;
+        col.eachCell({ includeEmpty: true }, (cell) => {
+          const cellValue = cell.value ? cell.value.toString() : '';
+          maxLength = Math.max(maxLength, cellValue.length);
+        });
+        col.width = maxLength + 2;
+      });
+
+    worksheet.getColumn(1).width = 6;
+
+    const tempDir = path.resolve(process.cwd(), 'tmp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const tempFilePath = path.resolve(
+      tempDir,
+      `laporan_jenis_proses_fee_${Date.now()}.xlsx`,
+    );
+    await workbook.xlsx.writeFile(tempFilePath);
+
+    return tempFilePath;
+  }
+  
   findOne(id: number) {
     return `This action returns a #${id} jenisprosesfee`;
-  }
-
-  update(id: number, updateJenisprosesfeeDto: UpdateJenisprosesfeeDto) {
-    return `This action updates a #${id} jenisprosesfee`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} jenisprosesfee`;
   }
 }
