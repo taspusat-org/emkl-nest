@@ -9,6 +9,8 @@ import { CreateMarketingDto } from './dto/create-marketing.dto';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { dbHr } from 'src/common/utils/db';
 import { DateTime } from 'luxon';
+import * as fs from 'fs';
+import * as path from 'path';
 import { MarketingorderanService } from '../marketingorderan/marketingorderan.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { RedisService } from 'src/common/redis/redis.service';
@@ -18,6 +20,7 @@ import { MarketingmanagerService } from '../marketingmanager/marketingmanager.se
 import { MarketingprosesfeeService } from '../marketingprosesfee/marketingprosesfee.service';
 import { MarketingdetailService } from '../marketingdetail/marketingdetail.service';
 import { LocksService } from '../locks/locks.service';
+import { Column, Workbook } from 'exceljs';
 
 @Injectable()
 export class MarketingService {
@@ -63,15 +66,7 @@ export class MarketingService {
       } = data;
       insertData.updated_at = this.utilService.getTime();
       insertData.created_at = this.utilService.getTime();
-      // console.log(
-      //   'masuk sinii',
-      //   'data', insertData,
-      //   'marketingorderan', marketingorderan,
-      //   'marketingbiaya', marketingbiaya,
-      //   'marketingmanager', marketingmanager,
-      //   'marketingprosesfee', marketingprosesfee,
-      //   'marketingdetail', marketingdetail
-      // );
+      
 
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
@@ -100,7 +95,6 @@ export class MarketingService {
           .where('nama', cekNamaCabang.nama)
           .first();
         cabang_id = getIdCabangEmkl?.id ? getIdCabangEmkl?.id : 2;
-        // console.log('tes', cekIdCabang.cabang_id, cekNamaCabang, cekNamaCabang.nama, getIdCabangEmkl, cabang_id);
       }
 
       const insertDataWithCabangId = {
@@ -118,7 +112,7 @@ export class MarketingService {
           marketing_id: insertNewData[0].id,
           modifiedby: insertDataWithCabangId.modifiedby,
         }));
-        // console.log('morderanWithMarketingId', morderanWithMarketingId);
+
         await this.marketingOrderanService.create(
           morderanWithMarketingId,
           insertNewData[0].id,
@@ -132,7 +126,7 @@ export class MarketingService {
           marketing_id: insertNewData[0].id,
           modifiedby: insertDataWithCabangId.modifiedby,
         }));
-        // console.log('mbiayaWithMarketingId', mbiayaWithMarketingId);
+
         await this.marketingBiayaService.create(
           mbiayaWithMarketingId,
           insertNewData[0].id,
@@ -610,8 +604,7 @@ export class MarketingService {
           .select('id')
           .where('nama', cekNamaCabang.nama)
           .first();
-        cabang_id =
-          getIdCabangEmkl || getIdCabangEmkl?.id ? getIdCabangEmkl?.id : 26;
+        cabang_id = getIdCabangEmkl?.id ? getIdCabangEmkl?.id : 26;
       }
 
       const insertDataWithCabangId = {
@@ -636,6 +629,7 @@ export class MarketingService {
       if (marketingorderan.length > 0) {
         const morderanWithMarketingId = marketingorderan.map((detail: any) => ({
           ...detail,
+          marketing_id: id,
           modifiedby: insertDataWithCabangId.modifiedby,
         }));
         await this.marketingOrderanService.create(
@@ -648,6 +642,7 @@ export class MarketingService {
       if (marketingbiaya.length > 0) {
         const mbiayaWithMarketingId = marketingbiaya.map((detail: any) => ({
           ...detail,
+          marketing_id: id,
           modifiedby: insertDataWithCabangId.modifiedby,
         }));
         await this.marketingBiayaService.create(mbiayaWithMarketingId, id, trx);
@@ -657,6 +652,7 @@ export class MarketingService {
         const marketingManagerWithMarketingId = marketingmanager.map(
           (detail: any) => ({
             ...detail,
+            marketing_id: id,
             modifiedby: insertDataWithCabangId.modifiedby,
           }),
         );
@@ -671,6 +667,7 @@ export class MarketingService {
         const mprosesfeeWithMarketingId = marketingprosesfee.map(
           (detail: any) => ({
             ...detail,
+            marketing_id: id,
             modifiedby: insertDataWithCabangId.modifiedby,
           }),
         );
@@ -766,6 +763,30 @@ export class MarketingService {
         trx,
       );
 
+      const cekDataeDetail = await trx('marketingdetail').select('id').where('marketing_id', id)
+      
+      if (cekDataeDetail?.length !== 0) {
+        const deletedMarketingDetail = await this.utilService.lockAndDestroy(
+          id,
+          'marketingdetail',
+          'marketing_id',
+          trx,
+        );
+
+        await this.logTrailService.create(
+          {
+            namatabel: 'marketingdetail',
+            postingdari: 'DELETE MARKETING DETAIL',
+            idtrans: deletedMarketingDetail.id,
+            nobuktitrans: deletedMarketingDetail.id,
+            aksi: 'DELETE',
+            datajson: JSON.stringify(deletedMarketingDetail),
+            modifiedby: modifiedby,
+          },
+          trx,
+        );
+      }
+
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
@@ -781,7 +802,7 @@ export class MarketingService {
 
       await this.logTrailService.create(
         {
-          namatabel: this.tableName,
+          namatabel: 'marketingorderan',
           postingdari: 'DELETE MARKETING ORDERAN',
           idtrans: deletedMarketingOrderan.id,
           nobuktitrans: deletedMarketingOrderan.id,
@@ -794,7 +815,7 @@ export class MarketingService {
 
       await this.logTrailService.create(
         {
-          namatabel: this.tableName,
+          namatabel: 'marketingbiaya',
           postingdari: 'DELETE MARKETING BIAYA',
           idtrans: deletedMarketingBiaya.id,
           nobuktitrans: deletedMarketingBiaya.id,
@@ -807,7 +828,7 @@ export class MarketingService {
 
       await this.logTrailService.create(
         {
-          namatabel: this.tableName,
+          namatabel: 'marketingmanager',
           postingdari: 'DELETE MARKETING MANAGER',
           idtrans: deletedMarketingManager.id,
           nobuktitrans: deletedMarketingManager.id,
@@ -820,7 +841,7 @@ export class MarketingService {
 
       await this.logTrailService.create(
         {
-          namatabel: this.tableName,
+          namatabel: 'marketingprosesfee',
           postingdari: 'DELETE MARKETING PROSES FEE',
           idtrans: deletedMarketingProsesFee.id,
           nobuktitrans: deletedMarketingProsesFee.id,
@@ -852,19 +873,394 @@ export class MarketingService {
         );
 
         return forceEdit;
-        // } else if (aksi === 'DELETE') {
-        //   const validasi = await this.globalService.checkUsed(
-        //     'akunpusat',
-        //     'type_id',
-        //     value,
-        //     trx,
-        //   );
+      } else if (aksi === 'DELETE') {
+          // const validasi = await this.globalService.checkUsed(
+          //   'akunpusat',
+          //   'type_id',
+          //   value,
+          //   trx,
+          // );
 
-        //   return validasi;
+          // return validasi;
+          return {
+            // tableName: tableName,
+            // fieldName: fieldName,
+            // fieldValue: fieldValue,
+            status: 'success',
+            message: 'Data aman untuk dihapus.',
+          };
       }
     } catch (error) {
       console.error('Error di checkValidasi:', error);
       throw new InternalServerErrorException('Failed to check validation');
     }
+  }
+
+  async exportToExcel(data: any[], trx: any) {
+    const workbook = new Workbook();
+    const worksheet = workbook.addWorksheet('Data Export');
+
+    // Header laporan
+    worksheet.mergeCells('A1:F1');
+    worksheet.mergeCells('A2:F2');
+    worksheet.mergeCells('A3:F3');
+    worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
+    worksheet.getCell('A2').value = 'LAPORAN MARKETING';
+    worksheet.getCell('A3').value = 'Data Export';
+    ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
+      worksheet.getCell(cellKey).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+      };
+      worksheet.getCell(cellKey).font = {
+        name: 'Tahoma',
+        size: i === 0 ? 14 : 10,
+        bold: true,
+      };
+    });
+
+    let currentRow = 5;
+
+    for (const h of data) {
+      const detailRes = await this.marketingOrderanService.findAll(
+        h.id,
+        trx,
+        {search: ''}
+      );
+
+      const marketingBiaya = await this.marketingBiayaService.findAll(
+        h.id,
+        trx,
+        {search: ''}
+      );
+
+      const marketingManager = await this.marketingManagerService.findAll(
+        h.id,
+        trx,
+        {search: ''}
+      );
+
+      const marketingProsesFee = await this.marketingProsesFeeService.findAll(
+        h.id,
+        trx,
+        {search: ''}
+      );
+
+      const detailsMarketingOrderan = detailRes.data ?? [];
+      const detailsMarketingBiaya= marketingBiaya.data ?? [];
+      const detailsMarketingManager= marketingManager.data ?? [];
+      const detailsMarketingProsesFee= marketingProsesFee.data ?? [];
+
+      const headerInfo = [
+        ['Nama', h.nama ?? ''],
+        ['Keterangan', h.keterangan ?? ''],
+        ['Status Aktif', h.statusaktif_nama ?? ''],
+        ['Email', h.email ?? ''],
+        ['Karyawan', h.karyawan_nama ?? ''],
+        ['Tgl Masuk', h.tglmasuk ?? ''],
+        ['Cabang', h.cabang_nama ?? ''],
+        ['Status Target', h.statustarget_nama ?? ''],
+        ['Status Bagi Fee', h.statusbagifee_nama ?? ''],
+        ['Status Fee Manager', h.statusfeemanager_nama ?? ''],
+        ['Marketing Group', h.marketinggroup_nama ?? ''],
+        ['Status Pra Fee', h.statusprafee_nama ?? ''],
+      ];
+
+      headerInfo.forEach(([label, value]) => {
+        worksheet.getCell(`A${currentRow}`).value = label;
+        worksheet.getCell(`A${currentRow}`).font = {
+          bold: true,
+          name: 'Tahoma',
+          size: 10,
+        };
+        worksheet.getCell(`B${currentRow}`).value = value;
+        worksheet.getCell(`B${currentRow}`).font = { name: 'Tahoma', size: 10 };
+        currentRow++;
+      });
+
+      currentRow++;
+
+
+      if (detailsMarketingOrderan.length > 0) {
+        worksheet.getCell(`A${currentRow}`).value = 'MARKETING ORDERAN';
+        worksheet.getCell(`A${currentRow}`).font = { bold: true, name: 'Tahoma', size: 10 };;
+
+        currentRow++
+        const tableHeaders = [
+          'NO.',
+          'NAMA ORDERAN',
+          'KETERANGAN',
+          'SINGKATAN',
+          'STATUS AKTIF',
+        ];
+        tableHeaders.forEach((header, index) => {
+          const cell = worksheet.getCell(currentRow, index + 1);
+          cell.value = header;
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFF00' },
+          };
+          cell.font = { bold: true, name: 'Tahoma', size: 10 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+        });
+        currentRow++;
+
+        detailsMarketingOrderan.forEach((d: any, detailIndex: number) => {
+          const rowValues = [
+            detailIndex + 1,
+            d.nama ?? '',
+            d.keterangan ?? '',
+            d.singkatan ?? '',
+            d.statusaktif_nama ?? '',
+          ];
+          rowValues.forEach((value, colIndex) => {
+            const cell = worksheet.getCell(currentRow, colIndex + 1);
+            cell.value = value;
+            cell.font = { name: 'Tahoma', size: 10 };
+
+            // kolom angka rata kanan, selain itu rata kiri
+            if (colIndex === 0) {
+              cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            } else {
+              cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            }
+
+            cell.border = {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' },
+            };
+          });
+          currentRow++;
+        });
+
+        currentRow++;
+      }
+
+      if (detailsMarketingBiaya.length > 0) {
+        worksheet.getCell(`A${currentRow}`).value = 'MARKETING BIAYA';
+        worksheet.getCell(`A${currentRow}`).font = { bold: true, name: 'Tahoma', size: 10 };;
+
+        currentRow++
+        const tableHeaders = [
+          'NO.',
+          'JENIS BIAYA MARKETING',
+          'NOMINAL',
+          'STATUS AKTIF',
+        ];
+        tableHeaders.forEach((header, index) => {
+          const cell = worksheet.getCell(currentRow, index + 1);
+          cell.value = header;
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFF00' },
+          };
+          cell.font = { bold: true, name: 'Tahoma', size: 10 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+        });
+        currentRow++;
+
+        detailsMarketingBiaya.forEach((d: any, detailIndex: number) => {
+          const rowValues = [
+            detailIndex + 1,
+            d.jenisbiayamarketing_nama ?? '',
+            d.nominal ?? '',
+            d.statusaktif_nama ?? '',
+          ];
+          rowValues.forEach((value, colIndex) => {
+            const cell = worksheet.getCell(currentRow, colIndex + 1);
+            cell.value = value;
+            cell.font = { name: 'Tahoma', size: 10 };
+
+            // kolom angka rata kanan, selain itu rata kiri
+            if (colIndex === 2) {
+              cell.alignment = { horizontal: 'right', vertical: 'middle' };
+              cell.numFmt = '#,##0.00'
+            } else if (colIndex === 0) {
+              cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            } else {
+              cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            }
+
+            cell.border = {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' },
+            };
+          });
+          currentRow++;
+        });
+
+        currentRow++;
+      }
+
+      if (detailsMarketingManager.length > 0) {
+        worksheet.getCell(`A${currentRow}`).value = 'MARKETING MANAGER';
+        worksheet.getCell(`A${currentRow}`).font = { bold: true, name: 'Tahoma', size: 10 };;
+
+        currentRow++
+        const tableHeaders = [
+          'NO.',
+          'MANAGER MARKETING',
+          'TGL APPROVAL',
+          'STATUS APPROVAL',
+          'USER APPROVAL',
+          'STATUS AKTIF',
+        ];
+        tableHeaders.forEach((header, index) => {
+          const cell = worksheet.getCell(currentRow, index + 1);
+          cell.value = header;
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFF00' },
+          };
+          cell.font = { bold: true, name: 'Tahoma', size: 10 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+        });
+        currentRow++;
+
+        detailsMarketingManager.forEach((d: any, detailIndex: number) => {
+          const rowValues = [
+            detailIndex + 1,
+            d.managermarketing_nama ?? '',
+            d.tglapproval ?? '',
+            d.statusapproval_nama ?? '',
+            d.userapproval ?? '',
+            d.statusaktif_nama ?? '',
+          ];
+          rowValues.forEach((value, colIndex) => {
+            const cell = worksheet.getCell(currentRow, colIndex + 1);
+            cell.value = value;
+            cell.font = { name: 'Tahoma', size: 10 };
+
+            // kolom angka rata kanan, selain itu rata kiri
+            if (colIndex === 0) {
+              cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            } else {
+              cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            }
+
+            cell.border = {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' },
+            };
+          });
+          currentRow++;
+        });
+
+        currentRow++;
+      }
+
+      if (detailsMarketingProsesFee.length > 0) {
+        worksheet.getCell(`A${currentRow}`).value = 'MARKETING PROSES FEE';
+        worksheet.getCell(`A${currentRow}`).font = { bold: true, name: 'Tahoma', size: 10 };;
+
+        currentRow++
+        const tableHeaders = [
+          'NO.',
+          'JENIS PROSES FEE',
+          'STATUS POTONG BIAYA KANTOR',
+          'STATUS AKTIF',
+        ];
+        tableHeaders.forEach((header, index) => {
+          const cell = worksheet.getCell(currentRow, index + 1);
+          cell.value = header;
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFF00' },
+          };
+          cell.font = { bold: true, name: 'Tahoma', size: 10 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+        });
+        currentRow++;
+
+        detailsMarketingProsesFee.forEach((d: any, detailIndex: number) => {
+          const rowValues = [
+            detailIndex + 1,
+            d.jenisprosesfee_nama ?? '',
+            d.statuspotongbiayakantor_nama ?? '',
+            d.statusaktif_nama ?? '',
+          ];
+          rowValues.forEach((value, colIndex) => {
+            const cell = worksheet.getCell(currentRow, colIndex + 1);
+            cell.value = value;
+            cell.font = { name: 'Tahoma', size: 10 };
+
+            // kolom angka rata kanan, selain itu rata kiri
+            if (colIndex === 0) {
+              cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            } else {
+              cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            }
+
+            cell.border = {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' },
+            };
+          });
+          currentRow++;
+        });
+
+        currentRow++;
+      }
+    }
+
+    worksheet.columns
+      .filter((c): c is Column => !!c)
+      .forEach((col) => {
+        let maxLength = 0;
+        col.eachCell({ includeEmpty: true }, (cell) => {
+          const cellValue = cell.value ? cell.value.toString() : '';
+          maxLength = Math.max(maxLength, cellValue.length);
+        });
+        col.width = maxLength + 2;
+      });
+
+    worksheet.getColumn(1).width = 20;
+    worksheet.getColumn(2).width = 30;
+
+    const tempDir = path.resolve(process.cwd(), 'tmp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const tempFilePath = path.resolve(
+      tempDir,
+      `laporan_manager_marketing${Date.now()}.xlsx`,
+    );
+    await workbook.xlsx.writeFile(tempFilePath);
+
+    return tempFilePath;
   }
 }
