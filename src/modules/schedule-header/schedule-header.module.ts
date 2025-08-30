@@ -8,6 +8,7 @@ import { RedisModule } from 'src/common/redis/redis.module';
 import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 import { RunningNumberModule } from '../running-number/running-number.module';
 import { ScheduleDetailModule } from '../schedule-detail/schedule-detail.module';
+import { LocksModule } from '../locks/locks.module';
 
 @Module({
   controllers: [ScheduleHeaderController],
@@ -16,6 +17,7 @@ import { ScheduleDetailModule } from '../schedule-detail/schedule-detail.module'
     AuthModule,
     UtilsModule,
     RedisModule,
+    LocksModule,
     LogtrailModule,
     GlobalModule,
     RunningNumberModule,

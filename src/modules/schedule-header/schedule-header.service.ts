@@ -4,15 +4,17 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateScheduleHeaderDto } from './dto/create-schedule-header.dto';
-import { UpdateScheduleHeaderDto } from './dto/update-schedule-header.dto';
-import { ScheduleDetailService } from '../schedule-detail/schedule-detail.service';
-import { RunningNumberService } from '../running-number/running-number.service';
-import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
-import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import * as fs from 'fs';
+import * as path from 'path';
+import { Column, Workbook } from 'exceljs';
+import { LocksService } from '../locks/locks.service';
 import { GlobalService } from '../global/global.service';
 import { RedisService } from 'src/common/redis/redis.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
+import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
+import { RunningNumberService } from '../running-number/running-number.service';
+import { ScheduleDetailService } from '../schedule-detail/schedule-detail.service';
 
 @Injectable()
 export class ScheduleHeaderService {
@@ -22,6 +24,7 @@ export class ScheduleHeaderService {
     @Inject('REDIS_CLIENT')
     private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
+    private readonly locksService: LocksService,
     private readonly globalService: GlobalService,
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
@@ -40,11 +43,11 @@ export class ScheduleHeaderService {
         page,
         limit,
         details,
+        method,
         ...insertedData
       } = data;
       insertedData.updated_at = this.utilsService.getTime();
       insertedData.created_at = this.utilsService.getTime();
-      // console.log('masuk sinii?', 'insertedData', insertedData, 'details', details);
 
       Object.keys(insertedData).forEach((key) => {
         if (typeof insertedData[key] === 'string') {
@@ -56,6 +59,7 @@ export class ScheduleHeaderService {
         .select('*')
         .where('grp', 'SCHEDULE')
         .first();
+
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
         parameter.grp,
@@ -257,8 +261,19 @@ export class ScheduleHeaderService {
     }
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} scheduleHeader`;
+  async getById(id: number, trx: any) {
+    try {
+      const result = await trx(this.tableName).where('id', id).first();
+
+      if (!result) {
+        throw new Error('Data not found');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error fetching data by id:', error);
+      throw new Error('Failed to fetch data by id');
+    }
   }
 
   async update(id: any, data: any, trx: any) {
@@ -272,6 +287,7 @@ export class ScheduleHeaderService {
         search,
         page,
         limit,
+        method,
         details,
         ...insertedData
       } = data;
@@ -418,5 +434,177 @@ export class ScheduleHeaderService {
       }
       throw new InternalServerErrorException('Failed to delete data');
     }
+  }
+
+  async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
+    try {
+      if (aksi === 'EDIT') {
+        const forceEdit = await this.locksService.forceEdit(
+          this.tableName,
+          value,
+          editedby,
+          trx,
+        );
+
+        return forceEdit;
+      } else if (aksi === 'DELETE') {
+        // const validasi = await this.globalService.checkUsed(
+        //   'akunpusat',
+        //   'type_id',
+        //   value,
+        //   trx,
+        // );
+        // return validasi;
+
+        return {
+          // tableName: 'tableName',
+          // fieldName: 'fieldName',
+          // fieldValue: 'fieldValue',
+          status: 'success',
+          message: 'Data aman untuk dihapus.',
+        };
+      }
+    } catch (error) {
+      console.error('Error di checkValidasi:', error);
+      throw new InternalServerErrorException('Failed to check validation');
+    }
+  }
+
+  async exportToExcel(dataHeader: any, idHeader: any) {
+    const data = await this.scheduleDetailService.getScheduleDetailForExport(idHeader)
+    const workbook = new Workbook();
+    const worksheet = workbook.addWorksheet('Data Export');
+
+    worksheet.mergeCells('A1:F1');
+    worksheet.mergeCells('A2:F2');
+    worksheet.mergeCells('A3:F3');
+    worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
+    worksheet.getCell('A2').value = 'LAPORAN TYPE AKUNTANSI';
+    worksheet.getCell('A3').value = 'Data Export';
+    ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
+      worksheet.getCell(cellKey).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+      };
+      worksheet.getCell(cellKey).font = {
+        name: 'Tahoma',
+        size: i === 0 ? 14 : 10,
+        bold: true,
+      };
+    });
+
+    worksheet.getCell('B5').value = 'NO. BUKTI :';
+    worksheet.getCell('B6').value = 'TGL BUKTI :';
+    worksheet.getCell('B7').value = 'KETERANGAN :';
+    worksheet.getCell('C5').value = dataHeader.nobukti;
+    worksheet.getCell('C6').value = dataHeader.tglbukti;
+    worksheet.getCell('C7').value = dataHeader.keterangan;
+    worksheet.getCell('C6').numFmt = 'dd-mm-yyyy';
+    worksheet.getCell('C6').alignment = { horizontal: 'left' };
+
+    // Mendefinisikan header kolom
+    const headers = [
+      'NO.',
+      'PELAYARAN',
+      'KAPAL',
+      'TUJUAN KAPAL',
+      'TGL BERANGKAT',
+      'TGL TIBA',
+      'ETB',
+      'ETA',
+      'ETD',
+      'VOY BERANGKAT',
+      'VOY TIBA',
+      'CLOSING',
+      'ETA TUJUAN',
+      'ETD TUJUAN',
+      'KETERANGAN',
+    ];
+
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(9, index + 1);
+      cell.value = header;
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFF00' },
+      };
+      cell.font = { bold: true, name: 'Tahoma', size: 10 };
+      cell.alignment = { 
+        horizontal: 'center', 
+        vertical: 'middle' 
+      };
+
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+    });
+
+    data.data.forEach((row, rowIndex) => {
+      const currentRow = rowIndex + 10;
+      const rowValues = [
+        rowIndex + 1, 
+        row.pelayaran_nama, 
+        row.kapal_nama, 
+        row.tujuankapal_nama,
+        row.tglberangkat, 
+        row.tgltiba, 
+        row.etb, 
+        row.eta, 
+        row.etd, 
+        row.voyberangkat, 
+        row.voytiba, 
+        row.closing, 
+        row.etatujuan, 
+        row.etdtujuan, 
+        row.keterangan
+      ];
+
+      rowValues.forEach((value, colIndex) => {
+        const cell = worksheet.getCell(currentRow, colIndex + 1);
+
+        cell.value = value ?? '';
+        cell.font = { name: 'Tahoma', size: 10 };
+        cell.alignment = {
+          horizontal: colIndex === 0 ? 'right' : 'left',
+          vertical: 'middle',
+        };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+      });
+    });
+
+    worksheet.columns
+      .filter((c): c is Column => !!c)
+      .forEach((col) => {
+        let maxLength = 0;
+        col.eachCell({ includeEmpty: true }, (cell) => {
+          const cellValue = cell.value ? cell.value.toString() : '';
+          maxLength = Math.max(maxLength, cellValue.length);
+        });
+        col.width = maxLength + 2;
+      });
+
+    worksheet.getColumn(1).width = 6;
+
+    const tempDir = path.resolve(process.cwd(), 'tmp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const tempFilePath = path.resolve(
+      tempDir,
+      `laporan_schedule_${Date.now()}.xlsx`,
+    );
+    await workbook.xlsx.writeFile(tempFilePath);
+
+    return tempFilePath;
   }
 }
