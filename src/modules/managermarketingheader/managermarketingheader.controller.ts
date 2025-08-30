@@ -14,6 +14,7 @@ import {
   InternalServerErrorException,
   HttpException,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
 import { ManagermarketingheaderService } from './managermarketingheader.service';
 import {
@@ -34,10 +35,14 @@ import { dbMssql } from 'src/common/utils/db';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
+import { Response } from 'express';
+import * as fs from 'fs';
+import { ManagermarketingdetailService } from '../managermarketingdetail/managermarketingdetail.service';
 @Controller('managermarketing')
 export class ManagermarketingheaderController {
   constructor(
     private readonly managermarketingheaderService: ManagermarketingheaderService,
+    private readonly ManagermarketingdetailService: ManagermarketingdetailService,
   ) {}
 
   @UseGuards(AuthGuard)
@@ -181,8 +186,48 @@ export class ManagermarketingheaderController {
       );
     }
   }
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.managermarketingheaderService.findOne(+id);
+
+  @Get('/export')
+  async exportToExcel(@Query() params: any, @Res() res: Response) {
+    try {
+      // Ambil data
+      const trx = await dbMssql.transaction();
+      const { data } = await this.findAll(params);
+
+      if (!Array.isArray(data)) {
+        return res
+          .status(HttpStatus.BAD_REQUEST)
+          .send('Data is not an array or is undefined.');
+      }
+
+      // Buat Excel file
+      const tempFilePath =
+        await this.managermarketingheaderService.exportToExcel(data, trx);
+
+      // Stream file ke response
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_managermarketing.xlsx"',
+      );
+
+      const fileStream = fs.createReadStream(tempFilePath);
+      fileStream.pipe(res);
+
+      // Optional: hapus file temp setelah selesai streaming
+      fileStream.on('end', () => {
+        fs.unlink(tempFilePath, (err) => {
+          if (err) console.error('Error deleting temp file:', err);
+        });
+      });
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .send('Failed to export file');
+    }
   }
 }
