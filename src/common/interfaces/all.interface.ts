@@ -35,19 +35,23 @@ export interface Menu {
 }
 import { z } from 'zod';
 
-export const FindAllSchema = z.object({
-  search: z.string().optional(),
-  page: z.preprocess((val) => {
-    const parsed = Number(val);
-    return isNaN(parsed) ? 1 : parsed; // Jika tidak valid, set page ke 1
-  }, z.number().int().min(1).default(1)),
-  limit: z.preprocess((val) => {
-    const parsed = Number(val);
-    return isNaN(parsed) ? 10 : parsed; // Jika tidak valid, set limit ke 10
-  }, z.number().int().min(1).default(10)),
-  sortBy: z.string().optional(),
-  isLookUp: z.string().optional(),
-  sortDirection: z.enum(['asc', 'desc']).default('asc'),
-});
+export const FindAllSchema = z
+  .object({
+    search: z.string().optional(),
+    page: z.preprocess((val) => {
+      const parsed = Number(val);
+      return isNaN(parsed) ? 1 : parsed; // Jika tidak valid, set page ke 1
+    }, z.number().int().min(1).default(1)),
+    limit: z.preprocess((val) => {
+      const parsed = Number(val);
+      return isNaN(parsed) ? 10 : parsed; // Jika tidak valid, set limit ke 10
+    }, z.number().int().min(1).default(10)),
+    sortBy: z.string().optional(),
+    isLookUp: z.string().optional(),
+    sortDirection: z.enum(['asc', 'desc']).default('asc'),
+  })
+  .superRefine((val) => {
+    console.log('val', val);
+  });
 
 export type FindAllDto = z.infer<typeof FindAllSchema>;
