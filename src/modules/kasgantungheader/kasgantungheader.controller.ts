@@ -53,6 +53,7 @@ export class KasgantungheaderController {
       throw new Error(`Error: ${error.message}`);
     }
   }
+
   @UseGuards(AuthGuard)
   @Get()
   //@KAS-GANTUNG
@@ -182,12 +183,47 @@ export class KasgantungheaderController {
       throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
-
+  @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.kasgantungheaderService.findOne(+id);
-  }
+  //@KAS-GANTUNG
+  async findOne(@Param('id') id: string, @Query() query: FindAllDto) {
+    console.log('query', query);
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
 
+    const sortParams = {
+      sortBy: sortBy || 'nobukti',
+      sortDirection: sortDirection || 'asc',
+    };
+
+    const pagination = {
+      page: page || 1,
+      limit: limit === 0 || !limit ? undefined : limit,
+    };
+
+    const params: FindAllParams = {
+      search,
+      filters,
+      pagination,
+      sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
+    };
+    const trx = await dbMssql.transaction();
+
+    try {
+      const result = await this.kasgantungheaderService.findOne(
+        params,
+        id,
+        trx,
+      );
+      trx.commit();
+
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error in findOne:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
+    }
+  }
   @Post('check-validation')
   @UseGuards(AuthGuard)
   async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {

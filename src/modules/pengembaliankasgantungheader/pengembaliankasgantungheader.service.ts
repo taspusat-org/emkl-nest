@@ -550,8 +550,105 @@ export class PengembaliankasgantungheaderService {
     }
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} pengembaliankasgantungheader`;
+  async findOne(
+    { search, filters, pagination, sort }: FindAllParams,
+    id: string,
+    trx: any,
+  ) {
+    try {
+      let { page, limit } = pagination ?? {};
+
+      page = page ?? 1;
+      limit = limit ?? 0;
+
+      const query = trx(`${this.tableName} as u`)
+        .select([
+          'u.id as id',
+          'u.nobukti', // nobukti (nvarchar(100))
+          trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
+          'u.keterangan', // keterangan (nvarchar(max))
+          'u.bank_id', // bank_id (integer)
+          'u.penerimaan_nobukti', // penerimaan_nobukti (nvarchar(100))
+          'u.coakasmasuk', // coakasmasuk (nvarchar(100))
+          'u.relasi_id', // relasi_id (integer)
+          'u.info', // info (nvarchar(max))
+          'u.modifiedby', // modifiedby (varchar(200))
+          'u.editing_by', // editing_by (varchar(200))
+          trx.raw('r.nama as relasi_nama'), // relasi_nama (nvarchar(max))
+          trx.raw('b.nama as bank_nama'),
+          trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
+        ])
+        .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
+        .leftJoin('bank as b', 'u.bank_id', 'b.id')
+        .leftJoin('akunpusat as ap', 'u.coakasmasuk', 'ap.coa')
+        .where('u.id', id);
+      if (filters?.tglDari && filters?.tglSampai) {
+        // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
+        const tglDariFormatted = formatDateToSQL(String(filters?.tglDari)); // Fungsi untuk format
+        const tglSampaiFormatted = formatDateToSQL(String(filters?.tglSampai));
+
+        // Menggunakan whereBetween dengan tanggal yang sudah diformat
+        query.whereBetween('u.tglbukti', [
+          tglDariFormatted,
+          tglSampaiFormatted,
+        ]);
+      }
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.limit(limit).offset(offset);
+      }
+      const excludeSearchKeys = ['tglDari', 'tglSampai'];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k) && filters![k],
+      );
+      if (search) {
+        const sanitized = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+          });
+        });
+      }
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+          if (key === 'tglDari' || key === 'tglSampai') {
+            continue; // Lewati filter jika key adalah 'tglDari' atau 'tglSampai'
+          }
+
+          if (value) {
+            if (
+              key === 'created_at' ||
+              key === 'updated_at' ||
+              key === 'editing_at'
+            ) {
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
+            } else {
+              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+            }
+          }
+        }
+      }
+
+      if (sort?.sortBy && sort?.sortDirection) {
+        query.orderBy(sort.sortBy, sort.sortDirection);
+      }
+
+      const data = await query;
+
+      return {
+        data: data,
+      };
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
   }
 
   async delete(id: number, trx: any, modifiedby: string) {

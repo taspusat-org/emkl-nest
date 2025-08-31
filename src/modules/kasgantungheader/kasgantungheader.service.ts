@@ -280,6 +280,118 @@ export class KasgantungheaderService {
       throw new Error('Failed to fetch data');
     }
   }
+  async findOne(
+    { search, filters, pagination, sort }: FindAllParams,
+    id: string,
+    trx: any,
+  ) {
+    try {
+      let { page, limit } = pagination ?? {};
+
+      page = page ?? 1;
+      limit = limit ?? 0;
+
+      const query = trx(`${this.tableName} as u`)
+        .select([
+          'u.id as id',
+          'u.nobukti', // nobukti (nvarchar(100))
+          trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
+          'u.keterangan', // keterangan (nvarchar(max))
+          'u.relasi_id', // relasi_id (integer)
+          'u.bank_id', // bank_id (integer)
+          'u.pengeluaran_nobukti', // pengeluaran_nobukti (nvarchar(100))
+          'u.coakaskeluar', // coakaskeluar (nvarchar(100))
+          'u.dibayarke', // dibayarke (nvarchar(max))
+          'u.alatbayar_id', // alatbayar_id (integer)
+          'u.nowarkat', // nowarkat (nvarchar(100))
+          'u.tgljatuhtempo', // tgljatuhtempo (date)
+          'u.gantungorderan_nobukti', // gantungorderan_nobukti (nvarchar(100))
+          'u.info', // info (nvarchar(max))
+          'u.modifiedby', // modifiedby (varchar(200))
+          'u.editing_by', // editing_by (varchar(200))
+          'r.nama as relasi_nama', // relasi_nama (varchar(200))
+          'b.nama as bank_nama', // bank_nama (varchar(200))
+          'ab.nama as alatbayar_nama', // alatbayar_nama (varchar(200))
+          trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
+        ])
+        .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
+        .leftJoin('bank as b', 'u.bank_id', 'b.id')
+        .leftJoin('alatbayar as ab', 'u.alatbayar_id', 'ab.id')
+        .where('u.id', id);
+
+      if (filters?.tglDari && filters?.tglSampai) {
+        // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
+        const tglDariFormatted = formatDateToSQL(String(filters?.tglDari)); // Fungsi untuk format
+        const tglSampaiFormatted = formatDateToSQL(String(filters?.tglSampai));
+
+        // Menggunakan whereBetween dengan tanggal yang sudah diformat
+        query.whereBetween('u.tglbukti', [
+          tglDariFormatted,
+          tglSampaiFormatted,
+        ]);
+      }
+      const excludeSearchKeys = ['tglDari', 'tglSampai'];
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.limit(limit).offset(offset);
+      }
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k) && filters![k],
+      );
+      if (search) {
+        const sanitized = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+          });
+        });
+      }
+
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+
+          // Menambahkan pengecualian untuk 'tglDari' dan 'tglSampai'
+          if (key === 'tglDari' || key === 'tglSampai') {
+            continue; // Lewati filter jika key adalah 'tglDari' atau 'tglSampai'
+          }
+
+          if (value) {
+            if (
+              key === 'created_at' ||
+              key === 'updated_at' ||
+              key === 'editing_at' ||
+              key === 'tglbukti' ||
+              key === 'tgljatuhtempo'
+            ) {
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
+            } else {
+              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+            }
+          }
+        }
+      }
+
+      if (sort?.sortBy && sort?.sortDirection) {
+        query.orderBy(sort.sortBy, sort.sortDirection);
+      }
+
+      const data = await query;
+
+      return {
+        data: data,
+      };
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
+  }
 
   async getKasGantung(dari: any, sampai: any, trx: any) {
     try {
@@ -521,10 +633,6 @@ export class KasgantungheaderService {
       console.error('Error creating tempPengembalian:', error);
       throw new Error('Failed to create tempPengembalian');
     }
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} kasgantungheader`;
   }
 
   async update(id: any, data: any, trx: any) {
