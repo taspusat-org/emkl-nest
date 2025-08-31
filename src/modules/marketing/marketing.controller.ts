@@ -14,13 +14,17 @@ import {
   HttpStatus,
   InternalServerErrorException,
   Put,
+  Res,
 } from '@nestjs/common';
 import { MarketingService } from './marketing.service';
 import {
   CreateMarketingDto,
   CreateMarketingSchema,
+  UpdateMarketingDto,
+  UpdateMarketingSchema,
 } from './dto/create-marketing.dto';
 // import { UpdateMarketingDto } from './dto/update-marketing.dto';
+import * as fs from 'fs';
 import { AuthGuard } from '../auth/auth.guard';
 import { dbMssql } from 'src/common/utils/db';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
@@ -30,6 +34,7 @@ import {
   FindAllSchema,
 } from 'src/common/interfaces/all.interface';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
+import { Response } from 'express';
 
 @Controller('marketing')
 export class MarketingController {
@@ -116,7 +121,14 @@ export class MarketingController {
   @UseGuards(AuthGuard)
   @Put(':id')
   //@MARKETING
-  async update(@Param('id') id: string, @Body() data: any, @Req() req) {
+  async update(
+    @Param('id') id: string, 
+    @Body(
+      new ZodValidationPipe(UpdateMarketingSchema),
+      KeyboardOnlyValidationPipe
+    ) 
+    data: UpdateMarketingDto, 
+    @Req() req) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
@@ -199,6 +211,50 @@ export class MarketingController {
     };
 
     return this.marketingService.findAllLookupKaryawan(params);
+  }
+
+  @Get('/export')
+  async exportToExcel(@Query() params: any, @Res() res: Response) {
+    try {
+      // Ambil data
+      const trx = await dbMssql.transaction();
+      const { data } = await this.findAll(params);
+
+      if (!Array.isArray(data)) {
+        return res
+          .status(HttpStatus.BAD_REQUEST)
+          .send('Data is not an array or is undefined.');
+      }
+
+      // Buat Excel file
+      const tempFilePath =
+        await this.marketingService.exportToExcel(data, trx);
+
+      // Stream file ke response
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_managermarketing.xlsx"',
+      );
+
+      const fileStream = fs.createReadStream(tempFilePath);
+      fileStream.pipe(res);
+
+      // Optional: hapus file temp setelah selesai streaming
+      fileStream.on('end', () => {
+        fs.unlink(tempFilePath, (err) => {
+          if (err) console.error('Error deleting temp file:', err);
+        });
+      });
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .send('Failed to export file');
+    }
   }
 
   @Get(':id')
