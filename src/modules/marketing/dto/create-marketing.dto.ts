@@ -47,8 +47,6 @@ import { z } from 'zod';
 
 // export type CreateMarketingDto2 = z.infer<typeof CreateMarketingSchema>;
 
-
-
 // ------------------------
 // 1. BASE FIELDS
 // ------------------------
@@ -99,31 +97,28 @@ export const CreateMarketingSchema = z
   });
 export type CreateMarketingDto = z.infer<typeof CreateMarketingSchema>;
 
-
-
 // ------------------------
 // 3. KHUSUS UPDATE
 // ------------------------
-export const UpdateMarketingSchema = z
-  .object({
-    ...baseFields,
-    // id: z.number({ required_error: 'Id wajib diisi untuk update' }),
-    // Field atau aturan khusus update bisa ditambah di sini
-  })
-  // .superRefine(async (data, ctx) => {
-  //   const existsName = await isRecordExist(
-  //     'nama',
-  //     data.nama,
-  //     'typeakuntansi',
-  //     data.id,
-  //   );
-  //   if (existsName) {
-  //     ctx.addIssue({
-  //       path: ['nama'],
-  //       code: 'custom',
-  //       message: 'Type Akuntansi dengan nama ini sudah ada',
-  //     });
-  //   }
-  //   // Validasi khusus update bisa diletakkan di sini
-  // });
+export const UpdateMarketingSchema = z.object({
+  ...baseFields,
+  // id: z.number({ required_error: 'Id wajib diisi untuk update' }),
+  // Field atau aturan khusus update bisa ditambah di sini
+});
+// .superRefine(async (data, ctx) => {
+//   const existsName = await isRecordExist(
+//     'nama',
+//     data.nama,
+//     'typeakuntansi',
+//     data.id,
+//   );
+//   if (existsName) {
+//     ctx.addIssue({
+//       path: ['nama'],
+//       code: 'custom',
+//       message: 'Type Akuntansi dengan nama ini sudah ada',
+//     });
+//   }
+//   // Validasi khusus update bisa diletakkan di sini
+// });
 export type UpdateMarketingDto = z.infer<typeof UpdateMarketingSchema>;

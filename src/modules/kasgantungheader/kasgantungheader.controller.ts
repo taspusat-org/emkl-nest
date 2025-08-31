@@ -12,6 +12,8 @@ import {
   Req,
   Put,
   InternalServerErrorException,
+  Res,
+  HttpStatus,
 } from '@nestjs/common';
 import { KasgantungheaderService } from './kasgantungheader.service';
 import { CreateKasgantungheaderDto } from './dto/create-kasgantungheader.dto';
@@ -24,6 +26,8 @@ import {
 import { dbMssql } from 'src/common/utils/db';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
+import { query, Response } from 'express';
+import * as fs from 'fs';
 
 @Controller('kasgantungheader')
 export class KasgantungheaderController {
@@ -244,6 +248,60 @@ export class KasgantungheaderController {
       trx.rollback();
       console.error('Error checking validation:', error);
       throw new InternalServerErrorException('Failed to check validation');
+    }
+  }
+
+  @Get('/export/:id')
+  async exportToExcel(
+    @Param('id') id: string,
+    @Query() query: any,
+    @Res() res: Response,
+  ) {
+    try {
+      // Ambil data
+      const trx = await dbMssql.transaction();
+      const { data } = await this.kasgantungheaderService.findOne(
+        query,
+        id,
+        trx,
+      );
+
+      if (!Array.isArray(data)) {
+        return res
+          .status(HttpStatus.BAD_REQUEST)
+          .send('Data is not an array or is undefined.');
+      }
+
+      // Buat Excel file
+      const tempFilePath = await this.kasgantungheaderService.exportToExcel(
+        data,
+        trx,
+      );
+
+      // Stream file ke response
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_managermarketing.xlsx"',
+      );
+
+      const fileStream = fs.createReadStream(tempFilePath);
+      fileStream.pipe(res);
+
+      // Optional: hapus file temp setelah selesai streaming
+      fileStream.on('end', () => {
+        fs.unlink(tempFilePath, (err) => {
+          if (err) console.error('Error deleting temp file:', err);
+        });
+      });
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .send('Failed to export file');
     }
   }
 }

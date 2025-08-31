@@ -340,51 +340,51 @@ export class ScheduleDetailService {
   }
 
   async findAll(
-    id: string, 
+    id: string,
     trx: any,
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
   ) {
     try {
       const { tglDari, tglSampai, ...filtersWithoutTanggal } = filters ?? {};
-      
+
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
 
       const query = trx(`${this.tableName} as p`)
-      .select(
-        'p.id',
-        'p.schedule_id',
-        'p.nobukti',
-        'p.pelayaran_id',
-        'p.kapal_id',
-        'p.tujuankapal_id',
-        'p.schedulekapal_id',
-        trx.raw("FORMAT(p.tglberangkat, 'dd-MM-yyyy') as tglberangkat"),
-        trx.raw("FORMAT(p.tgltiba, 'dd-MM-yyyy') as tgltiba"),
-        trx.raw("FORMAT(p.etb, 'dd-MM-yyyy') as etb"),
-        trx.raw("FORMAT(p.eta, 'dd-MM-yyyy') as eta"),
-        trx.raw("FORMAT(p.etd, 'dd-MM-yyyy') as etd"),
-        'p.voyberangkat',
-        'p.voytiba',
-        trx.raw("FORMAT(p.closing, 'dd-MM-yyyy HH:mm:ss') as closing"),
-        trx.raw(
-          "FORMAT(p.closing, 'dd-MM-yyyy hh:mm tt') as closingForDateTime",
-        ),
-        trx.raw("FORMAT(p.etatujuan, 'dd-MM-yyyy') as etatujuan"),
-        trx.raw("FORMAT(p.etdtujuan, 'dd-MM-yyyy') as etdtujuan"),
-        'p.keterangan',
-        'p.modifiedby',
-        trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-        trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-        'pel.nama as pelayaran_nama',
-        'kapal.nama as kapal_nama',
-        'q.nama as tujuankapal_nama',
-      )
-      .leftJoin('pelayaran as pel', 'p.pelayaran_id', 'pel.id')
-      .leftJoin('kapal', 'p.kapal_id', 'kapal.id')
-      .leftJoin('tujuankapal as q', 'p.tujuankapal_id', 'q.id')
-      .where('schedule_id', id); 
+        .select(
+          'p.id',
+          'p.schedule_id',
+          'p.nobukti',
+          'p.pelayaran_id',
+          'p.kapal_id',
+          'p.tujuankapal_id',
+          'p.schedulekapal_id',
+          trx.raw("FORMAT(p.tglberangkat, 'dd-MM-yyyy') as tglberangkat"),
+          trx.raw("FORMAT(p.tgltiba, 'dd-MM-yyyy') as tgltiba"),
+          trx.raw("FORMAT(p.etb, 'dd-MM-yyyy') as etb"),
+          trx.raw("FORMAT(p.eta, 'dd-MM-yyyy') as eta"),
+          trx.raw("FORMAT(p.etd, 'dd-MM-yyyy') as etd"),
+          'p.voyberangkat',
+          'p.voytiba',
+          trx.raw("FORMAT(p.closing, 'dd-MM-yyyy HH:mm:ss') as closing"),
+          trx.raw(
+            "FORMAT(p.closing, 'dd-MM-yyyy hh:mm tt') as closingForDateTime",
+          ),
+          trx.raw("FORMAT(p.etatujuan, 'dd-MM-yyyy') as etatujuan"),
+          trx.raw("FORMAT(p.etdtujuan, 'dd-MM-yyyy') as etdtujuan"),
+          'p.keterangan',
+          'p.modifiedby',
+          trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+          'pel.nama as pelayaran_nama',
+          'kapal.nama as kapal_nama',
+          'q.nama as tujuankapal_nama',
+        )
+        .leftJoin('pelayaran as pel', 'p.pelayaran_id', 'pel.id')
+        .leftJoin('kapal', 'p.kapal_id', 'kapal.id')
+        .leftJoin('tujuankapal as q', 'p.tujuankapal_id', 'q.id')
+        .where('schedule_id', id);
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
@@ -404,7 +404,7 @@ export class ScheduleDetailService {
             .orWhere('p.closing', 'like', `%${sanitizedValue}%`)
             .orWhere('p.etatujuan', 'like', `%${sanitizedValue}%`)
             .orWhere('p.etdtujuan', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`);
         });
       }
 
@@ -459,46 +459,49 @@ export class ScheduleDetailService {
       console.error('Error to findAll Schedule detail in service', error);
       throw new Error(error);
     }
-
   }
 
   async getScheduleDetailForExport(id: any) {
     try {
       const result = await dbMssql(`${this.tableName} as p`)
-      .select(
-        'p.id',
-        'p.schedule_id',
-        'p.nobukti',
-        'p.pelayaran_id',
-        'p.kapal_id',
-        'p.tujuankapal_id',
-        'p.schedulekapal_id',
-        dbMssql.raw("FORMAT(p.tglberangkat, 'dd-MM-yyyy') as tglberangkat"),
-        dbMssql.raw("FORMAT(p.tgltiba, 'dd-MM-yyyy') as tgltiba"),
-        dbMssql.raw("FORMAT(p.etb, 'dd-MM-yyyy') as etb"),
-        dbMssql.raw("FORMAT(p.eta, 'dd-MM-yyyy') as eta"),
-        dbMssql.raw("FORMAT(p.etd, 'dd-MM-yyyy') as etd"),
-        'p.voyberangkat',
-        'p.voytiba',
-        dbMssql.raw("FORMAT(p.closing, 'dd-MM-yyyy HH:mm:ss') as closing"),
-        dbMssql.raw(
-          "FORMAT(p.closing, 'dd-MM-yyyy hh:mm tt') as closingForDateTime",
-        ),
-        dbMssql.raw("FORMAT(p.etatujuan, 'dd-MM-yyyy') as etatujuan"),
-        dbMssql.raw("FORMAT(p.etdtujuan, 'dd-MM-yyyy') as etdtujuan"),
-        'p.keterangan',
-        'p.modifiedby',
-        dbMssql.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-        dbMssql.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-        'pel.nama as pelayaran_nama',
-        'kapal.nama as kapal_nama',
-        'q.nama as tujuankapal_nama',
-      )
-      .leftJoin('pelayaran as pel', 'p.pelayaran_id', 'pel.id')
-      .leftJoin('kapal', 'p.kapal_id', 'kapal.id')
-      .leftJoin('tujuankapal as q', 'p.tujuankapal_id', 'q.id')
-      .where('schedule_id', id)
-      .orderBy('p.id', 'asc');
+        .select(
+          'p.id',
+          'p.schedule_id',
+          'p.nobukti',
+          'p.pelayaran_id',
+          'p.kapal_id',
+          'p.tujuankapal_id',
+          'p.schedulekapal_id',
+          dbMssql.raw("FORMAT(p.tglberangkat, 'dd-MM-yyyy') as tglberangkat"),
+          dbMssql.raw("FORMAT(p.tgltiba, 'dd-MM-yyyy') as tgltiba"),
+          dbMssql.raw("FORMAT(p.etb, 'dd-MM-yyyy') as etb"),
+          dbMssql.raw("FORMAT(p.eta, 'dd-MM-yyyy') as eta"),
+          dbMssql.raw("FORMAT(p.etd, 'dd-MM-yyyy') as etd"),
+          'p.voyberangkat',
+          'p.voytiba',
+          dbMssql.raw("FORMAT(p.closing, 'dd-MM-yyyy HH:mm:ss') as closing"),
+          dbMssql.raw(
+            "FORMAT(p.closing, 'dd-MM-yyyy hh:mm tt') as closingForDateTime",
+          ),
+          dbMssql.raw("FORMAT(p.etatujuan, 'dd-MM-yyyy') as etatujuan"),
+          dbMssql.raw("FORMAT(p.etdtujuan, 'dd-MM-yyyy') as etdtujuan"),
+          'p.keterangan',
+          'p.modifiedby',
+          dbMssql.raw(
+            "FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at",
+          ),
+          dbMssql.raw(
+            "FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at",
+          ),
+          'pel.nama as pelayaran_nama',
+          'kapal.nama as kapal_nama',
+          'q.nama as tujuankapal_nama',
+        )
+        .leftJoin('pelayaran as pel', 'p.pelayaran_id', 'pel.id')
+        .leftJoin('kapal', 'p.kapal_id', 'kapal.id')
+        .leftJoin('tujuankapal as q', 'p.tujuankapal_id', 'q.id')
+        .where('schedule_id', id)
+        .orderBy('p.id', 'asc');
 
       if (!result.length) {
         this.logger.warn(
@@ -515,9 +518,12 @@ export class ScheduleDetailService {
         status: true,
         message: 'Schedule Detail data fetched successfully',
         data: result,
-      }; 
+      };
     } catch (error) {
-      console.error('Error to get Schedule detail for export in service', error);
+      console.error(
+        'Error to get Schedule detail for export in service',
+        error,
+      );
       throw new Error(error);
     }
   }

@@ -11,6 +11,8 @@ import {
   UseGuards,
   Req,
   Put,
+  Res,
+  HttpStatus,
 } from '@nestjs/common';
 import { PengembaliankasgantungheaderService } from './pengembaliankasgantungheader.service';
 import { CreatePengembaliankasgantungheaderDto } from './dto/create-pengembaliankasgantungheader.dto';
@@ -23,6 +25,8 @@ import {
 } from 'src/common/interfaces/all.interface';
 import { dbMssql } from 'src/common/utils/db';
 import { AuthGuard } from '../auth/auth.guard';
+import * as fs from 'fs';
+import { Response } from 'express';
 
 @Controller('pengembaliankasgantungheader')
 export class PengembaliankasgantungheaderController {
@@ -222,6 +226,57 @@ export class PengembaliankasgantungheaderController {
       trx.rollback();
       console.error('Error in findOne:', error);
       throw error; // Re-throw the error to be handled by the global exception filter
+    }
+  }
+  @Get('/export/:id')
+  async exportToExcel(
+    @Param('id') id: string,
+    @Query() query: any,
+    @Res() res: Response,
+  ) {
+    try {
+      // Ambil data
+      const trx = await dbMssql.transaction();
+      const { data } = await this.pengembaliankasgantungheaderService.findOne(
+        query,
+        id,
+        trx,
+      );
+
+      if (!Array.isArray(data)) {
+        return res
+          .status(HttpStatus.BAD_REQUEST)
+          .send('Data is not an array or is undefined.');
+      }
+
+      // Buat Excel file
+      const tempFilePath =
+        await this.pengembaliankasgantungheaderService.exportToExcel(data, trx);
+
+      // Stream file ke response
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_managermarketing.xlsx"',
+      );
+
+      const fileStream = fs.createReadStream(tempFilePath);
+      fileStream.pipe(res);
+
+      // Optional: hapus file temp setelah selesai streaming
+      fileStream.on('end', () => {
+        fs.unlink(tempFilePath, (err) => {
+          if (err) console.error('Error deleting temp file:', err);
+        });
+      });
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .send('Failed to export file');
     }
   }
 }

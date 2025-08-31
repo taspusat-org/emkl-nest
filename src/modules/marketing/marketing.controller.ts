@@ -122,13 +122,14 @@ export class MarketingController {
   @Put(':id')
   //@MARKETING
   async update(
-    @Param('id') id: string, 
+    @Param('id') id: string,
     @Body(
       new ZodValidationPipe(UpdateMarketingSchema),
-      KeyboardOnlyValidationPipe
-    ) 
-    data: UpdateMarketingDto, 
-    @Req() req) {
+      KeyboardOnlyValidationPipe,
+    )
+    data: UpdateMarketingDto,
+    @Req() req,
+  ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
@@ -227,8 +228,7 @@ export class MarketingController {
       }
 
       // Buat Excel file
-      const tempFilePath =
-        await this.marketingService.exportToExcel(data, trx);
+      const tempFilePath = await this.marketingService.exportToExcel(data, trx);
 
       // Stream file ke response
       res.setHeader(
