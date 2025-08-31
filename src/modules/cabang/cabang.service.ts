@@ -7,7 +7,7 @@ import {
 import { CreateCabangDto } from './dto/create-cabang.dto';
 import { UpdateCabangDto } from './dto/update-cabang.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
-import { dbMssql, dbMssqlHr } from 'src/common/utils/db';
+import { dbHr, dbMssql, dbMssqlHr } from 'src/common/utils/db';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RedisService } from 'src/common/redis/redis.service';
@@ -147,6 +147,7 @@ export class CabangService {
       page = page ?? 1;
       limit = limit ?? 0;
 
+      // Cross-database join menggunakan subquery untuk table cabang di database hr
       const query = dbMssql(`${this.tableName} as c`)
         .select([
           'c.id',
@@ -159,7 +160,7 @@ export class CabangService {
           'p.text',
           'c.modifiedby',
           dbMssql.raw(
-            '(SELECT TOP 1 nama FROM hr.dbo.cabang WHERE id = c.cabang_id) as namacabang_hr',
+            '(SELECT TOP 1 nama FROM [hr].[dbo].[cabang] WHERE id = c.cabang_id) as namacabang_hr',
           ),
           dbMssql.raw(
             "FORMAT(c.created_at, 'dd-MM-yyyy HH:mm:ss') AS created_at",
@@ -238,7 +239,7 @@ export class CabangService {
       page = page ?? 1;
       limit = limit ?? 0;
 
-      const query = dbMssqlHr(`${this.tableName} as c`)
+      const query = dbHr(`${this.tableName} as c`)
         .select([
           'c.id',
           'c.kodecabang',
@@ -248,12 +249,8 @@ export class CabangService {
           'p.memo',
           'p.text',
           'c.modifiedby',
-          dbMssqlHr.raw(
-            "FORMAT(c.created_at, 'dd-MM-yyyy HH:mm:ss') AS created_at",
-          ),
-          dbMssqlHr.raw(
-            "FORMAT(c.updated_at, 'dd-MM-yyyy HH:mm:ss') AS updated_at",
-          ),
+          dbHr.raw("FORMAT(c.created_at, 'dd-MM-yyyy HH:mm:ss') AS created_at"),
+          dbHr.raw("FORMAT(c.updated_at, 'dd-MM-yyyy HH:mm:ss') AS updated_at"),
         ])
         .leftJoin('parameter as p', 'c.statusaktif', 'p.id');
 
@@ -290,9 +287,7 @@ export class CabangService {
         }
       }
 
-      const result = await dbMssqlHr(this.tableName)
-        .count('id as total')
-        .first();
+      const result = await dbHr(this.tableName).count('id as total').first();
       const total = result?.total as number;
 
       // Jika limit ada, hitung total pages berdasarkan limit

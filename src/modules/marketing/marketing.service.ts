@@ -66,7 +66,6 @@ export class MarketingService {
       } = data;
       insertData.updated_at = this.utilService.getTime();
       insertData.created_at = this.utilService.getTime();
-      
 
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
@@ -763,8 +762,10 @@ export class MarketingService {
         trx,
       );
 
-      const cekDataeDetail = await trx('marketingdetail').select('id').where('marketing_id', id)
-      
+      const cekDataeDetail = await trx('marketingdetail')
+        .select('id')
+        .where('marketing_id', id);
+
       if (cekDataeDetail?.length !== 0) {
         const deletedMarketingDetail = await this.utilService.lockAndDestroy(
           id,
@@ -874,21 +875,21 @@ export class MarketingService {
 
         return forceEdit;
       } else if (aksi === 'DELETE') {
-          // const validasi = await this.globalService.checkUsed(
-          //   'akunpusat',
-          //   'type_id',
-          //   value,
-          //   trx,
-          // );
+        // const validasi = await this.globalService.checkUsed(
+        //   'akunpusat',
+        //   'type_id',
+        //   value,
+        //   trx,
+        // );
 
-          // return validasi;
-          return {
-            // tableName: tableName,
-            // fieldName: fieldName,
-            // fieldValue: fieldValue,
-            status: 'success',
-            message: 'Data aman untuk dihapus.',
-          };
+        // return validasi;
+        return {
+          // tableName: tableName,
+          // fieldName: fieldName,
+          // fieldValue: fieldValue,
+          status: 'success',
+          message: 'Data aman untuk dihapus.',
+        };
       }
     } catch (error) {
       console.error('Error di checkValidasi:', error);
@@ -922,34 +923,32 @@ export class MarketingService {
     let currentRow = 5;
 
     for (const h of data) {
-      const detailRes = await this.marketingOrderanService.findAll(
-        h.id,
-        trx,
-        {search: ''}
-      );
+      const detailRes = await this.marketingOrderanService.findAll(h.id, trx, {
+        search: '',
+      });
 
       const marketingBiaya = await this.marketingBiayaService.findAll(
         h.id,
         trx,
-        {search: ''}
+        { search: '' },
       );
 
       const marketingManager = await this.marketingManagerService.findAll(
         h.id,
         trx,
-        {search: ''}
+        { search: '' },
       );
 
       const marketingProsesFee = await this.marketingProsesFeeService.findAll(
         h.id,
         trx,
-        {search: ''}
+        { search: '' },
       );
 
       const detailsMarketingOrderan = detailRes.data ?? [];
-      const detailsMarketingBiaya= marketingBiaya.data ?? [];
-      const detailsMarketingManager= marketingManager.data ?? [];
-      const detailsMarketingProsesFee= marketingProsesFee.data ?? [];
+      const detailsMarketingBiaya = marketingBiaya.data ?? [];
+      const detailsMarketingManager = marketingManager.data ?? [];
+      const detailsMarketingProsesFee = marketingProsesFee.data ?? [];
 
       const headerInfo = [
         ['Nama', h.nama ?? ''],
@@ -980,12 +979,15 @@ export class MarketingService {
 
       currentRow++;
 
-
       if (detailsMarketingOrderan.length > 0) {
         worksheet.getCell(`A${currentRow}`).value = 'MARKETING ORDERAN';
-        worksheet.getCell(`A${currentRow}`).font = { bold: true, name: 'Tahoma', size: 10 };;
+        worksheet.getCell(`A${currentRow}`).font = {
+          bold: true,
+          name: 'Tahoma',
+          size: 10,
+        };
 
-        currentRow++
+        currentRow++;
         const tableHeaders = [
           'NO.',
           'NAMA ORDERAN',
@@ -1047,9 +1049,13 @@ export class MarketingService {
 
       if (detailsMarketingBiaya.length > 0) {
         worksheet.getCell(`A${currentRow}`).value = 'MARKETING BIAYA';
-        worksheet.getCell(`A${currentRow}`).font = { bold: true, name: 'Tahoma', size: 10 };;
+        worksheet.getCell(`A${currentRow}`).font = {
+          bold: true,
+          name: 'Tahoma',
+          size: 10,
+        };
 
-        currentRow++
+        currentRow++;
         const tableHeaders = [
           'NO.',
           'JENIS BIAYA MARKETING',
@@ -1090,7 +1096,7 @@ export class MarketingService {
             // kolom angka rata kanan, selain itu rata kiri
             if (colIndex === 2) {
               cell.alignment = { horizontal: 'right', vertical: 'middle' };
-              cell.numFmt = '#,##0.00'
+              cell.numFmt = '#,##0.00';
             } else if (colIndex === 0) {
               cell.alignment = { horizontal: 'center', vertical: 'middle' };
             } else {
@@ -1112,9 +1118,13 @@ export class MarketingService {
 
       if (detailsMarketingManager.length > 0) {
         worksheet.getCell(`A${currentRow}`).value = 'MARKETING MANAGER';
-        worksheet.getCell(`A${currentRow}`).font = { bold: true, name: 'Tahoma', size: 10 };;
+        worksheet.getCell(`A${currentRow}`).font = {
+          bold: true,
+          name: 'Tahoma',
+          size: 10,
+        };
 
-        currentRow++
+        currentRow++;
         const tableHeaders = [
           'NO.',
           'MANAGER MARKETING',
@@ -1178,9 +1188,13 @@ export class MarketingService {
 
       if (detailsMarketingProsesFee.length > 0) {
         worksheet.getCell(`A${currentRow}`).value = 'MARKETING PROSES FEE';
-        worksheet.getCell(`A${currentRow}`).font = { bold: true, name: 'Tahoma', size: 10 };;
+        worksheet.getCell(`A${currentRow}`).font = {
+          bold: true,
+          name: 'Tahoma',
+          size: 10,
+        };
 
-        currentRow++
+        currentRow++;
         const tableHeaders = [
           'NO.',
           'JENIS PROSES FEE',

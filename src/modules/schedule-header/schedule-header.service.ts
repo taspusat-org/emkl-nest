@@ -471,7 +471,8 @@ export class ScheduleHeaderService {
   }
 
   async exportToExcel(dataHeader: any, idHeader: any) {
-    const data = await this.scheduleDetailService.getScheduleDetailForExport(idHeader)
+    const data =
+      await this.scheduleDetailService.getScheduleDetailForExport(idHeader);
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Data Export');
 
@@ -530,9 +531,9 @@ export class ScheduleHeaderService {
         fgColor: { argb: 'FFFF00' },
       };
       cell.font = { bold: true, name: 'Tahoma', size: 10 };
-      cell.alignment = { 
-        horizontal: 'center', 
-        vertical: 'middle' 
+      cell.alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
       };
 
       cell.border = {
@@ -546,21 +547,21 @@ export class ScheduleHeaderService {
     data.data.forEach((row, rowIndex) => {
       const currentRow = rowIndex + 10;
       const rowValues = [
-        rowIndex + 1, 
-        row.pelayaran_nama, 
-        row.kapal_nama, 
+        rowIndex + 1,
+        row.pelayaran_nama,
+        row.kapal_nama,
         row.tujuankapal_nama,
-        row.tglberangkat, 
-        row.tgltiba, 
-        row.etb, 
-        row.eta, 
-        row.etd, 
-        row.voyberangkat, 
-        row.voytiba, 
-        row.closing, 
-        row.etatujuan, 
-        row.etdtujuan, 
-        row.keterangan
+        row.tglberangkat,
+        row.tgltiba,
+        row.etb,
+        row.eta,
+        row.etd,
+        row.voyberangkat,
+        row.voytiba,
+        row.closing,
+        row.etatujuan,
+        row.etdtujuan,
+        row.keterangan,
       ];
 
       rowValues.forEach((value, colIndex) => {

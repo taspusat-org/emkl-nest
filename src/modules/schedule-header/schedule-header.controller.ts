@@ -21,11 +21,11 @@ import {
   FindAllParams,
   FindAllSchema,
 } from 'src/common/interfaces/all.interface';
-import { 
-  CreateScheduleDto, 
-  CreateScheduleSchema, 
-  UpdateScheduleDto, 
-  UpdateScheduleSchema 
+import {
+  CreateScheduleDto,
+  CreateScheduleSchema,
+  UpdateScheduleDto,
+  UpdateScheduleSchema,
 } from './dto/create-schedule-header.dto';
 import { dbMssql } from 'src/common/utils/db';
 import * as fs from 'fs';
@@ -47,10 +47,10 @@ export class ScheduleHeaderController {
     @Body(
       new InjectMethodPipe('create'),
       new ZodValidationPipe(CreateScheduleSchema),
-      KeyboardOnlyValidationPipe
-    ) 
-    data: CreateScheduleDto, 
-    @Req() req
+      KeyboardOnlyValidationPipe,
+    )
+    data: CreateScheduleDto,
+    @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
@@ -65,7 +65,7 @@ export class ScheduleHeaderController {
       console.error('Error while creating type akuntansi in controller', error);
 
       if (error instanceof HttpException) {
-        throw error; 
+        throw error;
       }
 
       throw new HttpException(
@@ -126,8 +126,9 @@ export class ScheduleHeaderController {
     @Body(
       new InjectMethodPipe('update'),
       new ZodValidationPipe(UpdateScheduleSchema),
-      KeyboardOnlyValidationPipe
-    ) data: UpdateScheduleDto,
+      KeyboardOnlyValidationPipe,
+    )
+    data: UpdateScheduleDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
@@ -146,7 +147,7 @@ export class ScheduleHeaderController {
       );
 
       if (error instanceof HttpException) {
-        throw error; 
+        throw error;
       }
 
       throw new HttpException(
@@ -209,33 +210,36 @@ export class ScheduleHeaderController {
       throw new InternalServerErrorException('Failed to check validation');
     }
   }
-  
+
   @Get('/export/:id')
   async exportToExcel(
     @Param('id') id: string,
     @Query() params: any,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     try {
       const data = await this.findOne(id);
 
       if (!data) {
-        throw new Error('Data is not found')
+        throw new Error('Data is not found');
       }
 
-      const tempFilePath = await this.scheduleHeaderService.exportToExcel(data, id);
-      const fileStream = fs.createReadStream(tempFilePath)
+      const tempFilePath = await this.scheduleHeaderService.exportToExcel(
+        data,
+        id,
+      );
+      const fileStream = fs.createReadStream(tempFilePath);
 
       res.setHeader(
         'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      )
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_schedule.xlsx"'
-      )
+        'attachment; filename="laporan_schedule.xlsx"',
+      );
 
-      fileStream.pipe(res)
+      fileStream.pipe(res);
     } catch (error) {
       console.error('Error exporting to Excel:', error);
       res.status(500).send('Failed to export file');
@@ -247,7 +251,7 @@ export class ScheduleHeaderController {
     const trx = await dbMssql.transaction();
     try {
       const result = await this.scheduleHeaderService.getById(+id, trx);
-      
+
       if (!result) {
         throw new Error('Data not found');
       }

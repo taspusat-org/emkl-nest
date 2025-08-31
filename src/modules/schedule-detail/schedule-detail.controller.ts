@@ -49,11 +49,7 @@ export class ScheduleDetailController {
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.scheduleDetailService.findAll(
-        id, 
-        trx,
-        params
-      );
+      const result = await this.scheduleDetailService.findAll(id, trx, params);
       trx.commit();
       return result;
     } catch (error) {

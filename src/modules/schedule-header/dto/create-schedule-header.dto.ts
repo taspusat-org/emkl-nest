@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { isRecordExist } from 'src/utils/utils.service';
 
-
 const baseDetails = z.object({
   id: z.number().optional(),
   nobukti: z.string().nullable().optional(),
@@ -22,47 +21,39 @@ const baseDetails = z.object({
   etatujuan: z.string().nullable(),
   etdtujuan: z.string().nullable(),
   // keterangan: z.string().nullable(),
-  keterangan: z
-    .string()
-    .nonempty({ message: 'KETERANGAN WAJIB DIISI' })
+  keterangan: z.string().nonempty({ message: 'KETERANGAN WAJIB DIISI' }),
 });
-
 
 // ------------------------
 // 1. BASE FIELDS
 // ------------------------
 const baseFields = {
   nobukti: z.string().nullable(),
-  tglbukti: z
-    .string()
-    .nonempty({ message: 'TGL BUKTI WAJIB DIISI' }),
+  tglbukti: z.string().nonempty({ message: 'TGL BUKTI WAJIB DIISI' }),
   keterangan: z
-  .string()
-  .nonempty({ message: 'KETERANGAN WAJIB DIISI' })
-  .min(1, { message: 'Keterangan Wajib Diisi' }).max(100),
+    .string()
+    .nonempty({ message: 'KETERANGAN WAJIB DIISI' })
+    .min(1, { message: 'Keterangan Wajib Diisi' })
+    .max(100),
   modifiedby: z.string().max(200).optional(),
-  details: z.array(baseDetails).min(1)
+  details: z.array(baseDetails).min(1),
 };
-
 
 // ------------------------
 // 2. KHUSUS CREATE
 // ------------------------
-export const CreateScheduleSchema = z
-  .object({
-    ...baseFields,
-    // Field/aturan khusus create bisa ditambah di sini
-  })
+export const CreateScheduleSchema = z.object({
+  ...baseFields,
+  // Field/aturan khusus create bisa ditambah di sini
+});
 export type CreateScheduleDto = z.infer<typeof CreateScheduleSchema>;
-
 
 // ------------------------
 // 3. KHUSUS UPDATE
 // ------------------------
-export const UpdateScheduleSchema = z
-  .object({
-    ...baseFields,
-    // id: z.number({ required_error: 'Id wajib diisi untuk update' }),
-    // Field atau aturan khusus update bisa ditambah di sini
-  })
+export const UpdateScheduleSchema = z.object({
+  ...baseFields,
+  // id: z.number({ required_error: 'Id wajib diisi untuk update' }),
+  // Field atau aturan khusus update bisa ditambah di sini
+});
 export type UpdateScheduleDto = z.infer<typeof UpdateScheduleSchema>;
