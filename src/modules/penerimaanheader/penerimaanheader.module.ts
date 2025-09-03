@@ -21,6 +21,7 @@ import { AuthModule } from '../auth/auth.module';
     GlobalModule,
     LocksModule,
   ],
+  controllers: [PenerimaanheaderController],
   providers: [PenerimaanheaderService],
 })
 export class PenerimaanheaderModule {}
