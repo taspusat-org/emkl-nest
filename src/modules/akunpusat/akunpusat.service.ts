@@ -1,13 +1,17 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { CreateAkunpusatDto } from './dto/create-akunpusat.dto';
-import { UpdateAkunpusatDto } from './dto/update-akunpusat.dto';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { UtilsService } from 'src/utils/utils.service';
 import { RedisService } from 'src/common/redis/redis.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
-import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.service';
-
+import * as fs from 'fs';
+import * as path from 'path';
+import { Column, Workbook } from 'exceljs';
 @Injectable()
 export class AkunpusatService {
   constructor(
@@ -17,20 +21,22 @@ export class AkunpusatService {
     private readonly runningNumberService: RunningNumberService,
   ) {}
   private readonly tableName = 'akunpusat';
-  async create(createMenuDto: any, trx: any) {
+  async create(createAkunpusatDto: any, trx: any) {
     try {
       const {
         sortBy,
+        id,
         sortDirection,
         filters,
         search,
         page,
         limit,
         parent_nama,
-        acos_nama,
         statusaktif_nama,
+        cabang_nama,
+        type_nama,
         ...insertData
-      } = createMenuDto;
+      } = createAkunpusatDto;
       insertData.updated_at = this.utilsService.getTime();
       insertData.created_at = this.utilsService.getTime();
       // Normalize the data (e.g., convert strings to uppercase)
@@ -64,7 +70,7 @@ export class AkunpusatService {
       }
 
       // Optionally, you can find the page number or other info if needed
-      const pageNumber = pagination?.currentPage;
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
 
       // Optionally, you can log the event or store the new item in a cache if needed
       await this.redisService.set(
@@ -111,9 +117,13 @@ export class AkunpusatService {
       const excludedFields = [
         'created_at',
         'updated_at',
-        'editing_at',
         'modifiedby',
-        'editing_by', // List of fields to be excluded from search and filter
+        'type_nama',
+        'statusaktif_nama',
+        'cabang_nama',
+        'parent_nama',
+        'memo',
+        'info',
         // Add more fields that you want to exclude here
       ];
 
@@ -131,63 +141,28 @@ export class AkunpusatService {
         }
       }
 
-      const query = trx(`${this.tableName} as u`).select([
-        'u.id as id',
-        'u.type_id as type_id', // type_id (integer)
-        'u.level as level', // level (integer)
-        'u.coa as coa', // coa (nvarchar(100))
-        'u.keterangancoa as keterangancoa', // keterangancoa (nvarchar(max))
-        // 'u.parent as parent', // parent (nvarchar(100))
-        // 'u.statusap as statusap', // statusap (group status nilai)
-        // 'u.statuslabarugi as statuslabarugi', // statuslabarugi (group status nilai)
-        // 'u.statusneraca as  statusneraca', // statusneraca (group status nilai)
-        // 'u.statuslabarugiberjalan as statuslabarugiberjalan', // statuslabarugiberjalan (group status nilai)
-        // 'u.statusbiaya as statusbiaya', // statusbiaya (group status nilai)
-        // 'u.statushutang as statushutang', // statushutang (group status nilai)
-        // 'u.statuspiutang as statuspiutang', // statuspiutang (group status nilai)
-        // 'u.statusterimakasbank as statusterimakasbank', // statusterimakasbank (group status nilai)
-        // 'u.statuskeluarkasbank as statuskeluarkasbank', // statuskeluarkasbank (group status nilai)
-        // 'u.statusadjhutang as statusadjhutang', // statusadjhutang (group status nilai)
-        // 'u.statusadjpiutang as statusadjpiutang', // statusadjpiutang (group status nilai)
-        // 'u.statuspinjaman as statuspinjaman', // statuspinjaman (group status nilai)
-        // 'u.statuskasgantung as statuskasgantung', // statuskasgantung (group status nilai)
-        // 'u.cabang_id as cabang_id', // cabang_id (integer)
-        // 'c.nama as cabang_nama', // cabang_id (integer)
-        // 'p1.text as statusap_nama', // statusap name
-        // 'p2.text as statuslabarugi_nama', // statuslabarugi name
-        // 'p3.text as statusneraca_nama', // statusneraca name
-        // 'p4.text as statuslabarugiberjalan_nama', // statuslabarugiberjalan name
-        // 'p5.text as statusbiaya_nama', // statusbiaya name
-        // 'p6.text as statushutang_nama', // statushutang name
-        // 'p7.text as statuspiutang_nama', // statuspiutang name
-        // 'p8.text as statusterimakasbank_nama', // statusterimakasbank name
-        // 'p9.text as statuskeluarkasbank_nama', // statuskeluarkasbank name
-        // 'p10.text as statusadjhutang_nama', // statusadjhutang name
-        // 'p11.text as statusadjpiutang_nama', // statusadjpiutang name
-        // 'p12.text as statuspinjaman_nama', // statuspinjaman name
-        // 'p13.text as statuskasgantung_nama', // statuskasgantung name
-        // 'u.statusaktif as statusaktif', // statusaktif (group status aktif)
-        // 'u.info as info', // info (nvarchar(max))
-        // 'u.modifiedby as modifiedby', // modifiedby (varchar(200))
-        // 'u.editing_by as editing_by', // editing_by (varchar(200))
-        // 'u.editing_at as editing_at', // editing_at (datetime)
-        // 'u.created_at as created_at', // created_at (datetime)
-        // 'u.updated_at as updated_at', // updated_at (datetime)
-      ]);
-      // .leftJoin('parameter as p1', 'u.statusap', 'p1.id')
-      // .leftJoin('parameter as p2', 'u.statuslabarugi', 'p2.id')
-      // .leftJoin('parameter as p3', 'u.statusneraca', 'p3.id')
-      // .leftJoin('parameter as p4', 'u.statuslabarugiberjalan', 'p4.id')
-      // .leftJoin('parameter as p5', 'u.statusbiaya', 'p5.id')
-      // .leftJoin('parameter as p6', 'u.statushutang', 'p6.id')
-      // .leftJoin('parameter as p7', 'u.statuspiutang', 'p7.id')
-      // .leftJoin('parameter as p8', 'u.statusterimakasbank', 'p8.id')
-      // .leftJoin('parameter as p9', 'u.statuskeluarkasbank', 'p9.id')
-      // .leftJoin('parameter as p10', 'u.statusadjhutang', 'p10.id')
-      // .leftJoin('parameter as p11', 'u.statusadjpiutang', 'p11.id')
-      // .leftJoin('parameter as p12', 'u.statuspinjaman', 'p12.id')
-      // .leftJoin('parameter as p13', 'u.statuskasgantung', 'p13.id')
-      // .leftJoin('cabang as c', 'u.cabang_id', 'c.id');
+      const query = trx(`${this.tableName} as u`)
+        .select([
+          'u.id as id',
+          'u.type_id as type_id', // type_id (integer)
+          'u.level as level', // level (integer)
+          'u.coa as coa', // coa (nvarchar(100))
+          'u.keterangancoa', // keterangancoa (nvarchar(max))
+          'u.statusaktif as statusaktif', // statusaktif (group status aktif)
+          'p.text as statusaktif_nama',
+          'p.memo',
+          'u.parent as parent',
+          'u.cabang_id as cabang_id',
+          'c.nama as cabang_nama',
+          't.nama as type_nama',
+          'u.info as info', // info (nvarchar(max))
+          'u.modifiedby as modifiedby', // modifiedby (varchar(200))
+          'u.created_at as created_at', // created_at (datetime)
+          'u.updated_at as updated_at', // updated_at (datetime)
+        ])
+        .leftJoin('cabang as c', 'u.cabang_id', 'c.id')
+        .leftJoin('typeakuntansi as t', 'u.type_id', 't.id')
+        .leftJoin('parameter as p', 'u.statusaktif', 'p.id');
 
       if (limit > 0) {
         const offset = (page - 1) * limit;
@@ -214,11 +189,7 @@ export class AkunpusatService {
           if (excludedFields.includes(key)) continue;
 
           if (value) {
-            if (
-              key === 'created_at' ||
-              key === 'updated_at' ||
-              key === 'editing_at'
-            ) {
+            if (key === 'created_at' || key === 'updated_at') {
               query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
                 key,
                 `%${sanitizedValue}%`,
@@ -258,16 +229,265 @@ export class AkunpusatService {
       throw new Error('Failed to fetch data');
     }
   }
+  async update(data: any, trx: any) {
+    try {
+      const existingData = await trx(this.tableName)
+        .where('id', data.id)
+        .first();
 
-  findOne(id: number) {
-    return `This action returns a #${id} akunpusat`;
+      if (!existingData) {
+        throw new Error('Container not found');
+      }
+
+      const {
+        sortBy,
+        sortDirection,
+        filters,
+        search,
+        id,
+        page,
+        limit,
+        statusaktif_nama,
+        cabang_nama,
+        type_nama,
+        ...insertData
+      } = data;
+
+      Object.keys(insertData).forEach((key) => {
+        if (typeof insertData[key] === 'string') {
+          insertData[key] = insertData[key].toUpperCase();
+        }
+      });
+      const hasChanges = this.utilsService.hasChanges(insertData, existingData);
+
+      if (hasChanges) {
+        insertData.updated_at = this.utilsService.getTime();
+        await trx(this.tableName).where('id', id).update(insertData);
+      }
+
+      const { data: filteredData, pagination } = await this.findAll(
+        {
+          search,
+          filters,
+          pagination: { page, limit },
+          sort: { sortBy, sortDirection },
+          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+        },
+        trx,
+      );
+
+      // Cari index item yang baru saja diupdate
+      const itemIndex = filteredData.findIndex(
+        (item) => Number(item.id) === id,
+      );
+      if (itemIndex === -1) {
+        throw new Error('Updated item not found in all items');
+      }
+
+      const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
+      const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;
+
+      const endIndex = pageNumber * itemsPerPage;
+      const limitedItems = filteredData.slice(0, endIndex);
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'EDIT CONTAINER',
+          idtrans: id,
+          nobuktitrans: id,
+          aksi: 'EDIT',
+          datajson: JSON.stringify(data),
+          modifiedby: data.modifiedby,
+        },
+        trx,
+      );
+
+      return {
+        updatedItem: {
+          id,
+          ...data,
+        },
+        pageNumber,
+        itemIndex,
+      };
+    } catch (error) {
+      console.error('Error updating container:', error);
+      throw new Error('Failed to update container');
+    }
   }
 
-  update(id: number, updateAkunpusatDto: UpdateAkunpusatDto) {
-    return `This action updates a #${id} akunpusat`;
-  }
+  async delete(id: number, trx: any, modifiedby: string) {
+    try {
+      const deletedData = await this.utilsService.lockAndDestroy(
+        id,
+        this.tableName,
+        'id',
+        trx,
+      );
 
-  remove(id: number) {
-    return `This action removes a #${id} akunpusat`;
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE CONTAINER',
+          idtrans: deletedData.id,
+          nobuktitrans: deletedData.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedData),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+
+      return { status: 200, message: 'Data deleted successfully', deletedData };
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to delete data');
+    }
+  }
+  async exportToExcel(data: any[]) {
+    const workbook = new Workbook();
+    const worksheet = workbook.addWorksheet('Data Export');
+    console.log('data', data);
+    worksheet.mergeCells('A1:H1');
+    worksheet.mergeCells('A2:H2');
+    worksheet.mergeCells('A3:H3');
+    worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
+    worksheet.getCell('A2').value = 'LAPORAN AKUN PUSAT';
+    worksheet.getCell('A3').value = 'Data Export';
+    ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
+      worksheet.getCell(cellKey).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+      };
+      worksheet.getCell(cellKey).font = {
+        name: 'Tahoma',
+        size: i === 0 ? 14 : 10,
+        bold: true,
+      };
+    });
+
+    // Mendefinisikan header kolom
+    const headers = [
+      'NO.',
+      'TYPE AKUNTANSI',
+      'COA',
+      'PARENT',
+      'LEVEL',
+      'KETERANGAN COA',
+      'CABANG',
+      'STATUS AKTIF',
+    ];
+
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(5, index + 1);
+      cell.value = header;
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFF00' },
+      };
+      cell.font = { bold: true, name: 'Tahoma', size: 10 };
+      cell.alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+      };
+
+      // if (index === 2) {
+      //   cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      //   cell.numFmt = '0'; // angka polos tanpa ribuan / desimal
+      // } else {
+      //   cell.alignment = {
+      //     horizontal: index === 0 ? 'right' : 'left',
+      //     vertical: 'middle',
+      //   };
+      // }
+
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+    });
+
+    data.forEach((row, rowIndex) => {
+      const currentRow = rowIndex + 6;
+      const rowValues = [
+        rowIndex + 1,
+        row.type_nama,
+        row.coa,
+        row.parent,
+        row.level,
+        row.keterangancoa,
+        row.cabang_nama,
+        row.statusaktif_nama,
+      ];
+
+      rowValues.forEach((value, colIndex) => {
+        const cell = worksheet.getCell(currentRow, colIndex + 1);
+
+        if (colIndex === 4) {
+          cell.value = Number(value);
+          cell.numFmt = '0'; // format angka dengan ribuan
+          cell.alignment = {
+            horizontal: 'right',
+            vertical: 'middle',
+          };
+        } else {
+          cell.value = value ?? '';
+          cell.alignment = {
+            horizontal: colIndex === 0 ? 'right' : 'left',
+            vertical: 'middle',
+          };
+        }
+
+        // cell.value = value ?? '';
+        cell.font = { name: 'Tahoma', size: 10 };
+        // cell.alignment = {
+        //   horizontal: colIndex === 0 ? 'right' : 'left',
+        //   vertical: 'middle',
+        // };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+      });
+    });
+
+    worksheet.columns
+      .filter((c): c is Column => !!c)
+      .forEach((col) => {
+        let maxLength = 0;
+        col.eachCell({ includeEmpty: true }, (cell) => {
+          const cellValue = cell.value ? cell.value.toString() : '';
+          maxLength = Math.max(maxLength, cellValue.length);
+        });
+        col.width = maxLength + 2;
+      });
+
+    worksheet.getColumn(1).width = 6;
+
+    const tempDir = path.resolve(process.cwd(), 'tmp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const tempFilePath = path.resolve(
+      tempDir,
+      `laporan_akun_pusat_${Date.now()}.xlsx`,
+    );
+    await workbook.xlsx.writeFile(tempFilePath);
+
+    return tempFilePath;
   }
 }

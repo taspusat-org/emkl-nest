@@ -26,7 +26,7 @@ import {
 import { dbMssql } from 'src/common/utils/db';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
-import { query, Response } from 'express';
+import { Response } from 'express';
 import * as fs from 'fs';
 
 @Controller('kasgantungheader')

@@ -38,7 +38,8 @@ export class GlobalService {
       const mainData = await trx(data.tableName)
         .whereIn('id', data.transaksi_id)
         .forUpdate(); // LOCK ROWS untuk mencegah concurrent modification
-
+      console.log('mainData', mainData);
+      console.log('data', data);
       // Jika tidak ada data ditemukan
       if (!mainData || mainData.length === 0) {
         return {
@@ -47,40 +48,40 @@ export class GlobalService {
           isValid: false,
         };
       }
-      console.log('data', data);
+
       // ========================================
       // VALIDASI BERDASARKAN STATUS
       // ========================================
       if (data.text === 'AKTIF') {
-        console.log('data3', data);
-        // Validasi 2a: Check apakah ada data yang sudah AKTIF di table utama
-        const checkValidation = mainData.filter(
+        // Cek apakah ada data yang sudah AKTIF
+        const sudahAktif = mainData.filter(
           (row: any) => row.statusaktif === data.value,
         );
-
-        if (checkValidation && checkValidation.length > 0) {
-          const namaList = checkValidation
-            .map((row: any) => row.nama)
-            .join(', ');
+        const statusMsg = data.mode === 'APPROVAL' ? 'AKTIF' : 'NON AKTIF';
+        if (sudahAktif && sudahAktif.length > 0) {
+          const namaList = sudahAktif.map((row: any) => row.nama).join(', ');
           return {
             status: HttpStatus.BAD_REQUEST,
-            message: `Data ${namaList} sudah berstatus AKTIF. Proses tidak bisa dilanjutkan.`,
+            message: `Data ${namaList} sudah berstatus ${statusMsg}. Proses tidak bisa dilanjutkan.`,
             isValid: false,
-            conflictData: checkValidation,
+            conflictData: sudahAktif,
           };
         }
       } else {
-        console.log('data4', data);
         // Validasi 3: Check untuk status non-AKTIF (APPROVED)
         const checkStatusPendukung = await trx('statuspendukung')
           .whereIn('transaksi_id', data.transaksi_id)
+          .where('statusdatapendukung', data.id)
           .where('statuspendukung', data.value);
 
         if (checkStatusPendukung && checkStatusPendukung.length > 0) {
           const namaList = mainData.map((row: any) => row.nama).join(', ');
+          const statusMsg =
+            data.mode === 'APPROVAL' ? 'APPROVED' : 'NON APPROVED';
+
           return {
             status: HttpStatus.BAD_REQUEST,
-            message: `Data ${namaList} sudah berstatus APPROVED. Proses tidak bisa dilanjutkan.`,
+            message: `Data ${namaList} sudah berstatus ${statusMsg}. Proses tidak bisa dilanjutkan.`,
             isValid: false,
             conflictData: checkStatusPendukung,
           };
@@ -177,6 +178,7 @@ export class GlobalService {
         // Branch untuk non-AKTIF status
         const checkStatusPendukung = await trx('statuspendukung')
           .whereIn('transaksi_id', data.transaksi_id)
+          .where('statusdatapendukung', data.id)
           .where('statuspendukung', data.value);
 
         if (checkStatusPendukung && checkStatusPendukung.length > 0) {
@@ -291,6 +293,7 @@ export class GlobalService {
         // Branch untuk non-AKTIF status
         const checkStatusPendukung = await trx('statuspendukung')
           .whereIn('transaksi_id', data.transaksi_id)
+          .where('statusdatapendukung', data.id)
           .where('statuspendukung', data.value);
 
         if (checkStatusPendukung && checkStatusPendukung.length > 0) {

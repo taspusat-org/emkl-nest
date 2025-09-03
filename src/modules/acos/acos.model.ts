@@ -8,21 +8,18 @@ export class AcosModel {
   static async syncAcos(username: string) {
     const acosEntries: CreateAcosDto[] = [];
 
-    // BAGIAN 1: Scanning dari file controller (kode existing)
+    // BAGIAN 1: Scanning from file controller (existing code)
     const controllersPath = 'src/modules/**/*.controller.ts';
     const files = glob.sync(controllersPath);
 
     for (const file of files) {
       const content = fs.readFileSync(file, 'utf-8');
-      // Regex to match HTTP methods and comments
       const regex =
-        /@(Get|Post|Put|Delete|Patch)$[^)]*$[\s\S]*?\/\/@([\w\- ]+)/g;
+        /@(Get|Post|Put|Delete|Patch)\([^)]*\)[\s\S]*?\/\/@([\w\- ]+)/g;
       let match;
-
-      // Capture all matches for HTTP methods and class names
       while ((match = regex.exec(content)) !== null) {
-        const httpMethod = match[1].toUpperCase(); // Extract HTTP method type (GET, POST, etc.)
-        const className = match[2]?.trim(); // Extract class name and ensure it's trimmed
+        const httpMethod = match[1].toUpperCase(); // HTTP method (GET, POST, etc.)
+        const className = match[2]?.trim(); // Extract class name
 
         if (httpMethod && className) {
           acosEntries.push({
@@ -34,31 +31,25 @@ export class AcosModel {
         }
       }
     }
-
-    // BAGIAN 2: Generate dari tabel parameter dengan YA dan TIDAK
+    // BAGIAN 2: Generate from parameter table (YA and TIDAK)
     try {
-      // Query tabel parameter dengan filter grp = 'DATA PENDUKUNG'
       const parameterEntries = await dbMssql('parameter')
         .select('subgrp', 'text')
         .where('grp', 'DATA PENDUKUNG')
-        .whereNotNull('subgrp') // Pastikan subgrp tidak null
-        .whereNotNull('text') // Pastikan text tidak null
-        .andWhere('subgrp', '!=', '') // Pastikan subgrp tidak kosong
-        .andWhere('text', '!=', ''); // Pastikan text tidak kosong
+        .whereNotNull('subgrp')
+        .whereNotNull('text')
+        .andWhere('subgrp', '!=', '')
+        .andWhere('text', '!=', '');
 
-      // Transform data parameter menjadi format ACOS dengan YA dan TIDAK
       for (const param of parameterEntries) {
         if (param.subgrp && param.text) {
           const classValue = param.subgrp.trim();
           const baseMethodValue = param.text.trim();
-
-          // Array untuk suffix YA dan TIDAK
           const suffixes = ['YA', 'TIDAK'];
 
-          // Buat 2 entry untuk setiap parameter (YA dan TIDAK)
+          // Generate 2 entries for each parameter (YA and TIDAK)
           for (const suffix of suffixes) {
             const methodValue = `${baseMethodValue} -> ${suffix}`;
-
             acosEntries.push({
               class: classValue,
               method: methodValue,
@@ -68,13 +59,8 @@ export class AcosModel {
           }
         }
       }
-
-      console.log(
-        `Found ${parameterEntries.length} entries from parameter table, generated ${parameterEntries.length * 2} ACOS entries`,
-      );
     } catch (error) {
       console.error('Error fetching parameter data:', error);
-      // Lanjutkan proses meskipun ada error pada query parameter
     }
 
     if (acosEntries.length === 0) {
@@ -90,10 +76,8 @@ export class AcosModel {
         ),
     );
 
-    console.log('Unique acosEntries:', uniqueAcosEntries);
-
     try {
-      // Create "OR" conditions for each class-method pair
+      // Generate OR conditions for each class-method pair
       const conditions = uniqueAcosEntries
         .map(
           (entry) =>
@@ -101,31 +85,30 @@ export class AcosModel {
         )
         .join(' OR ');
 
-      // Query the database for existing entries based on the class-method pairs
+      // Query existing entries in the 'acos' table
       const existingEntries = await dbMssql('acos')
         .select('class', 'method')
         .whereRaw(conditions);
 
-      // Filter out entries that already exist
-      const newEntries = uniqueAcosEntries.filter(
-        (entry) =>
-          !existingEntries.some(
-            (existing) =>
-              existing.class === entry.class &&
-              existing.method === entry.method,
-          ),
+      // Create a set of existing class-method pairs for fast lookup
+      const existingSet = new Set(
+        existingEntries.map((entry) => `${entry.class}->${entry.method}`),
       );
 
-      // Insert new entries if any
+      // Filter out entries that already exist
+      const newEntries = uniqueAcosEntries.filter(
+        (entry) => !existingSet.has(`${entry.class}->${entry.method}`),
+      );
+
+      // Insert new entries if there are any
       if (newEntries.length > 0) {
         const result = await dbMssql('acos').insert(newEntries).returning('*');
 
-        // Log summary hasil sync
+        // Log summary of the sync process
         const controllerCount = newEntries.filter((e) =>
           ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].includes(e.method),
         ).length;
 
-        // Identifikasi parameter entries berdasarkan adanya simbol arrow (→)
         const parameterCount = newEntries.filter((e) =>
           e.method.includes('->'),
         ).length;
