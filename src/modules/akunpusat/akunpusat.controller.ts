@@ -10,10 +10,18 @@ import {
   UsePipes,
   Req,
   UseGuards,
+  InternalServerErrorException,
+  NotFoundException,
+  Put,
+  Res,
 } from '@nestjs/common';
 import { AkunpusatService } from './akunpusat.service';
-import { CreateAkunpusatDto } from './dto/create-akunpusat.dto';
-import { UpdateAkunpusatDto } from './dto/update-akunpusat.dto';
+import {
+  CreateAkunpusatDto,
+  CreateAkunpusatSchema,
+  UpdateAkunpusatDto,
+  updateAkunPusatSchema,
+} from './dto/create-akunpusat.dto';
 import { dbMssql } from 'src/common/utils/db';
 import {
   FindAllDto,
@@ -22,6 +30,8 @@ import {
 } from 'src/common/interfaces/all.interface';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
+import * as fs from 'fs';
+import { Response } from 'express';
 
 @Controller('akunpusat')
 export class AkunpusatController {
@@ -29,9 +39,10 @@ export class AkunpusatController {
 
   @UseGuards(AuthGuard)
   @Post()
+  //@AKUN-PUSAT
   async create(
-    @Body()
-    data,
+    @Body(new ZodValidationPipe(CreateAkunpusatSchema))
+    data: CreateAkunpusatDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
@@ -49,7 +60,7 @@ export class AkunpusatController {
   }
 
   @Get()
-  //@KAS-GANTUNG
+  //@AKUN-PUSAT
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
@@ -86,21 +97,86 @@ export class AkunpusatController {
     }
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.akunpusatService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(
+  @UseGuards(AuthGuard)
+  @Put('update/:id')
+  //@AKUN-PUSAT
+  async update(
     @Param('id') id: string,
-    @Body() updateAkunpusatDto: UpdateAkunpusatDto,
+    @Body(new ZodValidationPipe(updateAkunPusatSchema))
+    data: UpdateAkunpusatDto,
+    @Req() req,
   ) {
-    return this.akunpusatService.update(+id, updateAkunpusatDto);
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+
+      const result = await this.akunpusatService.update(data, trx);
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error updating akun pusat in controller:', error);
+      throw new Error('Failed to update akun pusat');
+    }
   }
 
+  @UseGuards(AuthGuard)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.akunpusatService.remove(+id);
+  //@AKUN-PUSAT
+  async delete(@Param('id') id: string, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.akunpusatService.delete(
+        +id,
+        trx,
+        req.user?.user?.username,
+      );
+
+      if (result.status === 404) {
+        throw new NotFoundException(result.message);
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error deleting akun pusat in controller:', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to delete akun pusat');
+    }
+  }
+  @Get('/export')
+  async exportToExcel(@Query() params: any, @Res() res: Response) {
+    try {
+      console.log('masuk sini?');
+
+      const { data } = await this.findAll(params);
+
+      if (!Array.isArray(data)) {
+        throw new Error('Data is not an array or is undefined');
+      }
+
+      const tempFilePath = await this.akunpusatService.exportToExcel(data);
+      const fileStream = fs.createReadStream(tempFilePath);
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_akunpusat.xlsx"',
+      );
+
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      res.status(500).send('Failed to export file');
+    }
   }
 }

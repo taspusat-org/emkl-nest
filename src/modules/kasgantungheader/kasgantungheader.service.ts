@@ -110,15 +110,11 @@ export class KasgantungheaderService {
       }
 
       const pageNumber = Math.floor(itemIndex / limit) + 1;
-      const endIndex = pageNumber * limit;
-
-      // Ambil data hingga halaman yang mencakup item baru
-      const limitedItems = filteredItems.slice(0, endIndex);
 
       // Simpan ke Redis
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
+        JSON.stringify(data),
       );
 
       await this.logTrailService.create(

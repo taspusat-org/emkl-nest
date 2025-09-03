@@ -57,6 +57,7 @@ export class RunningNumberService {
       .orderBy('nobukti', 'desc')
       .first();
   }
+
   async saveRunningNumber(
     table: string,
     data: { nobukti: string; tglbukti: string; statusformat: string },
@@ -85,6 +86,7 @@ export class RunningNumberService {
       .where('grp', group)
       .andWhere('subgrp', subGroup)
       .first();
+
     if (!parameter) {
       throw new Error('Parameter tidak ditemukan!');
     }
@@ -93,6 +95,7 @@ export class RunningNumberService {
       .select('text')
       .where('id', parameter.type)
       .first();
+
     const format = parameter.text;
     const type = typeformat.text || '';
 
@@ -119,6 +122,7 @@ export class RunningNumberService {
 
     // Check for the first available number (skip already used numbers)
     usedNumbers.sort((a, b) => a - b); // Sort numbers in ascending order
+
     for (let i = 0; i < usedNumbers.length; i++) {
       if (usedNumbers[i] !== nextNumber) {
         break; // Gap found
@@ -126,11 +130,62 @@ export class RunningNumberService {
       nextNumber++; // Increment to the next available number
     }
 
-    const placeholders = {
+    // Initialize placeholders
+    const placeholders: { [key: string]: any } = {
       '9999': nextNumber,
       R: this.numberToRoman(month),
       Y: year,
     };
+
+    // Fetch kodecabang if cabang parameter is provided
+    if (cabang) {
+      const cabangData = await trx('cabang')
+        .select('kodecabang')
+        .where('id', cabang)
+        .first();
+
+      if (!cabangData) {
+        throw new Error(`Cabang dengan ID ${cabang} tidak ditemukan!`);
+      }
+
+      placeholders['C'] = cabangData.kodecabang;
+    }
+
+    // Fetch tujuan code if tujuan parameter is provided
+    if (tujuan) {
+      const tujuanData = await trx('tujuan')
+        .select('kodetujuan')
+        .where('id', tujuan)
+        .first();
+
+      if (tujuanData) {
+        placeholders['T'] = tujuanData.kodetujuan;
+      }
+    }
+
+    // Fetch jenis biaya code if jenisbiaya parameter is provided
+    if (jenisbiaya) {
+      const jenisbiayaData = await trx('jenisbiaya')
+        .select('kodejenisbiaya')
+        .where('id', jenisbiaya)
+        .first();
+
+      if (jenisbiayaData) {
+        placeholders['J'] = jenisbiayaData.kodejenisbiaya;
+      }
+    }
+
+    // Fetch marketing code if marketing parameter is provided
+    if (marketing) {
+      const marketingData = await trx('marketing')
+        .select('kodemarketing')
+        .where('id', marketing)
+        .first();
+
+      if (marketingData) {
+        placeholders['M'] = marketingData.kodemarketing;
+      }
+    }
 
     // Format the new 'nobukti' based on the format
     let runningNumber = this.formatNumber(format, placeholders);
@@ -149,13 +204,10 @@ export class RunningNumberService {
       } else {
         // If it exists, increment the number and try again
         nextNumber++;
-        const newPlaceholders = {
-          '9999': nextNumber,
-          R: this.numberToRoman(month),
-          Y: year,
-        };
+        placeholders['9999'] = nextNumber;
+
         // Re-generate the new 'nobukti'
-        runningNumber = this.formatNumber(format, newPlaceholders);
+        runningNumber = this.formatNumber(format, placeholders);
       }
     }
 
@@ -198,16 +250,27 @@ export class RunningNumberService {
 
     // Replace placeholders with the correct values
     for (const [placeholder, value] of Object.entries(placeholders)) {
-      const regex = new RegExp(`${placeholder}`, 'g');
+      // Create regex pattern to match the placeholder with # delimiters
+      const regex = new RegExp(`#${placeholder}#`, 'g');
+
       if (placeholder === '9999') {
+        // For running number, pad with zeros to 4 digits
         formatted = formatted.replace(regex, value.toString().padStart(4, '0'));
       } else {
+        // For other placeholders, replace directly
         formatted = formatted.replace(regex, value.toString());
       }
     }
 
-    // Clean up any remaining '#' characters
-    formatted = formatted.replace(/#/g, '');
+    // Clean up any remaining '#' characters that are not part of placeholders
+    formatted = formatted.replace(/#([^#]+)#/g, (match, p1) => {
+      // If we have an unmatched placeholder, keep it as is or throw error
+      console.warn(`Placeholder #${p1}# tidak memiliki nilai`);
+      return match; // or return empty string '' if you want to remove it
+    });
+
+    // Remove standalone # characters
+    formatted = formatted.replace(/#{1}(?!#)/g, '');
 
     return formatted;
   }

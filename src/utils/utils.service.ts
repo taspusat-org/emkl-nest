@@ -112,26 +112,31 @@ export class UtilsService {
   }
 
   async lockAndDestroy(identifier: any, table: string, field: any = 'id', trx) {
-    const record = await trx(table)
-      .where(field, identifier)
-      .forUpdate()
-      .first();
+    try {
+      // Cek dulu apakah data ada
+      const record = await trx(table)
+        .where(field, identifier)
+        .forUpdate()
+        .first();
 
-    if (!record) {
-      throw new NotFoundException(
-        `No data found for '${field}' '${identifier}' in '${table}'`,
-      );
+      // Jika data tidak ada, tidak perlu return error, cukup keluar dari fungsi
+      if (!record) {
+        return;
+      }
+
+      const isDeleted = await trx(table).where(field, identifier).delete();
+
+      if (!isDeleted) {
+        throw new InternalServerErrorException(
+          `Gagal menghapus '${field}' = '${identifier}' di tabel '${table}'`,
+        );
+      }
+
+      return record;
+    } catch (error) {
+      console.error('Error di lockAndDestroy:', error);
+      throw error;
     }
-
-    const isDeleted = await trx(table).where(field, identifier).delete();
-
-    if (!isDeleted) {
-      throw new InternalServerErrorException(
-        `Error deleting '${field}' = '${identifier}' in '${table}'`,
-      );
-    }
-
-    return record;
   }
 
   async getUserByUsername(username: string): Promise<Users | null> {

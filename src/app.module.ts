@@ -78,6 +78,8 @@ import { JabatanModule } from './modules/jabatan/jabatan.module';
 import { ShipperModule } from './modules/shipper/shipper.module';
 import { PengeluaranheaderModule } from './modules/pengeluaranheader/pengeluaranheader.module';
 import { PengeluarandetailModule } from './modules/pengeluarandetail/pengeluarandetail.module';
+import { PenerimaanheaderModule } from './modules/penerimaanheader/penerimaanheader.module';
+import { PenerimaandetailModule } from './modules/penerimaandetail/penerimaandetail.module';
 
 @Module({
   imports: [
@@ -157,6 +159,8 @@ import { PengeluarandetailModule } from './modules/pengeluarandetail/pengeluaran
     ShipperModule,
     PengeluaranheaderModule,
     PengeluarandetailModule,
+    PenerimaanheaderModule,
+    PenerimaandetailModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],
