@@ -162,6 +162,7 @@ export class TujuankapalService {
             .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
             .orWhere('c.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('p.memo', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.memo', 'like', `%${sanitizedValue}%`)
             .orWhere('p.text', 'like', `%${sanitizedValue}%`);
         });
       }

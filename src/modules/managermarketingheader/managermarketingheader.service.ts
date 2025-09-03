@@ -83,7 +83,7 @@ export class ManagermarketingheaderService {
 
       // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex(
-        (item) => Number(item.id) === newItem.id,
+        (item) => Number(item.id) === Number(newItem.id),
       );
 
       if (itemIndex === -1) {
@@ -129,7 +129,7 @@ export class ManagermarketingheaderService {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to create manager marketing akuntansi',
+          message: 'Failed to create manager marketing',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );

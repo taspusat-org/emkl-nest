@@ -35,23 +35,23 @@ async function bootstrap() {
     '/uploads',
     express.static(path.join(process.cwd(), 'uploads/compress')),
   );
-  const microservice = app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.RMQ,
-    options: {
-      urls: ['amqp://admin:admin@54.151.162.192:5672'], // URL RabbitMQ
-      queue: 'hr_queue_dev', // Nama queue yang akan digunakan
-      queueOptions: {
-        durable: true, // Menetapkan queue untuk bertahan setelah restart
-      },
-    },
-  });
+  // const microservice = app.connectMicroservice<MicroserviceOptions>({
+  //   transport: Transport.RMQ,
+  //   options: {
+  //     urls: ['amqp://admin:admin@54.151.162.192:5672'], // URL RabbitMQ
+  //     queue: 'hr_queue_dev', // Nama queue yang akan digunakan
+  //     queueOptions: {
+  //       durable: true, // Menetapkan queue untuk bertahan setelah restart
+  //     },
+  //   },
+  // });
 
   app.use(new LoggingMiddleware().use);
   app.useWebSocketAdapter(new IoAdapter(app));
 
   const port = (process.env.PORT as unknown as number) ?? 3000;
   // Start all microservices before the main application server
-  await microservice.listen();
+  // await microservice.listen();
   await app.listen(port);
 }
 
