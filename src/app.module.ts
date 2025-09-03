@@ -76,6 +76,8 @@ import { JenisprosesfeeModule } from './modules/jenisprosesfee/jenisprosesfee.mo
 import { DivisiModule } from './modules/divisi/divisi.module';
 import { JabatanModule } from './modules/jabatan/jabatan.module';
 import { ShipperModule } from './modules/shipper/shipper.module';
+import { PengeluaranheaderModule } from './modules/pengeluaranheader/pengeluaranheader.module';
+import { PengeluarandetailModule } from './modules/pengeluarandetail/pengeluarandetail.module';
 
 @Module({
   imports: [
@@ -153,6 +155,8 @@ import { ShipperModule } from './modules/shipper/shipper.module';
     DivisiModule,
     JabatanModule,
     ShipperModule,
+    PengeluaranheaderModule,
+    PengeluarandetailModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

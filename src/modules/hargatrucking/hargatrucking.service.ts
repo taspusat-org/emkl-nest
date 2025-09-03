@@ -203,15 +203,15 @@ export class HargatruckingService {
           } else if (key === 'text') {
             query.andWhere('p.text', 'like', `%${val}%`);
           } else if (key === 'tujuankapal_text') {
-            query.andWhere('b.tujuankapal_id', 'like', `%${val}%`);
+            query.andWhere('p1.nama', 'like', `%${val}%`);
           } else if (key === 'emkl_text') {
-            query.andWhere('b.emkl_id', 'like', `%${val}%`);
+            query.andWhere('p2.nama', 'like', `%${val}%`);
           } else if (key === 'container_text') {
-            query.andWhere('b.container_id', 'like', `%${val}%`);
+            query.andWhere('p3.nama', 'like', `%${val}%`);
           } else if (key === 'jenisorderan_text') {
-            query.andWhere('b.jenisorderan_id', 'like', `%${val}%`);
-          } else {
-            query.andWhere(`b.${key}`, 'like', `%${val}%`);
+            query.andWhere('p4.nama', 'like', `%${val}%`);
+          } else if (key === 'nominal') {
+            query.andWhere('b.nominal', 'like', `%${val}%`);
           }
         }
       }

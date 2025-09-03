@@ -297,9 +297,9 @@ export class BankService {
           } else if (key === 'formatrekappengeluarantext') {
             query.andWhere(`b.formatrekappengeluaran`, 'like', `%${val}%`);
           } else if (key === 'keterangancoa') {
-            query.andWhere(`b.coa`, 'like', `%${val}%`);
+            query.andWhere(`a.keterangancoa`, 'like', `%${val}%`);
           } else if (key === 'keterangancoagantung') {
-            query.andWhere(`b.coagantung`, 'like', `%${val}%`);
+            query.andWhere(`a2.keterangancoa`, 'like', `%${val}%`);
           } else {
             query.andWhere(`b.${key}`, 'like', `%${val}%`);
           }

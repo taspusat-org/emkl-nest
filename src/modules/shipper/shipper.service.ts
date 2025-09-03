@@ -318,7 +318,21 @@ export class ShipperService {
           const val = String(rawValue).replace(/\[/g, '[[]');
 
           // tanggal / timestamp
-          if (
+          if (key === 'coa_text') {
+            query.andWhere('q.keterangancoa', 'like', `%${val}%`);
+          } else if (key === 'coapiutang_text') {
+            query.andWhere('q2.keterangancoa', 'like', `%${val}%`);
+          } else if (key === 'coahutang_text') {
+            query.andWhere('q3.keterangancoa', 'like', `%${val}%`);
+          } else if (key === 'coagiro_text') {
+            query.andWhere('q4.keterangancoa', 'like', `%${val}%`);
+          } else if (key === 'shipperasal_text') {
+            query.andWhere('s.nama', 'like', `%${val}%`);
+          } else if (key === 'parentshipper_text') {
+            query.andWhere('s2.nama', 'like', `%${val}%`);
+          } else if (key === 'marketing_text') {
+            query.andWhere('m.nama', 'like', `%${val}%`);
+          } else if (
             [
               'created_at',
               'updated_at',
@@ -372,6 +386,7 @@ export class ShipperService {
               'nitku',
               'kodepajak',
               'info',
+              '',
               'modifiedby',
             ].includes(key)
           ) {
