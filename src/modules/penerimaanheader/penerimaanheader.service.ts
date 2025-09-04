@@ -15,6 +15,7 @@ export class PenerimaanheaderService {
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly logTrailService: LogtrailService,
+    private readonly utilsService: UtilsService,
     private readonly runningNumberService: RunningNumberService,
     private readonly penerimaandetailService: PenerimaandetailService,
   ) {}
@@ -41,21 +42,31 @@ export class PenerimaanheaderService {
         }
       });
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
-      console.log('insertData', insertData);
-      const parameter = await trx('parameter')
-        .select('*')
-        .where('grp', 'PENERIMAAN GANTUNG')
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+      const parameterCabang = await trx('parameter')
+        .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
+        .where('grp', 'CABANG')
+        .andWhere('subgrp', 'CABANG')
         .first();
+      const formatpenerimaan = await trx(`bank as b`)
+        .select('p.grp', 'p.subgrp', 'b.formatpenerimaan')
+        .leftJoin('parameter as p', 'p.id', 'b.formatpenerimaan')
+        .where('b.id', parameterCabang.cabang_id)
+        .first();
+      const grp = formatpenerimaan.grp;
+      const subgrp = formatpenerimaan.subgrp;
+      console.log('formatpenerimaan', formatpenerimaan);
+      const cabangId = parameterCabang.cabang_id;
 
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
-        parameter.grp,
-        parameter.subgrp,
+        grp,
+        subgrp,
         this.tableName,
         insertData.tglbukti,
+        cabangId,
       );
       insertData.nobukti = nomorBukti;
-
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
@@ -91,7 +102,7 @@ export class PenerimaanheaderService {
 
       // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex(
-        (item) => Number(item.id) === newItem.id,
+        (item) => Number(item.id) === Number(newItem.id),
       );
 
       if (itemIndex === -1) {
@@ -267,12 +278,111 @@ export class PenerimaanheaderService {
       throw new Error('Failed to fetch data');
     }
   }
+
+  async update(id: any, data: any, trx: any) {
+    try {
+      data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
+
+      const {
+        sortBy,
+        sortDirection,
+        filters,
+        search,
+        page,
+        limit,
+        relasi_text,
+        bank_text,
+        alatbayar_text,
+        daftarbank_text,
+        coakredit_text,
+        details,
+        ...insertData
+      } = data;
+
+      Object.keys(insertData).forEach((key) => {
+        if (typeof insertData[key] === 'string') {
+          insertData[key] = insertData[key].toUpperCase();
+        }
+      });
+      const existingData = await trx(this.tableName).where('id', id).first();
+      const hasChanges = this.utilsService.hasChanges(insertData, existingData);
+
+      if (hasChanges) {
+        insertData.updated_at = this.utilsService.getTime();
+
+        await trx(this.tableName).where('id', id).update(insertData);
+      }
+
+      // Check each detail, update or set id accordingly
+      if (details.length > 0) {
+        const cleanedDetails = details.map(
+          ({ coadebet_text, ...rest }) => rest,
+        );
+
+        await this.penerimaandetailService.create(cleanedDetails, id, trx);
+      }
+
+      // If there are details, call the service to handle create or update
+
+      const { data: filteredItems } = await this.findAll(
+        {
+          search,
+          filters,
+          pagination: { page, limit },
+          sort: { sortBy, sortDirection },
+          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+        },
+        trx,
+      );
+
+      // Cari index item baru di hasil yang sudah difilter
+      let itemIndex = filteredItems.findIndex(
+        (item) => Number(item.id) === Number(id),
+      );
+
+      if (itemIndex === -1) {
+        itemIndex = 0;
+      }
+
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
+      const endIndex = pageNumber * limit;
+
+      // Ambil data hingga halaman yang mencakup item baru
+      const limitedItems = filteredItems.slice(0, endIndex);
+
+      // Simpan ke Redis
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: `EDIT PENERIMAAN HEADER`,
+          idtrans: id,
+          nobuktitrans: id,
+          aksi: 'EDIT',
+          datajson: JSON.stringify(data),
+          modifiedby: data.modifiedby,
+        },
+        trx,
+      );
+
+      return {
+        updatedItem: {
+          id,
+          ...data,
+        },
+        pageNumber,
+        itemIndex,
+      };
+    } catch (error) {
+      throw new Error(`Error: ${error.message}`);
+    }
+  }
   findOne(id: number) {
     return `This action returns a #${id} penerimaanheader`;
-  }
-
-  update(id: number, updatePenerimaanheaderDto: UpdatePenerimaanheaderDto) {
-    return `This action updates a #${id} penerimaanheader`;
   }
 
   remove(id: number) {

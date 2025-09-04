@@ -16,8 +16,6 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { PengeluaranheaderService } from './pengeluaranheader.service';
-import { CreatePengeluaranheaderDto } from './dto/create-pengeluaranheader.dto';
-import { UpdatePengeluaranheaderDto } from './dto/update-pengeluaranheader.dto';
 import {
   FindAllDto,
   FindAllParams,
@@ -26,7 +24,7 @@ import {
 import { dbMssql } from 'src/common/utils/db';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
-import { query, Response } from 'express';
+import { Response } from 'express';
 import * as fs from 'fs';
 
 @Controller('pengeluaranheader')
