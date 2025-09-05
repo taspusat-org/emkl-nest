@@ -9,6 +9,8 @@ import {
   UseGuards,
   UsePipes,
   Query,
+  Req,
+  Put,
 } from '@nestjs/common';
 import { PenerimaanheaderService } from './penerimaanheader.service';
 import { CreatePenerimaanheaderDto } from './dto/create-penerimaanheader.dto';
@@ -27,6 +29,29 @@ export class PenerimaanheaderController {
   constructor(
     private readonly penerimaanheaderService: PenerimaanheaderService,
   ) {}
+
+  @UseGuards(AuthGuard)
+  @Post()
+  //@PENERIMAAN
+  async create(
+    @Body()
+    data: any,
+    @Req() req,
+  ) {
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+
+      const result = await this.penerimaanheaderService.create(data, trx);
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('error', error);
+      throw new Error(`Error: ${error.message}`);
+    }
+  }
   @UseGuards(AuthGuard)
   @Get()
   //@PENERIMAAN
@@ -65,21 +90,31 @@ export class PenerimaanheaderController {
       throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.penerimaanheaderService.findOne(+id);
-  }
 
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updatePenerimaanheaderDto: UpdatePenerimaanheaderDto,
-  ) {
-    return this.penerimaanheaderService.update(+id, updatePenerimaanheaderDto);
-  }
+  @UseGuards(AuthGuard)
+  @Put(':id')
+  //@PENERIMAAN
+  async update(@Param('id') id: string, @Body() data: any, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+      console.log('data', data);
+      const result = await this.penerimaanheaderService.update(+id, data, trx);
 
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error updating menu in controller:', error);
+      throw new Error('Failed to update menu');
+    }
+  }
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.penerimaanheaderService.remove(+id);
+  }
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.penerimaanheaderService.findOne(+id);
   }
 }

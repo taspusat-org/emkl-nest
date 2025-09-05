@@ -31,7 +31,7 @@ export class PenerimaandetailService {
     const mainDataToInsert: any[] = [];
     console.log(details);
     if (details.length === 0) {
-      await trx(this.tableName).delete().where('kasgantung_id', id);
+      await trx(this.tableName).delete().where('penerimaan_id', id);
       return;
     }
     for (data of details) {
@@ -84,7 +84,7 @@ export class PenerimaandetailService {
     // Ensure each item has an idheader
     const processedData = mainDataToInsert.map((item: any) => ({
       ...item,
-      kasgantung_id: item.kasgantung_id ?? id, // Ensure correct field mapping
+      penerimaan_id: item.penerimaan_id ?? id, // Ensure correct field mapping
     }));
     const jsonString = JSON.stringify(processedData);
 
@@ -102,18 +102,29 @@ export class PenerimaandetailService {
     // Insert into temp table
     await trx(tempTableName).insert(openJson);
 
-    // **Update or Insert into 'kasgantungdetail' with correct idheader**
-    const updatedData = await trx('kasgantungdetail')
-      .join(`${tempTableName}`, 'kasgantungdetail.id', `${tempTableName}.id`)
+    // **Update or Insert into 'penerimaandetail' with correct idheader**
+    const updatedData = await trx('penerimaandetail')
+      .join(`${tempTableName}`, 'penerimaandetail.id', `${tempTableName}.id`)
       .update({
         nobukti: trx.raw(`${tempTableName}.nobukti`),
+        coa: trx.raw(`${tempTableName}.coa`),
+        transaksibiaya_nobukti: trx.raw(
+          `${tempTableName}.transaksibiaya_nobukti`,
+        ),
+        transaksilain_nobukti: trx.raw(
+          `${tempTableName}.transaksilain_nobukti`,
+        ),
+        pengeluaranheader_nobukti: trx.raw(
+          `${tempTableName}.pengeluaranheader_nobukti`,
+        ),
+        penerimaanheader_nobukti: trx.raw(
+          `${tempTableName}.penerimaanheader_nobukti`,
+        ),
         keterangan: trx.raw(`${tempTableName}.keterangan`),
         nominal: trx.raw(`${tempTableName}.nominal`),
         info: trx.raw(`${tempTableName}.info`),
         modifiedby: trx.raw(`${tempTableName}.modifiedby`),
-        editing_by: trx.raw(`${tempTableName}.editing_by`),
-        editing_at: trx.raw(`${tempTableName}.editing_at`),
-        kasgantung_id: trx.raw(`${tempTableName}.kasgantung_id`),
+        penerimaan_id: trx.raw(`${tempTableName}.penerimaan_id`),
         created_at: trx.raw(`${tempTableName}.created_at`),
         updated_at: trx.raw(`${tempTableName}.updated_at`),
       })
@@ -130,11 +141,14 @@ export class PenerimaandetailService {
         'nobukti',
         'keterangan',
         'nominal',
+        'coa',
+        'transaksibiaya_nobukti',
+        'transaksilain_nobukti',
+        'pengeluaranheader_nobukti',
+        'penerimaanheader_nobukti',
         'info',
         'modifiedby',
-        'editing_by',
-        'editing_at',
-        trx.raw('? as kasgantung_id', [id]),
+        trx.raw('? as penerimaan_id', [id]),
         'created_at',
         'updated_at',
       ])
@@ -143,24 +157,27 @@ export class PenerimaandetailService {
     const getDeleted = await trx(this.tableName)
       .leftJoin(
         `${tempTableName}`,
-        'kasgantungdetail.id',
+        'penerimaandetail.id',
         `${tempTableName}.id`,
       )
       .select(
-        'kasgantungdetail.id',
-        'kasgantungdetail.nobukti',
-        'kasgantungdetail.keterangan',
-        'kasgantungdetail.nominal',
-        'kasgantungdetail.info',
-        'kasgantungdetail.modifiedby',
-        'kasgantungdetail.editing_by',
-        'kasgantungdetail.editing_at',
-        'kasgantungdetail.created_at',
-        'kasgantungdetail.updated_at',
-        'kasgantungdetail.kasgantung_id',
+        'penerimaandetail.id',
+        'penerimaandetail.nobukti',
+        'penerimaandetail.keterangan',
+        'penerimaandetail.nominal',
+        'penerimaandetail.coa',
+        'penerimaandetail.transaksibiaya_nobukti',
+        'penerimaandetail.transaksilain_nobukti',
+        'penerimaandetail.pengeluaranheader_nobukti',
+        'penerimaandetail.penerimaanheader_nobukti',
+        'penerimaandetail.info',
+        'penerimaandetail.modifiedby',
+        'penerimaandetail.created_at',
+        'penerimaandetail.updated_at',
+        'penerimaandetail.penerimaan_id',
       )
       .whereNull(`${tempTableName}.id`)
-      .where('kasgantungdetail.kasgantung_id', id);
+      .where('penerimaandetail.penerimaan_id', id);
 
     let pushToLog: any[] = [];
 
@@ -178,14 +195,14 @@ export class PenerimaandetailService {
     const deletedData = await trx(this.tableName)
       .leftJoin(
         `${tempTableName}`,
-        'kasgantungdetail.id',
+        'penerimaandetail.id',
         `${tempTableName}.id`,
       )
       .whereNull(`${tempTableName}.id`)
-      .where('kasgantungdetail.kasgantung_id', id)
+      .where('penerimaandetail.penerimaan_id', id)
       .del();
     if (insertedDataQuery.length > 0) {
-      insertedData = await trx('kasgantungdetail')
+      insertedData = await trx('penerimaandetail')
         .insert(insertedDataQuery)
         .returning('*')
         .then((result: any) => result[0])
@@ -218,11 +235,14 @@ export class PenerimaandetailService {
         'p.penerimaan_id', // Updated field name
         'p.nobukti',
         'p.keterangan',
+        'p.coa',
+        'p.transaksibiaya_nobukti',
+        'p.transaksilain_nobukti',
+        'p.pengeluaranheader_nobukti',
+        'p.penerimaanheader_nobukti',
         'p.nominal', // Updated field name
         'p.info',
         'p.modifiedby',
-        'p.editing_by',
-        trx.raw("FORMAT(p.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
         trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
         trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
       )

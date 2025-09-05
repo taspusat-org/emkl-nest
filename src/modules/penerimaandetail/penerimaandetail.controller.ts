@@ -10,6 +10,7 @@ import {
 import { PenerimaandetailService } from './penerimaandetail.service';
 import { CreatePenerimaandetailDto } from './dto/create-penerimaandetail.dto';
 import { UpdatePenerimaandetailDto } from './dto/update-penerimaandetail.dto';
+import { dbMssql } from 'src/common/utils/db';
 
 @Controller('penerimaandetail')
 export class PenerimaandetailController {
@@ -23,8 +24,16 @@ export class PenerimaandetailController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.penerimaandetailService.findOne(+id);
+  async findAll(@Param('id') id: string) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.penerimaandetailService.findAll(id, trx);
+      trx.commit();
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error fetching penerimaandetail:', error);
+    }
   }
 
   @Patch(':id')

@@ -11,15 +11,9 @@ export class RunningNumberService {
     type: string,
     statusformat: string,
   ) {
-    console.log('type', type == 'RESET BULAN');
-    console.log('type', type, year, month);
-
     if (type === 'RESET BULAN') {
-      // Create date objects for start and end of month
-      const startDate = new Date(year, month - 1, 1); // month is 0-indexed in Date
-      const endDate = new Date(year, month, 1); // This automatically handles year overflow
-
-      // Format dates as YYYY-MM-DD strings
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 1);
       const formatDate = (date: Date) => {
         const y = date.getFullYear();
         const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -71,8 +65,8 @@ export class RunningNumberService {
     subGroup: string,
     table: string,
     tgl: string,
-    tujuan?: string | null,
     cabang?: string | null,
+    tujuan?: string | null,
     jenisbiaya?: string | null,
     marketing?: string | null,
   ): Promise<string> {
@@ -80,7 +74,6 @@ export class RunningNumberService {
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
 
-    // Fetch parameter format from the database
     const parameter = await trx('parameter')
       .select('id', 'text', 'type')
       .where('grp', group)
@@ -99,7 +92,6 @@ export class RunningNumberService {
     const format = parameter.text;
     const type = typeformat.text || '';
 
-    // Get all 'nobukti' values for this month
     const lastRowData = await this.getLastNumber(
       trx,
       table,
@@ -109,7 +101,6 @@ export class RunningNumberService {
       parameter.id,
     );
 
-    // Get the used 'nobukti' numbers and extract the number part
     const usedNumbers = lastRowData
       .map((row) => {
         const match = row.nobukti.match(/(\d+)(?=\/)/);
@@ -117,106 +108,52 @@ export class RunningNumberService {
       })
       .filter((num) => num !== null);
 
-    // Find the smallest unused number by checking gaps in the sequence
-    let nextNumber = 1; // Start from 1
-
-    // Check for the first available number (skip already used numbers)
-    usedNumbers.sort((a, b) => a - b); // Sort numbers in ascending order
+    let nextNumber = 1;
+    usedNumbers.sort((a, b) => a - b);
 
     for (let i = 0; i < usedNumbers.length; i++) {
       if (usedNumbers[i] !== nextNumber) {
-        break; // Gap found
+        break;
       }
-      nextNumber++; // Increment to the next available number
+      nextNumber++;
     }
 
-    // Initialize placeholders
-    const placeholders: { [key: string]: any } = {
-      '9999': nextNumber,
-      R: this.numberToRoman(month),
-      Y: year,
-    };
-
-    // Fetch kodecabang if cabang parameter is provided
+    let cabangData = '';
     if (cabang) {
-      const cabangData = await trx('cabang')
+      const datacabang = await trx('cabang')
         .select('kodecabang')
         .where('id', cabang)
         .first();
-
-      if (!cabangData) {
-        throw new Error(`Cabang dengan ID ${cabang} tidak ditemukan!`);
-      }
-
-      placeholders['C'] = cabangData.kodecabang;
+      cabangData = datacabang.kodecabang;
     }
+    const placeholders = {
+      '9999': nextNumber,
+      R: this.numberToRoman(month), // Bulan dalam format Roman
+      Y: year, // Tahun dalam format string (untuk memastikan diubah dengan benar)
+      C: cabangData || '', // Cabang
+    };
 
-    // Fetch tujuan code if tujuan parameter is provided
-    if (tujuan) {
-      const tujuanData = await trx('tujuan')
-        .select('kodetujuan')
-        .where('id', tujuan)
-        .first();
-
-      if (tujuanData) {
-        placeholders['T'] = tujuanData.kodetujuan;
-      }
-    }
-
-    // Fetch jenis biaya code if jenisbiaya parameter is provided
-    if (jenisbiaya) {
-      const jenisbiayaData = await trx('jenisbiaya')
-        .select('kodejenisbiaya')
-        .where('id', jenisbiaya)
-        .first();
-
-      if (jenisbiayaData) {
-        placeholders['J'] = jenisbiayaData.kodejenisbiaya;
-      }
-    }
-
-    // Fetch marketing code if marketing parameter is provided
-    if (marketing) {
-      const marketingData = await trx('marketing')
-        .select('kodemarketing')
-        .where('id', marketing)
-        .first();
-
-      if (marketingData) {
-        placeholders['M'] = marketingData.kodemarketing;
-      }
-    }
-
-    // Format the new 'nobukti' based on the format
     let runningNumber = this.formatNumber(format, placeholders);
 
-    // Now, ensure the generated 'nobukti' is unique
     let isUnique = false;
     while (!isUnique) {
-      // Check if the generated 'nobukti' already exists in the database
       const existingNobukti = await trx(table)
         .where('nobukti', runningNumber)
         .first();
 
       if (!existingNobukti) {
-        // If it doesn't exist, it's unique, and we can proceed
         isUnique = true;
       } else {
-        // If it exists, increment the number and try again
         nextNumber++;
-        placeholders['9999'] = nextNumber;
-
-        // Re-generate the new 'nobukti'
-        runningNumber = this.formatNumber(format, placeholders);
+        const newPlaceholders = {
+          '9999': nextNumber,
+          R: this.numberToRoman(month),
+          Y: year, // Tahun dalam format string
+          C: cabangData || '',
+        };
+        runningNumber = this.formatNumber(format, newPlaceholders);
       }
     }
-
-    // Optionally, save the new running number to the database (if needed)
-    // await this.saveRunningNumber(table, {
-    //   nobukti: runningNumber,
-    //   tglbukti: tgl,
-    //   statusformat: parameter.id,
-    // });
 
     return runningNumber;
   }
@@ -248,30 +185,33 @@ export class RunningNumberService {
   formatNumber(format: string, placeholders: { [key: string]: any }): string {
     let formatted = format;
 
-    // Replace placeholders with the correct values
     for (const [placeholder, value] of Object.entries(placeholders)) {
-      // Create regex pattern to match the placeholder with # delimiters
-      const regex = new RegExp(`#${placeholder}#`, 'g');
+      console.log('placeholder', placeholder); // Debugging output
+      console.log('value', value); // Debugging output
 
       if (placeholder === '9999') {
-        // For running number, pad with zeros to 4 digits
-        formatted = formatted.replace(regex, value.toString().padStart(4, '0'));
-      } else {
-        // For other placeholders, replace directly
-        formatted = formatted.replace(regex, value.toString());
+        // For '9999', make sure it is padded to 4 digits
+        formatted = formatted.replace(
+          new RegExp(`#${placeholder}#`, 'g'),
+          value.toString().padStart(4, '0'),
+        );
+      } else if (formatted.includes(`#${placeholder}#`)) {
+        // For placeholders like #R#, #Y#, #C# etc.
+        formatted = formatted.replace(
+          new RegExp(`#${placeholder}#`, 'g'),
+          value.toString(),
+        );
+      } else if (formatted.includes(placeholder)) {
+        // For placeholders like R, Y, C directly embedded
+        formatted = formatted.replace(
+          new RegExp(placeholder, 'g'),
+          value.toString(),
+        );
       }
     }
 
-    // Clean up any remaining '#' characters that are not part of placeholders
-    formatted = formatted.replace(/#([^#]+)#/g, (match, p1) => {
-      // If we have an unmatched placeholder, keep it as is or throw error
-      console.warn(`Placeholder #${p1}# tidak memiliki nilai`);
-      return match; // or return empty string '' if you want to remove it
-    });
-
-    // Remove standalone # characters
-    formatted = formatted.replace(/#{1}(?!#)/g, '');
-
+    // Remove any remaining '#' characters
+    formatted = formatted.replace(/#/g, '');
     return formatted;
   }
 }
