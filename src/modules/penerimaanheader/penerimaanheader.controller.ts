@@ -110,8 +110,23 @@ export class PenerimaanheaderController {
     }
   }
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.penerimaanheaderService.remove(+id);
+  @UseGuards(AuthGuard)
+  async remove(@Param('id') id: string, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.penerimaanheaderService.delete(
+        +id,
+        trx,
+        req.user?.user?.username || 'unknown',
+      );
+      await trx.commit();
+      console.log('result', result);
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error deleting menu in controller:', error);
+      throw new Error('Failed to delete menu');
+    }
   }
   @Get(':id')
   findOne(@Param('id') id: string) {

@@ -1,4 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { CreatePenerimaanheaderDto } from './dto/create-penerimaanheader.dto';
 import { UpdatePenerimaanheaderDto } from './dto/update-penerimaanheader.dto';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
@@ -42,6 +47,8 @@ export class PenerimaanheaderService {
         }
       });
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
+      insertData.tgllunas = formatDateToSQL(String(insertData?.tgllunas)); // Fungsi untuk format
+
       const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
       const parameterCabang = await trx('parameter')
         .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
@@ -51,11 +58,10 @@ export class PenerimaanheaderService {
       const formatpenerimaan = await trx(`bank as b`)
         .select('p.grp', 'p.subgrp', 'b.formatpenerimaan')
         .leftJoin('parameter as p', 'p.id', 'b.formatpenerimaan')
-        .where('b.id', parameterCabang.cabang_id)
+        .where('b.id', insertData.bank_id)
         .first();
       const grp = formatpenerimaan.grp;
       const subgrp = formatpenerimaan.subgrp;
-      console.log('formatpenerimaan', formatpenerimaan);
       const cabangId = parameterCabang.cabang_id;
 
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
@@ -67,6 +73,7 @@ export class PenerimaanheaderService {
         cabangId,
       );
       insertData.nobukti = nomorBukti;
+      insertData.statusformat = formatpenerimaan.formatpenerimaan;
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
@@ -290,11 +297,11 @@ export class PenerimaanheaderService {
         search,
         page,
         limit,
-        relasi_text,
-        bank_text,
-        alatbayar_text,
-        daftarbank_text,
-        coakredit_text,
+        relasi_nama,
+        bank_nama,
+        alatbayar_nama,
+        daftarbank_nama,
+        coakredit_nama,
         details,
         ...insertData
       } = data;
@@ -379,6 +386,43 @@ export class PenerimaanheaderService {
       };
     } catch (error) {
       throw new Error(`Error: ${error.message}`);
+    }
+  }
+  async delete(id: number, trx: any, modifiedby: string) {
+    try {
+      const deletedData = await this.utilsService.lockAndDestroy(
+        id,
+        this.tableName,
+        'id',
+        trx,
+      );
+      const deletedDataDetail = await this.utilsService.lockAndDestroy(
+        id,
+        'penerimaandetail',
+        'penerimaan_id',
+        trx,
+      );
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE PENERIMAAN DETAIL',
+          idtrans: deletedDataDetail.id,
+          nobuktitrans: deletedDataDetail.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedDataDetail),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+
+      return { status: 200, message: 'Data deleted successfully', deletedData };
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to delete data');
     }
   }
   findOne(id: number) {
