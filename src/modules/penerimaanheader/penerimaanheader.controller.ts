@@ -128,8 +128,21 @@ export class PenerimaanheaderController {
       throw new Error('Failed to delete menu');
     }
   }
+  @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.penerimaanheaderService.findOne(+id);
+  //@KAS-GANTUNG
+  async findOne(@Param('id') id: string) {
+    const trx = await dbMssql.transaction();
+
+    try {
+      const result = await this.penerimaanheaderService.findOne(id, trx);
+      trx.commit();
+
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error in findOne:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
+    }
   }
 }

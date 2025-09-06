@@ -55,23 +55,30 @@ export class KasgantungheaderService {
       });
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti));
       console.log('insertData', insertData);
-
-      // Get parameter untuk kas gantung
-      const parameter = await trx('parameter')
-        .select('*')
-        .where('grp', 'PENGELUARAN GANTUNG')
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+      const parameterCabang = await trx('parameter')
+        .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
+        .where('grp', 'CABANG')
+        .andWhere('subgrp', 'CABANG')
         .first();
+      const formatpengeluarangantung = await trx(`bank as b`)
+        .select('p.grp', 'p.subgrp', 'b.formatpengeluarangantung')
+        .leftJoin('parameter as p', 'p.id', 'b.formatpengeluarangantung')
+        .where('b.id', insertData.bank_id)
+        .first();
+      const grp = formatpengeluarangantung.grp;
+      const subgrp = formatpengeluarangantung.subgrp;
+      const cabangId = parameterCabang.cabang_id;
 
-      // Generate nomor bukti untuk kas gantung
-      const nomorBuktiKasGantung =
-        await this.runningNumberService.generateRunningNumber(
-          trx,
-          parameter.grp,
-          parameter.subgrp,
-          this.tableName,
-          insertData.tglbukti,
-        );
-      insertData.nobukti = nomorBuktiKasGantung;
+      const nomorBukti = await this.runningNumberService.generateRunningNumber(
+        trx,
+        grp,
+        subgrp,
+        this.tableName,
+        insertData.tglbukti,
+        cabangId,
+      );
+      insertData.nobukti = nomorBukti;
 
       // Insert data ke kas gantung header
       const insertedKasGantungItems = await trx(this.tableName)
@@ -82,7 +89,7 @@ export class KasgantungheaderService {
       if (details.length > 0) {
         const detailsWithNobukti = details.map((detail: any) => ({
           ...detail,
-          nobukti: nomorBuktiKasGantung,
+          nobukti: nomorBukti, // Inject nobukti into each detail
           modifiedby: insertData.modifiedby,
         }));
 
@@ -486,6 +493,7 @@ export class KasgantungheaderService {
           .orderBy('kg.tglbukti', 'asc')
           .orderBy('kd.nobukti', 'asc'),
       );
+      console.log('temp', await trx(temp));
       const result = trx
         .select(
           trx.raw(`row_number() OVER (ORDER BY ??) as id`, [`${temp}.nobukti`]),
@@ -732,9 +740,12 @@ export class KasgantungheaderService {
 
       // Check each detail, update or set id accordingly
       if (details.length > 0) {
-        if (details.length > 0) {
-          await this.kasgantungdetailService.create(details, id, trx);
-        }
+        const detailsWithNobukti = details.map((detail: any) => ({
+          ...detail,
+          nobukti: existingData.nobukti, // Inject nobukti into each detail
+          modifiedby: insertData.modifiedby,
+        }));
+        await this.kasgantungdetailService.create(detailsWithNobukti, id, trx);
       }
 
       // If there are details, call the service to handle create or update

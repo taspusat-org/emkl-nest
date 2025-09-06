@@ -16,6 +16,7 @@ import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungde
 import { Column, Workbook } from 'exceljs';
 import * as fs from 'fs';
 import * as path from 'path';
+import { PenerimaanheaderService } from '../penerimaanheader/penerimaanheader.service';
 @Injectable()
 export class PengembaliankasgantungheaderService {
   constructor(
@@ -24,6 +25,7 @@ export class PengembaliankasgantungheaderService {
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
     private readonly pengembaliankasgantungdetailService: PengembaliankasgantungdetailService,
+    private readonly penerimaanheaderService: PenerimaanheaderService,
   ) {}
   private readonly tableName = 'pengembaliankasgantungheader';
   async create(data: any, trx: any) {
@@ -48,21 +50,35 @@ export class PengembaliankasgantungheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-
-      const parameter = await trx('parameter')
-        .select('*')
-        .where('grp', 'PENERIMAAN GANTUNG')
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+      const parameterCabang = await trx('parameter')
+        .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
+        .where('grp', 'CABANG')
+        .andWhere('subgrp', 'CABANG')
         .first();
-
+      const formatpenerimaangantung = await trx(`bank as b`)
+        .select('p.grp', 'p.subgrp', 'b.formatpenerimaangantung')
+        .leftJoin('parameter as p', 'p.id', 'b.formatpenerimaangantung')
+        .where('b.id', insertData.bank_id)
+        .first();
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
-        parameter.grp,
-        parameter.subgrp,
+        formatpenerimaangantung.grp,
+        formatpenerimaangantung.subgrp,
         this.tableName,
         insertData.tglbukti,
       );
       insertData.nobukti = nomorBukti;
 
+      const dataPenerimaan = {
+        ...data,
+        modifiedby: data.modifiedby,
+      };
+      const insertPenerimaan = await this.penerimaanheaderService.create(
+        dataPenerimaan,
+        trx,
+      );
+      insertData.penerimaan_nobukti = insertPenerimaan.newItem.nobukti;
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');

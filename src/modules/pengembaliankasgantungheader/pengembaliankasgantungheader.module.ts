@@ -7,6 +7,7 @@ import { AuthModule } from '../auth/auth.module';
 import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 import { RunningNumberModule } from '../running-number/running-number.module';
 import { PengembaliankasgantungdetailModule } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.module';
+import { PenerimaanheaderModule } from '../penerimaanheader/penerimaanheader.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PengembaliankasgantungdetailModule } from '../pengembaliankasgantungdet
     LogtrailModule,
     RunningNumberModule,
     PengembaliankasgantungdetailModule,
+    PenerimaanheaderModule,
   ],
   controllers: [PengembaliankasgantungheaderController],
   providers: [PengembaliankasgantungheaderService],

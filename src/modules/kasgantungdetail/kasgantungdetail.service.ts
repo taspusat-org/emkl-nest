@@ -28,7 +28,6 @@ export class KasgantungdetailService {
     const time = this.utilsService.getTime();
     const logData: any[] = [];
     const mainDataToInsert: any[] = [];
-    console.log(details);
     if (details.length === 0) {
       await trx(this.tableName).delete().where('kasgantung_id', id);
       return;
@@ -79,7 +78,6 @@ export class KasgantungdetailService {
 
     // Create temporary table to insert
     await trx.raw(tableTemp);
-    console.log('mainDataToInsert', mainDataToInsert);
     // Ensure each item has an idheader
     const processedData = mainDataToInsert.map((item: any) => ({
       ...item,
