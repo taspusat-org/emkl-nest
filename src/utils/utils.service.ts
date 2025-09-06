@@ -534,31 +534,45 @@ export async function getLastNumber(
 
   return query;
 }
-export const formatDateToSQL = (date: string): string | null => {
-  const parts = date.split('-');
-  if (parts.length !== 3) return null;
+// Pakai ini, ganti fungsi lama
+export const formatDateToSQL = (input?: string | null): string | null => {
+  const s = String(input ?? '').trim();
+  if (!s || s === 'undefined' || s === 'null') return null;
 
-  const [day, month, year] = parts.map((p) => parseInt(p, 10));
-  if (
-    isNaN(day) ||
-    isNaN(month) ||
-    isNaN(year) ||
-    day < 1 ||
-    day > 31 ||
-    month < 1 ||
-    month > 12 ||
-    year < 1000
-  ) {
-    return null;
+  // YYYY-MM-DD → valid? kembalikan apa adanya
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (iso) {
+    const [, y, m, d] = iso;
+    return isValid(y, m, d) ? `${y}-${m}-${d}` : null;
   }
 
-  const isoDate = new Date(year, month - 1, day); // bulan 0-based
-  if (isNaN(isoDate.getTime())) return null;
+  // DD-MM-YYYY → konversi ke YYYY-MM-DD
+  const dmy = /^(\d{2})-(\d{2})-(\d{4})$/.exec(s);
+  if (dmy) {
+    const [, d, m, y] = dmy;
+    return isValid(y, m, d) ? `${y}-${pad(m)}-${pad(d)}` : null;
+  }
 
-  // Format: YYYY-MM-DD
-  const pad = (n: number) => (n < 10 ? '0' + n : n);
-  return `${isoDate.getFullYear()}-${pad(isoDate.getMonth() + 1)}-${pad(isoDate.getDate())}`;
+  // Format lain tidak didukung
+  return null;
+
+  function isValid(y: string, m: string, d: string): boolean {
+    const yy = Number(y),
+      mm = Number(m),
+      dd = Number(d);
+    if (yy < 1000 || mm < 1 || mm > 12 || dd < 1 || dd > 31) return false;
+    const dt = new Date(yy, mm - 1, dd);
+    return (
+      dt.getFullYear() === yy && dt.getMonth() === mm - 1 && dt.getDate() === dd
+    );
+  }
+
+  function pad(n: string | number): string {
+    const v = Number(n);
+    return v < 10 ? `0${v}` : String(v);
+  }
 };
+
 export const formatDateTimeToSQL = (val: string) => {
   const raw = String(val).trim().replace('T', ' ');
   const [d, t = '00:00'] = raw.split(' ');

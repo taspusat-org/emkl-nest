@@ -188,9 +188,6 @@ export class RunningNumberService {
     let formatted = format;
 
     for (const [placeholder, value] of Object.entries(placeholders)) {
-      console.log('placeholder', placeholder); // Debugging output
-      console.log('value', value); // Debugging output
-
       if (placeholder === '9999') {
         // For '9999', make sure it is padded to 4 digits
         formatted = formatted.replace(

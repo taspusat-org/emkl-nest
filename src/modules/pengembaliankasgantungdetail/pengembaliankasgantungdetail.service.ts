@@ -32,7 +32,6 @@ export class PengembaliankasgantungdetailService {
       const time = this.utilsService.getTime();
       const logData: any[] = [];
       const mainDataToInsert: any[] = [];
-      console.log(details);
       if (details.length === 0) {
         await trx(this.tableName)
           .delete()
@@ -85,7 +84,6 @@ export class PengembaliankasgantungdetailService {
 
       // Create temporary table to insert
       await trx.raw(tableTemp);
-      console.log('mainDataToInsert', mainDataToInsert);
       // Ensure each item has an idheader
       const processedData = mainDataToInsert.map((item: any) => ({
         ...item,

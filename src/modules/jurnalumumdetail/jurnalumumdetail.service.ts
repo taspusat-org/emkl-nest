@@ -79,7 +79,6 @@ export class JurnalumumdetailService {
 
     // Create temporary table to insert
     await trx.raw(tableTemp);
-    console.log('mainDataToInsert', mainDataToInsert);
     // Ensure each item has an idheader
     const processedData = mainDataToInsert.map((item: any) => ({
       ...item,

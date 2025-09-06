@@ -36,6 +36,7 @@ export class PenerimaanheaderService {
         limit,
         relasi_nama,
         alatbayar_nama,
+        penerimaan_nobukti,
         bank_nama,
         details,
         ...insertData
@@ -46,9 +47,13 @@ export class PenerimaanheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-      insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
-      insertData.tgllunas = formatDateToSQL(String(insertData?.tgllunas)); // Fungsi untuk format
+      console.log('insertData', insertData);
 
+      insertData.tglbukti = await formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
+      insertData.tgllunas = await formatDateToSQL(String(insertData?.tgllunas)); // Fungsi untuk format
+      console.log('insertData222', insertData);
+
+      console.log('data', data);
       const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
       const parameterCabang = await trx('parameter')
         .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
@@ -322,11 +327,13 @@ export class PenerimaanheaderService {
 
       // Check each detail, update or set id accordingly
       if (details.length > 0) {
-        const cleanedDetails = details.map(
-          ({ coadebet_text, ...rest }) => rest,
-        );
+        const detailsWithNobukti = details.map((detail: any) => ({
+          ...detail,
+          nobukti: existingData.nobukti, // Inject nobukti into each detail
+          modifiedby: insertData.modifiedby,
+        }));
 
-        await this.penerimaandetailService.create(cleanedDetails, id, trx);
+        await this.penerimaandetailService.create(detailsWithNobukti, id, trx);
       }
 
       // If there are details, call the service to handle create or update
@@ -425,8 +432,46 @@ export class PenerimaanheaderService {
       throw new InternalServerErrorException('Failed to delete data');
     }
   }
-  findOne(id: number) {
-    return `This action returns a #${id} penerimaanheader`;
+  async findOne(id: string, trx: any) {
+    try {
+      const query = trx(`${this.tableName} as u`)
+        .select([
+          'u.id as id',
+          'u.nobukti',
+          trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
+          'u.relasi_id',
+          'u.keterangan',
+          'u.bank_id',
+          'u.postingdari',
+          'u.coakasmasuk',
+          'u.diterimadari',
+          'u.alatbayar_id',
+          'u.nowarkat',
+          trx.raw("FORMAT(u.tgllunas, 'dd-MM-yyyy') as tgllunas"),
+          'u.noresi',
+          'u.statusformat',
+          'u.info',
+          'u.modifiedby',
+          'r.nama as relasi_nama',
+          'b.nama as bank_nama',
+          'ab.nama as alatbayar_nama',
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+        ])
+        .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
+        .leftJoin('bank as b', 'u.bank_id', 'b.id')
+        .leftJoin('alatbayar as ab', 'u.alatbayar_id', 'ab.id')
+        .where('u.id', id);
+
+      const data = await query;
+
+      return {
+        data: data,
+      };
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
   }
 
   remove(id: number) {
