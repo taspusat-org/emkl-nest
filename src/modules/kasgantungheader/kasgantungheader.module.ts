@@ -9,6 +9,7 @@ import { RunningNumberModule } from '../running-number/running-number.module';
 import { KasgantungdetailModule } from '../kasgantungdetail/kasgantungdetail.module';
 import { GlobalModule } from '../global/global.module';
 import { LocksModule } from '../locks/locks.module';
+import { PengeluaranheaderModule } from '../pengeluaranheader/pengeluaranheader.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { LocksModule } from '../locks/locks.module';
     LogtrailModule,
     RunningNumberModule,
     KasgantungdetailModule,
+    PengeluaranheaderModule,
     GlobalModule,
     LocksModule,
   ],

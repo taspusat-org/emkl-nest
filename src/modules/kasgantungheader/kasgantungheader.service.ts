@@ -14,6 +14,7 @@ import { RunningNumberService } from '../running-number/running-number.service';
 import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.service';
 import { KasgantungdetailService } from '../kasgantungdetail/kasgantungdetail.service';
 import { GlobalService } from '../global/global.service';
+import { PengeluaranheaderService } from '../pengeluaranheader/pengeluaranheader.service';
 import { LocksService } from '../locks/locks.service';
 import { Column, Workbook } from 'exceljs';
 import * as fs from 'fs';
@@ -26,6 +27,7 @@ export class KasgantungheaderService {
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
     private readonly kasgantungdetailService: KasgantungdetailService,
+    private readonly pengeluaranheaderService: PengeluaranheaderService,
     private readonly locksService: LocksService,
     private readonly globalService: GlobalService,
   ) {}
@@ -51,58 +53,111 @@ export class KasgantungheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-      insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
+      insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti));
       console.log('insertData', insertData);
+
+      // Get parameter untuk kas gantung
       const parameter = await trx('parameter')
         .select('*')
-        .where('grp', 'PENERIMAAN GANTUNG')
+        .where('grp', 'PENGELUARAN GANTUNG')
         .first();
 
-      const nomorBukti = await this.runningNumberService.generateRunningNumber(
-        trx,
-        parameter.grp,
-        parameter.subgrp,
-        this.tableName,
-        insertData.tglbukti,
-      );
-      insertData.nobukti = nomorBukti;
+      // Generate nomor bukti untuk kas gantung
+      const nomorBuktiKasGantung =
+        await this.runningNumberService.generateRunningNumber(
+          trx,
+          parameter.grp,
+          parameter.subgrp,
+          this.tableName,
+          insertData.tglbukti,
+        );
+      insertData.nobukti = nomorBuktiKasGantung;
 
-      const insertedItems = await trx(this.tableName)
+      // Insert data ke kas gantung header
+      const insertedKasGantungItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
 
+      // Insert detail kas gantung jika ada
       if (details.length > 0) {
-        // Inject nobukti into each detail item
         const detailsWithNobukti = details.map((detail: any) => ({
           ...detail,
-          nobukti: nomorBukti, // Inject nobukti into each detail
+          nobukti: nomorBuktiKasGantung,
           modifiedby: insertData.modifiedby,
         }));
 
-        // Pass the updated details with nobukti to the detail creation service
         await this.kasgantungdetailService.create(
           detailsWithNobukti,
-          insertedItems[0].id,
+          insertedKasGantungItems[0].id,
           trx,
         );
       }
 
-      const newItem = insertedItems[0];
+      // Prepare data untuk insert ke pengeluaran
+      const pengeluaranHeaderData = {
+        tglbukti: data.tglbukti,
+        keterangan: insertData.keterangan,
+        relasi_id: insertData.relasi_id, // Sesuaikan dengan field yang ada
+        bank_id: insertData.bank_id,
+        alatbayar_id: insertData.alatbayar_id,
+      };
 
+      // Prepare detail data untuk pengeluaran
+      const pengeluaranDetails = details.map((detail: any) => ({
+        id: 0,
+        coadebet: detail.coadebet ?? null,
+        keterangan: detail.keterangan ?? null,
+        nominal: detail.nominal ?? null,
+        dpp: detail.dpp ?? null,
+        transaksibiaya_nobukti: detail.transaksibiaya_nobukti ?? null,
+        transaksilain_nobukti: detail.transaksilain_nobukti ?? null,
+        noinvoiceemkl: detail.noinvoiceemkl ?? null,
+        tglinvoiceemkl: detail.tglinvoiceemkl ?? null,
+        nofakturpajakemkl: detail.nofakturpajakemkl ?? null,
+        perioderefund: detail.perioderefund ?? null,
+        pengeluaranheader_nobukti: detail.pengeluaranheader_nobukti ?? null,
+        penerimaanheader_nobukti: detail.penerimaanheader_nobukti ?? null,
+        info: detail.info ?? null,
+        modifiedby: detail.modifiedby ?? null,
+      }));
+
+      // Insert data ke pengeluaran
+      const pengeluaranData = {
+        ...pengeluaranHeaderData,
+        details: pengeluaranDetails,
+      };
+      // Call pengeluaran service untuk insert
+      const pengeluaranResult = await this.pengeluaranheaderService.create(
+        pengeluaranData,
+        trx,
+      );
+
+      // Update kas gantung dengan nomor bukti pengeluaran (konsep dua arah)
+      const updatedKasGantung = await trx(this.tableName)
+        .where('id', insertedKasGantungItems[0].id)
+        .update({
+          pengeluaran_nobukti: pengeluaranResult.newItem.nobukti,
+          updated_at: new Date(),
+        })
+        .returning('*');
+
+      const newItem = updatedKasGantung[0];
+
+      // Get filtered items untuk response
       const { data: filteredItems } = await this.findAll(
         {
           search,
           filters,
           pagination: { page, limit },
           sort: { sortBy, sortDirection },
-          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+          isLookUp: false,
         },
         trx,
       );
 
       // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex(
-        (item) => Number(item.id) === newItem.id,
+        (item) => Number(item.id) === Number(newItem.id),
       );
 
       if (itemIndex === -1) {
@@ -110,13 +165,18 @@ export class KasgantungheaderService {
       }
 
       const pageNumber = Math.floor(itemIndex / limit) + 1;
+      const endIndex = pageNumber * limit;
+
+      // Ambil data hingga halaman yang mencakup item baru
+      const limitedItems = filteredItems.slice(0, endIndex);
 
       // Simpan ke Redis
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(data),
+        JSON.stringify(limitedItems),
       );
 
+      // Log trail untuk kas gantung
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
@@ -131,11 +191,16 @@ export class KasgantungheaderService {
       );
 
       return {
-        newItem,
+        newItem: {
+          ...newItem,
+          pengeluaran_data: pengeluaranResult.newItem, // Include pengeluaran data in response
+        },
         pageNumber,
         itemIndex,
+        pengeluaran_nobukti: pengeluaranResult.newItem.nobukti, // Return pengeluaran nobukti
       };
     } catch (error) {
+      console.error('Error in kas gantung create:', error);
       throw new Error(`Error: ${error.message}`);
     }
   }
@@ -707,10 +772,10 @@ export class KasgantungheaderService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: `ADD KAS GANTUNG HEADER`,
+          postingdari: `EDIT KAS GANTUNG HEADER`,
           idtrans: id,
           nobuktitrans: id,
-          aksi: 'ADD',
+          aksi: 'EDIT',
           datajson: JSON.stringify(data),
           modifiedby: data.modifiedby,
         },

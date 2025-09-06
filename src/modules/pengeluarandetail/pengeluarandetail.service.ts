@@ -13,6 +13,7 @@ export class PengeluarandetailService {
   ) {}
   private readonly logger = new Logger(PengeluarandetailService.name);
   async create(details: any, id: any = 0, trx: any = null) {
+    console.log(details, id, 'ada kesini?');
     let insertedData = null;
     let data: any = null;
     const tempTableName = `##temp_${Math.random().toString(36).substring(2, 15)}`;

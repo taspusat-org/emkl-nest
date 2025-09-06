@@ -6,10 +6,10 @@ export const UpdateBankSchema = z
 
     keterangan: z.string().trim().min(1, { message: 'KETERANGAN is required' }),
 
-    coa: z.number().nullable().optional(),
+    coa: z.string().nullable().optional(),
     keterangancoa: z.string().nullable().optional(),
 
-    coagantung: z.number().nullable().optional(),
+    coagantung: z.string().nullable().optional(),
     keterangancoagantung: z.string().nullable().optional(),
 
     statusbank: z.number().min(1, { message: 'STATUSBANK is required' }),
