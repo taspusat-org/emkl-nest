@@ -47,29 +47,59 @@ export class PengeluaranheaderService {
         details,
         ...insertData
       } = data;
-
+      console.log(data, 'iniwweee');
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
-      const parameter = await trx('parameter')
-        .select('*')
-        .where('grp', 'PENGELUARAN')
+
+      const getCabang = await trx('parameter')
+        .select('memo')
+        .where('grp', 'CABANG')
+        .andWhere('subgrp', 'CABANG')
+        .andWhere('text', 'CABANG')
+        .first();
+
+      const paramData = await trx('bank as b')
+        .leftJoin('parameter as p', 'b.formatpengeluaran', 'p.id')
+        .select(
+          'b.id as bank_id',
+          'b.nama as bank_nama',
+          'b.formatpengeluaran',
+          'p.id as parameter_id',
+          'p.grp as grp',
+          'p.subgrp as subgrp',
+          'p.text as text',
+          'p.memo as memo',
+        )
+        .where('b.id', insertData.bank_id)
         .first();
 
       const getStatusBank = await trx('bank')
         .select('formatpengeluaran')
-        .where('id', `${insertData.bank_id}`)
+        .where('id', insertData.bank_id)
         .first();
 
+      if (!getStatusBank) {
+        throw new Error(`Bank dengan id ${insertData.bank_id} tidak ditemukan`);
+      }
+
+      if (!paramData) {
+        throw new Error(
+          `Parameter dengan id ${getStatusBank.formatpengeluaran} tidak ditemukan`,
+        );
+      }
+      const cabangData = JSON.parse(getCabang.memo);
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
-        parameter.grp,
-        parameter.subgrp,
+        paramData.grp,
+        paramData.subgrp,
         this.tableName,
         insertData.tglbukti,
+        null,
+        cabangData.CABANG_ID,
       );
       insertData.nobukti = nomorBukti;
       insertData.statusformat = getStatusBank
@@ -85,10 +115,9 @@ export class PengeluaranheaderService {
           ({ coadebet_text, ...detail }: any) => ({
             ...detail,
             nobukti: nomorBukti,
-            modifiedby: insertData.modifiedby,
+            modifiedby: data.modifiedby || null,
           }),
         );
-
         await this.pengeluarandetailService.create(
           detailsWithNobukti,
           insertedItems[0].id,
@@ -490,6 +519,7 @@ export class PengeluaranheaderService {
         }
       });
       const existingData = await trx(this.tableName).where('id', id).first();
+
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
 
       if (hasChanges) {
@@ -500,9 +530,11 @@ export class PengeluaranheaderService {
 
       // Check each detail, update or set id accordingly
       if (details.length > 0) {
-        const cleanedDetails = details.map(
-          ({ coadebet_text, ...rest }) => rest,
-        );
+        const nobuktiHeader = insertData.nobukti || existingData.nobukti;
+        const cleanedDetails = details.map(({ coadebet_text, ...rest }) => ({
+          ...rest,
+          nobukti: nobuktiHeader,
+        }));
 
         await this.pengeluarandetailService.create(cleanedDetails, id, trx);
       }
@@ -542,10 +574,10 @@ export class PengeluaranheaderService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: `ADD PENGELUARAN HEADER`,
+          postingdari: `EDIT PENGELUARAN HEADER`,
           idtrans: id,
           nobuktitrans: id,
-          aksi: 'ADD',
+          aksi: 'EDIT',
           datajson: JSON.stringify(data),
           modifiedby: data.modifiedby,
         },
@@ -701,7 +733,7 @@ export class PengeluaranheaderService {
             detailIndex + 1,
             d.coadebet_text ?? '',
             d.keterangan ?? '',
-            d.nominal ?? '',
+            d.nominal ?? 0,
           ];
 
           rowValues.forEach((value, colIndex) => {
@@ -713,20 +745,11 @@ export class PengeluaranheaderService {
             };
 
             if (colIndex === 3) {
-              cell.alignment = {
-                horizontal: 'right',
-                vertical: 'middle',
-              };
+              cell.alignment = { horizontal: 'right', vertical: 'middle' };
             } else if (colIndex === 0) {
-              cell.alignment = {
-                horizontal: 'center',
-                vertical: 'middle',
-              };
+              cell.alignment = { horizontal: 'center', vertical: 'middle' };
             } else {
-              cell.alignment = {
-                horizontal: 'left',
-                vertical: 'middle',
-              };
+              cell.alignment = { horizontal: 'left', vertical: 'middle' };
             }
 
             cell.border = {
@@ -738,6 +761,33 @@ export class PengeluaranheaderService {
           });
           currentRow++;
         });
+
+        const totalNominal = details.reduce(
+          (sum: number, d: any) => sum + (Number(d.nominal) || 0),
+          0,
+        );
+
+        const totalLabelCell = worksheet.getCell(currentRow, 3);
+        totalLabelCell.value = 'TOTAL';
+        totalLabelCell.font = { bold: true, name: 'Tahoma', size: 10 };
+        totalLabelCell.alignment = { horizontal: 'left', vertical: 'middle' };
+        totalLabelCell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+
+        const totalValueCell = worksheet.getCell(currentRow, 4);
+        totalValueCell.value = totalNominal;
+        totalValueCell.font = { bold: true, name: 'Tahoma', size: 10 };
+        totalValueCell.alignment = { horizontal: 'right', vertical: 'middle' };
+        totalValueCell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
 
         currentRow++;
       }
