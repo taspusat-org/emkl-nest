@@ -114,11 +114,14 @@ export class PenerimaandetailService {
         transaksilain_nobukti: trx.raw(
           `${tempTableName}.transaksilain_nobukti`,
         ),
-        pengeluaranheader_nobukti: trx.raw(
-          `${tempTableName}.pengeluaranheader_nobukti`,
+        pengeluaranemklheader_nobukti: trx.raw(
+          `${tempTableName}.pengeluaranemklheader_nobukti`,
         ),
-        penerimaanheader_nobukti: trx.raw(
-          `${tempTableName}.penerimaanheader_nobukti`,
+        penerimaanemklheader_nobukti: trx.raw(
+          `${tempTableName}.penerimaanemklheader_nobukti`,
+        ),
+        pengembaliankasgantung_nobukti: trx.raw(
+          `${tempTableName}.pengembaliankasgantung_nobukti`,
         ),
         keterangan: trx.raw(`${tempTableName}.keterangan`),
         nominal: trx.raw(`${tempTableName}.nominal`),
@@ -144,8 +147,9 @@ export class PenerimaandetailService {
         'coa',
         'transaksibiaya_nobukti',
         'transaksilain_nobukti',
-        'pengeluaranheader_nobukti',
-        'penerimaanheader_nobukti',
+        'pengeluaranemklheader_nobukti',
+        'penerimaanemklheader_nobukti',
+        'pengembaliankasgantung_nobukti',
         'info',
         'modifiedby',
         trx.raw('? as penerimaan_id', [id]),
@@ -168,8 +172,9 @@ export class PenerimaandetailService {
         'penerimaandetail.coa',
         'penerimaandetail.transaksibiaya_nobukti',
         'penerimaandetail.transaksilain_nobukti',
-        'penerimaandetail.pengeluaranheader_nobukti',
-        'penerimaandetail.penerimaanheader_nobukti',
+        'penerimaandetail.pengeluaranemklheader_nobukti',
+        'penerimaandetail.penerimaanemklheader_nobukti',
+        'penerimaandetail.pengembaliankasgantung_nobukti',
         'penerimaandetail.info',
         'penerimaandetail.modifiedby',
         'penerimaandetail.created_at',
@@ -238,8 +243,9 @@ export class PenerimaandetailService {
         'p.coa',
         'p.transaksibiaya_nobukti',
         'p.transaksilain_nobukti',
-        'p.pengeluaranheader_nobukti',
-        'p.penerimaanheader_nobukti',
+        'p.pengeluaranemklheader_nobukti',
+        'p.penerimaanemklheader_nobukti',
+        'p.pengembaliankasgantung_nobukti',
         'p.nominal', // Updated field name
         'p.info',
         'p.modifiedby',

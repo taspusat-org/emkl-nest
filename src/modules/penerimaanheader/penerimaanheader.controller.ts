@@ -11,6 +11,8 @@ import {
   Query,
   Req,
   Put,
+  Res,
+  HttpStatus,
 } from '@nestjs/common';
 import { PenerimaanheaderService } from './penerimaanheader.service';
 import { CreatePenerimaanheaderDto } from './dto/create-penerimaanheader.dto';
@@ -23,7 +25,8 @@ import {
   FindAllSchema,
 } from 'src/common/interfaces/all.interface';
 import { dbMssql } from 'src/common/utils/db';
-
+import { Response } from 'express';
+import * as fs from 'fs';
 @Controller('penerimaanheader')
 export class PenerimaanheaderController {
   constructor(
@@ -143,6 +146,51 @@ export class PenerimaanheaderController {
       trx.rollback();
       console.error('Error in findOne:', error);
       throw error; // Re-throw the error to be handled by the global exception filter
+    }
+  }
+  @Get('/export/:id')
+  async exportToExcel(@Param('id') id: string, @Res() res: Response) {
+    try {
+      // Ambil data
+      const trx = await dbMssql.transaction();
+      const { data } = await this.penerimaanheaderService.findOne(id, trx);
+
+      if (!Array.isArray(data)) {
+        return res
+          .status(HttpStatus.BAD_REQUEST)
+          .send('Data is not an array or is undefined.');
+      }
+
+      // Buat Excel file
+      const tempFilePath = await this.penerimaanheaderService.exportToExcel(
+        data,
+        trx,
+      );
+
+      // Stream file ke response
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_penerimaan.xlsx"',
+      );
+
+      const fileStream = fs.createReadStream(tempFilePath);
+      fileStream.pipe(res);
+
+      // Optional: hapus file temp setelah selesai streaming
+      fileStream.on('end', () => {
+        fs.unlink(tempFilePath, (err) => {
+          if (err) console.error('Error deleting temp file:', err);
+        });
+      });
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .send('Failed to export file');
     }
   }
 }

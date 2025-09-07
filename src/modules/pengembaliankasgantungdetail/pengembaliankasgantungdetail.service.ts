@@ -19,7 +19,7 @@ export class PengembaliankasgantungdetailService {
     let insertedData = null;
     let data: any = null;
     const tempTableName = `##temp_${Math.random().toString(36).substring(2, 15)}`;
-
+    console.log('details2222', details);
     try {
       // Get the column info and create temporary table
       const result = await trx(this.tableName).columnInfo();
@@ -123,6 +123,7 @@ export class PengembaliankasgantungdetailService {
           pengembaliankasgantung_id: trx.raw(
             `${tempTableName}.pengembaliankasgantung_id`,
           ),
+          penerimaandetail_id: trx.raw(`${tempTableName}.penerimaandetail_id`),
           created_at: trx.raw(`${tempTableName}.created_at`),
           updated_at: trx.raw(`${tempTableName}.updated_at`),
         })
@@ -145,6 +146,7 @@ export class PengembaliankasgantungdetailService {
           'editing_by',
           'editing_at',
           trx.raw('? as pengembaliankasgantung_id', [id]),
+          'penerimaandetail_id',
           'created_at',
           'updated_at',
         ])
@@ -166,6 +168,7 @@ export class PengembaliankasgantungdetailService {
           'pengembaliankasgantungdetail.modifiedby',
           'pengembaliankasgantungdetail.editing_by',
           'pengembaliankasgantungdetail.editing_at',
+          'pengembaliankasgantungdetail.penerimaandetail_id',
           'pengembaliankasgantungdetail.created_at',
           'pengembaliankasgantungdetail.updated_at',
           'pengembaliankasgantungdetail.pengembaliankasgantung_id',
@@ -238,6 +241,7 @@ export class PengembaliankasgantungdetailService {
         'p.info',
         'p.modifiedby',
         'p.editing_by',
+        'p.penerimaandetail_id',
         trx.raw("FORMAT(p.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
         trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
         trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),

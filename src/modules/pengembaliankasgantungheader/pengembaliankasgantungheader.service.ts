@@ -61,17 +61,21 @@ export class PengembaliankasgantungheaderService {
         .leftJoin('parameter as p', 'p.id', 'b.formatpenerimaangantung')
         .where('b.id', insertData.bank_id)
         .first();
+      const cabangId = parameterCabang.cabang_id;
+
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
         formatpenerimaangantung.grp,
         formatpenerimaangantung.subgrp,
         this.tableName,
         insertData.tglbukti,
+        cabangId,
       );
       insertData.nobukti = nomorBukti;
 
       const dataPenerimaan = {
         ...data,
+        pengembaliankasgantung_nobukti: nomorBukti,
         modifiedby: data.modifiedby,
       };
       const insertPenerimaan = await this.penerimaanheaderService.create(
@@ -82,15 +86,18 @@ export class PengembaliankasgantungheaderService {
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
-
+      console.log('insertPenerimaan2222', insertPenerimaan.dataDetail.data);
       if (details.length > 0) {
         // Inject nobukti into each detail item
-        const detailsWithNobukti = details.map((detail: any) => ({
-          ...detail,
-          nobukti: nomorBukti, // Inject nobukti into each detail
-          kasgantung_nobukti: detail.nobukti, // Ensure kasgantung_nobukti is preserved
-          modifiedby: data.modifiedby, // Ensure modifiedby is preserved
-        }));
+        const detailsWithNobukti = details.map(
+          (detail: any, index: number) => ({
+            ...detail,
+            nobukti: nomorBukti, // Inject nobukti into each detail
+            kasgantung_nobukti: detail.nobukti, // Ensure kasgantung_nobukti is preserved
+            modifiedby: data.modifiedby, // Ensure modifiedby is preserved
+            penerimaandetail_id: insertPenerimaan.dataDetail.data[index].id,
+          }),
+        );
 
         // Pass the updated details with nobukti to the detail creation service
         await this.pengembaliankasgantungdetailService.create(
@@ -99,7 +106,6 @@ export class PengembaliankasgantungheaderService {
           trx,
         );
       }
-
       const newItem = insertedItems[0];
 
       const { data: filteredItems } = await this.findAll(
@@ -112,6 +118,12 @@ export class PengembaliankasgantungheaderService {
         },
         trx,
       );
+      const dataDetail = await this.pengembaliankasgantungdetailService.findAll(
+        newItem.id,
+        trx,
+      );
+
+      console.log('dataDetail', dataDetail);
 
       // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex(
@@ -151,8 +163,10 @@ export class PengembaliankasgantungheaderService {
         newItem,
         pageNumber,
         itemIndex,
+        dataDetail,
       };
     } catch (error) {
+      console.log(error);
       throw new Error(`Error: ${error.message}`);
     }
   }
@@ -237,6 +251,13 @@ export class PengembaliankasgantungheaderService {
         trx,
       );
 
+      const dataDetail = await this.pengembaliankasgantungdetailService.findAll(
+        id,
+        trx,
+      );
+
+      console.log('dataDetail', dataDetail);
+
       // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex((item) => Number(item.id) === id);
 
@@ -276,6 +297,7 @@ export class PengembaliankasgantungheaderService {
         },
         pageNumber,
         itemIndex,
+        dataDetail,
       };
     } catch (error) {
       throw new Error(`Error: ${error.message}`);
@@ -727,7 +749,7 @@ export class PengembaliankasgantungheaderService {
     worksheet.mergeCells('A2:E2');
     worksheet.mergeCells('A3:E3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
-    worksheet.getCell('A2').value = 'LAPORAN KAS GANTUNG';
+    worksheet.getCell('A2').value = 'LAPORAN PENGEMBALIAN KAS GANTUNG';
     worksheet.getCell('A3').value = 'Data Export';
     ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
       worksheet.getCell(cellKey).alignment = {
@@ -890,7 +912,7 @@ export class PengembaliankasgantungheaderService {
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
     const tempFilePath = path.resolve(
       tempDir,
-      `laporan_kas_gantung${Date.now()}.xlsx`,
+      `laporan_pengembaliankasgantung${Date.now()}.xlsx`,
     );
     await workbook.xlsx.writeFile(tempFilePath);
 
