@@ -285,7 +285,7 @@ export class KasgantungheaderController {
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_managermarketing.xlsx"',
+        'attachment; filename="laporan_kasgantung.xlsx"',
       );
 
       const fileStream = fs.createReadStream(tempFilePath);

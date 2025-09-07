@@ -260,7 +260,7 @@ export class PengembaliankasgantungheaderController {
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_managermarketing.xlsx"',
+        'attachment; filename="laporan_pengembaliankasgantung.xlsx"',
       );
 
       const fileStream = fs.createReadStream(tempFilePath);
