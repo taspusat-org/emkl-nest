@@ -4,7 +4,10 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { CreateBiayaDto } from './dto/create-biaya.dto';
+import { UpdateBiayaDto } from './dto/update-biaya.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
+import { RunningNumberService } from '../running-number/running-number.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { RedisService } from 'src/common/redis/redis.service';
@@ -13,13 +16,13 @@ import * as path from 'path';
 import { Workbook, Column } from 'exceljs';
 
 @Injectable()
-export class BankService {
+export class BiayaService {
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
-  private readonly tableName = 'bank';
+  private readonly tableName = 'biaya';
   async create(CreateBankDto: any, trx: any) {
     try {
       const {
@@ -32,17 +35,9 @@ export class BankService {
         nama,
         keterangan,
         coa,
-        coagantung,
-        statusbank,
+        coahut,
+        jenisorderan_id,
         statusaktif,
-        statusdefault,
-        formatpenerimaan,
-        formatpengeluaran,
-        formatpenerimaangantung,
-        formatpengeluarangantung,
-        formatpencairan,
-        formatrekappenerimaan,
-        formatrekappengeluaran,
         modifiedby,
         created_at,
         updated_at,
@@ -52,17 +47,9 @@ export class BankService {
         nama: nama ? nama.toUpperCase() : null,
         keterangan: keterangan ? keterangan.toUpperCase() : null,
         coa: coa,
-        coagantung: coagantung,
-        statusbank: statusbank,
+        coahut: coahut,
+        jenisorderan_id: jenisorderan_id,
         statusaktif: statusaktif,
-        statusdefault: statusdefault,
-        formatpenerimaan: formatpenerimaan,
-        formatpengeluaran: formatpengeluaran,
-        formatpenerimaangantung: formatpenerimaangantung,
-        formatpengeluarangantung: formatpengeluarangantung,
-        formatpencairan: formatpencairan,
-        formatrekappenerimaan: formatrekappenerimaan,
-        formatrekappengeluaran: formatrekappengeluaran,
         modifiedby: modifiedby,
         created_at: created_at || this.utilsService.getTime(),
         updated_at: updated_at || this.utilsService.getTime(),
@@ -95,7 +82,7 @@ export class BankService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'ADD BANK',
+          postingdari: 'ADD BIAYA',
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -145,94 +132,38 @@ export class BankService {
           'b.nama',
           'b.keterangan',
           'b.coa',
-          'b.coagantung',
-          'a.keterangancoa as keterangancoa',
-          'a2.keterangancoa as keterangancoagantung',
-          'b.statusbank',
+          'b.coahut',
+          'b.jenisorderan_id',
           'b.statusaktif',
-          'b.statusdefault',
-          'b.formatpenerimaan',
-          'b.formatpengeluaran',
-          'b.formatpenerimaangantung',
-          'b.formatpengeluarangantung',
-          'b.formatpencairan',
-          'b.formatrekappenerimaan',
-          'b.formatrekappengeluaran',
           'b.info',
           'b.modifiedby',
           trx.raw("FORMAT(b.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(b.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'p.memo',
           'p.text',
-          'p2.text as textbank',
-          'p3.text as textdefault',
-          'p4.text as formatpenerimaantext',
-          'p5.text as formatpengeluarantext',
-          'p6.text as formatpenerimaangantungtext',
-          'p7.text as formatpengeluarangantungtext',
-          'p8.text as formatpencairantext',
-          'p9.text as formatrekappenerimaantext',
-          'p10.text as formatrekappengeluarantext',
+          'p2.keterangancoa as coa_text',
+          'p3.keterangancoa as coahut_text',
+          'p4.nama as jenisorderan_text',
         ])
-        .leftJoin(
-          trx.raw('akunpusat as a WITH (READUNCOMMITTED)'),
-          'b.coa',
-          'a.coa',
-        )
-        .leftJoin(
-          trx.raw('akunpusat as a2 WITH (READUNCOMMITTED)'),
-          'b.coagantung',
-          'a2.coa',
-        )
         .leftJoin(
           trx.raw('parameter as p WITH (READUNCOMMITTED)'),
           'b.statusaktif',
           'p.id',
         )
         .leftJoin(
-          trx.raw('parameter as p2 WITH (READUNCOMMITTED)'),
-          'b.statusbank',
-          'p2.id',
+          trx.raw('akunpusat as p2 WITH (READUNCOMMITTED)'),
+          'b.coa',
+          'p2.coa',
         )
         .leftJoin(
-          trx.raw('parameter as p3 WITH (READUNCOMMITTED)'),
-          'b.statusdefault',
-          'p3.id',
+          trx.raw('akunpusat as p3 WITH (READUNCOMMITTED)'),
+          'b.coahut',
+          'p3.coa',
         )
         .leftJoin(
-          trx.raw('parameter as p4 WITH (READUNCOMMITTED)'),
-          'b.formatpenerimaan',
+          trx.raw('jenisorderan as p4 WITH (READUNCOMMITTED)'),
+          'b.jenisorderan_id',
           'p4.id',
-        )
-        .leftJoin(
-          trx.raw('parameter as p5 WITH (READUNCOMMITTED)'),
-          'b.formatpengeluaran',
-          'p5.id',
-        )
-        .leftJoin(
-          trx.raw('parameter as p6 WITH (READUNCOMMITTED)'),
-          'b.formatpenerimaangantung',
-          'p6.id',
-        )
-        .leftJoin(
-          trx.raw('parameter as p7 WITH (READUNCOMMITTED)'),
-          'b.formatpengeluarangantung',
-          'p7.id',
-        )
-        .leftJoin(
-          trx.raw('parameter as p8 WITH (READUNCOMMITTED)'),
-          'b.formatpencairan',
-          'p8.id',
-        )
-        .leftJoin(
-          trx.raw('parameter as p9 WITH (READUNCOMMITTED)'),
-          'b.formatrekappenerimaan',
-          'p9.id',
-        )
-        .leftJoin(
-          trx.raw('parameter as p10 WITH (READUNCOMMITTED)'),
-          'b.formatrekappengeluaran',
-          'p10.id',
         );
 
       if (search) {
@@ -242,29 +173,20 @@ export class BankService {
           builder
             .orWhere('b.nama', 'like', `%${val}%`)
             .orWhere('b.keterangan', 'like', `%${val}%`)
-            .orWhere('a.keterangancoa', 'like', `%${val}%`)
-            .orWhere('a2.keterangancoa', 'like', `%${val}%`)
+            .orWhere('p2.keterangancoa', 'like', `%${val}%`) // coa_text
+            .orWhere('p3.keterangancoa', 'like', `%${val}%`) // coahut_text
+            .orWhere('p4.nama', 'like', `%${val}%`) // jenisorderan_text
             .orWhere('p.memo', 'like', `%${val}%`)
-            .orWhere('p.text', 'like', `%${val}%`)
-            .orWhere('p2.text', 'like', `%${val}%`)
-            .orWhere('p3.text', 'like', `%${val}%`)
-            .orWhere('p4.text', 'like', `%${val}%`)
-            .orWhere('p5.text', 'like', `%${val}%`)
-            .orWhere('p6.text', 'like', `%${val}%`)
-            .orWhere('p7.text', 'like', `%${val}%`)
-            .orWhere('p8.text', 'like', `%${val}%`)
-            .orWhere('p9.text', 'like', `%${val}%`)
-            .orWhere('p10.text', 'like', `%${val}%`),
+            .orWhere('p.text', 'like', `%${val}%`),
         );
       }
 
       // filter berdasarkan key yang valid
       if (filters) {
         for (const [key, rawValue] of Object.entries(filters)) {
-          if (key === 'tglDari' || key === 'tglSampai') {
-            continue; // Lewati filter jika key adalah 'tglDari' atau 'tglSampai'
-          }
+          if (key === 'tglDari' || key === 'tglSampai') continue;
           if (!rawValue) continue;
+
           const val = String(rawValue).replace(/\[/g, '[[]');
 
           if (key === 'created_at' || key === 'updated_at') {
@@ -272,32 +194,18 @@ export class BankService {
               key,
               `%${val}%`,
             ]);
-          } else if (key === 'text') {
-            query.andWhere(`b.statusaktif`, 'like', `%${val}%`);
+          } else if (key === 'statusaktif') {
+            query.andWhere('b.statusaktif', 'like', `%${val}%`);
           } else if (key === 'memo') {
-            query.andWhere(`p.memo`, 'like', `%${val}%`);
-          } else if (key === 'textbank') {
-            query.andWhere(`b.statusbank`, 'like', `%${val}%`);
-          } else if (key === 'textdefault') {
-            query.andWhere(`b.statusdefault`, 'like', `%${val}%`);
-          } else if (key === 'formatpenerimaantext') {
-            query.andWhere(`b.formatpenerimaan`, 'like', `%${val}%`);
-          } else if (key === 'formatpengeluarantext') {
-            query.andWhere(`b.formatpengeluaran`, 'like', `%${val}%`);
-          } else if (key === 'formatpenerimaangantungtext') {
-            query.andWhere(`b.formatpenerimaangantung`, 'like', `%${val}%`);
-          } else if (key === 'formatpengeluarangantungtext') {
-            query.andWhere(`b.formatpengeluarangantung`, 'like', `%${val}%`);
-          } else if (key === 'formatpencairantext') {
-            query.andWhere(`b.formatpencairan`, 'like', `%${val}%`);
-          } else if (key === 'formatrekappenerimaantext') {
-            query.andWhere(`b.formatrekappenerimaan`, 'like', `%${val}%`);
-          } else if (key === 'formatrekappengeluarantext') {
-            query.andWhere(`b.formatrekappengeluaran`, 'like', `%${val}%`);
-          } else if (key === 'keterangancoa') {
-            query.andWhere(`a.keterangancoa`, 'like', `%${val}%`);
-          } else if (key === 'keterangancoagantung') {
-            query.andWhere(`a2.keterangancoa`, 'like', `%${val}%`);
+            query.andWhere('p.memo', 'like', `%${val}%`);
+          } else if (key === 'text') {
+            query.andWhere('p.text', 'like', `%${val}%`);
+          } else if (key === 'coa_text') {
+            query.andWhere('p2.keterangancoa', 'like', `%${val}%`);
+          } else if (key === 'coahut_text') {
+            query.andWhere('p3.keterangancoa', 'like', `%${val}%`);
+          } else if (key === 'jenisorderan_text') {
+            query.andWhere('p4.nama', 'like', `%${val}%`);
           } else {
             query.andWhere(`b.${key}`, 'like', `%${val}%`);
           }
@@ -337,7 +245,7 @@ export class BankService {
       const existingData = await trx(this.tableName).where('id', id).first();
 
       if (!existingData) {
-        throw new Error('Bank not found');
+        throw new Error('Biaya not found');
       }
 
       const {
@@ -347,18 +255,10 @@ export class BankService {
         search,
         page,
         limit,
+        coa_text,
+        coahut_text,
+        jenisorderan_text,
         text,
-        textbank,
-        textdefault,
-        formatpenerimaantext,
-        formatpengeluarantext,
-        formatpenerimaangantungtext,
-        formatpengeluarangantungtext,
-        formatpencairantext,
-        formatrekappenerimaantext,
-        formatrekappengeluarantext,
-        keterangancoa,
-        keterangancoagantung,
         ...insertData
       } = data;
 
@@ -406,7 +306,7 @@ export class BankService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'EDIT BANK',
+          postingdari: 'EDIT BIAYA',
           idtrans: id,
           nobuktitrans: id,
           aksi: 'EDIT',
@@ -425,8 +325,8 @@ export class BankService {
         itemIndex,
       };
     } catch (error) {
-      console.error('Error updating Bank:', error);
-      throw new Error('Failed to update Bank');
+      console.error('Error updating Biaya:', error);
+      throw new Error('Failed to update Biaya');
     }
   }
 
@@ -442,7 +342,7 @@ export class BankService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE BANK',
+          postingdari: 'DELETE BIAYA',
           idtrans: deletedData.id,
           nobuktitrans: deletedData.id,
           aksi: 'DELETE',
@@ -461,6 +361,7 @@ export class BankService {
       throw new InternalServerErrorException('Failed to delete data');
     }
   }
+
   async exportToExcel(data: any[]) {
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Data Export');
@@ -469,7 +370,7 @@ export class BankService {
     worksheet.mergeCells('A2:G2');
     worksheet.mergeCells('A3:G3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
-    worksheet.getCell('A2').value = 'LAPORAN BANK';
+    worksheet.getCell('A2').value = 'LAPORAN BIAYA';
     worksheet.getCell('A3').value = 'Data Export';
 
     ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
@@ -489,8 +390,8 @@ export class BankService {
       'NAMA',
       'KETERANGAN',
       'COA',
-      'COA GANTUNG',
-      'STATUS BANK',
+      'COA HUTANG',
+      'JENIS ORDERAN',
       'STATUS AKTIF',
     ];
 
@@ -523,9 +424,9 @@ export class BankService {
       worksheet.getCell(currentRow, 1).value = rowIndex + 1;
       worksheet.getCell(currentRow, 2).value = row.nama;
       worksheet.getCell(currentRow, 3).value = row.keterangan;
-      worksheet.getCell(currentRow, 4).value = row.keterangancoa;
-      worksheet.getCell(currentRow, 5).value = row.keterangancoagantung;
-      worksheet.getCell(currentRow, 6).value = row.textbank;
+      worksheet.getCell(currentRow, 4).value = row.coa_text;
+      worksheet.getCell(currentRow, 5).value = row.coahut_text;
+      worksheet.getCell(currentRow, 6).value = row.jenisorderan_text;
       worksheet.getCell(currentRow, 7).value = row.text;
 
       // Styling untuk setiap cell

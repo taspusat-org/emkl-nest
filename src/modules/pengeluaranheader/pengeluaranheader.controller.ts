@@ -151,7 +151,7 @@ export class PengeluaranheaderController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error updating menu in controller:', error);
+      console.error('Error updating pengeluaran in controller:', error);
       throw new Error('Failed to update menu');
     }
   }

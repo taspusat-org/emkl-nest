@@ -85,7 +85,6 @@ export class PengeluarandetailService {
       pengeluaran_id: item.pengeluaran_id ?? id, // Ensure correct field mapping
     }));
     const jsonString = JSON.stringify(processedData);
-
     const mappingData = Object.keys(processedData[0]).map((key) => [
       'value',
       `$.${key}`,
@@ -99,7 +98,7 @@ export class PengeluarandetailService {
 
     // Insert into temp table
     await trx(tempTableName).insert(openJson);
-
+    console.log(await trx(tempTableName), 'TEST');
     // **Update or Insert into 'kasgantungdetail' with correct idheader**
     const updatedData = await trx('pengeluarandetail')
       .join(`${tempTableName}`, 'pengeluarandetail.id', `${tempTableName}.id`)
@@ -118,11 +117,11 @@ export class PengeluarandetailService {
         tglinvoiceemkl: trx.raw(`${tempTableName}.tglinvoiceemkl`),
         nofakturpajakemkl: trx.raw(`${tempTableName}.nofakturpajakemkl`),
         perioderefund: trx.raw(`${tempTableName}.perioderefund`),
-        pengeluaranheader_nobukti: trx.raw(
-          `${tempTableName}.pengeluaranheader_nobukti`,
+        pengeluaranemklheader_nobukti: trx.raw(
+          `${tempTableName}.pengeluaranemklheader_nobukti`,
         ),
-        penerimaanheader_nobukti: trx.raw(
-          `${tempTableName}.penerimaanheader_nobukti`,
+        penerimaanemklheader_nobukti: trx.raw(
+          `${tempTableName}.penerimaanemklheader_nobukti`,
         ),
         info: trx.raw(`${tempTableName}.info`),
         modifiedby: trx.raw(`${tempTableName}.modifiedby`),
@@ -151,8 +150,8 @@ export class PengeluarandetailService {
         'tglinvoiceemkl',
         'nofakturpajakemkl',
         'perioderefund',
-        'pengeluaranheader_nobukti',
-        'penerimaanheader_nobukti',
+        'pengeluaranemklheader_nobukti',
+        'penerimaanemklheader_nobukti',
         'info',
         'modifiedby',
         trx.raw('? as pengeluaran_id', [id]),
@@ -180,8 +179,8 @@ export class PengeluarandetailService {
         'pengeluarandetail.tglinvoiceemkl',
         'pengeluarandetail.nofakturpajakemkl',
         'pengeluarandetail.perioderefund',
-        'pengeluarandetail.pengeluaranheader_nobukti',
-        'pengeluarandetail.penerimaanheader_nobukti',
+        'pengeluarandetail.pengeluaranemklheader_nobukti',
+        'pengeluarandetail.penerimaanemklheader_nobukti',
         'pengeluarandetail.info',
         'pengeluarandetail.modifiedby',
         'pengeluarandetail.created_at',
@@ -257,8 +256,8 @@ export class PengeluarandetailService {
         trx.raw("FORMAT(p.tglinvoiceemkl, 'dd-MM-yyyy') as tglinvoiceemkl"),
         'p.nofakturpajakemkl',
         'p.perioderefund',
-        'p.pengeluaranheader_nobukti',
-        'p.penerimaanheader_nobukti',
+        'p.pengeluaranemklheader_nobukti',
+        'p.penerimaanemklheader_nobukti',
         'q.keterangancoa as coadebet_text', // ganti sesuai nama kolom sebenarnya
         'p.info',
         'p.modifiedby',
