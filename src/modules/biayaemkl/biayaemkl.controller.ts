@@ -16,9 +16,15 @@ import {
   InternalServerErrorException,
   Res,
 } from '@nestjs/common';
-import { BiayaService } from './biaya.service';
-import { CreateBiayaDto, CreateBiayaSchema } from './dto/create-biaya.dto';
-import { UpdateBiayaDto, UpdateBiayaSchema } from './dto/update-biaya.dto';
+import { BiayaemklService } from './biayaemkl.service';
+import {
+  CreateBiayaemklDto,
+  CreateBiayaemklSchema,
+} from './dto/create-biayaemkl.dto';
+import {
+  UpdateBiayaemklDto,
+  UpdateBiayaemklSchema,
+} from './dto/update-biayaemkl.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
   FindAllDto,
@@ -31,29 +37,32 @@ import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-valida
 import { dbMssql } from 'src/common/utils/db';
 import { AuthGuard } from '../auth/auth.guard';
 
-@Controller('biaya')
-export class BiayaController {
-  constructor(private readonly biayaService: BiayaService) {}
+@Controller('biayaemkl')
+export class BiayaemklController {
+  constructor(private readonly biayaemklService: BiayaemklService) {}
 
   @UseGuards(AuthGuard)
   @Post()
-  //@BIAYA
+  //@BIAYA-EMKL
   async create(
-    @Body(new ZodValidationPipe(CreateBiayaSchema), KeyboardOnlyValidationPipe)
-    data: CreateBiayaDto,
+    @Body(
+      new ZodValidationPipe(CreateBiayaemklSchema),
+      KeyboardOnlyValidationPipe,
+    )
+    data: CreateBiayaemklDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.biayaService.create(data, trx);
+      const result = await this.biayaemklService.create(data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating biaya in controller', error);
+      console.error('Error while creating biaya emkl in controller', error);
 
       // Ensure any other errors get caught and returned
       if (error instanceof HttpException) {
@@ -64,7 +73,7 @@ export class BiayaController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to create biaya',
+          message: 'Failed to create biaya emkl',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -72,7 +81,7 @@ export class BiayaController {
   }
 
   @Get()
-  //@BIAYA
+  //@BIAYA-EMKL
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
@@ -98,7 +107,7 @@ export class BiayaController {
     const trx = await dbMssql.transaction();
 
     try {
-      const result = await this.biayaService.findAll(params, trx);
+      const result = await this.biayaemklService.findAll(params, trx);
       trx.commit();
 
       return result;
@@ -111,24 +120,24 @@ export class BiayaController {
 
   @UseGuards(AuthGuard)
   @Put('update/:id')
-  //@BIAYA
+  //@BIAYA-EMKL
   async update(
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateBiayaSchema))
-    data: UpdateBiayaDto,
+    @Body(new ZodValidationPipe(UpdateBiayaemklSchema))
+    data: UpdateBiayaemklDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.biayaService.update(+id, data, trx);
+      const result = await this.biayaemklService.update(+id, data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error updating biaya in controller:', error);
+      console.error('Error updating biaya emkl in controller:', error);
       if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
       }
@@ -137,7 +146,7 @@ export class BiayaController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to create biaya',
+          message: 'Failed to create biaya emkl',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -146,11 +155,11 @@ export class BiayaController {
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  //@BIAYA
+  //@BIAYA-EMKL
   async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.biayaService.delete(
+      const result = await this.biayaemklService.delete(
         +id,
         trx,
         req.user?.user?.username,
@@ -164,7 +173,7 @@ export class BiayaController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error deleting biaya in controller:', error);
+      console.error('Error deleting biaya emkl in controller:', error);
 
       if (error instanceof NotFoundException) {
         throw error;
@@ -183,7 +192,7 @@ export class BiayaController {
         throw new Error('Data is not an array or is undefined.');
       }
 
-      const tempFilePath = await this.biayaService.exportToExcel(data);
+      const tempFilePath = await this.biayaemklService.exportToExcel(data);
 
       const fileStream = fs.createReadStream(tempFilePath);
 
@@ -193,7 +202,7 @@ export class BiayaController {
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_biaya.xlsx"',
+        'attachment; filename="laporan_biayaemkl.xlsx"',
       );
 
       fileStream.pipe(res);

@@ -54,62 +54,17 @@ export class KasgantungheaderService {
         }
       });
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti));
-      console.log('insertData', insertData);
-      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
-      const parameterCabang = await trx('parameter')
-        .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
-        .where('grp', 'CABANG')
-        .andWhere('subgrp', 'CABANG')
-        .first();
-      const formatpengeluarangantung = await trx(`bank as b`)
-        .select('p.grp', 'p.subgrp', 'b.formatpengeluarangantung')
-        .leftJoin('parameter as p', 'p.id', 'b.formatpengeluarangantung')
-        .where('b.id', insertData.bank_id)
-        .first();
-      const grp = formatpengeluarangantung.grp;
-      const subgrp = formatpengeluarangantung.subgrp;
-      const cabangId = parameterCabang.cabang_id;
+      insertData.created_at = this.utilsService.getTime();
+      insertData.updated_at = this.utilsService.getTime();
 
-      const nomorBukti = await this.runningNumberService.generateRunningNumber(
-        trx,
-        grp,
-        subgrp,
-        this.tableName,
-        insertData.tglbukti,
-        cabangId,
-      );
-      insertData.nobukti = nomorBukti;
-
-      // Insert data ke kas gantung header
-      const insertedKasGantungItems = await trx(this.tableName)
-        .insert(insertData)
-        .returning('*');
-
-      // Insert detail kas gantung jika ada
-      if (details.length > 0) {
-        const detailsWithNobukti = details.map((detail: any) => ({
-          ...detail,
-          nobukti: nomorBukti, // Inject nobukti into each detail
-          modifiedby: insertData.modifiedby,
-        }));
-
-        await this.kasgantungdetailService.create(
-          detailsWithNobukti,
-          insertedKasGantungItems[0].id,
-          trx,
-        );
-      }
-
-      // Prepare data untuk insert ke pengeluaran
       const pengeluaranHeaderData = {
         tglbukti: data.tglbukti,
         keterangan: insertData.keterangan,
-        relasi_id: insertData.relasi_id, // Sesuaikan dengan field yang ada
+        relasi_id: insertData.relasi_id,
         bank_id: insertData.bank_id,
         alatbayar_id: insertData.alatbayar_id,
       };
 
-      // Prepare detail data untuk pengeluaran
       const pengeluaranDetails = details.map((detail: any) => ({
         id: 0,
         coadebet: detail.coadebet ?? null,
@@ -130,29 +85,80 @@ export class KasgantungheaderService {
         modifiedby: detail.modifiedby ?? null,
       }));
 
-      // Insert data ke pengeluaran
       const pengeluaranData = {
         ...pengeluaranHeaderData,
         details: pengeluaranDetails,
       };
-      // Call pengeluaran service untuk insert
+
       const pengeluaranResult = await this.pengeluaranheaderService.create(
         pengeluaranData,
         trx,
       );
 
-      // Update kas gantung dengan nomor bukti pengeluaran (konsep dua arah)
-      const updatedKasGantung = await trx(this.tableName)
-        .where('id', insertedKasGantungItems[0].id)
-        .update({
-          pengeluaran_nobukti: pengeluaranResult.newItem.nobukti,
-          updated_at: new Date(),
-        })
+      const pengeluaranNoBukti = pengeluaranResult?.newItem?.nobukti;
+      if (!pengeluaranNoBukti) {
+        throw new Error('Gagal membuat pengeluaran: nobukti tidak terbentuk');
+      }
+
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+      const parameterCabang = await trx('parameter')
+        .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
+        .where('grp', 'CABANG')
+        .andWhere('subgrp', 'CABANG')
+        .first();
+      const formatpengeluarangantung = await trx(`bank as b`)
+        .select('p.grp', 'p.subgrp', 'b.formatpengeluarangantung')
+        .leftJoin('parameter as p', 'p.id', 'b.formatpengeluarangantung')
+        .where('b.id', insertData.bank_id)
+        .first();
+
+      const grp = formatpengeluarangantung.grp;
+      const subgrp = formatpengeluarangantung.subgrp;
+      const cabangId = parameterCabang.cabang_id;
+
+      if (!grp || !subgrp) {
+        throw new Error(
+          'Format nomor kas gantung (grp/subgrp) tidak ditemukan',
+        );
+      }
+
+      const nomorBuktiKasGantung =
+        await this.runningNumberService.generateRunningNumber(
+          trx,
+          grp,
+          subgrp,
+          this.tableName,
+          insertData.tglbukti,
+          cabangId,
+        );
+
+      insertData.nobukti = nomorBuktiKasGantung;
+      insertData.pengeluaran_nobukti = pengeluaranNoBukti;
+
+      // Insert data ke kas gantung header
+      const insertedKasGantungItems = await trx(this.tableName)
+        .insert(insertData)
         .returning('*');
 
-      const newItem = updatedKasGantung[0];
+      const newHeaderId = insertedKasGantungItems?.[0]?.id;
+      if (!newHeaderId) {
+        throw new Error('Insert kas gantung header gagal');
+      }
 
-      // Get filtered items untuk response
+      if ((details || []).length > 0) {
+        const detailsWithNobukti = details.map((detail: any) => ({
+          ...detail,
+          nobukti: nomorBuktiKasGantung,
+          modifiedby: detail.modifiedby ?? insertData.modifiedby,
+        }));
+
+        await this.kasgantungdetailService.create(
+          detailsWithNobukti,
+          newHeaderId,
+          trx,
+        );
+      }
+
       const { data: filteredItems } = await this.findAll(
         {
           search,
@@ -166,17 +172,12 @@ export class KasgantungheaderService {
 
       // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex(
-        (item) => Number(item.id) === Number(newItem.id),
+        (item) => Number(item.id) === Number(newHeaderId),
       );
-
-      if (itemIndex === -1) {
-        itemIndex = 0;
-      }
+      if (itemIndex === -1) itemIndex = 0;
 
       const pageNumber = Math.floor(itemIndex / limit) + 1;
       const endIndex = pageNumber * limit;
-
-      // Ambil data hingga halaman yang mencakup item baru
       const limitedItems = filteredItems.slice(0, endIndex);
 
       // Simpan ke Redis
@@ -190,23 +191,24 @@ export class KasgantungheaderService {
         {
           namatabel: this.tableName,
           postingdari: `ADD KAS GANTUNG HEADER`,
-          idtrans: newItem.id,
-          nobuktitrans: newItem.id,
+          idtrans: newHeaderId,
+          nobuktitrans: newHeaderId,
           aksi: 'ADD',
-          datajson: JSON.stringify(newItem),
-          modifiedby: newItem.modifiedby,
+          datajson: JSON.stringify(insertedKasGantungItems[0]),
+          modifiedby: insertedKasGantungItems[0]?.modifiedby,
         },
         trx,
       );
 
       return {
         newItem: {
-          ...newItem,
-          pengeluaran_data: pengeluaranResult.newItem, // Include pengeluaran data in response
+          ...insertedKasGantungItems[0],
+          pengeluaran_data: pengeluaranResult.newItem,
         },
         pageNumber,
         itemIndex,
-        pengeluaran_nobukti: pengeluaranResult.newItem.nobukti, // Return pengeluaran nobukti
+        pengeluaran_nobukti: pengeluaranNoBukti,
+        kasgantung_nobukti: nomorBuktiKasGantung,
       };
     } catch (error) {
       console.error('Error in kas gantung create:', error);
