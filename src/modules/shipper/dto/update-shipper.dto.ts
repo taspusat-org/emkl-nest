@@ -8,13 +8,13 @@ export const UpdateShipperSchema = z
     contactperson: z.string().nullable().optional(),
     alamat: z.string().nullable().optional(),
 
-    coa: z.number().min(1, { message: 'COA is required' }),
+    coa: z.string().min(1, { message: 'COA is required' }),
     coa_text: z.string().nullable().optional(),
 
-    coapiutang: z.number().min(1, { message: 'COAPIUTANG is required' }),
+    coapiutang: z.string().min(1, { message: 'COAPIUTANG is required' }),
     coapiutang_text: z.string().nullable().optional(),
 
-    coahutang: z.number().min(1, { message: 'COAHUTANG is required' }),
+    coahutang: z.string().min(1, { message: 'COAHUTANG is required' }),
     coahutang_text: z.string().nullable().optional(),
 
     kota: z.string().nullable().optional(),
@@ -32,7 +32,7 @@ export const UpdateShipperSchema = z
 
     npwp: z.string().min(1, { message: 'NPWP Wajib Diisi' }),
 
-    coagiro: z.number().min(1, { message: 'COAGIRO is required' }),
+    coagiro: z.string().min(1, { message: 'COAGIRO is required' }),
     coagiro_text: z.string().nullable().optional(),
 
     ppn: z.string().nullable().optional(),

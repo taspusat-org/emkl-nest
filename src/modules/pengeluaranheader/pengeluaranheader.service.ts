@@ -45,15 +45,21 @@ export class PengeluaranheaderService {
         daftarbank_text,
         coakredit_text,
         details,
+        modifiedby,
+        created_at,
+        updated_at,
         ...insertData
       } = data;
-      console.log(data, 'iniwweee');
+
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
+      insertData.modifiedby = modifiedby;
+      insertData.created_at = created_at || this.utilsService.getTime();
+      insertData.updated_at = updated_at || this.utilsService.getTime();
 
       const getCabang = await trx('parameter')
         .select('memo')

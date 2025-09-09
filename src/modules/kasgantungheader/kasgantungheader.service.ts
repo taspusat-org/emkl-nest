@@ -122,8 +122,10 @@ export class KasgantungheaderService {
         tglinvoiceemkl: detail.tglinvoiceemkl ?? null,
         nofakturpajakemkl: detail.nofakturpajakemkl ?? null,
         perioderefund: detail.perioderefund ?? null,
-        pengeluaranheader_nobukti: detail.pengeluaranheader_nobukti ?? null,
-        penerimaanheader_nobukti: detail.penerimaanheader_nobukti ?? null,
+        pengeluaranemklheader_nobukti:
+          detail.pengeluaranemklheader_nobukti ?? null,
+        penerimaanemklheader_nobukti:
+          detail.penerimaanemklheader_nobukti ?? null,
         info: detail.info ?? null,
         modifiedby: detail.modifiedby ?? null,
       }));
