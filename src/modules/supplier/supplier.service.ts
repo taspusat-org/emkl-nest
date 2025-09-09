@@ -1,33 +1,27 @@
-import {
-  Inject,
-  Injectable,
-  HttpException,
-  HttpStatus,
-  NotFoundException,
-  InternalServerErrorException,
-} from '@nestjs/common';
+
 import * as fs from 'fs';
 import * as path from 'path';
 import { Column, Workbook } from 'exceljs';
-import { dbMssql } from 'src/common/utils/db';
-import { UtilsService } from 'src/utils/utils.service';
+import { LocksService } from '../locks/locks.service';
 import { GlobalService } from '../global/global.service';
+import { RelasiService } from '../relasi/relasi.service';
 import { RedisService } from 'src/common/redis/redis.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
-import { LocksService } from '../locks/locks.service';
+import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
+import { HttpException, HttpStatus, Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 
 @Injectable()
-export class TypeAkuntansiService {
-  private readonly tableName: string = 'typeakuntansi';
+export class SupplierService {
+  private readonly tableName = 'supplier';
 
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilService: UtilsService,
-    private readonly globalService: GlobalService,
     private readonly locksService: LocksService,
+    private readonly globalService: GlobalService,
+    private readonly relasiService: RelasiService,
     private readonly logTrailService: LogtrailService,
-    private readonly utilsService: UtilsService,
   ) {}
 
   async create(createData: any, trx: any) {
@@ -40,15 +34,27 @@ export class TypeAkuntansiService {
         page,
         limit,
         method,
-        statusaktif_text,
-        akuntansi_nama,
+        statusaktif_nama,
+        coa_nama,
+        coapiu_nama,
+        coahut_nama,
+        coagiro_nama,
         id,
         ...insertData
       } = createData;
-      console.log('insertData', insertData);
+      insertData.updated_at = this.utilService.getTime();
+      insertData.created_at = this.utilService.getTime();      
+
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
-          insertData[key] = insertData[key].toUpperCase();
+          const value = insertData[key];
+          const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
+
+          if (dateRegex.test(value)) {
+            insertData[key] = formatDateToSQL(value);
+          } else {
+            insertData[key] = insertData[key].toUpperCase();
+          }
         }
       });
 
@@ -56,11 +62,35 @@ export class TypeAkuntansiService {
         .insert(insertData)
         .returning('*');
 
-      const newItem = insertedData[0];
+      const statusRelasi = await trx('parameter')
+        .select('*')
+        .where('grp', 'STATUS RELASI')
+        .where('text', this.tableName)
+        .first();
 
-      // Ambil data utk dimasukkan ke temp table
-      // ==== NEW ==== kalau kamu sudah menambahkan flag forTemp di findAll,
-      // set forTemp: true agar created_at/updated_at tidak di-FORMAT dan kolom ekstra tidak dipilih
+      const relasi = {
+        statusrelasi: statusRelasi.id,
+        nama: insertData.nama,
+        coagiro: insertData.coagiro,
+        coapiutang: insertData.coapiu,
+        coahutang: insertData.coahut,
+        alamat: insertData.alamat,
+        npwp: insertData.npwp,
+        namapajak: insertData.namapajak,
+        alamatpajak: insertData.alamatfakturpajak,
+        statusaktif: insertData.statusaktif,
+        modifiedby: insertData.modifiedby,
+      };
+      const insertRelasi = await this.relasiService.create(relasi, trx);
+
+      const newItem = insertedData[0];
+      await trx(this.tableName)
+        .update({
+          relasi_id: Number(insertRelasi.id),
+        })
+        .where('id', newItem.id)
+        .returning('*');
+
       const { data, pagination } = await this.findAll(
         {
           search,
@@ -68,7 +98,6 @@ export class TypeAkuntansiService {
           pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
-          // forTemp: true, // <-- aktifkan kalau kamu sudah implement opsi ini di findAll
         },
         trx,
       );
@@ -77,9 +106,8 @@ export class TypeAkuntansiService {
         dataIndex = 0;
       }
 
-      // Optionally, you can find the page number or other info if needed
       const pageNumber = pagination?.currentPage;
-      // simpan cache & log seperti sebelumnya
+      
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(data),
@@ -88,7 +116,7 @@ export class TypeAkuntansiService {
       await this.logTrailService.create(
         {
           namatable: this.tableName,
-          postingdari: 'ADD TYPE AKUNTANSI',
+          postingdari: 'ADD SUPPLIER',
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -98,9 +126,13 @@ export class TypeAkuntansiService {
         trx,
       );
 
-      return { newItem, pageNumber, dataIndex };
+      return { 
+        newItem, 
+        pageNumber, 
+        dataIndex 
+      };
     } catch (error) {
-      throw new Error(`Error creating type akuntansi: ${error.message}`);
+      throw new Error(`Error creating supplier: ${error.message}`);
     }
   }
 
@@ -109,9 +141,7 @@ export class TypeAkuntansiService {
     trx: any,
   ) {
     try {
-      console.log('pagination', pagination);
       let { page, limit } = pagination ?? {};
-
       page = page ?? 1;
       limit = 0;
 
@@ -133,33 +163,82 @@ export class TypeAkuntansiService {
         }
       }
 
-      const query = trx(`${this.tableName} as u`)
+      const query = trx.from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
         .select([
           'u.id as id',
           'u.nama',
-          'u.order',
           'u.keterangan',
-          'u.akuntansi_id',
+          'u.contactperson',
+          'u.ktp',
+          'u.alamat',
+          'u.coa',
+          'u.coapiu',
+          'u.coahut',
+          'u.coagiro',
+          'u.kota',
+          'u.kodepos',
+          'u.telp',
+          'u.email',
+          'u.fax',
+          'u.web',
+          'u.creditterm',
+          'u.credittermplus',
+          'u.npwp',
+          'u.alamatfakturpajak',
+          'u.namapajak',
+          'u.nominalpph21',
+          'u.nominalpph23',
+          'u.noskb',
+          trx.raw("FORMAT(u.tglskb, 'dd-MM-yyyy') as tglskb"),
+          'u.nosk',
+          trx.raw("FORMAT(u.tglsk, 'dd-MM-yyyy') as tglsk"),
           'u.statusaktif',
           'u.modifiedby',
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'p.memo',
-          'p.text as statusaktif_text',
-          'ak.nama as akuntansi_nama',
+          'p.text as statusaktif_nama',
+          'coa.keterangancoa as coa_nama',
+          'coapiu.keterangancoa as coapiu_nama',
+          'coahut.keterangancoa as coahut_nama',
+          'coagiro.keterangancoa as coagiro_nama',
         ])
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
-        .leftJoin('akuntansi as ak', 'u.akuntansi_id', 'ak.id');
-
+        .leftJoin('akunpusat as coa', 'u.coa', 'coa.coa')
+        .leftJoin('akunpusat as coapiu', 'u.coapiu', 'coapiu.coa')
+        .leftJoin('akunpusat as coahut', 'u.coahut', 'coahut.coa')
+        .leftJoin('akunpusat as coagiro', 'u.coagiro', 'coagiro.coa');
+      
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
           builder
             .orWhere('u.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.order', 'like', `%${sanitizedValue}%`)
             .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('ak.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.text', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.contactperson', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.ktp', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.alamat', 'like', `%${sanitizedValue}%`)
+            .orWhere('coa.keterangancoa', 'like', `%${sanitizedValue}%`)
+            .orWhere('coapiu.keterangancoa', 'like', `%${sanitizedValue}%`)
+            .orWhere('coahut.keterangancoa', 'like', `%${sanitizedValue}%`)
+            .orWhere('coagiro.keterangancoa', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.kota', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.kodepos', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.telp', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.email', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.fax', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.web', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.creditterm', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.credittermplus', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.npwp', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.alamatfakturpajak', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.namapajak', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.nominalpph21', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.nominalpph23', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.noskb', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.tglskb', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.nosk', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.tglsk', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
             .orWhere('u.created_at', 'like', `%${sanitizedValue}%`)
             .orWhere('u.updated_at', 'like', `%${sanitizedValue}%`);
@@ -175,31 +254,44 @@ export class TypeAkuntansiService {
                 key,
                 `%${sanitizedValue}%`,
               ]);
-            } else if (key === 'statusaktif_text' || key === 'memo') {
-              query.andWhere(`p.text`, '=', sanitizedValue);
-            } else if (key === 'akuntansi') {
-              query.andWhere('ak.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'statusaktif_text') {
+              query.andWhere(`p.id`, '=', sanitizedValue);
+            } else if (key === 'coa_text') {
+              query.andWhere(`coa.keterangancoa`, '=', sanitizedValue);
+            } else if (key === 'coapiu_text') {
+              query.andWhere('coapiu.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'coahut_text') {
+              query.andWhere(`coahut.keterangancoa`, '=', sanitizedValue);
+            } else if (key === 'coagiro_text') {
+              query.andWhere(`coagiro.keterangancoa`, '=', sanitizedValue);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
           }
         }
       }
-      // console.log('KENAPA DATANYA KOSONG', await query, search, filters, pagination, sort, limit);
-      // console.log('KENAPA DATANYA KOSONG', await query, filters);
 
       const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
-      // const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
       const totalPages = Math.ceil(total / limit);
 
       if (sort?.sortBy && sort?.sortDirection) {
-        query.orderBy(sort.sortBy, sort.sortDirection);
+        if (sort?.sortBy == 'coa') {
+          query.orderBy('coa.keterangancoa', sort.sortDirection);
+        } else if (sort?.sortBy == 'coapiu') {
+          query.orderBy('coapiu.keterangancoa', sort.sortDirection);
+        } else if (sort?.sortBy == 'coahut') {
+          query.orderBy('coahut.keterangancoa', sort.sortDirection);
+        } else if (sort?.sortBy == 'coagiro') {
+          query.orderBy('coagiro.keterangancoa', sort.sortDirection);
+        } else {
+          query.orderBy(sort.sortBy, sort.sortDirection);
+        }
       }
 
       const data = await query;
-      console.log('data', data);
       const responseType = Number(total) > 500 ? 'json' : 'local';
+      console.log('search', search, 'data', data);
 
       return {
         data: data,
@@ -213,69 +305,16 @@ export class TypeAkuntansiService {
         },
       };
     } catch (error) {
-      console.error('Error to findAll Type Akuntansi', error);
+      console.error('Error to findAll Supplier', error);
       throw new Error(error);
     }
   }
 
-  // async findAllByIds(ids: { id: number }[]) {
-  //   try {
-  //     const idList = ids.map((item) => item.id)
-
-  //     const tempData = `##temp_${Math.random().toString(36).substring(2, 15)}`;
-
-  //     // Membuat temporary table
-  //     const createTempTableQuery = `CREATE TABLE ${tempData} (id INT);`;
-  //     await dbMssql.raw(createTempTableQuery);
-
-  //     // Memasukkan data ID ke dalam temporary table
-  //     const insertTempTableQuery = `
-  //       INSERT INTO ${tempData} (id)
-  //       VALUES ${idList.map((id) => `(${id})`).join(', ')};
-  //     `;
-  //     await dbMssql.raw(insertTempTableQuery);
-
-  //     // Query utama dengan JOIN ke temporary table
-  //     const query = dbMssql(`${this.tableName} as u`)
-  //       .select([
-  //         'u.id as id',
-  //         'u.nama',
-  //         'u.order',
-  //         'u.keterangan',
-  //         'u.akuntansi_id',
-  //         'u.statusaktif',
-  //         'u.modifiedby',
-  //         dbMssql.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-  //         dbMssql.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-  //         'p.memo',
-  //         'p.text',
-  //         'q.nama'
-  //       ])
-  //       .join('parameter as p', 'u.statusaktif', 'p.id')
-  //       // .leftJoin('akuntansi as q', 'u.akuntansi_id', 'q.id');
-  //       .join(dbMssql.raw(`${tempData} as temp`), 'u.id', 'temp.id') // Menggunakan JOIN antar tabel user dan temporary table
-  //       .orderBy('u.nama', 'ASC');
-
-  //     const data = await query;
-
-  //     const dropTempTableQuery = `DROP TABLE ${tempData};`;
-  //     await dbMssql.raw(dropTempTableQuery);
-
-  //     return data;
-  //   } catch (error) {
-  //     console.error('Error fetching data:', error);
-  //     throw new Error('Failed to fetch data');
-  //   }
-  // }
-
   async update(dataId: number, data: any, trx: any) {
     try {
-      const existingData = await trx(this.tableName)
-        .where('id', dataId)
-        .first();
+      const existingData = await trx(this.tableName).where('id', dataId).first();
 
       if (!existingData) {
-        // throw new Error('Data Not Found!');
         throw new HttpException(
           {
             statusCode: HttpStatus.BAD_REQUEST,
@@ -292,26 +331,60 @@ export class TypeAkuntansiService {
         search,
         page,
         limit,
-        statusaktif_text,
-        akuntansi_nama,
-        id,
         method,
+        statusaktif_nama,
+        coa_nama,
+        coapiu_nama,
+        coahut_nama,
+        coagiro_nama,
+        id,
         ...updateData
       } = data;
 
       Object.keys(updateData).forEach((key) => {
         if (typeof updateData[key] === 'string') {
-          updateData[key] = updateData[key].toUpperCase();
+          const value = updateData[key];
+          const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
+
+          if (dateRegex.test(value)) {
+            updateData[key] = formatDateToSQL(value);
+          } else {
+            updateData[key] = updateData[key].toUpperCase();
+          }
         }
       });
 
       const hasChanges = this.utilService.hasChanges(updateData, existingData);
-
       if (hasChanges) {
         updateData.updated_at = this.utilService.getTime();
-        await trx(this.tableName).where('id', id).update(updateData);
+        await trx(this.tableName).where('id', dataId).update(updateData);
       }
 
+      const statusRelasi = await trx('parameter')
+        .select('*')
+        .where('grp', 'STATUS RELASI')
+        .where('text', this.tableName)
+        .first();
+        
+      const relasi = {
+        statusrelasi: statusRelasi.id,
+        nama: updateData.nama,
+        coagiro: updateData.coagiro,
+        coapiutang: updateData.coapiu,
+        coahutang: updateData.coahut,
+        alamat: updateData.alamat,
+        npwp: updateData.npwp,
+        namapajak: updateData.namapajak,
+        alamatpajak: updateData.alamatfakturpajak,
+        statusaktif: updateData.statusaktif,
+        modifiedby: updateData.modifiedby,
+      };
+
+      const updateRelasi = await this.relasiService.update(
+        existingData.relasi_id,
+        relasi,
+        trx,
+      );
       const { data: filteredData, pagination } = await this.findAll(
         {
           search,
@@ -324,21 +397,18 @@ export class TypeAkuntansiService {
       );
 
       let dataIndex = filteredData.findIndex(
-        (item) => Number(item.id) === Number(id),
+        (item) => Number(item.id) === Number(dataId),
       );
       if (dataIndex === -1) {
         dataIndex = 0;
       }
-      // console.log('all dataa', filteredData, 'dataIndex', dataIndex);
 
-      if (dataIndex === -1) {
-        throw new Error('Updated item not found in all items');
-      }
+      // if (dataIndex === -1) {
+      //   throw new Error('Updated item not found in all items');
+      // }
 
       const itemsPerPage = limit || 30;
       const pageNumber = Math.floor(dataIndex / itemsPerPage) + 1;
-
-      // ambil data hingga halaman yg mencakup item yg baru diupdate
       const endIndex = pageNumber * itemsPerPage;
       const limitedItems = filteredData.slice(0, endIndex);
 
@@ -350,9 +420,9 @@ export class TypeAkuntansiService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'EDIT TYPE AKUNTANSI',
-          idtrans: id,
-          nobuktitrans: id,
+          postingdari: 'EDIT SUPPLIER',
+          idtrans: dataId,
+          nobuktitrans: dataId,
           aksi: 'EDIT',
           datajson: JSON.stringify(data),
           modifiedby: data.modifiedby,
@@ -362,7 +432,7 @@ export class TypeAkuntansiService {
 
       return {
         newItems: {
-          id,
+          dataId,
           ...data,
         },
         pageNumber,
@@ -373,8 +443,8 @@ export class TypeAkuntansiService {
         throw error; // If it's already a HttpException, rethrow it
       }
 
-      console.error('Error updating type akuntansi:', error);
-      throw new Error('Failed to update type akuntansi');
+      console.error('Error updating supplier:', error);
+      throw new Error('Failed to update supplier');
     }
   }
 
@@ -390,7 +460,7 @@ export class TypeAkuntansiService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE TYPE AKUNTANSI',
+          postingdari: 'DELETE SUPPLIER',
           idtrans: id,
           nobuktitrans: id,
           aksi: 'DELETE',
@@ -398,6 +468,12 @@ export class TypeAkuntansiService {
           modifiedby: modifiedby,
         },
         trx,
+      );
+
+      const dataRelasi = await this.relasiService.delete(
+        deletedData.relasi_id,
+        trx,
+        modifiedby,
       );
 
       return {
@@ -426,14 +502,21 @@ export class TypeAkuntansiService {
 
         return forceEdit;
       } else if (aksi === 'DELETE') {
-        const validasi = await this.globalService.checkUsed(
-          'akunpusat',
-          'type_id',
-          value,
-          trx,
-        );
+        // const validasi = await this.globalService.checkUsed(
+        //   'akunpusat',
+        //   'type_id',
+        //   value,
+        //   trx,
+        // );
 
-        return validasi;
+        // return validasi;
+        return {
+          // tableName: tableName,
+          // fieldName: fieldName,
+          // fieldValue: fieldValue,
+          status: 'success',
+          message: 'Data aman untuk dihapus.',
+        };
       }
     } catch (error) {
       console.error('Error di checkValidasi:', error);
@@ -445,11 +528,11 @@ export class TypeAkuntansiService {
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Data Export');
 
-    worksheet.mergeCells('A1:F1');
-    worksheet.mergeCells('A2:F2');
-    worksheet.mergeCells('A3:F3');
+    worksheet.mergeCells('A1:J1');
+    worksheet.mergeCells('A2:J2');
+    worksheet.mergeCells('A3:J3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
-    worksheet.getCell('A2').value = 'LAPORAN TYPE AKUNTANSI';
+    worksheet.getCell('A2').value = 'LAPORAN SUPPLIER';
     worksheet.getCell('A3').value = 'Data Export';
     ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
       worksheet.getCell(cellKey).alignment = {
@@ -467,9 +550,31 @@ export class TypeAkuntansiService {
     const headers = [
       'NO.',
       'NAMA',
-      'ORDER',
       'KETERANGAN',
-      'AKUNTANSI',
+      'CONTACT PERSON',
+      'KTP',
+      'ALAMAT',
+      'COA',
+      'COA PIUTANG',
+      'COA HUTANG',
+      'COA GIRO',
+      'KOTA',
+      'KODE POS',
+      'TELP',
+      'EMAIL',
+      'FAX',
+      'WEB',
+      'CREDIT TERM',
+      'CREDIT TERM PLUS',
+      'NPWP',
+      'ALAMAT FAKTUR PAJAK',
+      'NAMA PAJAK',
+      'NOMINAL PPH 21',
+      'NOMINAL PPH 23',
+      'NO SKB',
+      'TGL SKB',
+      'NO SK',
+      'TGL SK',
       'STATUS AKTIF',
     ];
 
@@ -510,23 +615,52 @@ export class TypeAkuntansiService {
       const rowValues = [
         rowIndex + 1,
         row.nama,
-        row.order,
         row.keterangan,
-        row.akuntansi_nama,
-        row.statusaktif_text,
+        row.contactperson,
+        row.ktp,
+        row.alamat,
+        row.coa_nama,
+        row.coapiu_nama,
+        row.coahut_nama,
+        row.coagiro_nama,
+        row.kota,
+        row.kodepos,
+        row.telp,
+        row.email,
+        row.fax,
+        row.web,
+        row.creditterm,
+        row.credittermplus,
+        row.npwp,
+        row.alamatfakturpajak,
+        row.namapajak,
+        row.nominalpph21,
+        row.nominalpph23,
+        row.noskb,
+        row.tglskb,
+        row.nosk,
+        row.tglsk,
+        row.statusaktif_nama,
       ];
 
       rowValues.forEach((value, colIndex) => {
         const cell = worksheet.getCell(currentRow, colIndex + 1);
 
-        if (colIndex === 2) {
+        if (colIndex === 4 || colIndex === 11 || colIndex === 12 || colIndex === 16 || colIndex === 17) {
           cell.value = Number(value);
           cell.numFmt = '0'; // format angka dengan ribuan
           cell.alignment = {
             horizontal: 'right',
             vertical: 'middle',
           };
-        } else {
+        } else if (colIndex === 21 || colIndex === 22) {
+          cell.value = Number(value);
+          cell.numFmt = '"Rp"#,##0'; // format angka dengan ribuan
+          cell.alignment = {
+            horizontal: 'right',
+            vertical: 'middle',
+          };
+        }else {
           cell.value = value ?? '';
           cell.alignment = {
             horizontal: colIndex === 0 ? 'right' : 'left',
@@ -569,10 +703,18 @@ export class TypeAkuntansiService {
 
     const tempFilePath = path.resolve(
       tempDir,
-      `laporan_type_akuntansi_${Date.now()}.xlsx`,
+      `laporan_supplier_${Date.now()}.xlsx`,
     );
     await workbook.xlsx.writeFile(tempFilePath);
 
     return tempFilePath;
   }
+
+  findOne(id: number) {
+    return `This action returns a #${id} supplier`;
+  }
+
+
+
+
 }
