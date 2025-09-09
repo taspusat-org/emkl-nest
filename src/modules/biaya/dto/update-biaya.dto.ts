@@ -12,9 +12,7 @@ export const UpdateBiayaSchema = z
     coahut: z.string().nullable().optional(),
     keterangancoahut: z.string().nullable().optional(),
 
-    jenisorderan_id: z
-      .number()
-      .min(1, { message: 'JENIS ORDERAN is required' }),
+    jenisorderan_id: z.number().optional().nullable(),
     jenisorderan_text: z.string().nullable().optional(),
 
     statusaktif: z.number().min(1, { message: 'STATUSAKTIF is required' }),

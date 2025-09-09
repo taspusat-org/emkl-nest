@@ -81,6 +81,7 @@ import { PengeluarandetailModule } from './modules/pengeluarandetail/pengeluaran
 import { PenerimaanheaderModule } from './modules/penerimaanheader/penerimaanheader.module';
 import { PenerimaandetailModule } from './modules/penerimaandetail/penerimaandetail.module';
 import { BiayaModule } from './modules/biaya/biaya.module';
+import { BiayaemklModule } from './modules/biayaemkl/biayaemkl.module';
 
 @Module({
   imports: [
@@ -163,6 +164,7 @@ import { BiayaModule } from './modules/biaya/biaya.module';
     PenerimaanheaderModule,
     PenerimaandetailModule,
     BiayaModule,
+    BiayaemklModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

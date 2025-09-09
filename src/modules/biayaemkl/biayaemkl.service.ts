@@ -4,8 +4,8 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateBiayaDto } from './dto/create-biaya.dto';
-import { UpdateBiayaDto } from './dto/update-biaya.dto';
+import { CreateBiayaemklDto } from './dto/create-biayaemkl.dto';
+import { UpdateBiayaemklDto } from './dto/update-biayaemkl.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
@@ -15,14 +15,14 @@ import * as path from 'path';
 import { Workbook, Column } from 'exceljs';
 
 @Injectable()
-export class BiayaService {
+export class BiayaemklService {
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
-  private readonly tableName = 'biaya';
-  async create(CreateBiayaDto: any, trx: any) {
+  private readonly tableName = 'biayaemkl';
+  async create(CreateBiayaemklDto: any, trx: any) {
     try {
       const {
         sortBy,
@@ -33,7 +33,7 @@ export class BiayaService {
         limit,
         nama,
         keterangan,
-        coa,
+        biaya_id,
         coahut,
         jenisorderan_id,
         statusaktif,
@@ -41,11 +41,11 @@ export class BiayaService {
         created_at,
         updated_at,
         info,
-      } = CreateBiayaDto;
+      } = CreateBiayaemklDto;
       const insertData = {
         nama: nama ? nama.toUpperCase() : null,
         keterangan: keterangan ? keterangan.toUpperCase() : null,
-        coa: coa,
+        biaya_id: biaya_id,
         coahut: coahut,
         jenisorderan_id: jenisorderan_id,
         statusaktif: statusaktif,
@@ -81,7 +81,7 @@ export class BiayaService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'ADD BIAYA',
+          postingdari: 'ADD BIAYA EMKL',
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -96,7 +96,7 @@ export class BiayaService {
         itemIndex,
       };
     } catch (error) {
-      throw new Error(`Error creating biaya: ${error.message}`);
+      throw new Error(`Error creating biaya emkl: ${error.message}`);
     }
   }
 
@@ -130,7 +130,7 @@ export class BiayaService {
           'b.id',
           'b.nama',
           'b.keterangan',
-          'b.coa',
+          'b.biaya_id',
           'b.coahut',
           'b.jenisorderan_id',
           'b.statusaktif',
@@ -140,9 +140,9 @@ export class BiayaService {
           trx.raw("FORMAT(b.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'p.memo',
           'p.text',
-          'p2.keterangancoa as coa_text',
-          'p3.keterangancoa as coahut_text',
-          'p4.nama as jenisorderan_text',
+          'p1.nama as biaya_text',
+          'p2.keterangancoa as coahut_text',
+          'p3.nama as jenisorderan_text',
         ])
         .leftJoin(
           trx.raw('parameter as p WITH (READUNCOMMITTED)'),
@@ -150,19 +150,19 @@ export class BiayaService {
           'p.id',
         )
         .leftJoin(
+          trx.raw('biaya as p1 WITH (READUNCOMMITTED)'),
+          'b.biaya_id',
+          'p1.id',
+        )
+        .leftJoin(
           trx.raw('akunpusat as p2 WITH (READUNCOMMITTED)'),
-          'b.coa',
+          'b.coahut',
           'p2.coa',
         )
         .leftJoin(
-          trx.raw('akunpusat as p3 WITH (READUNCOMMITTED)'),
-          'b.coahut',
-          'p3.coa',
-        )
-        .leftJoin(
-          trx.raw('jenisorderan as p4 WITH (READUNCOMMITTED)'),
+          trx.raw('jenisorderan as p3 WITH (READUNCOMMITTED)'),
           'b.jenisorderan_id',
-          'p4.id',
+          'p3.id',
         );
 
       if (search) {
@@ -172,9 +172,9 @@ export class BiayaService {
           builder
             .orWhere('b.nama', 'like', `%${val}%`)
             .orWhere('b.keterangan', 'like', `%${val}%`)
-            .orWhere('p2.keterangancoa', 'like', `%${val}%`) // coa_text
-            .orWhere('p3.keterangancoa', 'like', `%${val}%`) // coahut_text
-            .orWhere('p4.nama', 'like', `%${val}%`) // jenisorderan_text
+            .orWhere('p1.nama', 'like', `%${val}%`) // coa_text
+            .orWhere('p2.keterangancoa', 'like', `%${val}%`) // coahut_text
+            .orWhere('p3.nama', 'like', `%${val}%`) // jenisorderan_text
             .orWhere('p.memo', 'like', `%${val}%`)
             .orWhere('p.text', 'like', `%${val}%`),
         );
@@ -199,12 +199,12 @@ export class BiayaService {
             query.andWhere('p.memo', 'like', `%${val}%`);
           } else if (key === 'text') {
             query.andWhere('p.text', 'like', `%${val}%`);
-          } else if (key === 'coa_text') {
-            query.andWhere('p2.keterangancoa', 'like', `%${val}%`);
+          } else if (key === 'biaya_text') {
+            query.andWhere('p1.nama', 'like', `%${val}%`);
           } else if (key === 'coahut_text') {
-            query.andWhere('p3.keterangancoa', 'like', `%${val}%`);
+            query.andWhere('p2.keterangancoa', 'like', `%${val}%`);
           } else if (key === 'jenisorderan_text') {
-            query.andWhere('p4.nama', 'like', `%${val}%`);
+            query.andWhere('p3.nama', 'like', `%${val}%`);
           } else {
             query.andWhere(`b.${key}`, 'like', `%${val}%`);
           }
@@ -234,8 +234,8 @@ export class BiayaService {
         },
       };
     } catch (error) {
-      console.error('Error fetching biaya data:', error);
-      throw new Error('Failed to fetch biaya data');
+      console.error('Error fetching biaya emkl data:', error);
+      throw new Error('Failed to fetch biaya emkl data');
     }
   }
 
@@ -244,7 +244,7 @@ export class BiayaService {
       const existingData = await trx(this.tableName).where('id', id).first();
 
       if (!existingData) {
-        throw new Error('Biaya not found');
+        throw new Error('Biaya Emkl not found');
       }
 
       const {
@@ -254,7 +254,7 @@ export class BiayaService {
         search,
         page,
         limit,
-        coa_text,
+        biaya_text,
         coahut_text,
         jenisorderan_text,
         text,
@@ -305,7 +305,7 @@ export class BiayaService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'EDIT BIAYA',
+          postingdari: 'EDIT BIAYA EMKL',
           idtrans: id,
           nobuktitrans: id,
           aksi: 'EDIT',
@@ -324,8 +324,8 @@ export class BiayaService {
         itemIndex,
       };
     } catch (error) {
-      console.error('Error updating Biaya:', error);
-      throw new Error('Failed to update Biaya');
+      console.error('Error updating Biaya EMKL:', error);
+      throw new Error('Failed to update Biaya EMKL');
     }
   }
 
@@ -341,7 +341,7 @@ export class BiayaService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE BIAYA',
+          postingdari: 'DELETE BIAYA EMKL',
           idtrans: deletedData.id,
           nobuktitrans: deletedData.id,
           aksi: 'DELETE',
@@ -369,7 +369,7 @@ export class BiayaService {
     worksheet.mergeCells('A2:G2');
     worksheet.mergeCells('A3:G3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
-    worksheet.getCell('A2').value = 'LAPORAN BIAYA';
+    worksheet.getCell('A2').value = 'LAPORAN BIAYA EMKL';
     worksheet.getCell('A3').value = 'Data Export';
 
     ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
@@ -388,7 +388,7 @@ export class BiayaService {
       'NO.',
       'NAMA',
       'KETERANGAN',
-      'COA',
+      'BIAYA',
       'COA HUTANG',
       'JENIS ORDERAN',
       'STATUS AKTIF',
@@ -423,7 +423,7 @@ export class BiayaService {
       worksheet.getCell(currentRow, 1).value = rowIndex + 1;
       worksheet.getCell(currentRow, 2).value = row.nama;
       worksheet.getCell(currentRow, 3).value = row.keterangan;
-      worksheet.getCell(currentRow, 4).value = row.coa_text;
+      worksheet.getCell(currentRow, 4).value = row.biaya_text;
       worksheet.getCell(currentRow, 5).value = row.coahut_text;
       worksheet.getCell(currentRow, 6).value = row.jenisorderan_text;
       worksheet.getCell(currentRow, 7).value = row.text;
@@ -460,7 +460,7 @@ export class BiayaService {
 
     const tempFilePath = path.resolve(
       tempDir,
-      `laporan_biaya_${Date.now()}.xlsx`,
+      `laporan_biayaemkl_${Date.now()}.xlsx`,
     );
     await workbook.xlsx.writeFile(tempFilePath);
 
