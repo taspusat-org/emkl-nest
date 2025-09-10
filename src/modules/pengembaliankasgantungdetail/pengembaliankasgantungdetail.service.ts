@@ -19,7 +19,6 @@ export class PengembaliankasgantungdetailService {
     let insertedData = null;
     let data: any = null;
     const tempTableName = `##temp_${Math.random().toString(36).substring(2, 15)}`;
-    console.log('details2222', details);
     try {
       // Get the column info and create temporary table
       const result = await trx(this.tableName).columnInfo();
@@ -240,9 +239,7 @@ export class PengembaliankasgantungdetailService {
         'p.nominal',
         'p.info',
         'p.modifiedby',
-        'p.editing_by',
         'p.penerimaandetail_id',
-        trx.raw("FORMAT(p.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
         trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
         trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
       )

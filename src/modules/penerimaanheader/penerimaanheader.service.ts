@@ -17,6 +17,7 @@ import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { Column, Workbook } from 'exceljs';
 import * as fs from 'fs';
 import * as path from 'path';
+import { JurnalumumheaderService } from '../jurnalumumheader/jurnalumumheader.service';
 @Injectable()
 export class PenerimaanheaderService {
   constructor(
@@ -25,6 +26,9 @@ export class PenerimaanheaderService {
     private readonly utilsService: UtilsService,
     private readonly runningNumberService: RunningNumberService,
     private readonly penerimaandetailService: PenerimaandetailService,
+    private readonly globalService: GlobalService,
+    private readonly locksService: LocksService,
+    private readonly jurnalumumheaderService: JurnalumumheaderService,
   ) {}
   private readonly tableName = 'penerimaanheader';
   async create(data: any, trx: any) {
@@ -60,10 +64,19 @@ export class PenerimaanheaderService {
         .where('grp', 'CABANG')
         .andWhere('subgrp', 'CABANG')
         .first();
+
       const formatpenerimaan = await trx(`bank as b`)
-        .select('p.grp', 'p.subgrp', 'b.formatpenerimaan')
+        .select('p.grp', 'p.subgrp', 'b.formatpenerimaan', 'b.coa')
         .leftJoin('parameter as p', 'p.id', 'b.formatpenerimaan')
         .where('b.id', insertData.bank_id)
+        .first();
+      const parameter = await trx('parameter')
+        .select(
+          'grp',
+          'subgrp',
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+        )
+        .where('id', formatpenerimaan.formatpenerimaan)
         .first();
       const grp = formatpenerimaan.grp;
       const subgrp = formatpenerimaan.subgrp;
@@ -79,6 +92,47 @@ export class PenerimaanheaderService {
       );
       insertData.nobukti = nomorBukti;
       insertData.statusformat = formatpenerimaan.formatpenerimaan;
+      insertData.postingdari = parameter.memo_nama;
+      //INSERT JURNAL UMUM HEADER
+      console.log('formatpenerimaan', formatpenerimaan);
+      const processDetails = (details) => {
+        // Proses setiap detail dan langsung buat pasangannya
+        return details.flatMap((detail) => [
+          // Debet
+          {
+            id: 0,
+            coa: formatpenerimaan.coa,
+            nobukti: nomorBukti,
+            tglbukti: formatDateToSQL(insertData.tglbukti),
+            keterangan: detail.keterangan,
+            nominaldebet: detail.nominal,
+            nominalkredit: '',
+          },
+          // Kredit (langsung dipasangkan)
+          {
+            id: 0,
+            coa: detail.coa,
+            nobukti: nomorBukti,
+            tglbukti: formatDateToSQL(insertData.tglbukti),
+            keterangan: detail.keterangan,
+            nominaldebet: '',
+            nominalkredit: detail.nominal,
+          },
+        ]);
+      };
+      const result = processDetails(details);
+      const dataJurnalumum = {
+        nobukti: nomorBukti,
+        tglbukti: formatDateToSQL(insertData.tglbukti),
+        keterangan: insertData.keterangan,
+        postingdari: parameter.memo_nama,
+        statusformat: formatpenerimaan.formatpenerimaan,
+        modifiedby: insertData.modifiedby,
+        details: result,
+      };
+      console.log('dataJurnalumum', dataJurnalumum);
+      await this.jurnalumumheaderService.create(dataJurnalumum, trx);
+      //
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
@@ -116,8 +170,6 @@ export class PenerimaanheaderService {
         newItem.id,
         trx,
       );
-
-      console.log('dataDetail', dataDetail);
 
       // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex(
@@ -208,12 +260,14 @@ export class PenerimaanheaderService {
           'u.statusformat',
           'u.info',
           'u.modifiedby',
+          'ap.keterangancoa as coakasmasuk_nama',
           'r.nama as relasi_nama',
           'b.nama as bank_nama',
           'ab.nama as alatbayar_nama',
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
         ])
+        .leftJoin('akunpusat as ap', 'u.coakasmasuk', 'ap.coa')
         .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
         .leftJoin('bank as b', 'u.bank_id', 'b.id')
         .leftJoin('alatbayar as ab', 'u.alatbayar_id', 'ab.id');
@@ -314,8 +368,10 @@ export class PenerimaanheaderService {
         relasi_nama,
         bank_nama,
         alatbayar_nama,
+        coakasmasuk_nama,
         daftarbank_nama,
         coakredit_nama,
+        penerimaan_nobukti,
         details,
         ...insertData
       } = data;
@@ -325,25 +381,75 @@ export class PenerimaanheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
+
       const existingData = await trx(this.tableName).where('id', id).first();
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
-
+      const jurnalUmumData = await trx('jurnalumumheader')
+        .where('nobukti', existingData.nobukti)
+        .first();
       if (hasChanges) {
         insertData.updated_at = this.utilsService.getTime();
 
         await trx(this.tableName).where('id', id).update(insertData);
       }
+      if (details.length >= 0) {
+        const detailsWithNobukti = details.map((detail: any) => {
+          // Destructure to exclude 'penerimaandetail_id' when penerimaan_nobukti exists
+          const { penerimaandetail_id, ...rest } = detail;
 
-      // Check each detail, update or set id accordingly
-      if (details.length > 0) {
-        const detailsWithNobukti = details.map((detail: any) => ({
-          ...detail,
-          nobukti: existingData.nobukti, // Inject nobukti into each detail
-          modifiedby: insertData.modifiedby,
-        }));
+          const updatedDetail = {
+            ...rest,
+            nobukti: existingData.nobukti, // Inject nobukti into each detail
+            modifiedby: insertData.modifiedby,
+          };
 
+          // If penerimaan_nobukti exists, add 'id' based on penerimaandetail_id
+          if (penerimaan_nobukti) {
+            updatedDetail.id = penerimaandetail_id;
+          }
+
+          return updatedDetail;
+        });
+
+        // Call the service to create or update details
         await this.penerimaandetailService.create(detailsWithNobukti, id, trx);
       }
+
+      const processDetails = (details) => {
+        // Proses setiap detail dan langsung buat pasangannya
+        return details.flatMap((detail) => [
+          // Debet
+          {
+            id: 0,
+            tglbukti: formatDateToSQL(insertData.tglbukti),
+            keterangan: detail.keterangan,
+            nominaldebet: detail.nominal,
+            nominalkredit: '',
+          },
+          // Kredit (langsung dipasangkan)
+          {
+            id: 0,
+            tglbukti: formatDateToSQL(insertData.tglbukti),
+            keterangan: detail.keterangan,
+            nominaldebet: '',
+            nominalkredit: detail.nominal,
+          },
+        ]);
+      };
+      const result = processDetails(details);
+      const requestJurnalUmum = {
+        tglbukti: formatDateToSQL(insertData.tglbukti),
+        keterangan: insertData.keterangan,
+        modifiedby: data.modifiedby,
+        details: result,
+      };
+      console.log('requestJurnalUmum', requestJurnalUmum);
+      const updatedJurnalUmum = await this.jurnalumumheaderService.update(
+        jurnalUmumData.id,
+        requestJurnalUmum,
+        trx,
+      );
+      // Check each detail, update or set id accordingly
 
       // If there are details, call the service to handle create or update
 
@@ -657,5 +763,31 @@ export class PenerimaanheaderService {
     await workbook.xlsx.writeFile(tempFilePath);
 
     return tempFilePath;
+  }
+  async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
+    try {
+      if (aksi === 'EDIT') {
+        const forceEdit = await this.locksService.forceEdit(
+          this.tableName,
+          value,
+          editedby,
+          trx,
+        );
+
+        return forceEdit;
+      } else if (aksi === 'DELETE') {
+        const validasi = await this.globalService.checkUsed(
+          'penerimaandetail',
+          'pengembaliankasgantung_nobukti',
+          value,
+          trx,
+        );
+
+        return validasi;
+      }
+    } catch (error) {
+      console.error('Error di checkValidasi:', error);
+      throw new InternalServerErrorException('Failed to check validation');
+    }
   }
 }

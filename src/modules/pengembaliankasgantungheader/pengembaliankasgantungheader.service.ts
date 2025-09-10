@@ -17,6 +17,8 @@ import { Column, Workbook } from 'exceljs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PenerimaanheaderService } from '../penerimaanheader/penerimaanheader.service';
+import { GlobalService } from '../global/global.service';
+import { LocksService } from '../locks/locks.service';
 @Injectable()
 export class PengembaliankasgantungheaderService {
   constructor(
@@ -26,6 +28,8 @@ export class PengembaliankasgantungheaderService {
     private readonly runningNumberService: RunningNumberService,
     private readonly pengembaliankasgantungdetailService: PengembaliankasgantungdetailService,
     private readonly penerimaanheaderService: PenerimaanheaderService,
+    private readonly globalService: GlobalService,
+    private readonly locksService: LocksService,
   ) {}
   private readonly tableName = 'pengembaliankasgantungheader';
   async create(data: any, trx: any) {
@@ -57,10 +61,20 @@ export class PengembaliankasgantungheaderService {
         .andWhere('subgrp', 'CABANG')
         .first();
       const formatpenerimaangantung = await trx(`bank as b`)
-        .select('p.grp', 'p.subgrp', 'b.formatpenerimaangantung')
+        .select('p.grp', 'p.subgrp', 'b.formatpenerimaangantung', 'b.coa')
         .leftJoin('parameter as p', 'p.id', 'b.formatpenerimaangantung')
         .where('b.id', insertData.bank_id)
         .first();
+      const parameter = await trx('parameter')
+        .select(
+          'grp',
+          'subgrp',
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
+        )
+        .where('id', formatpenerimaangantung.formatpenerimaangantung)
+        .first();
+
       const cabangId = parameterCabang.cabang_id;
 
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
@@ -73,20 +87,33 @@ export class PengembaliankasgantungheaderService {
       );
       insertData.nobukti = nomorBukti;
 
-      const dataPenerimaan = {
-        ...data,
+      const detailPenerimaan = details.map((detail: any) => ({
+        ...detail,
+        coa: parameter.coa_nama,
         pengembaliankasgantung_nobukti: nomorBukti,
         modifiedby: data.modifiedby,
+      }));
+      const dataPenerimaan = {
+        tglbukti: insertData.tglbukti,
+        keterangan: insertData.keterangan,
+        bank_id: insertData.bank_id,
+        relasi_id: insertData.relasi_id,
+        alatbayar_id: insertData.alatbayar_id,
+        postingdari: parameter.memo_nama,
+        statusformat: formatpenerimaangantung.formatpenerimaangantung,
+        coakasmasuk: insertData.coakasmasuk,
+        modifiedby: data.modifiedby,
+        details: detailPenerimaan,
       };
       const insertPenerimaan = await this.penerimaanheaderService.create(
         dataPenerimaan,
         trx,
       );
       insertData.penerimaan_nobukti = insertPenerimaan.newItem.nobukti;
+
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
-      console.log('insertPenerimaan2222', insertPenerimaan.dataDetail.data);
       if (details.length > 0) {
         // Inject nobukti into each detail item
         const detailsWithNobukti = details.map(
@@ -122,8 +149,6 @@ export class PengembaliankasgantungheaderService {
         newItem.id,
         trx,
       );
-
-      console.log('dataDetail', dataDetail);
 
       // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex(
@@ -172,12 +197,12 @@ export class PengembaliankasgantungheaderService {
   }
   async update(id: any, data: any, trx: any) {
     try {
-      console.log('data2', data);
       data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
 
       const {
         sortBy,
         sortDirection,
+        coakasmasuk_nama,
         filters,
         search,
         page,
@@ -187,13 +212,15 @@ export class PengembaliankasgantungheaderService {
         details,
         ...insertData
       } = data;
-
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
       const existingData = await trx(this.tableName).where('id', id).first();
+      const penerimaanData = await trx('penerimaanheader')
+        .where('nobukti', existingData.penerimaan_nobukti)
+        .first();
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
 
       if (hasChanges) {
@@ -202,8 +229,34 @@ export class PengembaliankasgantungheaderService {
         await trx(this.tableName).where('id', id).update(insertData);
       }
 
+      const detailPenerimaan = details.map((detail: any) => ({
+        ...detail,
+        pengembaliankasgantung_nobukti: existingData.nobukti,
+        modifiedby: data.modifiedby,
+      }));
+      const dataPenerimaan = {
+        keterangan: insertData.keterangan,
+        relasi_id: insertData.relasi_id,
+        tglbukti: formatDateToSQL(existingData.tglbukti),
+        modifiedby: data.modifiedby,
+        details: detailPenerimaan,
+      };
+
+      console.log('dataPenerimaan', dataPenerimaan);
+      console.log('penerimaanData', penerimaanData.id);
+      const updatedPenerimaan = await this.penerimaanheaderService.update(
+        penerimaanData.id,
+        dataPenerimaan,
+        trx,
+      );
+
+      if (hasChanges) {
+        insertData.updated_at = this.utilsService.getTime();
+
+        await trx(this.tableName).where('id', id).update(insertData);
+      }
       // Check each detail, update or set id accordingly
-      if (details.length > 0) {
+      if (details.length >= 0) {
         const existingDetails = await trx('pengembaliankasgantungdetail').where(
           'pengembaliankasgantung_id',
           id,
@@ -229,13 +282,11 @@ export class PengembaliankasgantungheaderService {
 
           return detail;
         });
-        if (updatedDetails.length > 0) {
-          await this.pengembaliankasgantungdetailService.create(
-            updatedDetails,
-            id,
-            trx,
-          );
-        }
+        await this.pengembaliankasgantungdetailService.create(
+          updatedDetails,
+          id,
+          trx,
+        );
       }
 
       // If there are details, call the service to handle create or update
@@ -255,8 +306,6 @@ export class PengembaliankasgantungheaderService {
         id,
         trx,
       );
-
-      console.log('dataDetail', dataDetail);
 
       // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex((item) => Number(item.id) === id);
@@ -340,10 +389,9 @@ export class PengembaliankasgantungheaderService {
           'u.relasi_id', // relasi_id (integer)
           'u.info', // info (nvarchar(max))
           'u.modifiedby', // modifiedby (varchar(200))
-          'u.editing_by', // editing_by (varchar(200))
+          'ap.keterangancoa as coakasmasuk_nama',
           trx.raw('r.nama as relasi_nama'), // relasi_nama (nvarchar(max))
           trx.raw('b.nama as bank_nama'),
-          trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
         ])
@@ -466,10 +514,9 @@ export class PengembaliankasgantungheaderService {
           'u.relasi_id', // relasi_id (integer)
           'u.info', // info (nvarchar(max))
           'u.modifiedby', // modifiedby (varchar(200))
-          'u.editing_by', // editing_by (varchar(200))
+          'ap.keterangancoa as coakasmasuk_nama',
           trx.raw('r.nama as relasi_nama'), // relasi_nama (nvarchar(max))
           trx.raw('b.nama as bank_nama'),
-          trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
         ])
@@ -613,10 +660,9 @@ export class PengembaliankasgantungheaderService {
           'u.relasi_id', // relasi_id (integer)
           'u.info', // info (nvarchar(max))
           'u.modifiedby', // modifiedby (varchar(200))
-          'u.editing_by', // editing_by (varchar(200))
+          'ap.keterangancoa as coakasmasuk_nama',
           trx.raw('r.nama as relasi_nama'), // relasi_nama (nvarchar(max))
           trx.raw('b.nama as bank_nama'),
-          trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
         ])
@@ -699,38 +745,43 @@ export class PengembaliankasgantungheaderService {
         'id',
         trx,
       );
+
       const deletedDataDetail = await this.utilsService.lockAndDestroy(
         id,
         'pengembaliankasgantungdetail',
         'pengembaliankasgantung_id',
         trx,
       );
-
-      await this.logTrailService.create(
-        {
-          namatabel: this.tableName,
-          postingdari: 'DELETE PENGEMBALIAN KAS GANTUNG',
-          idtrans: deletedData.id,
-          nobuktitrans: deletedData.id,
-          aksi: 'DELETE',
-          datajson: JSON.stringify(deletedData),
-          modifiedby: modifiedby,
-        },
-        trx,
-      );
-      await this.logTrailService.create(
-        {
-          namatabel: this.tableName,
-          postingdari: 'DELETE PENGEMBALIAN KAS GANTUNG DETAIL',
-          idtrans: deletedDataDetail.id,
-          nobuktitrans: deletedDataDetail.id,
-          aksi: 'DELETE',
-          datajson: JSON.stringify(deletedDataDetail),
-          modifiedby: modifiedby,
-        },
-        trx,
-      );
-
+      console.log('deletedDataDetail', deletedDataDetail);
+      console.log('deletedData', deletedData);
+      if (deletedData) {
+        await this.logTrailService.create(
+          {
+            namatabel: this.tableName,
+            postingdari: 'DELETE PENGEMBALIAN KAS GANTUNG',
+            idtrans: deletedData.id,
+            nobuktitrans: deletedData.id,
+            aksi: 'DELETE',
+            datajson: JSON.stringify(deletedData),
+            modifiedby: modifiedby,
+          },
+          trx,
+        );
+      }
+      if (deletedDataDetail) {
+        await this.logTrailService.create(
+          {
+            namatabel: this.tableName,
+            postingdari: 'DELETE PENGEMBALIAN KAS GANTUNG DETAIL',
+            idtrans: deletedDataDetail.id,
+            nobuktitrans: deletedDataDetail.id,
+            aksi: 'DELETE',
+            datajson: JSON.stringify(deletedDataDetail),
+            modifiedby: modifiedby,
+          },
+          trx,
+        );
+      }
       return { status: 200, message: 'Data deleted successfully', deletedData };
     } catch (error) {
       console.error('Error deleting data:', error);
@@ -917,5 +968,31 @@ export class PengembaliankasgantungheaderService {
     await workbook.xlsx.writeFile(tempFilePath);
 
     return tempFilePath;
+  }
+  async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
+    try {
+      if (aksi === 'EDIT') {
+        const forceEdit = await this.locksService.forceEdit(
+          this.tableName,
+          value,
+          editedby,
+          trx,
+        );
+
+        return forceEdit;
+      } else if (aksi === 'DELETE') {
+        const validasi = await this.globalService.checkUsed(
+          'penerimaandetail',
+          'pengembaliankasgantung_nobukti',
+          value,
+          trx,
+        );
+
+        return validasi;
+      }
+    } catch (error) {
+      console.error('Error di checkValidasi:', error);
+      throw new InternalServerErrorException('Failed to check validation');
+    }
   }
 }

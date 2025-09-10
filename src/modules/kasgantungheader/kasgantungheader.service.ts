@@ -47,15 +47,14 @@ export class KasgantungheaderService {
         details,
         ...insertData
       } = data;
-
+      insertData.updated_at = this.utilsService.getTime();
+      insertData.created_at = this.utilsService.getTime();
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti));
-      insertData.created_at = this.utilsService.getTime();
-      insertData.updated_at = this.utilsService.getTime();
 
       const pengeluaranHeaderData = {
         tglbukti: data.tglbukti,
@@ -163,13 +162,12 @@ export class KasgantungheaderService {
         {
           search,
           filters,
-          pagination: { page, limit },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },
         trx,
       );
-
       // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex(
         (item) => Number(item.id) === Number(newHeaderId),
@@ -497,7 +495,6 @@ export class KasgantungheaderService {
           .orderBy('kg.tglbukti', 'asc')
           .orderBy('kd.nobukti', 'asc'),
       );
-      console.log('temp', await trx(temp));
       const result = trx
         .select(
           trx.raw(`row_number() OVER (ORDER BY ??) as id`, [`${temp}.nobukti`]),
@@ -539,8 +536,10 @@ export class KasgantungheaderService {
         'coa',
         'sisa',
         'bayar',
+        'penerimaandetail_id',
       );
-
+      console.log('tempAll', await trx(tempAll));
+      console.log('tempPribadi', await trx(tempPribadi));
       // Create a new temporary table
       await trx.schema.createTable(temp, (t) => {
         t.bigInteger('pengembaliankasgantungheader_id').nullable();
@@ -550,6 +549,7 @@ export class KasgantungheaderService {
         t.string('coa').nullable();
         t.bigInteger('sisa').nullable();
         t.bigInteger('bayar').nullable();
+        t.string('penerimaandetail_id').nullable();
       });
 
       // Insert fetched data into the new table
@@ -565,6 +565,7 @@ export class KasgantungheaderService {
           trx.raw('null as coa'),
           'sisa',
           trx.raw('0 as bayar'),
+          trx.raw('null as penerimaandetail_id'),
         )
         .where(function () {
           this.whereRaw(`${tempAll}.sisa != 0`).orWhereRaw(
@@ -581,11 +582,12 @@ export class KasgantungheaderService {
           trx.raw(`row_number() OVER (ORDER BY ??) as id`, [`${temp}.nobukti`]),
           `${temp}.pengembaliankasgantungheader_id`,
           `${temp}.nobukti`,
-          `${temp}.tglbukti`,
+          trx.raw(`FORMAT(${temp}.tglbukti, 'dd-MM-yyyy') as tglbukti`),
           `${temp}.keterangan as keterangan`,
           `${temp}.coa as coadetail`,
           `${temp}.sisa`,
           `${temp}.bayar as nominal`,
+          `${temp}.penerimaandetail_id`,
         )
         .from(trx.raw(`${temp} with (readuncommitted)`))
         .where(function () {
@@ -661,6 +663,7 @@ export class KasgantungheaderService {
         t.string('keterangan').nullable();
         t.string('coa').nullable();
         t.bigInteger('sisa').nullable();
+        t.string('penerimaandetail_id').nullable();
       });
 
       // Insert data into temp table for 'pengembalian2'
@@ -676,7 +679,8 @@ export class KasgantungheaderService {
               pgh.coakasmasuk as coa,
               (SELECT (sum(kd.nominal) - COALESCE(SUM(pgd.nominal), 0)) 
                FROM pengembaliankasgantungdetail as pgd 
-               WHERE pgd.kasgantung_nobukti = kd.nobukti) AS sisa
+               WHERE pgd.kasgantung_nobukti = kd.nobukti) AS sisa,
+              pgd.penerimaandetail_id
             `),
           )
           .from('kasgantungdetail as kd')
@@ -700,6 +704,7 @@ export class KasgantungheaderService {
             'pgd.nominal',
             'pgd.keterangan',
             'pgh.coakasmasuk',
+            'pgd.penerimaandetail_id',
           ),
       );
 

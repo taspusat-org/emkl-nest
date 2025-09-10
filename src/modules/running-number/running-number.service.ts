@@ -114,9 +114,7 @@ export class RunningNumberService {
     for (let i = 0; i < usedNumbers.length; i++) {
       if (usedNumbers[i] !== nextNumber) {
         break;
-        break;
       }
-      nextNumber++;
       nextNumber++;
     }
 
