@@ -118,15 +118,17 @@ export class UtilsService {
         .where(field, identifier)
         .forUpdate()
         .first();
-
+      console.log('record', record);
       // Jika data tidak ada, tidak perlu return error, cukup keluar dari fungsi
       if (!record) {
+        console.log('record tidak ada');
         return;
       }
 
       const isDeleted = await trx(table).where(field, identifier).delete();
 
       if (!isDeleted) {
+        console.log('gagal menghapus');
         throw new InternalServerErrorException(
           `Gagal menghapus '${field}' = '${identifier}' di tabel '${table}'`,
         );
@@ -535,14 +537,23 @@ export async function getLastNumber(
   return query;
 }
 // Pakai ini, ganti fungsi lama
-export const formatDateToSQL = (input?: string | null): string | null => {
+export const formatDateToSQL = (input?: string | null | any): string | null => {
   const s = String(input ?? '').trim();
   if (!s || s === 'undefined' || s === 'null') return null;
+  console.log('input222', input);
+  // Handle Date object
+  if (input instanceof Date) {
+    const year = input.getFullYear();
+    const month = String(input.getMonth() + 1).padStart(2, '0');
+    const day = String(input.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 
-  // YYYY-MM-DD → valid? kembalikan apa adanya
-  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-  if (iso) {
-    const [, y, m, d] = iso;
+  // Handle ISO 8601 dan variants
+  // Matches: 2025-09-10T00:00:00.000Z, 2025-09-10T00:00:00, etc.
+  const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})(T|$)/);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
     return isValid(y, m, d) ? `${y}-${m}-${d}` : null;
   }
 
@@ -550,6 +561,13 @@ export const formatDateToSQL = (input?: string | null): string | null => {
   const dmy = /^(\d{2})-(\d{2})-(\d{4})$/.exec(s);
   if (dmy) {
     const [, d, m, y] = dmy;
+    return isValid(y, m, d) ? `${y}-${pad(m)}-${pad(d)}` : null;
+  }
+
+  // DD/MM/YYYY → konversi ke YYYY-MM-DD (optional: handle slash separator)
+  const dmySlash = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+  if (dmySlash) {
+    const [, d, m, y] = dmySlash;
     return isValid(y, m, d) ? `${y}-${pad(m)}-${pad(d)}` : null;
   }
 

@@ -8,6 +8,8 @@ import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 import { RunningNumberModule } from '../running-number/running-number.module';
 import { PengembaliankasgantungdetailModule } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.module';
 import { PenerimaanheaderModule } from '../penerimaanheader/penerimaanheader.module';
+import { LocksModule } from '../locks/locks.module';
+import { GlobalModule } from '../global/global.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { PenerimaanheaderModule } from '../penerimaanheader/penerimaanheader.mod
     RunningNumberModule,
     PengembaliankasgantungdetailModule,
     PenerimaanheaderModule,
+    LocksModule,
+    GlobalModule,
   ],
   controllers: [PengembaliankasgantungheaderController],
   providers: [PengembaliankasgantungheaderService],

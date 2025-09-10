@@ -45,7 +45,8 @@ export class TypeAkuntansiService {
         id,
         ...insertData
       } = createData;
-      console.log('insertData', insertData);
+      insertData.updated_at = this.utilsService.getTime();
+      insertData.created_at = this.utilsService.getTime();
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();

@@ -9,6 +9,7 @@ import { UtilsModule } from 'src/utils/utils.module';
 import { LocksModule } from '../locks/locks.module';
 import { RedisModule } from 'src/common/redis/redis.module';
 import { AuthModule } from '../auth/auth.module';
+import { JurnalumumheaderModule } from '../jurnalumumheader/jurnalumumheader.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AuthModule } from '../auth/auth.module';
     PenerimaandetailModule,
     GlobalModule,
     LocksModule,
+    JurnalumumheaderModule,
   ],
   controllers: [PenerimaanheaderController],
   providers: [PenerimaanheaderService],

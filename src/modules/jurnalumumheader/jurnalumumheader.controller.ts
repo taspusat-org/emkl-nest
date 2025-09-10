@@ -12,6 +12,8 @@ import {
   Req,
   Put,
   InternalServerErrorException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 
 import { JurnalumumheaderService } from './jurnalumumheader.service';
@@ -34,23 +36,31 @@ export class JurnalumumheaderController {
 
   @UseGuards(AuthGuard)
   @Post()
-  //@JURNAL-UMUM
-  async create(
-    @Body()
-    data: any,
-    @Req() req,
-  ) {
+  async create(@Body() data: any, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-
       const result = await this.jurnalumumheaderService.create(data, trx);
-
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      throw new Error(`Error: ${error.message}`);
+      console.log('Error in controller:', error);
+
+      // PENTING: Jangan wrap HttpException dengan Error baru
+      if (error instanceof HttpException) {
+        throw error; // Langsung throw HttpException yang sudah ada
+      }
+
+      // Untuk error lainnya yang bukan HttpException
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: error.message || 'Internal server error',
+          error: 'Internal Server Error',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
   @UseGuards(AuthGuard)

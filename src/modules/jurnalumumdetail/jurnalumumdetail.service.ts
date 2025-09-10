@@ -28,7 +28,6 @@ export class JurnalumumdetailService {
     const time = this.utilsService.getTime();
     const logData: any[] = [];
     const mainDataToInsert: any[] = [];
-    console.log(details);
     if (details.length === 0) {
       await trx(this.tableName).delete().where('jurnalumum_id', id);
       return;
@@ -104,13 +103,13 @@ export class JurnalumumdetailService {
     const updatedData = await trx('jurnalumumdetail')
       .join(`${tempTableName}`, 'jurnalumumdetail.id', `${tempTableName}.id`)
       .update({
-        nobukti: trx.raw(`${tempTableName}.nobukti`),
+        nobukti: trx.raw(`jurnalumumdetail.nobukti`),
+        tglbukti: trx.raw(`jurnalumumdetail.tglbukti`),
+        coa: trx.raw(`jurnalumumdetail.coa`),
         keterangan: trx.raw(`${tempTableName}.keterangan`),
         nominal: trx.raw(`${tempTableName}.nominal`),
         info: trx.raw(`${tempTableName}.info`),
         modifiedby: trx.raw(`${tempTableName}.modifiedby`),
-        editing_by: trx.raw(`${tempTableName}.editing_by`),
-        editing_at: trx.raw(`${tempTableName}.editing_at`),
         jurnalumum_id: trx.raw(`${tempTableName}.jurnalumum_id`),
         created_at: trx.raw(`${tempTableName}.created_at`),
         updated_at: trx.raw(`${tempTableName}.updated_at`),
@@ -126,18 +125,18 @@ export class JurnalumumdetailService {
     const insertedDataQuery = await trx(tempTableName)
       .select([
         'nobukti',
+        'tglbukti',
+        'coa',
         'keterangan',
         'nominal',
         'info',
         'modifiedby',
-        'editing_by',
-        'editing_at',
         trx.raw('? as jurnalumum_id', [id]),
         'created_at',
         'updated_at',
       ])
       .where(`${tempTableName}.id`, '0');
-
+    console.log('insertedDataQuery', insertedDataQuery);
     const getDeleted = await trx(this.tableName)
       .leftJoin(
         `${tempTableName}`,
@@ -147,12 +146,12 @@ export class JurnalumumdetailService {
       .select(
         'jurnalumumdetail.id',
         'jurnalumumdetail.nobukti',
+        'jurnalumumdetail.tglbukti',
+        'jurnalumumdetail.coa',
         'jurnalumumdetail.keterangan',
         'jurnalumumdetail.nominal',
         'jurnalumumdetail.info',
         'jurnalumumdetail.modifiedby',
-        'jurnalumumdetail.editing_by',
-        'jurnalumumdetail.editing_at',
         'jurnalumumdetail.created_at',
         'jurnalumumdetail.updated_at',
         'jurnalumumdetail.jurnalumum_id',
@@ -213,27 +212,33 @@ export class JurnalumumdetailService {
     const result = await trx(`${this.tableName} as p`)
       .select(
         'p.id',
-        'p.jurnalumum_id', // Updated field name
+        'p.jurnalumum_id',
+        trx.raw("FORMAT(p.tglbukti, 'dd-MM-yyyy') as tglbukti"),
         'p.nobukti',
+        'p.coa',
         'p.keterangan',
-        'p.nominal', // Updated field name
+        'ap.keterangancoa',
+        trx.raw(
+          'CASE WHEN p.nominal < 0 THEN ABS(p.nominal) ELSE 0 END AS nominalkredit',
+        ),
+        // jika nominal > 0 → nominaldebet = nominal, selain itu 0
+        trx.raw(
+          'CASE WHEN p.nominal > 0 THEN p.nominal ELSE 0 END AS nominaldebet',
+        ),
+        trx.raw('ABS(p.nominal) AS nominal'),
+
         'p.info',
         'p.modifiedby',
-        'p.editing_by',
-        trx.raw("FORMAT(p.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
         trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
         trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
       )
-      .where('p.jurnalumum_id', id) // Updated field name
-      .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
+      .leftJoin('akunpusat as ap', 'p.coa', 'ap.coa')
+      .where('p.jurnalumum_id', id)
+      .orderBy('p.created_at', 'desc');
 
     if (!result.length) {
       this.logger.warn(`No Data found for ID: ${id}`);
-      return {
-        status: false,
-        message: 'No data found',
-        data: [],
-      };
+      return { status: false, message: 'No data found', data: [] };
     }
 
     return {
