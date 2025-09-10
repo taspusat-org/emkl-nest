@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { isRecordExist } from 'src/utils/utils.service';
 
-
 // ------------------------
 // 1. BASE FIELDS
 // ------------------------
@@ -66,7 +65,7 @@ const baseFields = {
     .string({ message: 'npwp Wajib Diisi' })
     .min(1, { message: 'npwp Wajib Diisi' })
     .regex(/^\d{2}\.\d{3}\.\d{3}\.\d-\d{3}\.\d{3}$/, {
-      message: "Format NPWP tidak valid (contoh: 12.345.678.9-012.345)",
+      message: 'Format NPWP tidak valid (contoh: 12.345.678.9-012.345)',
     })
     .max(30),
 
@@ -86,7 +85,7 @@ const baseFields = {
   tglskb: z.string().nullable().optional(),
   nosk: z.string().nullable().optional(),
   tglsk: z.string().nullable().optional(),
-  
+
   statusaktif: z
     .number()
     .int({ message: 'Status Aktif Wajib Diisi' })
@@ -94,10 +93,6 @@ const baseFields = {
   statusaktif_nama: z.string().nullable().optional(),
   modifiedby: z.string().max(200).optional(),
 };
-
-
-
-
 
 // ------------------------
 // 2. KHUSUS CREATE
@@ -145,10 +140,6 @@ export const CreateSupplierSchema = z
     // Validasi khusus penambahan create dapat disimpan di sini
   });
 export type CreateSupplierDto = z.infer<typeof CreateSupplierSchema>;
-
-
-
-
 
 // ------------------------
 // 3. KHUSUS UPDATE

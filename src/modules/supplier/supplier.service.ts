@@ -1,4 +1,3 @@
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { Column, Workbook } from 'exceljs';
@@ -9,7 +8,14 @@ import { RedisService } from 'src/common/redis/redis.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
-import { HttpException, HttpStatus, Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 
 @Injectable()
 export class SupplierService {
@@ -43,7 +49,7 @@ export class SupplierService {
         ...insertData
       } = createData;
       insertData.updated_at = this.utilService.getTime();
-      insertData.created_at = this.utilService.getTime();      
+      insertData.created_at = this.utilService.getTime();
 
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
@@ -107,7 +113,7 @@ export class SupplierService {
       }
 
       const pageNumber = pagination?.currentPage;
-      
+
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(data),
@@ -126,10 +132,10 @@ export class SupplierService {
         trx,
       );
 
-      return { 
-        newItem, 
-        pageNumber, 
-        dataIndex 
+      return {
+        newItem,
+        pageNumber,
+        dataIndex,
       };
     } catch (error) {
       throw new Error(`Error creating supplier: ${error.message}`);
@@ -163,7 +169,8 @@ export class SupplierService {
         }
       }
 
-      const query = trx.from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
+      const query = trx
+        .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
         .select([
           'u.id as id',
           'u.nama',
@@ -208,7 +215,7 @@ export class SupplierService {
         .leftJoin('akunpusat as coapiu', 'u.coapiu', 'coapiu.coa')
         .leftJoin('akunpusat as coahut', 'u.coahut', 'coahut.coa')
         .leftJoin('akunpusat as coagiro', 'u.coagiro', 'coagiro.coa');
-      
+
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
@@ -259,7 +266,11 @@ export class SupplierService {
             } else if (key === 'coa_text') {
               query.andWhere(`coa.keterangancoa`, '=', sanitizedValue);
             } else if (key === 'coapiu_text') {
-              query.andWhere('coapiu.keterangancoa', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'coapiu.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'coahut_text') {
               query.andWhere(`coahut.keterangancoa`, '=', sanitizedValue);
             } else if (key === 'coagiro_text') {
@@ -312,7 +323,9 @@ export class SupplierService {
 
   async update(dataId: number, data: any, trx: any) {
     try {
-      const existingData = await trx(this.tableName).where('id', dataId).first();
+      const existingData = await trx(this.tableName)
+        .where('id', dataId)
+        .first();
 
       if (!existingData) {
         throw new HttpException(
@@ -365,7 +378,7 @@ export class SupplierService {
         .where('grp', 'STATUS RELASI')
         .where('text', this.tableName)
         .first();
-        
+
       const relasi = {
         statusrelasi: statusRelasi.id,
         nama: updateData.nama,
@@ -646,7 +659,13 @@ export class SupplierService {
       rowValues.forEach((value, colIndex) => {
         const cell = worksheet.getCell(currentRow, colIndex + 1);
 
-        if (colIndex === 4 || colIndex === 11 || colIndex === 12 || colIndex === 16 || colIndex === 17) {
+        if (
+          colIndex === 4 ||
+          colIndex === 11 ||
+          colIndex === 12 ||
+          colIndex === 16 ||
+          colIndex === 17
+        ) {
           cell.value = Number(value);
           cell.numFmt = '0'; // format angka dengan ribuan
           cell.alignment = {
@@ -660,7 +679,7 @@ export class SupplierService {
             horizontal: 'right',
             vertical: 'middle',
           };
-        }else {
+        } else {
           cell.value = value ?? '';
           cell.alignment = {
             horizontal: colIndex === 0 ? 'right' : 'left',
@@ -713,8 +732,4 @@ export class SupplierService {
   findOne(id: number) {
     return `This action returns a #${id} supplier`;
   }
-
-
-
-
 }

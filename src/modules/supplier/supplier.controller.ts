@@ -1,15 +1,15 @@
-import { 
-  Get, 
-  Req, 
-  Post, 
-  Body, 
-  Patch, 
-  Param, 
-  Delete, 
+import {
+  Get,
+  Req,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
   UsePipes,
   UseGuards,
-  HttpStatus, 
-  Controller, 
+  HttpStatus,
+  Controller,
   HttpException,
   Query,
   InternalServerErrorException,
@@ -23,8 +23,17 @@ import { AuthGuard } from '../auth/auth.guard';
 import { SupplierService } from './supplier.service';
 import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
-import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
-import { CreateSupplierDto, CreateSupplierSchema, UpdateSupplierDto, UpdateSupplierSchema } from './dto/create-supplier.dto';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
+import {
+  CreateSupplierDto,
+  CreateSupplierSchema,
+  UpdateSupplierDto,
+  UpdateSupplierSchema,
+} from './dto/create-supplier.dto';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
 import { Response } from 'express';
 
@@ -39,10 +48,10 @@ export class SupplierController {
     @Body(
       new InjectMethodPipe('create'),
       new ZodValidationPipe(CreateSupplierSchema),
-      KeyboardOnlyValidationPipe
-    ) 
+      KeyboardOnlyValidationPipe,
+    )
     data: CreateSupplierDto,
-    @Req() req
+    @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
@@ -73,15 +82,8 @@ export class SupplierController {
   //@SUPPLIER
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
-    const { 
-      search, 
-      page, 
-      limit, 
-      sortBy, 
-      sortDirection, 
-      isLookUp, 
-      ...filters 
-    } = query;
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
 
     const sortParams = {
       sortBy: sortBy || 'nama',
@@ -121,14 +123,14 @@ export class SupplierController {
   @Put(':id')
   //@SUPPLIER
   async update(
-    @Param('id') dataId: string, 
+    @Param('id') dataId: string,
     @Body(
       new InjectMethodPipe('update'),
       new ZodValidationPipe(UpdateSupplierSchema),
-      KeyboardOnlyValidationPipe
-    ) 
+      KeyboardOnlyValidationPipe,
+    )
     data: UpdateSupplierDto,
-    @Req() req
+    @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
@@ -140,10 +142,7 @@ export class SupplierController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error(
-        'Error while updating supplier in controller:',
-        error,
-      );
+      console.error('Error while updating supplier in controller:', error);
 
       // Ensure any other errors get caught and returned
       if (error instanceof HttpException) {
@@ -246,6 +245,4 @@ export class SupplierController {
   findOne(@Param('id') id: string) {
     return this.supplierService.findOne(+id);
   }
-
-
 }
