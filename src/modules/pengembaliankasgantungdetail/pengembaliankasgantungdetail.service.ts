@@ -228,7 +228,7 @@ export class PengembaliankasgantungdetailService {
     }
   }
 
-  async findAll(id: string, trx: any) {
+  async findAll(nobukti: string, trx: any) {
     const result = await trx(`${this.tableName} as p`)
       .select(
         'p.id',
@@ -243,11 +243,11 @@ export class PengembaliankasgantungdetailService {
         trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
         trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
       )
-      .where('p.pengembaliankasgantung_id', id)
+      .where('p.nobukti', nobukti)
       .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
 
     if (!result.length) {
-      this.logger.warn(`No Data found for ID: ${id}`);
+      this.logger.warn(`No Data found for ID: ${nobukti}`);
       return {
         status: false,
         message: 'No data found',

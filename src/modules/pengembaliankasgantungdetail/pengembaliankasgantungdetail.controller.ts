@@ -19,12 +19,12 @@ export class PengembaliankasgantungdetailController {
     private readonly pengembaliankasgantungdetailService: PengembaliankasgantungdetailService,
   ) {}
 
-  @Get(':id')
-  async findAll(@Param('id') id: string) {
+  @Get('/detail')
+  async findAll(@Body() data: any) {
     const trx = await dbMssql.transaction();
     try {
       const result = await this.pengembaliankasgantungdetailService.findAll(
-        id,
+        data.nobukti,
         trx,
       );
       trx.commit();
