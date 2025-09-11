@@ -43,6 +43,7 @@ export default tseslint.config(
       '@typescript-eslint/no-useless-escape': 'off',
       '@typescript-eslint/no-misused-promises': 'off',
       '@typescript-eslint/no-prototype-builtins': 'off',
+      '@typescript-eslint/no-redundant-type-constituents': 'off',
     },
   },
 );
