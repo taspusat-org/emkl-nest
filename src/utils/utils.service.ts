@@ -597,3 +597,4 @@ export const formatDateTimeToSQL = (val: string) => {
   const [hh = '00', mm = '00', ss = '00'] = t.split(':');
   return `${d} ${hh.padStart(2, '0')}:${mm.padStart(2, '0')}:${ss.padStart(2, '0')}.000`;
 };
+export const tandatanya = 'CHAR(63)';
