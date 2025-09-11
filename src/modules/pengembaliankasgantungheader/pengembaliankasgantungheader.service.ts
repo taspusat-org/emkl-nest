@@ -9,7 +9,11 @@ import { UpdatePengembaliankasgantungheaderDto } from './dto/update-pengembalian
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { dbMssql } from 'src/common/utils/db';
 import { RedisService } from 'src/common/redis/redis.service';
-import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
+import {
+  formatDateToSQL,
+  tandatanya,
+  UtilsService,
+} from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.service';
@@ -376,7 +380,31 @@ export class PengembaliankasgantungheaderService {
           limit = 0;
         }
       }
+      const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
 
+      await trx.schema.createTable(tempUrl, (t) => {
+        t.integer('id').nullable();
+        t.string('penerimaan_nobukti').nullable();
+        t.text('link').nullable();
+      });
+      const url = 'penerimaan';
+
+      await trx(tempUrl).insert(
+        trx
+          .select(
+            'u.id',
+            'u.penerimaan_nobukti',
+            trx.raw(`
+              STRING_AGG(
+                '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'penerimaan_nobukti=' + u.penerimaan_nobukti + '">' +
+                '<HighlightWrapper value="' + u.penerimaan_nobukti + '" />' +
+                '</a>', ','
+              ) AS link
+            `),
+          )
+          .from(this.tableName + ' as u')
+          .groupBy('u.id', 'u.penerimaan_nobukti'),
+      );
       const query = trx(`${this.tableName} as u`)
         .select([
           'u.id as id',
@@ -394,7 +422,13 @@ export class PengembaliankasgantungheaderService {
           trx.raw('b.nama as bank_nama'),
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
+          'tempUrl.link',
         ])
+        .leftJoin(
+          trx.raw(`${tempUrl} as tempUrl`),
+          'u.penerimaan_nobukti',
+          'tempUrl.penerimaan_nobukti',
+        )
         .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
         .leftJoin('bank as b', 'u.bank_id', 'b.id')
         .leftJoin('akunpusat as ap', 'u.coakasmasuk', 'ap.coa');

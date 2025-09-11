@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { CreatePenerimaanheaderDto } from './dto/create-penerimaanheader.dto';
 import { UpdatePenerimaanheaderDto } from './dto/update-penerimaanheader.dto';
-import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
+import {
+  formatDateToSQL,
+  tandatanya,
+  UtilsService,
+} from 'src/utils/utils.service';
 import { RedisService } from 'src/common/redis/redis.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
@@ -18,6 +22,7 @@ import { Column, Workbook } from 'exceljs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { JurnalumumheaderService } from '../jurnalumumheader/jurnalumumheader.service';
+import { dbMssql } from 'src/common/utils/db';
 @Injectable()
 export class PenerimaanheaderService {
   constructor(
@@ -241,7 +246,31 @@ export class PenerimaanheaderService {
         }
       }
 
-      // Query sesuai dengan struktur tabel pada gambar
+      const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
+
+      await trx.schema.createTable(tempUrl, (t) => {
+        t.integer('id').nullable();
+        t.string('nobukti').nullable();
+        t.text('link').nullable();
+      });
+      const url = 'jurnal-umum';
+
+      await trx(tempUrl).insert(
+        trx
+          .select(
+            'u.id',
+            'u.nobukti',
+            trx.raw(`
+              STRING_AGG(
+                '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'nobukti=' + u.nobukti + '">' +
+                '<HighlightWrapper value="' + u.nobukti + '" />' +
+                '</a>', ','
+              ) AS link
+            `),
+          )
+          .from(this.tableName + ' as u')
+          .groupBy('u.id', 'u.nobukti'),
+      );
       const query = trx(`${this.tableName} as u`)
         .select([
           'u.id as id',
@@ -266,8 +295,14 @@ export class PenerimaanheaderService {
           'ab.nama as alatbayar_nama',
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+          'tempUrl.link',
         ])
         .leftJoin('akunpusat as ap', 'u.coakasmasuk', 'ap.coa')
+        .leftJoin(
+          trx.raw(`${tempUrl} as tempUrl`),
+          'u.nobukti',
+          'tempUrl.nobukti',
+        )
         .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
         .leftJoin('bank as b', 'u.bank_id', 'b.id')
         .leftJoin('alatbayar as ab', 'u.alatbayar_id', 'ab.id');
@@ -318,6 +353,12 @@ export class PenerimaanheaderService {
                 key,
                 `%${sanitizedValue}%`,
               ]);
+            } else if (key === 'relasi_nama') {
+              query.andWhere(`r.nama`, 'like', `%${sanitizedValue}%`);
+            } else if (key === 'bank_nama') {
+              query.andWhere(`b.nama`, 'like', `%${sanitizedValue}%`);
+            } else if (key === 'alatbayar_nama') {
+              query.andWhere(`ab.nama`, 'like', `%${sanitizedValue}%`);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
