@@ -4,6 +4,7 @@ import { UpdatePengembaliankasgantungdetailDto } from './dto/update-pengembalian
 import { dbBunga } from 'src/common/utils/db';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Injectable()
 export class PengembaliankasgantungdetailService {
@@ -228,36 +229,59 @@ export class PengembaliankasgantungdetailService {
     }
   }
 
-  async findAll(nobukti: string, trx: any) {
-    const result = await trx(`${this.tableName} as p`)
-      .select(
-        'p.id',
-        'p.pengembaliankasgantung_id',
-        'p.nobukti',
-        'p.kasgantung_nobukti',
-        'p.keterangan',
-        'p.nominal',
-        'p.info',
-        'p.modifiedby',
-        'p.penerimaandetail_id',
-        trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-        trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-      )
-      .where('p.nobukti', nobukti)
-      .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
+  async findAll({ search, filters, sort }: FindAllParams, trx: any) {
+    const query = trx(`${this.tableName} as p`).select(
+      'p.id',
+      'p.pengembaliankasgantung_id',
+      'p.nobukti',
+      'p.kasgantung_nobukti',
+      'p.keterangan',
+      'p.nominal',
+      'p.info',
+      'p.modifiedby',
+      'p.penerimaandetail_id',
+      trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+      trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+    );
 
-    if (!result.length) {
-      this.logger.warn(`No Data found for ID: ${nobukti}`);
-      return {
-        status: false,
-        message: 'No data found',
-        data: [],
-      };
+    if (filters?.nobukti) {
+      query.where('p.nobukti', filters?.nobukti);
     }
+    const excludeSearchKeys = ['tglDari', 'tglSampai'];
+    const searchFields = Object.keys(filters || {}).filter(
+      (k) => !excludeSearchKeys.includes(k) && filters![k],
+    );
+    if (search) {
+      const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
+      query.where((qb) => {
+        searchFields.forEach((field) => {
+          qb.orWhere(`p.${field}`, 'like', `%${sanitized}%`);
+        });
+      });
+    }
+    if (filters) {
+      for (const [key, value] of Object.entries(filters)) {
+        const sanitizedValue = String(value).replace(/\[/g, '[[]');
+
+        if (value) {
+          if (key === 'created_at' || key === 'updated_at') {
+            query.andWhereRaw("FORMAT(p.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              key,
+              `%${sanitizedValue}%`,
+            ]);
+          } else {
+            query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
+          }
+        }
+      }
+    }
+    if (sort?.sortBy && sort?.sortDirection) {
+      query.orderBy(sort.sortBy, sort.sortDirection);
+    }
+    const result = await query;
+    console.log('result', result);
     return {
-      status: true,
-      message: 'Pengembalian Kas Gantung Detail data fetched successfully',
       data: result,
     };
   }

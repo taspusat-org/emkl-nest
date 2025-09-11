@@ -12,6 +12,7 @@ import { PengembaliankasgantungdetailService } from './pengembaliankasgantungdet
 import { CreatePengembaliankasgantungdetailDto } from './dto/create-pengembaliankasgantungdetail.dto';
 import { UpdatePengembaliankasgantungdetailDto } from './dto/update-pengembaliankasgantungdetail.dto';
 import { dbMssql } from 'src/common/utils/db';
+import { FindAllDto, FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Controller('pengembaliankasgantungdetail')
 export class PengembaliankasgantungdetailController {
@@ -19,19 +20,41 @@ export class PengembaliankasgantungdetailController {
     private readonly pengembaliankasgantungdetailService: PengembaliankasgantungdetailService,
   ) {}
 
-  @Get('/detail')
-  async findAll(@Body() data: any) {
+  @Get()
+  async findAll(@Query() query: FindAllDto) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
+
+    const sortParams = {
+      sortBy: sortBy || 'nobukti',
+      sortDirection: sortDirection || 'asc',
+    };
+    const params: FindAllParams = {
+      search,
+      filters,
+      sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
+    };
     const trx = await dbMssql.transaction();
     try {
       const result = await this.pengembaliankasgantungdetailService.findAll(
-        data.nobukti,
+        params,
         trx,
       );
-      trx.commit();
+
+      if (result.data.length === 0) {
+        return {
+          status: false,
+          message: 'No data found',
+          data: [],
+        };
+      }
+      await trx.commit();
+
       return result;
     } catch (error) {
-      trx.rollback();
-      console.error('Error fetching pengembaliankasgantungdetail:', error);
+      await trx.rollback();
+      console.error('Error in findAll:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
   @Get()
