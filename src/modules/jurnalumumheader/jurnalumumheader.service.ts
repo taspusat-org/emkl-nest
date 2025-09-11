@@ -119,6 +119,9 @@ export class JurnalumumheaderService {
 
         // **VALIDASI BALANCE: Total Debet harus sama dengan Total Kredit**
         const selisih = totalDebet - totalKredit;
+        console.log(selisih, 'selisih bg oja');
+        console.log(totalDebet, 'debet bg oja');
+        console.log(totalKredit, 'kredit bg oja');
         const tolerance = 0.01;
 
         if (Math.abs(selisih) > tolerance) {

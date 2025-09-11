@@ -1,24 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CreatePengeluarandetailDto } from './dto/create-pengeluarandetail.dto';
-import { UpdatePengeluarandetailDto } from './dto/update-pengeluarandetail.dto';
+import { CreateHutangdetailDto } from './dto/create-hutangdetail.dto';
+import { UpdateHutangdetailDto } from './dto/update-hutangdetail.dto';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 
 @Injectable()
-export class PengeluarandetailService {
-  private readonly tableName = 'pengeluarandetail';
+export class HutangdetailService {
+  private readonly tableName = 'hutangdetail';
   constructor(
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
-  private readonly logger = new Logger(PengeluarandetailService.name);
+  private readonly logger = new Logger(HutangdetailService.name);
   async create(details: any, id: any = 0, trx: any = null) {
     let insertedData = null;
     let data: any = null;
     const tempTableName = `##temp_${Math.random().toString(36).substring(2, 15)}`;
 
-    // Get the column info and create temporary table
-    const result = await trx(this.tableName).columnInfo();
     const tableTemp = await this.utilsService.createTempTable(
       this.tableName,
       trx,
@@ -29,7 +27,7 @@ export class PengeluarandetailService {
     const logData: any[] = [];
     const mainDataToInsert: any[] = [];
     if (details.length === 0) {
-      await trx(this.tableName).delete().where('pengeluaran_id', id);
+      await trx(this.tableName).delete().where('hutang_id', id);
       return;
     }
     for (data of details) {
@@ -81,7 +79,7 @@ export class PengeluarandetailService {
     // Ensure each item has an idheader
     const processedData = mainDataToInsert.map((item: any) => ({
       ...item,
-      pengeluaran_id: item.pengeluaran_id ?? id, // Ensure correct field mapping
+      hutang_id: item.hutang_id ?? id, // Ensure correct field mapping
     }));
     const jsonString = JSON.stringify(processedData);
     const mappingData = Object.keys(processedData[0]).map((key) => [
@@ -97,34 +95,20 @@ export class PengeluarandetailService {
 
     // Insert into temp table
     await trx(tempTableName).insert(openJson);
-    console.log(await trx(tempTableName), 'TEST');
     // **Update or Insert into 'kasgantungdetail' with correct idheader**
-    const updatedData = await trx('pengeluarandetail')
-      .join(`${tempTableName}`, 'pengeluarandetail.id', `${tempTableName}.id`)
+    const updatedData = await trx('hutangdetail')
+      .join(`${tempTableName}`, 'hutangdetail.id', `${tempTableName}.id`)
       .update({
-        coadebet: trx.raw(`${tempTableName}.coadebet`),
+        coa: trx.raw(`${tempTableName}.coa`),
         keterangan: trx.raw(`${tempTableName}.keterangan`),
         nominal: trx.raw(`${tempTableName}.nominal`),
         dpp: trx.raw(`${tempTableName}.dpp`),
-        transaksibiaya_nobukti: trx.raw(
-          `${tempTableName}.transaksibiaya_nobukti`,
-        ),
-        transaksilain_nobukti: trx.raw(
-          `${tempTableName}.transaksilain_nobukti`,
-        ),
         noinvoiceemkl: trx.raw(`${tempTableName}.noinvoiceemkl`),
         tglinvoiceemkl: trx.raw(`${tempTableName}.tglinvoiceemkl`),
         nofakturpajakemkl: trx.raw(`${tempTableName}.nofakturpajakemkl`),
-        perioderefund: trx.raw(`${tempTableName}.perioderefund`),
-        pengeluaranemklheader_nobukti: trx.raw(
-          `${tempTableName}.pengeluaranemklheader_nobukti`,
-        ),
-        penerimaanemklheader_nobukti: trx.raw(
-          `${tempTableName}.penerimaanemklheader_nobukti`,
-        ),
         info: trx.raw(`${tempTableName}.info`),
         modifiedby: trx.raw(`${tempTableName}.modifiedby`),
-        pengeluaran_id: trx.raw(`${tempTableName}.pengeluaran_id`),
+        hutang_id: trx.raw(`${tempTableName}.hutang_id`),
         created_at: trx.raw(`${tempTableName}.created_at`),
         updated_at: trx.raw(`${tempTableName}.updated_at`),
       })
@@ -138,56 +122,42 @@ export class PengeluarandetailService {
     // Handle insertion if no update occurs
     const insertedDataQuery = await trx(tempTableName)
       .select([
-        'coadebet',
         'nobukti',
+        'coa',
         'keterangan',
         'nominal',
         'dpp',
-        'transaksibiaya_nobukti',
-        'transaksilain_nobukti',
         'noinvoiceemkl',
         'tglinvoiceemkl',
         'nofakturpajakemkl',
-        'perioderefund',
-        'pengeluaranemklheader_nobukti',
-        'penerimaanemklheader_nobukti',
         'info',
         'modifiedby',
-        trx.raw('? as pengeluaran_id', [id]),
+        trx.raw('? as hutang_id', [id]),
         'created_at',
         'updated_at',
       ])
       .where(`${tempTableName}.id`, '0');
 
     const getDeleted = await trx(this.tableName)
-      .leftJoin(
-        `${tempTableName}`,
-        'pengeluarandetail.id',
-        `${tempTableName}.id`,
-      )
+      .leftJoin(`${tempTableName}`, 'hutangdetail.id', `${tempTableName}.id`)
       .select(
-        'pengeluarandetail.id',
-        'pengeluarandetail.coadebet',
-        'pengeluarandetail.nobukti',
-        'pengeluarandetail.keterangan',
-        'pengeluarandetail.nominal',
-        'pengeluarandetail.dpp',
-        'pengeluarandetail.transaksibiaya_nobukti',
-        'pengeluarandetail.transaksilain_nobukti',
-        'pengeluarandetail.noinvoiceemkl',
-        'pengeluarandetail.tglinvoiceemkl',
-        'pengeluarandetail.nofakturpajakemkl',
-        'pengeluarandetail.perioderefund',
-        'pengeluarandetail.pengeluaranemklheader_nobukti',
-        'pengeluarandetail.penerimaanemklheader_nobukti',
-        'pengeluarandetail.info',
-        'pengeluarandetail.modifiedby',
-        'pengeluarandetail.created_at',
-        'pengeluarandetail.updated_at',
-        'pengeluarandetail.pengeluaran_id',
+        'hutangdetail.id',
+        'hutangdetail.nobukti',
+        'hutangdetail.coa',
+        'hutangdetail.keterangan',
+        'hutangdetail.nominal',
+        'hutangdetail.dpp',
+        'hutangdetail.noinvoiceemkl',
+        'hutangdetail.tglinvoiceemkl',
+        'hutangdetail.nofakturpajakemkl',
+        'hutangdetail.info',
+        'hutangdetail.modifiedby',
+        'hutangdetail.created_at',
+        'hutangdetail.updated_at',
+        'hutangdetail.hutang_id',
       )
       .whereNull(`${tempTableName}.id`)
-      .where('pengeluarandetail.pengeluaran_id', id);
+      .where('hutangdetail.hutang_id', id);
 
     let pushToLog: any[] = [];
 
@@ -203,16 +173,12 @@ export class PengeluarandetailService {
     const finalData = logData.concat(pushToLogWithAction);
 
     const deletedData = await trx(this.tableName)
-      .leftJoin(
-        `${tempTableName}`,
-        'pengeluarandetail.id',
-        `${tempTableName}.id`,
-      )
+      .leftJoin(`${tempTableName}`, 'hutangdetail.id', `${tempTableName}.id`)
       .whereNull(`${tempTableName}.id`)
-      .where('pengeluarandetail.pengeluaran_id', id)
+      .where('hutangdetail.hutang_id', id)
       .del();
     if (insertedDataQuery.length > 0) {
-      insertedData = await trx('pengeluarandetail')
+      insertedData = await trx('hutangdetail')
         .insert(insertedDataQuery)
         .returning('*')
         .then((result: any) => result[0])
@@ -225,7 +191,7 @@ export class PengeluarandetailService {
     await this.logTrailService.create(
       {
         namatabel: this.tableName,
-        postingdari: 'PENGELUARAN HEADER',
+        postingdari: 'HUTANG HEADER',
         idtrans: id,
         nobuktitrans: id,
         aksi: 'EDIT',
@@ -243,21 +209,21 @@ export class PengeluarandetailService {
       .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
       .select(
         'p.id',
-        'p.pengeluaran_id',
-        'p.coadebet',
+        'p.hutang_id',
         'p.nobukti',
+        'p.coa',
         'p.keterangan',
         'p.nominal',
         'p.dpp',
-        'p.transaksibiaya_nobukti',
-        'p.transaksilain_nobukti',
         'p.noinvoiceemkl',
-        trx.raw("FORMAT(p.tglinvoiceemkl, 'dd-MM-yyyy') as tglinvoiceemkl"),
+        trx.raw(`
+          FORMAT(
+            TRY_CONVERT(datetime, p.tglinvoiceemkl),
+            'dd-MM-yyyy'
+          ) as tglinvoiceemkl
+        `),
         'p.nofakturpajakemkl',
-        'p.perioderefund',
-        'p.pengeluaranemklheader_nobukti',
-        'p.penerimaanemklheader_nobukti',
-        'q.keterangancoa as coadebet_text', // ganti sesuai nama kolom sebenarnya
+        'q.keterangancoa as coa_text',
         'p.info',
         'p.modifiedby',
         trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
@@ -265,10 +231,10 @@ export class PengeluarandetailService {
       )
       .leftJoin(
         trx.raw('akunpusat as q WITH (READUNCOMMITTED)'),
-        'p.coadebet',
+        'p.coa',
         'q.coa',
       )
-      .where('p.pengeluaran_id', id)
+      .where('p.hutang_id', id)
       .orderBy('p.created_at', 'desc');
 
     if (!result.length) {
@@ -282,20 +248,20 @@ export class PengeluarandetailService {
 
     return {
       status: true,
-      message: 'Pengeluaran Detail data fetched successfully',
+      message: 'Hutang Detail data fetched successfully',
       data: result,
     };
   }
 
   findOne(id: number) {
-    return `This action returns a #${id} pengeluarandetail`;
+    return `This action returns a #${id} hutangdetail`;
   }
 
-  update(id: number, updatePengeluarandetailDto: UpdatePengeluarandetailDto) {
-    return `This action updates a #${id} pengeluarandetail`;
+  update(id: number, updateHutangdetailDto: UpdateHutangdetailDto) {
+    return `This action updates a #${id} hutangdetail`;
   }
 
   remove(id: number) {
-    return `This action removes a #${id} pengeluarandetail`;
+    return `This action removes a #${id} hutangdetail`;
   }
 }

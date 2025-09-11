@@ -4,14 +4,15 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { CreatePengeluaranheaderDto } from './dto/create-pengeluaranheader.dto';
-import { UpdatePengeluaranheaderDto } from './dto/update-pengeluaranheader.dto';
+import { CreateHutangheaderDto } from './dto/create-hutangheader.dto';
+import { UpdateHutangheaderDto } from './dto/update-hutangheader.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { RedisService } from 'src/common/redis/redis.service';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
-import { PengeluarandetailService } from '../pengeluarandetail/pengeluarandetail.service';
+import { HutangdetailService } from '../hutangdetail/hutangdetail.service';
+import { JurnalumumheaderService } from '../jurnalumumheader/jurnalumumheader.service';
 import { GlobalService } from '../global/global.service';
 import { LocksService } from '../locks/locks.service';
 import * as fs from 'fs';
@@ -19,17 +20,19 @@ import * as path from 'path';
 import { Workbook, Column } from 'exceljs';
 
 @Injectable()
-export class PengeluaranheaderService {
+export class HutangheaderService {
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
-    private readonly pengeluarandetailService: PengeluarandetailService,
+    private readonly hutangdetailService: HutangdetailService,
+    private readonly JurnalumumheaderService: JurnalumumheaderService,
     private readonly locksService: LocksService,
     private readonly globalService: GlobalService,
   ) {}
-  private readonly tableName = 'pengeluaranheader';
+  private readonly tableName = 'hutangheader';
+
   async create(data: any, trx: any) {
     try {
       const {
@@ -39,11 +42,8 @@ export class PengeluaranheaderService {
         search,
         page,
         limit,
+        coa_text,
         relasi_text,
-        bank_text,
-        alatbayar_text,
-        daftarbank_text,
-        coakredit_text,
         details,
         modifiedby,
         created_at,
@@ -61,57 +61,35 @@ export class PengeluaranheaderService {
       insertData.created_at = created_at || this.utilsService.getTime();
       insertData.updated_at = updated_at || this.utilsService.getTime();
 
-      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
-      const parameterCabang = await trx('parameter')
-        .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
-        .where('grp', 'CABANG')
-        .andWhere('subgrp', 'CABANG')
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
+      const getParam = await trx('parameter')
+        .select([
+          'id',
+          'grp',
+          'subgrp',
+          'kelompok',
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') as coa_nama`),
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') as memo_nama`),
+        ])
+        .whereRaw("RTRIM(LTRIM(grp)) = 'NOMOR HUTANG'")
+        .andWhereRaw("RTRIM(LTRIM(subgrp)) = 'NOMOR HUTANG'")
+        .andWhereRaw("RTRIM(LTRIM(kelompok)) = 'HUTANG'")
         .first();
 
-      const paramData = await trx('bank as b')
-        .leftJoin('parameter as p', 'b.formatpengeluaran', 'p.id')
-        .select(
-          'b.id as bank_id',
-          'b.nama as bank_nama',
-          'b.formatpengeluaran',
-          'p.id as parameter_id',
-          'p.grp as grp',
-          'p.subgrp as subgrp',
-          'p.text as text',
-          'p.memo as memo',
-        )
-        .where('b.id', insertData.bank_id)
-        .first();
-
-      const getStatusBank = await trx('bank')
-        .select('formatpengeluaran')
-        .where('id', insertData.bank_id)
-        .first();
-
-      if (!getStatusBank) {
-        throw new Error(`Bank dengan id ${insertData.bank_id} tidak ditemukan`);
+      if (!getParam) {
+        throw new Error(`Parameter tidak ditemukan`);
       }
 
-      if (!paramData) {
-        throw new Error(
-          `Parameter dengan id ${getStatusBank.formatpengeluaran} tidak ditemukan`,
-        );
-      }
-
-      const cabangId = parameterCabang.cabang_id;
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
-        paramData.grp,
-        paramData.subgrp,
+        getParam.grp,
+        getParam.subgrp,
         this.tableName,
         insertData.tglbukti,
-        null,
-        cabangId,
       );
       insertData.nobukti = nomorBukti;
-      insertData.statusformat = getStatusBank
-        ? getStatusBank.formatpengeluaran
-        : null;
+      insertData.coa = getParam.coa_nama;
+      insertData.statusformat = getParam.id ? getParam.id : null;
 
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
@@ -119,18 +97,68 @@ export class PengeluaranheaderService {
 
       if (details.length > 0) {
         const detailsWithNobukti = details.map(
-          ({ coadebet_text, ...detail }: any) => ({
+          ({ coa_text, ...detail }: any) => ({
             ...detail,
             nobukti: nomorBukti,
             modifiedby: data.modifiedby || null,
           }),
         );
-        await this.pengeluarandetailService.create(
+        await this.hutangdetailService.create(
           detailsWithNobukti,
           insertedItems[0].id,
           trx,
         );
       }
+
+      const defaultCoa = getParam.coa_nama;
+
+      if (!defaultCoa) {
+        throw new Error(
+          'Default COA untuk jurnal umum tidak ditemukan di memo',
+        );
+      }
+
+      const processDetails = (details) => {
+        return details.flatMap((detail) => [
+          {
+            id: 0,
+            coa: detail.coa,
+            nobukti: nomorBukti,
+            tglbukti: formatDateToSQL(insertData.tglbukti),
+            keterangan: detail.keterangan,
+            nominaldebet: detail.nominal,
+            nominalkredit: '',
+          },
+          {
+            id: 0,
+            coa: defaultCoa,
+            nobukti: nomorBukti,
+            tglbukti: formatDateToSQL(insertData.tglbukti),
+            keterangan: detail.keterangan,
+            nominaldebet: '',
+            nominalkredit: detail.nominal,
+          },
+        ]);
+      };
+
+      const result = processDetails(details);
+
+      const jurnalPayload = {
+        nobukti: nomorBukti,
+        tglbukti: insertData.tglbukti,
+        postingdari: getParam.memo_nama,
+        statusformat: getParam.id,
+        keterangan: insertData.keterangan,
+        created_at: this.utilsService.getTime(),
+        updated_at: this.utilsService.getTime(),
+        modifiedby: insertData.modifiedby,
+        details: result,
+      };
+
+      const jurnalHeaderInserted = await this.JurnalumumheaderService.create(
+        jurnalPayload,
+        trx,
+      );
 
       const newItem = insertedItems[0];
 
@@ -169,7 +197,7 @@ export class PengeluaranheaderService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: `ADD PENGELUARAN HEADER`,
+          postingdari: `ADD HUTANG HEADER`,
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -219,26 +247,16 @@ export class PengeluaranheaderService {
           'u.id as id',
           'u.nobukti',
           trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
-          'u.relasi_id',
-          'u.keterangan',
-          'u.bank_id',
-          'u.postingdari',
-          'u.coakredit',
-          'u.dibayarke',
-          'u.alatbayar_id',
-          'u.nowarkat',
           trx.raw("FORMAT(u.tgljatuhtempo, 'dd-MM-yyyy') as tgljatuhtempo"),
-          'u.gantungorderan_nobukti',
-          'u.daftarbank_id',
+          'u.keterangan',
+          'u.relasi_id',
+          'u.coa',
           'u.statusformat',
           'u.modifiedby',
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'r.nama as relasi_text',
-          'b.nama as bank_text',
-          'a.keterangancoa as coakredit_text',
-          'c.nama as alatbayar_text',
-          'd.nama as daftarbank_text',
+          'a.keterangancoa as coa_text',
         ])
         .leftJoin(
           trx.raw('relasi as r WITH (READUNCOMMITTED)'),
@@ -246,24 +264,9 @@ export class PengeluaranheaderService {
           'r.id',
         )
         .leftJoin(
-          trx.raw('bank as b WITH (READUNCOMMITTED)'),
-          'u.bank_id',
-          'b.id',
-        )
-        .leftJoin(
           trx.raw('akunpusat as a WITH (READUNCOMMITTED)'),
-          'u.coakredit',
+          'u.coa',
           'a.coa',
-        )
-        .leftJoin(
-          trx.raw('alatbayar as c WITH (READUNCOMMITTED)'),
-          'u.alatbayar_id',
-          'c.id',
-        )
-        .leftJoin(
-          trx.raw('daftarbank as d WITH (READUNCOMMITTED)'),
-          'u.daftarbank_id',
-          'd.id',
         );
 
       if (filters?.tglDari && filters?.tglSampai) {
@@ -288,48 +291,45 @@ export class PengeluaranheaderService {
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
-        query.where((qb) => {
+        query.andWhere((qb) => {
           searchFields.forEach((field) => {
-            qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+            if (field === 'relasi_text') {
+              qb.orWhere('r.nama', 'like', `%${sanitized}%`);
+            } else if (field === 'coa_text') {
+              qb.orWhere('a.keterangancoa', 'like', `%${sanitized}%`);
+            } else {
+              qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+            }
           });
         });
       }
 
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
+          if (!value || key === 'tglDari' || key === 'tglSampai') continue;
+
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
-          if (key === 'tglDari' || key === 'tglSampai') {
-            continue;
-          }
-
-          if (value) {
-            if (
-              key === 'created_at' ||
-              key === 'updated_at' ||
-              key === 'editing_at' ||
-              key === 'tglbukti' ||
-              key === 'tgljatuhtempo'
-            ) {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-                key,
-                `%${sanitizedValue}%`,
-              ]);
-            } else if (key === 'relasi_text') {
+          switch (key) {
+            case 'created_at':
+            case 'updated_at':
+            case 'editing_at':
+            case 'tglbukti':
+            case 'tgljatuhtempo':
+              query.andWhereRaw(
+                `FORMAT(u.${key}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`,
+                [`%${sanitizedValue}%`],
+              );
+              break;
+            case 'relasi_text':
               query.andWhere('r.nama', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'bank_text') {
-              query.andWhere('b.nama', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'bank_id') {
-              query.andWhere('u.bank_id', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'coakredit_text') {
+              break;
+            case 'coa_text':
               query.andWhere('a.keterangancoa', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'alatbayar_text') {
-              query.andWhere('c.nama', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'daftarbank_text') {
-              query.andWhere('d.nama', 'like', `%${sanitizedValue}%`);
-            } else {
+              break;
+            default:
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
-            }
+              break;
           }
         }
       }
@@ -380,26 +380,16 @@ export class PengeluaranheaderService {
           'u.id as id',
           'u.nobukti',
           trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
-          'u.relasi_id',
-          'u.keterangan',
-          'u.bank_id',
-          'u.postingdari',
-          'u.coakredit',
-          'u.dibayarke',
-          'u.alatbayar_id',
-          'u.nowarkat',
           trx.raw("FORMAT(u.tgljatuhtempo, 'dd-MM-yyyy') as tgljatuhtempo"),
-          'u.gantungorderan_nobukti',
-          'u.daftarbank_id',
+          'u.keterangan',
+          'u.relasi_id',
+          'u.coa',
           'u.statusformat',
           'u.modifiedby',
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'r.nama as relasi_text',
-          'b.nama as bank_text',
-          'a.keterangancoa as coakredit_text',
-          'c.nama as alatbayar_text',
-          'd.nama as daftarbank_text',
+          'a.keterangancoa as coa_text',
         ])
         .leftJoin(
           trx.raw('relasi as r WITH (READUNCOMMITTED)'),
@@ -407,24 +397,9 @@ export class PengeluaranheaderService {
           'r.id',
         )
         .leftJoin(
-          trx.raw('bank as b WITH (READUNCOMMITTED)'),
-          'u.bank_id',
-          'b.id',
-        )
-        .leftJoin(
           trx.raw('akunpusat as a WITH (READUNCOMMITTED)'),
-          'u.coakredit',
+          'u.coa',
           'a.coa',
-        )
-        .leftJoin(
-          trx.raw('alatbayar as c WITH (READUNCOMMITTED)'),
-          'u.alatbayar_id',
-          'c.id',
-        )
-        .leftJoin(
-          trx.raw('daftarbank as d WITH (READUNCOMMITTED)'),
-          'u.daftarbank_id',
-          'd.id',
         )
         .where('u.id', id);
 
@@ -450,37 +425,45 @@ export class PengeluaranheaderService {
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
-        query.where((qb) => {
+        query.andWhere((qb) => {
           searchFields.forEach((field) => {
-            qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+            if (field === 'relasi_text') {
+              qb.orWhere('r.nama', 'like', `%${sanitized}%`);
+            } else if (field === 'coa_text') {
+              qb.orWhere('a.keterangancoa', 'like', `%${sanitized}%`);
+            } else {
+              qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+            }
           });
         });
       }
 
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
+          if (!value || key === 'tglDari' || key === 'tglSampai') continue;
+
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
-          // Menambahkan pengecualian untuk 'tglDari' dan 'tglSampai'
-          if (key === 'tglDari' || key === 'tglSampai') {
-            continue; // Lewati filter jika key adalah 'tglDari' atau 'tglSampai'
-          }
-
-          if (value) {
-            if (
-              key === 'created_at' ||
-              key === 'updated_at' ||
-              key === 'editing_at' ||
-              key === 'tglbukti' ||
-              key === 'tgljatuhtempo'
-            ) {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-                key,
-                `%${sanitizedValue}%`,
-              ]);
-            } else {
+          switch (key) {
+            case 'created_at':
+            case 'updated_at':
+            case 'editing_at':
+            case 'tglbukti':
+            case 'tgljatuhtempo':
+              query.andWhereRaw(
+                `FORMAT(u.${key}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`,
+                [`%${sanitizedValue}%`],
+              );
+              break;
+            case 'relasi_text':
+              query.andWhere('r.nama', 'like', `%${sanitizedValue}%`);
+              break;
+            case 'coa_text':
+              query.andWhere('a.keterangancoa', 'like', `%${sanitizedValue}%`);
+              break;
+            default:
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
-            }
+              break;
           }
         }
       }
@@ -512,10 +495,7 @@ export class PengeluaranheaderService {
         page,
         limit,
         relasi_text,
-        bank_text,
-        alatbayar_text,
-        daftarbank_text,
-        coakredit_text,
+        coa_text,
         details,
         ...insertData
       } = data;
@@ -526,11 +506,17 @@ export class PengeluaranheaderService {
         }
       });
       const existingData = await trx(this.tableName).where('id', id).first();
-
+      if (!insertData.coa) {
+        insertData.coa = existingData?.coa;
+      }
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
 
       if (hasChanges) {
         insertData.updated_at = this.utilsService.getTime();
+
+        if (!insertData.coa) {
+          insertData.coa = existingData?.coa;
+        }
 
         await trx(this.tableName).where('id', id).update(insertData);
       }
@@ -538,12 +524,12 @@ export class PengeluaranheaderService {
       // Check each detail, update or set id accordingly
       if (details.length > 0) {
         const nobuktiHeader = insertData.nobukti || existingData.nobukti;
-        const cleanedDetails = details.map(({ coadebet_text, ...rest }) => ({
+        const cleanedDetails = details.map(({ coa_text, ...rest }) => ({
           ...rest,
           nobukti: nobuktiHeader,
         }));
 
-        await this.pengeluarandetailService.create(cleanedDetails, id, trx);
+        await this.hutangdetailService.create(cleanedDetails, id, trx);
       }
 
       // If there are details, call the service to handle create or update
@@ -581,7 +567,7 @@ export class PengeluaranheaderService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: `EDIT PENGELUARAN HEADER`,
+          postingdari: `EDIT HUTANG HEADER`,
           idtrans: id,
           nobuktitrans: id,
           aksi: 'EDIT',
@@ -614,15 +600,15 @@ export class PengeluaranheaderService {
       );
       const deletedDataDetail = await this.utilsService.lockAndDestroy(
         id,
-        'pengeluarandetail',
-        'pengeluaran_id',
+        'hutangdetail',
+        'hutang_id',
         trx,
       );
 
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE PENGELUARAN DETAIL',
+          postingdari: 'DELETE HUTANG DETAIL',
           idtrans: deletedDataDetail.id,
           nobuktitrans: deletedDataDetail.id,
           aksi: 'DELETE',
@@ -652,7 +638,7 @@ export class PengeluaranheaderService {
     worksheet.mergeCells('A3:D3'); // Ubah dari E3 ke D3 karena hanya 4 kolom
 
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
-    worksheet.getCell('A2').value = 'LAPORAN PENGELUARAN';
+    worksheet.getCell('A2').value = 'LAPORAN HUTANG';
     worksheet.getCell('A3').value = 'Data Export';
 
     ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
@@ -670,15 +656,16 @@ export class PengeluaranheaderService {
     let currentRow = 5;
 
     for (const h of data) {
-      const detailRes = await this.pengeluarandetailService.findAll(h.id, trx);
+      const detailRes = await this.hutangdetailService.findAll(h.id, trx);
       const details = detailRes.data ?? [];
 
       const headerInfo = [
-        ['No Bukti', h.nobukti ?? ''],
-        ['Tanggal', h.tglbukti ?? ''],
-        ['Bank / Kas', h.bank_text ?? ''],
-        ['Tanggal Kas', h.tgljatuhtempo ?? ''],
-        ['Relasi', h.relasi_text ?? ''],
+        ['Nomor Bukti', h.nobukti ?? ''],
+        ['Tanggal Bukti', h.tglbukti ?? ''],
+        ['Tanggal Jatuh Tempo', h.tgljatuhtempo ?? ''],
+        ['Keterangan', h.keterangan ?? ''],
+        ['Supplier', h.relasi_text ?? ''],
+        ['Coa', h.coa_text ?? ''],
       ];
 
       // Merge kolom A dan B untuk seluruh area header info
@@ -738,7 +725,7 @@ export class PengeluaranheaderService {
         details.forEach((d: any, detailIndex: number) => {
           const rowValues = [
             detailIndex + 1,
-            d.coadebet_text ?? '',
+            d.coa_text ?? '',
             d.keterangan ?? '',
             d.nominal ?? 0,
           ];
@@ -813,7 +800,7 @@ export class PengeluaranheaderService {
 
     const tempFilePath = path.resolve(
       tempDir,
-      `laporan_pengeluaran${Date.now()}.xlsx`,
+      `laporan_hutang${Date.now()}.xlsx`,
     );
 
     await workbook.xlsx.writeFile(tempFilePath);

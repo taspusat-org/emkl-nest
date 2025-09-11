@@ -19,7 +19,7 @@ import { RelasiModule } from '../relasi/relasi.module';
     LogtrailModule,
     GlobalModule,
     LocksModule,
-    RelasiModule
-  ]
+    RelasiModule,
+  ],
 })
 export class SupplierModule {}
