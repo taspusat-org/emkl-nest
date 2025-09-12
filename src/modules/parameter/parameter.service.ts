@@ -149,6 +149,7 @@ export class ParameterService {
     pagination,
     sort,
     isLookUp,
+    exclude
   }: FindAllParams) {
     try {
       let { page, limit } = pagination ?? {};
@@ -206,6 +207,20 @@ export class ParameterService {
               );
             } else {
               query.andWhere(key, 'like', `%${value}%`);
+            }
+          }
+        }
+      }
+      
+      if (exclude) {
+        if (filters) {
+          for (const [key, value] of Object.entries(filters)) {
+            if (value != null) {
+              if (key === 'kelompok') {
+                query.andWhere(key, '!=', value);
+              } else {
+                query.andWhere(key, '!=', value);
+              }
             }
           }
         }

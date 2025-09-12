@@ -100,7 +100,7 @@ export class ParameterController {
   @Get()
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
-    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+    const { search, page, limit, sortBy, sortDirection, isLookUp, exclude, ...filters } =
       query;
 
     const sortParams = {
@@ -117,7 +117,7 @@ export class ParameterController {
       search,
       filters,
       isLookUp: isLookUp === 'true', // Convert isLookUp to boolean
-
+      exclude,
       pagination,
       sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
     };
