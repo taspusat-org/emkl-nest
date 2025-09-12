@@ -85,6 +85,7 @@ import { BiayaemklModule } from './modules/biayaemkl/biayaemkl.module';
 import { SupplierModule } from './modules/supplier/supplier.module';
 import { HutangheaderModule } from './modules/hutangheader/hutangheader.module';
 import { HutangdetailModule } from './modules/hutangdetail/hutangdetail.module';
+import { PenerimaanEmklModule } from './modules/penerimaan-emkl/penerimaan-emkl.module';
 
 @Module({
   imports: [
@@ -171,6 +172,7 @@ import { HutangdetailModule } from './modules/hutangdetail/hutangdetail.module';
     SupplierModule,
     HutangheaderModule,
     HutangdetailModule,
+    PenerimaanEmklModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

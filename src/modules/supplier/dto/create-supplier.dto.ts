@@ -112,31 +112,31 @@ export const CreateSupplierSchema = z
       });
     }
 
-    // const coaValues = [
-    //   { field: 'coa', value: data.coa, name: 'COA' },
-    //   { field: 'coapiu', value: data.coapiu, name: 'COA Piutang' },
-    //   { field: 'coahut', value: data.coahut, name: 'COA Hutang' },
-    //   { field: 'coagiro', value: data.coagiro, name: 'COA Giro' },
-    // ];
+    const coaValues = [
+      { field: 'coa', value: data.coa, name: 'COA' },
+      { field: 'coapiu', value: data.coapiu, name: 'COA Piutang' },
+      { field: 'coahut', value: data.coahut, name: 'COA Hutang' },
+      { field: 'coagiro', value: data.coagiro, name: 'COA Giro' },
+    ];
 
-    // for (let i = 0; i < coaValues.length; i++) {
-    //   for (let j = i + 1; j < coaValues.length; j++) {
-    //     const first = coaValues[i];
-    //     const second = coaValues[j];
+    for (let i = 0; i < coaValues.length; i++) {
+      for (let j = i + 1; j < coaValues.length; j++) {
+        const first = coaValues[i];
+        const second = coaValues[j];
 
-    //     if (
-    //       first.value != null &&
-    //       second.value != null &&
-    //       first.value === second.value
-    //     ) {
-    //       ctx.addIssue({
-    //         path: [second.field as keyof typeof data],
-    //         code: z.ZodIssueCode.custom,
-    //         message: `${first.name} dan ${second.name} tidak boleh sama`,
-    //       });
-    //     }
-    //   }
-    // }
+        if (
+          first.value != null &&
+          second.value != null &&
+          first.value === second.value
+        ) {
+          ctx.addIssue({
+            path: [second.field as keyof typeof data],
+            code: z.ZodIssueCode.custom,
+            message: `${first.name} dan ${second.name} tidak boleh sama`,
+          });
+        }
+      }
+    }
     // Validasi khusus penambahan create dapat disimpan di sini
   });
 export type CreateSupplierDto = z.infer<typeof CreateSupplierSchema>;
@@ -164,6 +164,32 @@ export const UpdateSupplierSchema = z
         code: 'custom',
         message: 'Supplier dengan nama ini sudah ada',
       });
+    }
+
+    const coaValues = [
+      { field: 'coa', value: data.coa, name: 'COA' },
+      { field: 'coapiu', value: data.coapiu, name: 'COA Piutang' },
+      { field: 'coahut', value: data.coahut, name: 'COA Hutang' },
+      { field: 'coagiro', value: data.coagiro, name: 'COA Giro' },
+    ];
+
+    for (let i = 0; i < coaValues.length; i++) {
+      for (let j = i + 1; j < coaValues.length; j++) {
+        const first = coaValues[i];
+        const second = coaValues[j];
+
+        if (
+          first.value != null &&
+          second.value != null &&
+          first.value === second.value
+        ) {
+          ctx.addIssue({
+            path: [second.field as keyof typeof data],
+            code: z.ZodIssueCode.custom,
+            message: `${first.name} dan ${second.name} tidak boleh sama`,
+          });
+        }
+      }
     }
     // Validasi khusus update bisa diletakkan di sini
   });

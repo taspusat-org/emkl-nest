@@ -2,6 +2,7 @@ export interface FindAllParams {
   search?: string;
   filters?: Record<string, string | number>;
   isLookUp?: boolean;
+  exclude?: any;
   karyawanId?: number; // Opsional
   pagination?: {
     page?: number; // Opsional
@@ -48,6 +49,7 @@ export const FindAllSchema = z
     }, z.number().int().min(1).default(10)),
     sortBy: z.string().optional(),
     isLookUp: z.string().optional(),
+    exclude: z.string().optional(),
     sortDirection: z.enum(['asc', 'desc']).default('asc'),
   })
   .superRefine((val) => {
