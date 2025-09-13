@@ -673,7 +673,7 @@ export class PenerimaanheaderService {
         },
         trx,
       );
-      const details = detailRes.data ?? [];
+      const details = detailRes?.data ?? [];
 
       const headerInfo = [
         ['No Bukti', h.nobukti ?? ''],

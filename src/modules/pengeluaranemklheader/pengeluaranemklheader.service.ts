@@ -280,18 +280,29 @@ export class PengeluaranemklheaderService {
         }
       }
 
-      const query = trx(`${this.tableName} as u`).select([
-        'u.id as id',
-        'u.nobukti', // nobukti (nvarchar(100))
-        trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
-        'u.keterangan', // keterangan (nvarchar(max))
-        'u.postingdari', // relasi_id (integer)
-        'u.statusformat', // bank_id (integer)
-        'u.info', // info (nvarchar(max))
-        'u.modifiedby', // modifiedby (varchar(200))
-        trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
-        trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
-      ]);
+      const query = trx(`${this.tableName} as u`)
+        .select([
+          'u.id as id',
+          'u.nobukti', // nobukti (nvarchar(100))
+          trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
+          trx.raw("FORMAT(u.tgljatuhtempo, 'dd-MM-yyyy') as tgljatuhtempo"),
+          'u.keterangan', // keterangan (nvarchar(max))
+          'u.karyawan_id', // keterangan (nvarchar(max))
+          'k.nama as karyawan_nama',
+          'u.jenisposting', // keterangan (nvarchar(max))
+          'u.bank_id', // keterangan (nvarchar(max))
+          'b.nama as bank_nama',
+          'u.nowarkat', // keterangan (nvarchar(max))
+          'u.pengeluaran_nobukti', // keterangan (nvarchar(max))
+          'u.hutang_nobukti', // keterangan (nvarchar(max))
+          'u.statusformat', // bank_id (integer)
+          'u.info', // info (nvarchar(max))
+          'u.modifiedby', // modifiedby (varchar(200))
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
+        ])
+        .leftJoin('karyawan as k', 'u.karyawan_id', 'k.id')
+        .leftJoin('bank as b', 'u.bank_id', 'b.id');
 
       if (filters?.tglDari && filters?.tglSampai) {
         // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
@@ -335,12 +346,17 @@ export class PengeluaranemklheaderService {
             if (
               key === 'created_at' ||
               key === 'updated_at' ||
-              key === 'tglbukti'
+              key === 'tglbukti' ||
+              key === 'tgljatuhtempo'
             ) {
               query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
                 key,
                 `%${sanitizedValue}%`,
               ]);
+            } else if (key === 'karyawan_nama') {
+              query.andWhere('k.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'bank_nama') {
+              query.andWhere('b.nama', 'like', `%${sanitizedValue}%`);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
@@ -384,7 +400,16 @@ export class PengeluaranemklheaderService {
           'u.id as id',
           'u.nobukti', // nobukti (nvarchar(100))
           trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
+          trx.raw("FORMAT(u.tgljatuhtempo, 'dd-MM-yyyy') as tgljatuhtempo"),
           'u.keterangan', // keterangan (nvarchar(max))
+          'u.karyawan_id', // keterangan (nvarchar(max))
+          'k.nama as karyawan_nama',
+          'u.jenisposting', // keterangan (nvarchar(max))
+          'u.bank_id', // keterangan (nvarchar(max))
+          'b.nama as bank_nama',
+          'u.nowarkat', // keterangan (nvarchar(max))
+          'u.pengeluaran_nobukti', // keterangan (nvarchar(max))
+          'u.hutang_nobukti', // keterangan (nvarchar(max))
           'u.postingdari', // relasi_id (integer)
           'u.statusformat', // bank_id (integer)
           'u.info', // info (nvarchar(max))

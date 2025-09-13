@@ -458,6 +458,12 @@ export class PenerimaandetailService {
   }
 
   async findAll({ search, filters, sort }: FindAllParams, trx: any) {
+    if (!filters?.nobukti) {
+      return {
+        data: [],
+      };
+    }
+
     const query = trx(`${this.tableName} as p`)
       .select(
         'p.id',

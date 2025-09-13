@@ -219,87 +219,49 @@ export class PengeluaranemkldetailService {
         .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
         .select(
           'p.id',
-          'p.jurnalumum_id',
-          trx.raw("FORMAT(p.tglbukti, 'dd-MM-yyyy') as tglbukti"),
+          'p.pengeluaranemkl_id',
           'p.nobukti',
-          'p.coa',
           'p.keterangan',
-          'ap.keterangancoa as coa_nama',
-
-          // Jika nominal < 0 → nominalkredit = ABS(nominal), selain itu 0
-          trx.raw(
-            'CASE WHEN p.nominal < 0 THEN ABS(p.nominal) ELSE 0 END AS nominalkredit',
-          ),
-
-          // Jika nominal > 0 → nominaldebet = nominal, selain itu 0
-          trx.raw(
-            'CASE WHEN p.nominal > 0 THEN p.nominal ELSE 0 END AS nominaldebet',
-          ),
-
-          trx.raw('ABS(p.nominal) AS nominal'),
+          'p.pengeluaranemkl_nobukti',
+          'p.penerimaanemkl_nobukti',
           'p.info',
           'p.modifiedby',
           trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
         )
-        .leftJoin(
-          trx.raw('akunpusat as ap WITH (READUNCOMMITTED)'),
-          'p.coa',
-          'ap.coa',
-        )
         .orderBy('p.created_at', 'desc');
       if (filters?.nobukti) {
         query.where('p.nobukti', filters?.nobukti);
       }
+      const excludeSearchKeys = ['tglDari', 'tglSampai', 'nobukti'];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k) && filters![k],
+      );
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('p.nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('ap.keterangancoa', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.coa', 'like', `%${sanitizedValue}%`);
+        const sanitized = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            qb.orWhere(`p.${field}`, 'like', `%${sanitized}%`);
+          });
         });
       }
-
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
-          if (!value) continue;
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
-          switch (key) {
-            case 'coa_nama':
-              query.andWhere('ap.keterangancoa', 'like', `%${sanitizedValue}%`);
-              break;
-
-            case 'tglbukti':
-              query.andWhere('p.tglbukti', 'like', sanitizedValue);
-              break;
-
-            case 'nominaldebet':
-              query.andWhere(
-                trx.raw('CASE WHEN p.nominal > 0 THEN p.nominal ELSE 0 END'),
-                'like',
+          if (value) {
+            if (key === 'created_at' || key === 'updated_at') {
+              query.andWhereRaw("FORMAT(p.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
                 `%${sanitizedValue}%`,
-              );
-              break;
-
-            case 'nominalkredit':
-              query.andWhere(
-                trx.raw(
-                  'CASE WHEN p.nominal < 0 THEN ABS(p.nominal) ELSE 0 END',
-                ),
-                'like',
-                `%${sanitizedValue}%`,
-              );
-              break;
-
-            default:
+              ]);
+            } else {
               query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
+            }
           }
         }
       }
-
       if (sort?.sortBy && sort?.sortDirection) {
         query.orderBy(sort.sortBy, sort.sortDirection);
       }

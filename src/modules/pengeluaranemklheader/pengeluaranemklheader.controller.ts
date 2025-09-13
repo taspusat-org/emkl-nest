@@ -37,6 +37,7 @@ export class PengeluaranemklheaderController {
 
   @UseGuards(AuthGuard)
   @Post()
+  //@PENGELUARAN-EMKL-HEADER
   async create(@Body() data: any, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
@@ -65,7 +66,7 @@ export class PengeluaranemklheaderController {
   }
   @UseGuards(AuthGuard)
   @Get()
-  //@JURNAL-UMUM
+  //@PENGELUARAN-EMKL-HEADER
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
@@ -107,7 +108,7 @@ export class PengeluaranemklheaderController {
 
   @UseGuards(AuthGuard)
   @Put(':id')
-  //@JURNAL-UMUM
+  //@PENGELUARAN-EMKL-HEADER
   async update(@Param('id') id: string, @Body() data: any, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
@@ -130,7 +131,7 @@ export class PengeluaranemklheaderController {
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  //@JURNAL-UMUM
+  //@PENGELUARAN-EMKL-HEADER
   async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     const modifiedby = req.user?.user?.username || 'unknown';
@@ -154,7 +155,7 @@ export class PengeluaranemklheaderController {
 
   @UseGuards(AuthGuard)
   @Get(':id')
-  //@JURNAL-UMUM
+  //@PENGELUARAN-EMKL-HEADER
   async findOne(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
 
