@@ -492,7 +492,7 @@ export class MarketingService {
         .where('text', '=', 'AKTIF')
         .first();
       const query = dbHr('karyawan')
-        .select('id', 'namakaryawan')
+        .select('id', 'namakaryawan', 'absen_id')
         .where('statusaktif', '=', getIdStatusAktif.id);
 
       if (limit > 0) {
