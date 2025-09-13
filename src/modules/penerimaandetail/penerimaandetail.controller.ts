@@ -30,30 +30,38 @@ export class PenerimaandetailController {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
       query;
 
+    // Set nobukti menjadi string kosong jika tidak ada
+    const finalFilters = {
+      nobukti: '',
+      ...filters,
+    };
+
     const sortParams = {
       sortBy: sortBy || 'nobukti',
       sortDirection: sortDirection || 'asc',
     };
+
     const params: FindAllParams = {
       search,
-      filters,
+      filters: finalFilters,
       sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
     };
+
     const trx = await dbMssql.transaction();
+
     try {
       const result = await this.penerimaandetailService.findAll(params, trx);
 
-      if (result.data.length === 0) {
+      if (result?.data.length === 0) {
         await trx.commit();
-
         return {
           status: false,
           message: 'No data found',
           data: [],
         };
       }
-      await trx.commit();
 
+      await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
