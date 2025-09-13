@@ -89,6 +89,7 @@ import { PenerimaanEmklModule } from './modules/penerimaan-emkl/penerimaan-emkl.
 import { PengeluaranEmklModule } from './modules/pengeluaran-emkl/pengeluaran-emkl.module';
 import { PengeluaranemklheaderModule } from './modules/pengeluaranemklheader/pengeluaranemklheader.module';
 import { PengeluaranemkldetailModule } from './modules/pengeluaranemkldetail/pengeluaranemkldetail.module';
+import { KaryawanModule } from './modules/karyawan/karyawan.module';
 
 @Module({
   imports: [
@@ -179,6 +180,7 @@ import { PengeluaranemkldetailModule } from './modules/pengeluaranemkldetail/pen
     PengeluaranEmklModule,
     PengeluaranemklheaderModule,
     PengeluaranemkldetailModule,
+    KaryawanModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],
