@@ -44,9 +44,6 @@ const baseFields = {
   modifiedby: z.string().max(200).optional(),
 };
 
-
-
-
 // ------------------------
 // 2. KHUSUS CREATE
 // ------------------------
@@ -57,7 +54,11 @@ export const CreatePengeluaranEmklSchema = z
   })
   .superRefine(async (data, ctx) => {
     // Cek unik hanya untuk create (excludeId tidak ada)
-    const existsName = await isRecordExist('nama', data.nama, 'pengeluaranemkl');
+    const existsName = await isRecordExist(
+      'nama',
+      data.nama,
+      'pengeluaranemkl',
+    );
     if (existsName) {
       ctx.addIssue({
         path: ['nama'],
@@ -69,10 +70,26 @@ export const CreatePengeluaranEmklSchema = z
     const coaValues = [
       { field: 'coadebet', value: data.coadebet, name: 'COA DEBET' },
       { field: 'coakredit', value: data.coakredit, name: 'COA KREDIT' },
-      { field: 'coapostingkasbankdebet', value: data.coapostingkasbankdebet, name: 'COA POSTING KASBANK DEBET' },
-      { field: 'coapostingkasbankkredit', value: data.coapostingkasbankkredit, name: 'COA POSTING KASBANK KREDIT' },
-      { field: 'coapostinghutangdebet', value: data.coapostinghutangdebet, name: 'COA POSTING HUTANG DEBET' },
-      { field: 'coapostinghutangkredit', value: data.coapostinghutangkredit, name: 'COA POSTING HUTANG KREDIT' },
+      {
+        field: 'coapostingkasbankdebet',
+        value: data.coapostingkasbankdebet,
+        name: 'COA POSTING KASBANK DEBET',
+      },
+      {
+        field: 'coapostingkasbankkredit',
+        value: data.coapostingkasbankkredit,
+        name: 'COA POSTING KASBANK KREDIT',
+      },
+      {
+        field: 'coapostinghutangdebet',
+        value: data.coapostinghutangdebet,
+        name: 'COA POSTING HUTANG DEBET',
+      },
+      {
+        field: 'coapostinghutangkredit',
+        value: data.coapostinghutangkredit,
+        name: 'COA POSTING HUTANG KREDIT',
+      },
     ];
 
     for (let i = 0; i < coaValues.length; i++) {
@@ -95,10 +112,9 @@ export const CreatePengeluaranEmklSchema = z
     }
     // Validasi khusus penambahan create dapat disimpan di sini
   });
-export type CreatePengeluaranEmklDto = z.infer<typeof CreatePengeluaranEmklSchema>;
-
-
-
+export type CreatePengeluaranEmklDto = z.infer<
+  typeof CreatePengeluaranEmklSchema
+>;
 
 // ------------------------
 // 3. KHUSUS UPDATE
@@ -128,10 +144,26 @@ export const UpdatePengeluaranEmklSchema = z
     const coaValues = [
       { field: 'coadebet', value: data.coadebet, name: 'COA DEBET' },
       { field: 'coakredit', value: data.coakredit, name: 'COA KREDIT' },
-      { field: 'coapostingkasbankdebet', value: data.coapostingkasbankdebet, name: 'COA POSTING KASBANK DEBET' },
-      { field: 'coapostingkasbankkredit', value: data.coapostingkasbankkredit, name: 'COA POSTING KASBANK KREDIT' },
-      { field: 'coapostinghutangdebet', value: data.coapostinghutangdebet, name: 'COA POSTING HUTANG DEBET' },
-      { field: 'coapostinghutangkredit', value: data.coapostinghutangkredit, name: 'COA POSTING HUTANG KREDIT' },
+      {
+        field: 'coapostingkasbankdebet',
+        value: data.coapostingkasbankdebet,
+        name: 'COA POSTING KASBANK DEBET',
+      },
+      {
+        field: 'coapostingkasbankkredit',
+        value: data.coapostingkasbankkredit,
+        name: 'COA POSTING KASBANK KREDIT',
+      },
+      {
+        field: 'coapostinghutangdebet',
+        value: data.coapostinghutangdebet,
+        name: 'COA POSTING HUTANG DEBET',
+      },
+      {
+        field: 'coapostinghutangkredit',
+        value: data.coapostinghutangkredit,
+        name: 'COA POSTING HUTANG KREDIT',
+      },
     ];
 
     for (let i = 0; i < coaValues.length; i++) {
@@ -154,4 +186,6 @@ export const UpdatePengeluaranEmklSchema = z
     }
     // Validasi khusus update bisa diletakkan di sini
   });
-export type UpdatePengeluaranEmklDto = z.infer<typeof UpdatePengeluaranEmklSchema>;
+export type UpdatePengeluaranEmklDto = z.infer<
+  typeof UpdatePengeluaranEmklSchema
+>;

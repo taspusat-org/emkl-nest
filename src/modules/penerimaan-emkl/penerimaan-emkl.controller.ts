@@ -1,4 +1,4 @@
-import { 
+import {
   Res,
   Get,
   Put,
@@ -16,11 +16,11 @@ import {
   NotFoundException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { 
+import {
   CreatePenerimaanEmklDto,
   CreatePenerimaanEmklSchema,
   UpdatePenerimaanEmklDto,
-  UpdatePenerimaanEmklSchema
+  UpdatePenerimaanEmklSchema,
 } from './dto/create-penerimaan-emkl.dto';
 import * as fs from 'fs';
 import { Response } from 'express';
@@ -29,7 +29,11 @@ import { dbMssql } from 'src/common/utils/db';
 import { PenerimaanEmklService } from './penerimaan-emkl.service';
 import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
-import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
 
 @Controller('penerimaanemkl')
 export class PenerimaanEmklController {
@@ -47,7 +51,7 @@ export class PenerimaanEmklController {
     @Req() req,
   ) {
     console.log('masuk sini');
-    
+
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
@@ -57,10 +61,13 @@ export class PenerimaanEmklController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating penerimaan emkl in controller', error);
+      console.error(
+        'Error while creating penerimaan emkl in controller',
+        error,
+      );
 
       if (error instanceof HttpException) {
-        throw error; 
+        throw error;
       }
 
       throw new HttpException(
@@ -77,15 +84,8 @@ export class PenerimaanEmklController {
   //@PENERIMAAN-EMKL
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
-    const { 
-      search, 
-      page, 
-      limit, 
-      sortBy, 
-      sortDirection, 
-      isLookUp, 
-      ...filters } 
-    = query;
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
 
     const sortParams = {
       sortBy: sortBy || 'nama',
@@ -137,7 +137,11 @@ export class PenerimaanEmklController {
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.penerimaanEmklService.update(+dataId, data, trx);
+      const result = await this.penerimaanEmklService.update(
+        +dataId,
+        data,
+        trx,
+      );
 
       await trx.commit();
       return result;
@@ -148,11 +152,12 @@ export class PenerimaanEmklController {
         error,
       );
 
-      if (error instanceof HttpException) { // Ensure any other errors get caught and returned
+      if (error instanceof HttpException) {
+        // Ensure any other errors get caught and returned
         throw error; // If it's already a HttpException, rethrow it
       }
 
-      throw new HttpException(  // Generic error handling, if something unexpected happens
+      throw new HttpException( // Generic error handling, if something unexpected happens
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
           message: 'Failed to update penerimaan emkl',

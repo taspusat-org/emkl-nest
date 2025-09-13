@@ -113,7 +113,7 @@ export class MarketingprosesfeeService {
         .as('jsonData');
 
       await trx(tempTableName).insert(openJson);
-      // console.log('mainDataToInsert', mainDataToInsert, 'mappingData', mappingData, 'openJson', openJson);
+      //
 
       const updatedData = await trx('marketingprosesfee') // **Update or Insert into 'marketingprosesfee' with correct idheader**
         .join(
@@ -227,12 +227,6 @@ export class MarketingprosesfeeService {
         trx,
       );
 
-      console.log(
-        'return insertedData',
-        insertedData,
-        'updatedData',
-        updatedData,
-      );
       return updatedData || insertedData;
     } catch (error) {
       throw new Error(
@@ -275,17 +269,6 @@ export class MarketingprosesfeeService {
         .leftJoin('parameter as statusaktif', 'u.statusaktif', 'statusaktif.id')
         .where('u.marketing_id', id)
         .orderBy('u.created_at', 'desc');
-
-      console.log(
-        'search',
-        search,
-        'page',
-        page,
-        'limit',
-        limit,
-        'filters',
-        filters,
-      );
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
@@ -330,7 +313,6 @@ export class MarketingprosesfeeService {
       }
 
       const result = await query;
-      console.log('result', result);
 
       if (!result.length) {
         this.logger.warn(

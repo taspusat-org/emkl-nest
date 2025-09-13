@@ -247,7 +247,7 @@ export class PengembaliankasgantungdetailService {
     if (filters?.nobukti) {
       query.where('p.nobukti', filters?.nobukti);
     }
-    const excludeSearchKeys = ['tglDari', 'tglSampai'];
+    const excludeSearchKeys = ['tglDari', 'tglSampai', 'nobukti'];
     const searchFields = Object.keys(filters || {}).filter(
       (k) => !excludeSearchKeys.includes(k) && filters![k],
     );
@@ -280,7 +280,7 @@ export class PengembaliankasgantungdetailService {
       query.orderBy(sort.sortBy, sort.sortDirection);
     }
     const result = await query;
-    console.log('result', result);
+
     return {
       data: result,
     };
@@ -577,7 +577,7 @@ export class PengembaliankasgantungdetailService {
 
     // Mengambil data dari tabel sementara
     // const data = await dbBunga(tempTableName);
-    // console.log(query.toQuery());
+    //
     return query;
   }
 

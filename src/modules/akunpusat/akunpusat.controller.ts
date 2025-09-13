@@ -153,8 +153,6 @@ export class AkunpusatController {
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {
-      console.log('masuk sini?');
-
       const { data } = await this.findAll(params);
 
       if (!Array.isArray(data)) {

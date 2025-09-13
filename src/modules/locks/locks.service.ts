@@ -141,13 +141,6 @@ export class LocksService {
       const nowMs = now.getTime();
       const utcNowIso = now.toISOString(); // simpan ini ke DB
 
-      console.log('[forceEdit] params:', {
-        tableName,
-        tableId,
-        editingBy,
-        nowIso: utcNowIso,
-      });
-
       const existingLock = await trx('locks')
         .where('table', tableName)
         .andWhere('tableid', tableId)
@@ -190,15 +183,6 @@ export class LocksService {
       const diffMs = nowMs - lockedAtMs;
       const FIVE_MIN_MS = 5 * 60 * 1000;
       const expired = diffMs >= FIVE_MIN_MS;
-
-      console.log('[forceEdit] timeCheck:', {
-        expired,
-        nowMs,
-        lockedAtMs,
-        diffMs,
-        nowIso: utcNowIso,
-        lockedAtIso: new Date(lockedAtMs).toISOString(),
-      });
 
       if (expired) {
         // timpa lock lama
@@ -249,7 +233,7 @@ export class LocksService {
 
   async openForceEdit(data: any, trx: any, modifiedby: string) {
     const now = this.utilsService.getTime();
-    console.log(now);
+
     const { table, tableid, editing_by } = data;
     // Ensure that the column names are correct (e.g., 'table' => 'table_name' if necessary)
     const updatedRows = await trx('locks')

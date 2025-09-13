@@ -1,10 +1,10 @@
-import { 
+import {
   HttpException,
   HttpStatus,
   Inject,
   Injectable,
   InternalServerErrorException,
-  NotFoundException
+  NotFoundException,
 } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -82,7 +82,7 @@ export class PenerimaanEmklService {
 
       // Optionally, you can find the page number or other info if needed
       const pageNumber = pagination?.currentPage;
-      
+
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(data),
@@ -101,10 +101,10 @@ export class PenerimaanEmklService {
         trx,
       );
 
-      return { 
-        newItem, 
-        pageNumber, 
-        dataIndex 
+      return {
+        newItem,
+        pageNumber,
+        dataIndex,
       };
     } catch (error) {
       throw new Error(`Error creating penerimaan emkl: ${error.message}`);
@@ -166,10 +166,26 @@ export class PenerimaanEmklService {
         ])
         .leftJoin('akunpusat as coadebet', 'u.coadebet', 'coadebet.coa')
         .leftJoin('akunpusat as coakredit', 'u.coakredit', 'coakredit.coa')
-        .leftJoin('akunpusat as coabankdebet', 'u.coapostingkasbankdebet', 'coabankdebet.coa')
-        .leftJoin('akunpusat as coabankkredit', 'u.coapostingkasbankkredit', 'coabankkredit.coa')
-        .leftJoin('akunpusat as coahutangdebet', 'u.coapostinghutangdebet', 'coahutangdebet.coa')
-        .leftJoin('akunpusat as coahutangkredit', 'u.coapostinghutangkredit', 'coahutangkredit.coa')
+        .leftJoin(
+          'akunpusat as coabankdebet',
+          'u.coapostingkasbankdebet',
+          'coabankdebet.coa',
+        )
+        .leftJoin(
+          'akunpusat as coabankkredit',
+          'u.coapostingkasbankkredit',
+          'coabankkredit.coa',
+        )
+        .leftJoin(
+          'akunpusat as coahutangdebet',
+          'u.coapostinghutangdebet',
+          'coahutangdebet.coa',
+        )
+        .leftJoin(
+          'akunpusat as coahutangkredit',
+          'u.coapostinghutangkredit',
+          'coahutangkredit.coa',
+        )
         .leftJoin('parameter as p', 'u.format', 'p.id')
         .leftJoin('parameter as q', 'u.statusaktif', 'q.id');
 
@@ -181,10 +197,26 @@ export class PenerimaanEmklService {
             .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
             .orWhere('coadebet.keterangancoa', 'like', `%${sanitizedValue}%`)
             .orWhere('coakredit.keterangancoa', 'like', `%${sanitizedValue}%`)
-            .orWhere('coabankdebet.keterangancoa', 'like', `%${sanitizedValue}%`)
-            .orWhere('coabankkredit.keterangancoa', 'like', `%${sanitizedValue}%`)
-            .orWhere('coahutangdebet.keterangancoa', 'like', `%${sanitizedValue}%`)
-            .orWhere('coahutangkredit.keterangancoa', 'like', `%${sanitizedValue}%`)
+            .orWhere(
+              'coabankdebet.keterangancoa',
+              'like',
+              `%${sanitizedValue}%`,
+            )
+            .orWhere(
+              'coabankkredit.keterangancoa',
+              'like',
+              `%${sanitizedValue}%`,
+            )
+            .orWhere(
+              'coahutangdebet.keterangancoa',
+              'like',
+              `%${sanitizedValue}%`,
+            )
+            .orWhere(
+              'coahutangkredit.keterangancoa',
+              'like',
+              `%${sanitizedValue}%`,
+            )
             .orWhere('p.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
             .orWhere('u.created_at', 'like', `%${sanitizedValue}%`)
@@ -202,22 +234,46 @@ export class PenerimaanEmklService {
                 `%${sanitizedValue}%`,
               ]);
             } else if (key === 'coadebet_text') {
-              query.andWhere('coadebet.keterangancoa', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'coadebet.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'coakredit_text') {
-              query.andWhere('coakredit.keterangancoa', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'coakredit.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'coabankdebet_text') {
-              query.andWhere('coabankdebet.keterangancoa', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'coabankdebet.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'coabankkredit_text') {
-              query.andWhere('coabankkredit.keterangancoa', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'coabankkredit.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'coahutangdebet_text') {
-              query.andWhere('coahutangdebet.keterangancoa', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'coahutangdebet.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'coahutangkredit_text') {
-              query.andWhere('coahutangkredit.keterangancoa', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'coahutangkredit.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'format_text') {
               query.andWhere('p.text', 'like', `%${sanitizedValue}%`);
             } else if (key === 'statusaktif_text') {
               query.andWhere(`q.id`, '=', sanitizedValue);
-            }  else {
+            } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
           }
@@ -232,17 +288,17 @@ export class PenerimaanEmklService {
         if (sort?.sortBy === 'coadebet_text') {
           query.orderBy('coadebet.keterangancoa', sort.sortDirection);
         } else if (sort?.sortBy === 'coakredit_text') {
-          query.orderBy('coakredit.keterangancoa', sort.sortDirection);          
+          query.orderBy('coakredit.keterangancoa', sort.sortDirection);
         } else if (sort?.sortBy === 'coabankdebet_text') {
-          query.orderBy('coabankdebet.keterangancoa', sort.sortDirection);          
+          query.orderBy('coabankdebet.keterangancoa', sort.sortDirection);
         } else if (sort?.sortBy === 'coabankkredit_text') {
-          query.orderBy('coabankkredit.keterangancoa', sort.sortDirection);          
+          query.orderBy('coabankkredit.keterangancoa', sort.sortDirection);
         } else if (sort?.sortBy === 'coahutangdebet_text') {
-          query.orderBy('coahutangdebet.keterangancoa', sort.sortDirection);          
+          query.orderBy('coahutangdebet.keterangancoa', sort.sortDirection);
         } else if (sort?.sortBy === 'coahutangkredit_text') {
-          query.orderBy('coahutangkredit.keterangancoa', sort.sortDirection);          
+          query.orderBy('coahutangkredit.keterangancoa', sort.sortDirection);
         } else if (sort?.sortBy === 'format_text') {
-          query.orderBy('q.text', sort.sortDirection);          
+          query.orderBy('q.text', sort.sortDirection);
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }
@@ -476,7 +532,7 @@ export class PenerimaanEmklService {
       'COA POSTING HUTANG DEBET',
       'COA POSTING HUTANG KREDIT',
       'FORMAT',
-      'STATUS AKTIF'
+      'STATUS AKTIF',
     ];
 
     headers.forEach((header, index) => {
@@ -510,7 +566,7 @@ export class PenerimaanEmklService {
         row.coahutangdebet_nama,
         row.coahutangkredit_nama,
         row.format_nama,
-        row.statusaktif_nama
+        row.statusaktif_nama,
       ];
       rowValues.forEach((value, colIndex) => {
         const cell = worksheet.getCell(currentRow, colIndex + 1);

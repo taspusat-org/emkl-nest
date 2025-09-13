@@ -134,7 +134,7 @@ export class ScheduleHeaderController {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      // console.log('data', data);
+      //
       const result = await this.scheduleHeaderService.update(+id, data, trx);
 
       await trx.commit();

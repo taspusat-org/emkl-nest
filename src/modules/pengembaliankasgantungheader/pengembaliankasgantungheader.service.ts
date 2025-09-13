@@ -114,7 +114,6 @@ export class PengembaliankasgantungheaderService {
         trx,
       );
       insertData.penerimaan_nobukti = insertPenerimaan.newItem.nobukti;
-
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
@@ -195,7 +194,6 @@ export class PengembaliankasgantungheaderService {
         dataDetail,
       };
     } catch (error) {
-      console.log(error);
       throw new Error(`Error: ${error.message}`);
     }
   }
@@ -221,6 +219,21 @@ export class PengembaliankasgantungheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
+      const formatpenerimaangantung = await trx(`bank as b`)
+        .select('p.grp', 'p.subgrp', 'b.formatpenerimaangantung', 'b.coa')
+        .leftJoin('parameter as p', 'p.id', 'b.formatpenerimaangantung')
+        .where('b.id', insertData.bank_id)
+        .first();
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+      const parameter = await trx('parameter')
+        .select(
+          'grp',
+          'subgrp',
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
+        )
+        .where('id', formatpenerimaangantung.formatpenerimaangantung)
+        .first();
       const existingData = await trx(this.tableName).where('id', id).first();
       const penerimaanData = await trx('penerimaanheader')
         .where('nobukti', existingData.penerimaan_nobukti)
@@ -232,22 +245,29 @@ export class PengembaliankasgantungheaderService {
 
         await trx(this.tableName).where('id', id).update(insertData);
       }
+      const detailPenerimaan = details.map((detail: any) => {
+        // Destructuring the detail object and removing penerimaandetail_id
+        const { penerimaandetail_id, ...rest } = detail;
 
-      const detailPenerimaan = details.map((detail: any) => ({
-        ...detail,
-        pengembaliankasgantung_nobukti: existingData.nobukti,
-        modifiedby: data.modifiedby,
-      }));
+        return {
+          ...rest, // Spread the remaining properties
+          id: penerimaandetail_id, // Replace id with penerimaandetail_id
+          pengembaliankasgantung_nobukti: existingData.nobukti,
+          coa: parameter.coa_nama,
+          modifiedby: data.modifiedby,
+        };
+      });
+
       const dataPenerimaan = {
         keterangan: insertData.keterangan,
         relasi_id: insertData.relasi_id,
+        bank_id: insertData.bank_id,
+        alatbayar_id: insertData.alatbayar_id,
         tglbukti: formatDateToSQL(existingData.tglbukti),
         modifiedby: data.modifiedby,
         details: detailPenerimaan,
       };
 
-      console.log('dataPenerimaan', dataPenerimaan);
-      console.log('penerimaanData', penerimaanData.id);
       const updatedPenerimaan = await this.penerimaanheaderService.update(
         penerimaanData.id,
         dataPenerimaan,
@@ -786,8 +806,6 @@ export class PengembaliankasgantungheaderService {
         'pengembaliankasgantung_id',
         trx,
       );
-      console.log('deletedDataDetail', deletedDataDetail);
-      console.log('deletedData', deletedData);
       if (deletedData) {
         await this.logTrailService.create(
           {
@@ -852,7 +870,11 @@ export class PengembaliankasgantungheaderService {
 
     for (const h of data) {
       const detailRes = await this.pengembaliankasgantungdetailService.findAll(
-        h.id,
+        {
+          filters: {
+            nobukti: h.nobukti,
+          },
+        },
         trx,
       );
       const details = detailRes.data ?? [];

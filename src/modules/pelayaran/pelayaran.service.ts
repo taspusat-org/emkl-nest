@@ -523,7 +523,7 @@ export class PelayaranService {
         const checkValidation = await trx(this.tableName)
           .whereIn('id', data.transaksi_id)
           .andWhere('statusaktif', data.value);
-        console.log(checkValidation);
+
         if (checkValidation && checkValidation.length > 0) {
           // Ambil semua nama yg sudah aktif
           const namaList = checkValidation

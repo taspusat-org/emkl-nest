@@ -98,7 +98,7 @@ export class PengeluarandetailService {
 
     // Insert into temp table
     await trx(tempTableName).insert(openJson);
-    console.log(await trx(tempTableName), 'TEST');
+
     // **Update or Insert into 'kasgantungdetail' with correct idheader**
     const updatedData = await trx('pengeluarandetail')
       .join(`${tempTableName}`, 'pengeluarandetail.id', `${tempTableName}.id`)

@@ -149,7 +149,7 @@ export class ParameterService {
     pagination,
     sort,
     isLookUp,
-    exclude
+    exclude,
   }: FindAllParams) {
     try {
       let { page, limit } = pagination ?? {};
@@ -211,7 +211,7 @@ export class ParameterService {
           }
         }
       }
-      
+
       if (exclude) {
         if (filters) {
           for (const [key, value] of Object.entries(filters)) {

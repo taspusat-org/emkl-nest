@@ -20,6 +20,6 @@ import { AuthModule } from '../auth/auth.module';
     GlobalModule,
     LogtrailModule,
     AuthModule,
-  ]
+  ],
 })
 export class PenerimaanEmklModule {}

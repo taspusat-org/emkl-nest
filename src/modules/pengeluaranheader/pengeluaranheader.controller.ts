@@ -147,7 +147,7 @@ export class PengeluaranheaderController {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      console.log('data', data);
+
       const result = await this.pengeluaranheaderService.update(+id, data, trx);
 
       await trx.commit();

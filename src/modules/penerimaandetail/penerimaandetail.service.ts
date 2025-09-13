@@ -3,6 +3,7 @@ import { CreatePenerimaandetailDto } from './dto/create-penerimaandetail.dto';
 import { UpdatePenerimaandetailDto } from './dto/update-penerimaandetail.dto';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Injectable()
 export class PenerimaandetailService {
@@ -456,8 +457,8 @@ export class PenerimaandetailService {
     return updatedData || insertedData;
   }
 
-  async findAll(id: string, trx: any) {
-    const result = await trx(`${this.tableName} as p`)
+  async findAll({ search, filters, sort }: FindAllParams, trx: any) {
+    const query = trx(`${this.tableName} as p`)
       .select(
         'p.id',
         'p.penerimaan_id', // Updated field name
@@ -476,22 +477,53 @@ export class PenerimaandetailService {
         trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
         trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
       )
-      .leftJoin('akunpusat as ap', 'p.coa', 'ap.coa')
-      .where('p.penerimaan_id', id)
-      .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
+      .leftJoin('akunpusat as ap', 'p.coa', 'ap.coa');
 
-    if (!result.length) {
-      this.logger.warn(`No Data found for ID: ${id}`);
-      return {
-        status: false,
-        message: 'No data found',
-        data: [],
-      };
+    if (filters?.nobukti) {
+      query.where('p.nobukti', filters?.nobukti);
     }
+    if (filters?.pengembaliankasgantung_nobukti) {
+      query.where(
+        'p.pengembaliankasgantung_nobukti',
+        filters?.pengembaliankasgantung_nobukti,
+      );
+    }
+    const excludeSearchKeys = ['tglDari', 'tglSampai', 'nobukti'];
+    const searchFields = Object.keys(filters || {}).filter(
+      (k) => !excludeSearchKeys.includes(k) && filters![k],
+    );
+    if (search) {
+      const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
+      query.where((qb) => {
+        searchFields.forEach((field) => {
+          qb.orWhere(`p.${field}`, 'like', `%${sanitized}%`);
+        });
+      });
+    }
+    if (filters) {
+      for (const [key, value] of Object.entries(filters)) {
+        const sanitizedValue = String(value).replace(/\[/g, '[[]');
+
+        if (value) {
+          if (key === 'created_at' || key === 'updated_at') {
+            query.andWhereRaw("FORMAT(p.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              key,
+              `%${sanitizedValue}%`,
+            ]);
+          } else if (key === 'coa_nama') {
+            query.andWhere(`ap.keterangancoa`, 'like', `%${sanitizedValue}%`);
+          } else {
+            query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
+          }
+        }
+      }
+    }
+    if (sort?.sortBy && sort?.sortDirection) {
+      query.orderBy(sort.sortBy, sort.sortDirection);
+    }
+    const result = await query;
     return {
-      status: true,
-      message: 'Penerimaan Detail data fetched successfully',
       data: result,
     };
   }

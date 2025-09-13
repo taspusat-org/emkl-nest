@@ -111,7 +111,7 @@ export class MarketingbiayaService {
         .from(trx.raw('OPENJSON(?)', [jsonString]))
         .jsonExtract(mappingData)
         .as('jsonData');
-      // console.log('mainDataToInsert', mainDataToInsert, 'logData', logData, 'openJson', openJson);
+      //
 
       await trx(tempTableName).insert(openJson);
 
@@ -221,13 +221,6 @@ export class MarketingbiayaService {
           modifiedby: marketingBiayaData[0].modifiedby || 'UNKNOWN',
         },
         trx,
-      );
-
-      console.log(
-        'haii return insertedData',
-        insertedData,
-        'updatedData',
-        updatedData,
       );
       return updatedData || insertedData;
     } catch (error) {

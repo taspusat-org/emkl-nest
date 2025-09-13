@@ -110,7 +110,6 @@ export class TypeAkuntansiService {
     trx: any,
   ) {
     try {
-      console.log('pagination', pagination);
       let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
@@ -186,8 +185,8 @@ export class TypeAkuntansiService {
           }
         }
       }
-      // console.log('KENAPA DATANYA KOSONG', await query, search, filters, pagination, sort, limit);
-      // console.log('KENAPA DATANYA KOSONG', await query, filters);
+      //
+      //
 
       const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
@@ -199,7 +198,7 @@ export class TypeAkuntansiService {
       }
 
       const data = await query;
-      console.log('data', data);
+
       const responseType = Number(total) > 500 ? 'json' : 'local';
 
       return {
@@ -330,7 +329,7 @@ export class TypeAkuntansiService {
       if (dataIndex === -1) {
         dataIndex = 0;
       }
-      // console.log('all dataa', filteredData, 'dataIndex', dataIndex);
+      //
 
       if (dataIndex === -1) {
         throw new Error('Updated item not found in all items');

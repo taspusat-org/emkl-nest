@@ -16,7 +16,9 @@ import { RunningNumberService } from '../running-number/running-number.service';
 import { JurnalumumdetailService } from '../jurnalumumdetail/jurnalumumdetail.service';
 import { GlobalService } from '../global/global.service';
 import { LocksService } from '../locks/locks.service';
-
+import { Column, Workbook } from 'exceljs';
+import * as fs from 'fs';
+import * as path from 'path';
 @Injectable()
 export class JurnalumumheaderService {
   constructor(
@@ -119,9 +121,7 @@ export class JurnalumumheaderService {
 
         // **VALIDASI BALANCE: Total Debet harus sama dengan Total Kredit**
         const selisih = totalDebet - totalKredit;
-        console.log(selisih, 'selisih bg oja');
-        console.log(totalDebet, 'debet bg oja');
-        console.log(totalKredit, 'kredit bg oja');
+
         const tolerance = 0.01;
 
         if (Math.abs(selisih) > tolerance) {
@@ -135,7 +135,6 @@ export class JurnalumumheaderService {
           );
         }
 
-        console.log('processedDetails', processedDetails);
         // Update details dengan yang sudah diproses
         data.details = processedDetails;
       } else {
@@ -241,8 +240,6 @@ export class JurnalumumheaderService {
         itemIndex,
       };
     } catch (error) {
-      console.log('Error in service:', error);
-
       if (error instanceof HttpException) {
         throw error;
       }
@@ -379,8 +376,32 @@ export class JurnalumumheaderService {
     }
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} jurnalumumheader`;
+  async findOne(id: string, trx: any) {
+    try {
+      const query = trx(`${this.tableName} as u`)
+        .select([
+          'u.id as id',
+          'u.nobukti', // nobukti (nvarchar(100))
+          trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
+          'u.keterangan', // keterangan (nvarchar(max))
+          'u.postingdari', // relasi_id (integer)
+          'u.statusformat', // bank_id (integer)
+          'u.info', // info (nvarchar(max))
+          'u.modifiedby', // modifiedby (varchar(200))
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
+        ])
+        .where('u.id', id);
+
+      const data = await query;
+
+      return {
+        data: data,
+      };
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
   }
 
   async update(id: any, data: any, trx: any) {
@@ -494,7 +515,6 @@ export class JurnalumumheaderService {
           );
         }
 
-        console.log('processedDetails', processedDetails);
         // Update details dengan yang sudah diproses
         data.details = processedDetails;
       } else {
@@ -610,6 +630,197 @@ export class JurnalumumheaderService {
       }
       throw new InternalServerErrorException('Failed to delete data');
     }
+  }
+  async exportToExcel(data: any[], trx: any) {
+    const workbook = new Workbook();
+    const worksheet = workbook.addWorksheet('Data Export');
+
+    // Header laporan
+    worksheet.mergeCells('A1:E1');
+    worksheet.mergeCells('A2:E2');
+    worksheet.mergeCells('A3:E3');
+    worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
+    worksheet.getCell('A2').value = 'LAPORAN JURNAL UMUM';
+    worksheet.getCell('A3').value = 'Data Export';
+    ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
+      worksheet.getCell(cellKey).alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+      };
+      worksheet.getCell(cellKey).font = {
+        name: 'Tahoma',
+        size: i === 0 ? 14 : 10,
+        bold: true,
+      };
+    });
+
+    let currentRow = 5;
+
+    for (const h of data) {
+      const detailRes = await this.jurnalumumdetailService.findAll(
+        {
+          filters: {
+            nobukti: h.nobukti,
+          },
+        },
+        trx,
+      );
+      const details = detailRes.data ?? [];
+
+      const headerInfo = [
+        ['No Bukti', h.nobukti ?? ''],
+        ['Tanggal Bukti', h.tglbukti ?? ''],
+        ['Keterangan', h.keterangan ?? ''],
+      ];
+
+      headerInfo.forEach(([label, value]) => {
+        worksheet.getCell(`A${currentRow}`).value = label;
+        worksheet.getCell(`A${currentRow}`).font = {
+          bold: true,
+          name: 'Tahoma',
+          size: 10,
+        };
+        worksheet.getCell(`B${currentRow}`).value = value;
+        worksheet.getCell(`B${currentRow}`).font = { name: 'Tahoma', size: 10 };
+        currentRow++;
+      });
+
+      currentRow++;
+
+      if (details.length > 0) {
+        const tableHeaders = [
+          'NO.',
+          'NO BUKTI',
+          'KETERANGAN',
+          'COA',
+          'NOMINAL DEBET',
+          'NOMINAL KREDIT',
+        ];
+        tableHeaders.forEach((header, index) => {
+          const cell = worksheet.getCell(currentRow, index + 1);
+          cell.value = header;
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFF00' },
+          };
+          cell.font = { bold: true, name: 'Tahoma', size: 10 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+        });
+        currentRow++;
+
+        details.forEach((d: any, detailIndex: number) => {
+          const rowValues = [
+            detailIndex + 1,
+            d.nobukti ?? '',
+            d.keterangan ?? '',
+            d.coa ?? '',
+            d.nominaldebet ?? '',
+            d.nominalkredit ?? '',
+          ];
+          rowValues.forEach((value, colIndex) => {
+            const cell = worksheet.getCell(currentRow, colIndex + 1);
+            cell.value = value;
+            cell.font = { name: 'Tahoma', size: 10 };
+
+            // kolom angka rata kanan, selain itu rata kiri
+            if (colIndex === 3 || colIndex === 4 || colIndex === 5) {
+              // kolom nominal
+              cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            } else if (colIndex === 0) {
+              // kolom nomor
+              cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            } else {
+              cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            }
+
+            cell.border = {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' },
+            };
+          });
+          currentRow++;
+        });
+
+        // Tambahkan total nominal
+        const totalNominal = details.reduce((sum: number, d: any) => {
+          return sum + (parseFloat(d.nominal) || 0);
+        }, 0);
+
+        // Row total dengan border atas tebal
+        const totalRow = currentRow;
+        worksheet.getCell(`A${totalRow}`).value = 'TOTAL';
+        worksheet.getCell(`A${totalRow}`).font = {
+          bold: true,
+          name: 'Tahoma',
+          size: 10,
+        };
+        worksheet.getCell(`A${totalRow}`).alignment = {
+          horizontal: 'left',
+          vertical: 'middle',
+        };
+        worksheet.getCell(`A${totalRow}`).border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+
+        worksheet.mergeCells(`A${totalRow}:C${totalRow}`);
+
+        worksheet.getCell(`D${totalRow}`).value = totalNominal;
+        worksheet.getCell(`D${totalRow}`).font = {
+          bold: true,
+          name: 'Tahoma',
+          size: 10,
+        };
+        worksheet.getCell(`D${totalRow}`).alignment = {
+          horizontal: 'right',
+          vertical: 'middle',
+        };
+        worksheet.getCell(`D${totalRow}`).border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+
+        currentRow++;
+        currentRow++;
+      }
+    }
+
+    worksheet.columns
+      .filter((c): c is Column => !!c)
+      .forEach((col) => {
+        let maxLength = 0;
+        col.eachCell({ includeEmpty: true }, (cell) => {
+          const cellValue = cell.value ? cell.value.toString() : '';
+          maxLength = Math.max(maxLength, cellValue.length);
+        });
+        col.width = maxLength + 2;
+      });
+
+    worksheet.getColumn(1).width = 20;
+    worksheet.getColumn(2).width = 30;
+
+    const tempDir = path.resolve(process.cwd(), 'tmp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const tempFilePath = path.resolve(
+      tempDir,
+      `laporan_jurnal_umum${Date.now()}.xlsx`,
+    );
+    await workbook.xlsx.writeFile(tempFilePath);
+
+    return tempFilePath;
   }
   async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
     try {

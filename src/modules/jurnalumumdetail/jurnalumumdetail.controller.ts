@@ -26,39 +26,24 @@ export class JurnalumumdetailController {
     return this.jurnalumumdetailService.create(createJurnalumumdetailDto);
   }
 
-  @Get('/detail')
-  async findAll(
-    @Query('mainNobukti') mainNobukti: string,
-    @Query() query: FindAllDto,
-  ) {
-    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
-      query;
+  @Get('')
+  async findAll(@Query() query: FindAllDto) {
+    const { search, sortBy, sortDirection, ...filters } = query;
 
     const sortParams = {
       sortBy: sortBy || 'nobukti',
       sortDirection: sortDirection || 'asc',
     };
 
-    const pagination = {
-      page: page || 1,
-      limit: limit === 0 || !limit ? undefined : limit,
-    };
-
     const params: FindAllParams = {
       search,
       filters,
-      pagination,
-      isLookUp: isLookUp === 'true',
       sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
     };
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.jurnalumumdetailService.findAll(
-        trx,
-        mainNobukti,
-        params,
-      );
+      const result = await this.jurnalumumdetailService.findAll(params, trx);
 
       trx.commit();
       return result;

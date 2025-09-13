@@ -201,7 +201,7 @@ export class ManagermarketingheaderService {
       }
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        console.log(sanitizedValue);
+
         query.where((builder) => {
           builder
             .orWhere('u.nama', 'like', `%${sanitizedValue}%`)

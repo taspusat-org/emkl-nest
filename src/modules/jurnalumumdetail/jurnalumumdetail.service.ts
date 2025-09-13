@@ -138,7 +138,7 @@ export class JurnalumumdetailService {
         'updated_at',
       ])
       .where(`${tempTableName}.id`, '0');
-    console.log('insertedDataQuery', insertedDataQuery);
+
     const getDeleted = await trx(this.tableName)
       .leftJoin(
         `${tempTableName}`,
@@ -210,22 +210,8 @@ export class JurnalumumdetailService {
     return updatedData || insertedData;
   }
 
-  async findAll(
-    trx: any,
-    mainNobukti: string,
-    { search, filters, pagination, sort, isLookUp }: FindAllParams,
-  ) {
+  async findAll({ search, filters, sort }: FindAllParams, trx: any) {
     try {
-      // =========================
-      // PAGINATION DEFAULT
-      // =========================
-      let { page, limit } = pagination ?? {};
-      page = page ?? 1;
-      limit = limit ?? 0;
-
-      // =========================
-      // BASE QUERY
-      // =========================
       const query = trx
         .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
         .select(
@@ -235,7 +221,7 @@ export class JurnalumumdetailService {
           'p.nobukti',
           'p.coa',
           'p.keterangan',
-          'ap.keterangancoa',
+          'ap.keterangancoa as coa_nama',
 
           // Jika nominal < 0 → nominalkredit = ABS(nominal), selain itu 0
           trx.raw(
@@ -258,9 +244,10 @@ export class JurnalumumdetailService {
           'p.coa',
           'ap.coa',
         )
-        .where('p.nobukti', mainNobukti)
         .orderBy('p.created_at', 'desc');
-
+      if (filters?.nobukti) {
+        query.where('p.nobukti', filters?.nobukti);
+      }
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
@@ -274,11 +261,11 @@ export class JurnalumumdetailService {
 
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
-          if (!value || key === 'mainNobukti') continue;
+          if (!value) continue;
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
           switch (key) {
-            case 'keterangancoa':
+            case 'coa_nama':
               query.andWhere('ap.keterangancoa', 'like', `%${sanitizedValue}%`);
               break;
 
@@ -313,28 +300,8 @@ export class JurnalumumdetailService {
       if (sort?.sortBy && sort?.sortDirection) {
         query.orderBy(sort.sortBy, sort.sortDirection);
       }
-
-      if (limit > 0) {
-        const offset = (page - 1) * limit;
-        query.offset(offset).limit(limit);
-      }
-
       const result = await query;
-
-      if (!result.length) {
-        this.logger.warn(
-          `No Data found for jurnalumum_nobukti: ${mainNobukti}`,
-        );
-        return {
-          status: false,
-          message: 'No data found',
-          data: [],
-        };
-      }
-
       return {
-        status: true,
-        message: 'Kas Gantung Detail data fetched successfully',
         data: result,
       };
     } catch (error) {

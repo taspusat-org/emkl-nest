@@ -216,12 +216,6 @@ export class MarketingmanagerService {
         trx,
       );
 
-      console.log(
-        'return insertedData',
-        insertedData,
-        'updatedData',
-        updatedData,
-      );
       return updatedData || insertedData;
     } catch (error) {
       throw new Error(

@@ -106,7 +106,7 @@ export class PengembaliankasgantungheaderController {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      console.log('data', data);
+
       const result = await this.pengembaliankasgantungheaderService.update(
         +id,
         data,
@@ -191,7 +191,6 @@ export class PengembaliankasgantungheaderController {
   @Get(':id')
   //@KAS-GANTUNG
   async findOne(@Param('id') id: string, @Query() query: FindAllDto) {
-    console.log('query', query);
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
       query;
 

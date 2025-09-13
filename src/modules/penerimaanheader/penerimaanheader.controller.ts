@@ -101,7 +101,7 @@ export class PenerimaanheaderController {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      console.log('data', data);
+
       const result = await this.penerimaanheaderService.update(+id, data, trx);
 
       await trx.commit();
@@ -123,7 +123,7 @@ export class PenerimaanheaderController {
         req.user?.user?.username || 'unknown',
       );
       await trx.commit();
-      console.log('result', result);
+
       return result;
     } catch (error) {
       await trx.rollback();

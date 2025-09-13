@@ -169,7 +169,7 @@ export class MarketingService {
       //     marketing_id: insertNewData[0].id,
       //     modifiedby: insertDataWithCabangId.modifiedby
       //   }))
-      //   console.log('mdetailWithMarketingId', mdetailWithMarketingId);
+      //
       //   await this.marketingDetailService.create(mdetailWithMarketingId, insertNewData[0].id, trx)
       // }
 
@@ -424,7 +424,7 @@ export class MarketingService {
       const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
       const totalPages = Math.ceil(total / limit);
-      // console.log('result',result, 'total', total, 'totalPages',totalPages, 'page limit di findall');
+      //
 
       if (sort?.sortBy && sort.sortDirection) {
         if (sort?.sortBy === 'marketinggroup') {
@@ -440,7 +440,7 @@ export class MarketingService {
 
       const data = await query;
       const responseType = Number(total) > 500 ? 'json' : 'local';
-      // console.log('data', data);
+      //
 
       return {
         data: data,
@@ -477,7 +477,7 @@ export class MarketingService {
           .count('id as total')
           .first();
         const totalDataKaryawanHr = karyawanHrCount?.total || 0;
-        // console.log('isLookUp', isLookUp, 'karyawanHrCount', karyawanHrCount, 'totalDataKaryawanHr', totalDataKaryawanHr);
+        //
 
         if (Number(totalDataKaryawanHr) > 500) {
           return { data: { type: 'json' } };

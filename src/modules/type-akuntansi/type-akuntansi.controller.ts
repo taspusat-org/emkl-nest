@@ -55,7 +55,7 @@ export class TypeAkuntansiController {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      console.log('data', data);
+
       const result = await this.typeAkuntansiService.create(data, trx);
 
       await trx.commit();
@@ -198,7 +198,7 @@ export class TypeAkuntansiController {
   @UseGuards(AuthGuard)
   async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
     const { aksi, value } = body;
-    console.log('body', body);
+
     const trx = await dbMssql.transaction();
     const editedby = req.user?.user?.username;
 
@@ -221,8 +221,6 @@ export class TypeAkuntansiController {
   @Get('/export')
   async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {
-      console.log('masuk sini?');
-
       const { data } = await this.findAll(params);
 
       if (!Array.isArray(data)) {

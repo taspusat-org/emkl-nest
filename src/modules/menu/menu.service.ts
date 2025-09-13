@@ -145,7 +145,7 @@ export class MenuService {
 
       if (limit > 0) {
         const offset = (page - 1) * limit;
-        console.log('OFFSET', offset, 'LIMIT', limit);
+
         query.limit(limit).offset(offset);
       }
 
@@ -303,7 +303,6 @@ export class MenuService {
         }
       });
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
-      console.log(hasChanges);
 
       if (hasChanges) {
         insertData.updated_at = this.utilsService.getTime();
@@ -322,11 +321,11 @@ export class MenuService {
       );
 
       // Cari index item yang baru saja diupdate
-      const itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === id,
+      let itemIndex = filteredData.findIndex(
+        (item) => Number(item.id) === Number(id),
       );
       if (itemIndex === -1) {
-        throw new Error('Updated item not found in all items');
+        itemIndex = 0;
       }
 
       const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend

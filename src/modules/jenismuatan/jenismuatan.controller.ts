@@ -79,7 +79,7 @@ export class JenisMuatanController {
       sortBy: sortBy || 'nama',
       sortDirection: sortDirection || 'asc',
     };
-    console.log('heree');
+
     const pagination = {
       page: page || 1,
       limit: limit === 0 || !limit ? undefined : limit,

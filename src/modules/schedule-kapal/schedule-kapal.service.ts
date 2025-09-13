@@ -22,8 +22,6 @@ export class ScheduleKapalService {
 
   async create(createData: any, trx: any) {
     try {
-      console.log('masuk ke create sc kapal', createData);
-
       Object.keys(createData).forEach((key) => {
         if (typeof createData[key] === 'string') {
           // createData[key] = createData[key].toUpperCase();
@@ -76,7 +74,7 @@ export class ScheduleKapalService {
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
-      // console.log('kesini?', search, filters, page, limit, sort);
+      //
 
       const query = trx(`${this.tableName} as u`)
         .select([
@@ -120,8 +118,6 @@ export class ScheduleKapalService {
       }
 
       if (search) {
-        console.log('atau kesini ');
-
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
           builder

@@ -302,7 +302,6 @@ export class SupplierService {
 
       const data = await query;
       const responseType = Number(total) > 500 ? 'json' : 'local';
-      console.log('search', search, 'data', data);
 
       return {
         data: data,

@@ -42,6 +42,7 @@ export class PengembaliankasgantungdetailController {
       );
 
       if (result.data.length === 0) {
+        await trx.commit();
         return {
           status: false,
           message: 'No data found',
