@@ -68,7 +68,6 @@ export class LocksController {
   //@OPEN-LOCKS
   @UseGuards(AuthGuard)
   async openForceEdit(@Body() data: any, @Req() req) {
-    console.log('data', data);
     // Assuming trx is some form of transaction handling passed from TypeORM or a similar DB library.
     // In TypeORM you can use the QueryBuilder or use transaction API if needed.'
     const modifiedby = req.user?.user?.username || 'unknown';

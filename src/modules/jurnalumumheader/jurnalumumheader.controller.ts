@@ -14,6 +14,7 @@ import {
   InternalServerErrorException,
   HttpException,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
 
 import { JurnalumumheaderService } from './jurnalumumheader.service';
@@ -27,7 +28,8 @@ import {
 import { dbMssql } from 'src/common/utils/db';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
-
+import { Response } from 'express';
+import * as fs from 'fs';
 @Controller('jurnalumumheader')
 export class JurnalumumheaderController {
   constructor(
@@ -45,7 +47,6 @@ export class JurnalumumheaderController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.log('Error in controller:', error);
 
       // PENTING: Jangan wrap HttpException dengan Error baru
       if (error instanceof HttpException) {
@@ -109,7 +110,7 @@ export class JurnalumumheaderController {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      console.log('data', data);
+
       const result = await this.jurnalumumheaderService.update(+id, data, trx);
 
       await trx.commit();
@@ -145,16 +146,73 @@ export class JurnalumumheaderController {
     }
   }
 
+  @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.jurnalumumheaderService.findOne(+id);
-  }
+  //@JURNAL-UMUM
+  async findOne(@Param('id') id: string) {
+    const trx = await dbMssql.transaction();
 
+    try {
+      const result = await this.jurnalumumheaderService.findOne(id, trx);
+      trx.commit();
+
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error in findOne:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
+    }
+  }
+  @Get('/export/:id')
+  async exportToExcel(@Param('id') id: string, @Res() res: Response) {
+    try {
+      // Ambil data
+      const trx = await dbMssql.transaction();
+      const { data } = await this.jurnalumumheaderService.findOne(id, trx);
+
+      if (!Array.isArray(data)) {
+        return res
+          .status(HttpStatus.BAD_REQUEST)
+          .send('Data is not an array or is undefined.');
+      }
+
+      // Buat Excel file
+      const tempFilePath = await this.jurnalumumheaderService.exportToExcel(
+        data,
+        trx,
+      );
+
+      // Stream file ke response
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_jurnal_umum.xlsx"',
+      );
+
+      const fileStream = fs.createReadStream(tempFilePath);
+      fileStream.pipe(res);
+
+      // Optional: hapus file temp setelah selesai streaming
+      fileStream.on('end', () => {
+        fs.unlink(tempFilePath, (err) => {
+          if (err) console.error('Error deleting temp file:', err);
+        });
+      });
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .send('Failed to export file');
+    }
+  }
   @Post('check-validation')
   @UseGuards(AuthGuard)
   async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
     const { aksi, value } = body;
-    console.log('body', body);
+
     const trx = await dbMssql.transaction();
     const editedby = req.user?.user?.username;
     try {

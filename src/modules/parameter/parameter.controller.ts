@@ -100,8 +100,16 @@ export class ParameterController {
   @Get()
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
-    const { search, page, limit, sortBy, sortDirection, isLookUp, exclude, ...filters } =
-      query;
+    const {
+      search,
+      page,
+      limit,
+      sortBy,
+      sortDirection,
+      isLookUp,
+      exclude,
+      ...filters
+    } = query;
 
     const sortParams = {
       sortBy: sortBy || 'grp',

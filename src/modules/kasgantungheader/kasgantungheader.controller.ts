@@ -104,7 +104,7 @@ export class KasgantungheaderController {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      console.log('data', data);
+
       const result = await this.kasgantungheaderService.update(+id, data, trx);
 
       await trx.commit();
@@ -235,7 +235,7 @@ export class KasgantungheaderController {
   @UseGuards(AuthGuard)
   async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
     const { aksi, value } = body;
-    console.log('body', body);
+
     const trx = await dbMssql.transaction();
     const editedby = req.user?.user?.username;
     try {

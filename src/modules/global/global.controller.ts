@@ -26,7 +26,7 @@ export class GlobalController {
     const trx = await dbMssql.transaction();
     try {
       const validator = await this.globalService.approval(body, trx);
-      console.log('validator', validator);
+
       await trx.commit();
       return validator;
     } catch (error) {
@@ -108,7 +108,7 @@ export class GlobalController {
   // }
   // @Post('open-forceedit')
   // async openForceEdit(@Body() data: any) {
-  //   console.log('data', data);
+  //
   //   // Assuming trx is some form of transaction handling passed from TypeORM or a similar DB library.
   //   // In TypeORM you can use the QueryBuilder or use transaction API if needed.
   //   const trx = await dbMssql.transaction();

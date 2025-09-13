@@ -38,8 +38,7 @@ export class GlobalService {
       const mainData = await trx(data.tableName)
         .whereIn('id', data.transaksi_id)
         .forUpdate(); // LOCK ROWS untuk mencegah concurrent modification
-      console.log('mainData', mainData);
-      console.log('data', data);
+
       // Jika tidak ada data ditemukan
       if (!mainData || mainData.length === 0) {
         return {
@@ -155,7 +154,7 @@ export class GlobalService {
 
       if (data.text === 'AKTIF') {
         // Check validation pada data yang sudah di-lock
-        console.log('data1', data);
+
         const checkValidation = lockedMainData.filter(
           (row: any) => row.statusaktif === data.value,
         );
@@ -174,7 +173,6 @@ export class GlobalService {
             .whereIn('id', data.transaksi_id);
         }
       } else {
-        console.log('data2', data);
         // Branch untuk non-AKTIF status
         const checkStatusPendukung = await trx('statuspendukung')
           .whereIn('transaksi_id', data.transaksi_id)
@@ -361,7 +359,6 @@ export class GlobalService {
     fieldValue: any,
     trx: any,
   ): Promise<ValidationResult> {
-    console.log(tableName, fieldName, fieldValue);
     const recordInUse = await trx(tableName)
       .where(fieldName, fieldValue)
       .first();

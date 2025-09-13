@@ -20,6 +20,6 @@ import { PengeluaranEmklController } from './pengeluaran-emkl.controller';
     UtilsModule,
     GlobalModule,
     LogtrailModule,
-  ]
+  ],
 })
 export class PengeluaranEmklModule {}

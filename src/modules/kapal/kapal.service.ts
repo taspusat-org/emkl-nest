@@ -152,7 +152,7 @@ export class KapalService {
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        console.log(sanitizedValue);
+
         query.where((builder) => {
           builder
             .orWhere('u.nama', 'like', `%${sanitizedValue}%`)
@@ -192,7 +192,7 @@ export class KapalService {
       }
 
       const data = await query;
-      console.log(data);
+
       const responseType = Number(total) > 500 ? 'json' : 'local';
 
       return {

@@ -102,7 +102,7 @@ export class ScheduleHeaderService {
       );
 
       let dataIndex = filteredItems.findIndex((item) => item.id === newItem.id);
-      // console.log('newItem', newItem.id, 'filteredItems', filteredItems,);
+      //
 
       if (dataIndex === -1) {
         dataIndex = 0;
@@ -110,7 +110,7 @@ export class ScheduleHeaderService {
       const pageNumber = Math.floor(dataIndex / limit) + 1;
       const endIndex = pageNumber * limit;
       const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
-      // console.log('herer', dataIndex, 'pageNumber', pageNumber, 'endIndex', endIndex, 'limitedItems', limitedItems);
+      //
 
       await this.redisService.set(
         `${this.tableName}-allItems`,
@@ -234,7 +234,7 @@ export class ScheduleHeaderService {
       const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
       const totalPages = Math.ceil(total / limit);
-      // console.log('result',result, 'total', total, 'totalPages',totalPages, 'page limit di findall');
+      //
 
       if (sort?.sortBy && sort.sortDirection) {
         query.orderBy(sort.sortBy, sort.sortDirection);
@@ -242,7 +242,7 @@ export class ScheduleHeaderService {
 
       const data = await query;
       const responseType = Number(total) > 500 ? 'json' : 'local';
-      // console.log('data', data);
+      //
 
       return {
         data: data,

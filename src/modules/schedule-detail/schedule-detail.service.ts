@@ -30,7 +30,7 @@ export class ScheduleDetailService {
     const logData: any[] = [];
     const mainDataToInsert: any[] = [];
     let schedulekapal_id;
-    // console.log("ke detail?", details, id);
+    //
 
     const result = await trx(this.tableName).columnInfo(); // Get the column info and create temporary table
     const tableTemp = await this.utilsService.createTempTable(
@@ -101,10 +101,9 @@ export class ScheduleDetailService {
             trx,
           );
           schedulekapal_id = insertScheduleKapal.newData.id;
-          // console.log('insertScheduleKapal', insertScheduleKapal.newData.id);
+          //
         } else {
           schedulekapal_id = dataScheduleKapal.data[0].id;
-          console.log('Schedule Kapal sudah ada, skip insert');
         }
       }
 
@@ -154,7 +153,7 @@ export class ScheduleDetailService {
         // data.etatujuan = formatDateToSQL(String(data?.etatujuan))
         // data.etdtujuan = formatDateToSQL(String(data?.etdtujuan))
       }
-      // console.log('ini data', data, data.tglberangkat);
+      //
 
       if (!isDataChanged) {
         data.aksi = 'NO UPDATE';
@@ -167,7 +166,7 @@ export class ScheduleDetailService {
         created_at: time,
       });
     }
-    // console.log('mainDataToInsert', mainDataToInsert, 'ini id', id, 'details', details);
+    //
 
     await trx.raw(tableTemp); // Create temporary table to insert
 
@@ -189,7 +188,7 @@ export class ScheduleDetailService {
       .from(trx.raw('OPENJSON(?)', [jsonString]))
       .jsonExtract(mappingData)
       .as('jsonData');
-    // console.log('openJson',openJson, tempTableName, tableTemp);
+    //
 
     // Insert into temp table
     await trx(tempTableName).insert(openJson);
@@ -253,7 +252,7 @@ export class ScheduleDetailService {
         'updated_at',
       ])
       .where(`${tempTableName}.id`, '0');
-    // console.log('insertedDataQuery', insertedDataQuery);
+    //
 
     const getDeleted = await trx(this.tableName)
       .leftJoin(`${tempTableName}`, 'scheduledetail.id', `${tempTableName}.id`)
@@ -284,7 +283,7 @@ export class ScheduleDetailService {
       .where('scheduledetail.schedule_id', id);
 
     let pushToLog: any[] = [];
-    // console.log('getDeleted', getDeleted, getDeleted.length);
+    //
 
     if (getDeleted.length > 0) {
       pushToLog = Object.assign(getDeleted, { aksi: 'DELETE' });
@@ -330,12 +329,6 @@ export class ScheduleDetailService {
       trx,
     );
 
-    console.log(
-      'return insertedData',
-      insertedData,
-      'updatedData',
-      updatedData,
-    );
     return updatedData || insertedData;
   }
 

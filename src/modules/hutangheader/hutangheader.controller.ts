@@ -97,7 +97,6 @@ export class HutangheaderController {
   @Get(':id')
   //@HUTANG
   async findOne(@Param('id') id: string, @Query() query: FindAllDto) {
-    console.log('query', query);
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
       query;
 
@@ -138,7 +137,7 @@ export class HutangheaderController {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      console.log('data', data);
+
       const result = await this.hutangheaderService.update(+id, data, trx);
 
       await trx.commit();

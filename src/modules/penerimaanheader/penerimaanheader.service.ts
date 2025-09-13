@@ -99,7 +99,6 @@ export class PenerimaanheaderService {
       insertData.statusformat = formatpenerimaan.formatpenerimaan;
       insertData.postingdari = parameter.memo_nama;
       //INSERT JURNAL UMUM HEADER
-      console.log('formatpenerimaan', formatpenerimaan);
       const processDetails = (details) => {
         // Proses setiap detail dan langsung buat pasangannya
         return details.flatMap((detail) => [
@@ -135,7 +134,6 @@ export class PenerimaanheaderService {
         modifiedby: insertData.modifiedby,
         details: result,
       };
-      console.log('dataJurnalumum', dataJurnalumum);
       await this.jurnalumumheaderService.create(dataJurnalumum, trx);
       //
       const insertedItems = await trx(this.tableName)
@@ -147,7 +145,7 @@ export class PenerimaanheaderService {
         const detailsWithNobukti = details.map((detail: any) => ({
           ...detail,
           nobukti: nomorBukti, // Inject nobukti into each detail
-          pengembaliankasgantung_nobukti: pengembaliankasgantung_nobukti,
+          pengembaliankasgantung_nobukti: detail.pengembaliankasgantung_nobukti,
           modifiedby: insertData.modifiedby,
         }));
 
@@ -172,7 +170,11 @@ export class PenerimaanheaderService {
         trx,
       );
       const dataDetail = await this.penerimaandetailService.findAll(
-        newItem.id,
+        {
+          filters: {
+            penerimaan_id: newItem.id,
+          },
+        },
         trx,
       );
 
@@ -217,7 +219,6 @@ export class PenerimaanheaderService {
         dataDetail,
       };
     } catch (error) {
-      console.log(error);
       throw new Error(`Error: ${error.message}`);
     }
   }
@@ -298,7 +299,7 @@ export class PenerimaanheaderService {
           'tempUrl.link',
         ])
         .leftJoin('akunpusat as ap', 'u.coakasmasuk', 'ap.coa')
-        .leftJoin(
+        .innerJoin(
           trx.raw(`${tempUrl} as tempUrl`),
           'u.nobukti',
           'tempUrl.nobukti',
@@ -422,7 +423,11 @@ export class PenerimaanheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-
+      const formatpenerimaan = await trx(`bank as b`)
+        .select('p.grp', 'p.subgrp', 'b.formatpenerimaan', 'b.coa')
+        .leftJoin('parameter as p', 'p.id', 'b.formatpenerimaan')
+        .where('b.id', insertData.bank_id)
+        .first();
       const existingData = await trx(this.tableName).where('id', id).first();
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
       const jurnalUmumData = await trx('jurnalumumheader')
@@ -462,6 +467,8 @@ export class PenerimaanheaderService {
           // Debet
           {
             id: 0,
+            coa: formatpenerimaan.coa,
+            nobukti: existingData.nobukti,
             tglbukti: formatDateToSQL(insertData.tglbukti),
             keterangan: detail.keterangan,
             nominaldebet: detail.nominal,
@@ -470,6 +477,8 @@ export class PenerimaanheaderService {
           // Kredit (langsung dipasangkan)
           {
             id: 0,
+            coa: detail.coa,
+            nobukti: existingData.nobukti,
             tglbukti: formatDateToSQL(insertData.tglbukti),
             keterangan: detail.keterangan,
             nominaldebet: '',
@@ -484,7 +493,7 @@ export class PenerimaanheaderService {
         modifiedby: data.modifiedby,
         details: result,
       };
-      console.log('requestJurnalUmum', requestJurnalUmum);
+
       const updatedJurnalUmum = await this.jurnalumumheaderService.update(
         jurnalUmumData.id,
         requestJurnalUmum,
@@ -656,7 +665,14 @@ export class PenerimaanheaderService {
     let currentRow = 5;
 
     for (const h of data) {
-      const detailRes = await this.penerimaandetailService.findAll(h.id, trx);
+      const detailRes = await this.penerimaandetailService.findAll(
+        {
+          filters: {
+            nobukti: h.nobukti,
+          },
+        },
+        trx,
+      );
       const details = detailRes.data ?? [];
 
       const headerInfo = [

@@ -157,7 +157,7 @@ export class AsalkapalService {
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        console.log(sanitizedValue);
+
         query.where((builder) => {
           builder
             .orWhere('u.nominal', 'like', `%${sanitizedValue}%`)
@@ -200,7 +200,7 @@ export class AsalkapalService {
       }
 
       const data = await query;
-      console.log(data);
+
       const responseType = Number(total) > 500 ? 'json' : 'local';
 
       return {

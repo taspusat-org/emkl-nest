@@ -87,6 +87,8 @@ import { HutangheaderModule } from './modules/hutangheader/hutangheader.module';
 import { HutangdetailModule } from './modules/hutangdetail/hutangdetail.module';
 import { PenerimaanEmklModule } from './modules/penerimaan-emkl/penerimaan-emkl.module';
 import { PengeluaranEmklModule } from './modules/pengeluaran-emkl/pengeluaran-emkl.module';
+import { PengeluaranemklheaderModule } from './modules/pengeluaranemklheader/pengeluaranemklheader.module';
+import { PengeluaranemkldetailModule } from './modules/pengeluaranemkldetail/pengeluaranemkldetail.module';
 
 @Module({
   imports: [
@@ -175,6 +177,8 @@ import { PengeluaranEmklModule } from './modules/pengeluaran-emkl/pengeluaran-em
     HutangdetailModule,
     PenerimaanEmklModule,
     PengeluaranEmklModule,
+    PengeluaranemklheaderModule,
+    PengeluaranemkldetailModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

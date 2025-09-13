@@ -355,7 +355,6 @@ export class AkunpusatService {
   async exportToExcel(data: any[]) {
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Data Export');
-    console.log('data', data);
     worksheet.mergeCells('A1:H1');
     worksheet.mergeCells('A2:H2');
     worksheet.mergeCells('A3:H3');

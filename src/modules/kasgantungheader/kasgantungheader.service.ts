@@ -594,8 +594,7 @@ export class KasgantungheaderService {
         'bayar',
         'penerimaandetail_id',
       );
-      console.log('tempAll', await trx(tempAll));
-      console.log('tempPribadi', await trx(tempPribadi));
+
       // Create a new temporary table
       await trx.schema.createTable(temp, (t) => {
         t.bigInteger('pengembaliankasgantungheader_id').nullable();

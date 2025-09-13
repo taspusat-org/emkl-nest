@@ -114,7 +114,7 @@ export class MarketingorderanService {
         .as('jsonData');
 
       await trx(tempTableName).insert(openJson);
-      // console.log('mainDataToInsert', mainDataToInsert, 'mappingData', mappingData, 'openJson', openJson);
+      //
 
       const updatedData = await trx('marketingorderan') // **Update or Insert into 'marketingorderan' with correct idheader**
         .join(`${tempTableName}`, 'marketingorderan.id', `${tempTableName}.id`)
@@ -226,12 +226,6 @@ export class MarketingorderanService {
         trx,
       );
 
-      console.log(
-        'return insertedData',
-        insertedData,
-        'updatedData',
-        updatedData,
-      );
       return updatedData || insertedData;
     } catch (error) {
       throw new Error(

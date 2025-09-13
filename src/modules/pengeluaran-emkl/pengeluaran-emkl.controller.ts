@@ -1,4 +1,4 @@
-import { 
+import {
   Res,
   Get,
   Put,
@@ -16,11 +16,11 @@ import {
   NotFoundException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { 
-  CreatePengeluaranEmklDto, 
-  CreatePengeluaranEmklSchema, 
-  UpdatePengeluaranEmklDto, 
-  UpdatePengeluaranEmklSchema 
+import {
+  CreatePengeluaranEmklDto,
+  CreatePengeluaranEmklSchema,
+  UpdatePengeluaranEmklDto,
+  UpdatePengeluaranEmklSchema,
 } from './dto/create-pengeluaran-emkl.dto';
 import * as fs from 'fs';
 import { Response } from 'express';
@@ -29,11 +29,17 @@ import { AuthGuard } from '../auth/auth.guard';
 import { PengeluaranEmklService } from './pengeluaran-emkl.service';
 import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
-import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
 
 @Controller('pengeluaranemkl')
 export class PengeluaranEmklController {
-  constructor(private readonly pengeluaranEmklService: PengeluaranEmklService) {}
+  constructor(
+    private readonly pengeluaranEmklService: PengeluaranEmklService,
+  ) {}
 
   @UseGuards(AuthGuard)
   @Post()
@@ -47,7 +53,7 @@ export class PengeluaranEmklController {
     @Req() req,
   ) {
     console.log('masuk sini');
-    
+
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
@@ -57,10 +63,13 @@ export class PengeluaranEmklController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating pengeluaran emkl in controller', error);
+      console.error(
+        'Error while creating pengeluaran emkl in controller',
+        error,
+      );
 
       if (error instanceof HttpException) {
-        throw error; 
+        throw error;
       }
 
       throw new HttpException(
@@ -77,15 +86,8 @@ export class PengeluaranEmklController {
   //@PENGELUARAN-EMKL
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
-    const { 
-      search, 
-      page, 
-      limit, 
-      sortBy, 
-      sortDirection, 
-      isLookUp, 
-      ...filters } 
-    = query;
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
 
     const sortParams = {
       sortBy: sortBy || 'nama',
@@ -117,7 +119,9 @@ export class PengeluaranEmklController {
         error,
         error.message,
       );
-      throw new InternalServerErrorException('Failed to fetch pengeluaran emkl');
+      throw new InternalServerErrorException(
+        'Failed to fetch pengeluaran emkl',
+      );
     }
   }
 
@@ -137,7 +141,11 @@ export class PengeluaranEmklController {
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.pengeluaranEmklService.update(+dataId, data, trx);
+      const result = await this.pengeluaranEmklService.update(
+        +dataId,
+        data,
+        trx,
+      );
 
       await trx.commit();
       return result;
@@ -148,11 +156,12 @@ export class PengeluaranEmklController {
         error,
       );
 
-      if (error instanceof HttpException) { // Ensure any other errors get caught and returned
+      if (error instanceof HttpException) {
+        // Ensure any other errors get caught and returned
         throw error; // If it's already a HttpException, rethrow it
       }
 
-      throw new HttpException(  // Generic error handling, if something unexpected happens
+      throw new HttpException( // Generic error handling, if something unexpected happens
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
           message: 'Failed to update pengeluaran emkl',
@@ -224,7 +233,8 @@ export class PengeluaranEmklController {
         throw new Error('Data is not an array or is undefined');
       }
 
-      const tempFilePath = await this.pengeluaranEmklService.exportToExcel(data);
+      const tempFilePath =
+        await this.pengeluaranEmklService.exportToExcel(data);
       const fileStream = fs.createReadStream(tempFilePath);
 
       res.setHeader(

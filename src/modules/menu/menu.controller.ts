@@ -188,7 +188,6 @@ export class MenuController {
   async permission(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
     try {
-      console.log('id', id);
       const result = await this.utilsService.fetchUserRolesAndAbilities(
         +id,
         trx,

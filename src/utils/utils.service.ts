@@ -118,17 +118,15 @@ export class UtilsService {
         .where(field, identifier)
         .forUpdate()
         .first();
-      console.log('record', record);
+
       // Jika data tidak ada, tidak perlu return error, cukup keluar dari fungsi
       if (!record) {
-        console.log('record tidak ada');
         return;
       }
 
       const isDeleted = await trx(table).where(field, identifier).delete();
 
       if (!isDeleted) {
-        console.log('gagal menghapus');
         throw new InternalServerErrorException(
           `Gagal menghapus '${field}' = '${identifier}' di tabel '${table}'`,
         );
@@ -170,7 +168,6 @@ export class UtilsService {
     userId: number,
     trx,
   ): Promise<UserRoleAbilities> {
-    console.log('userId', userId);
     const roles = await trx('userrole')
       .where({ user_id: userId })
       .pluck('role_id');
@@ -294,7 +291,7 @@ export class UtilsService {
       if (this.checkAccessRecursively(item, abilities)) {
         let itemHtml = '';
         const uniqueTitle = `${item.title}-${item.id}`;
-        console.log('item', item);
+
         if (item.items && item.items.length > 0) {
           itemHtml += `<Collapsible asChild defaultOpen={true} open={isMenuOpen('${uniqueTitle}')} className="group/collapsible text-sm my-1"><SidebarMenuItem><CollapsibleTrigger asChild><SidebarMenuButton className="text-sm" tooltip="${uniqueTitle}" onClick={()=>handleToggle('${uniqueTitle}')}><Icons name="${item.icon}" className="icon-white" /><p className="break-words text-sm">${item.title}</p><ChevronRight className={\`ml-auto transform transition-transform duration-300 ease-in-out \${isMenuOpen('${uniqueTitle}') ? 'rotate-90' : ''}\`} /></SidebarMenuButton></CollapsibleTrigger><CollapsibleContent><SidebarMenuSub>${this.buildMenuString(item.items, abilities)}</SidebarMenuSub></CollapsibleContent></SidebarMenuItem></Collapsible>`;
         } else {
@@ -540,7 +537,6 @@ export async function getLastNumber(
 export const formatDateToSQL = (input?: string | null | any): string | null => {
   const s = String(input ?? '').trim();
   if (!s || s === 'undefined' || s === 'null') return null;
-  console.log('input222', input);
   // Handle Date object
   if (input instanceof Date) {
     const year = input.getFullYear();

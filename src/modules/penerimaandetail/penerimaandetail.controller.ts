@@ -6,11 +6,13 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { PenerimaandetailService } from './penerimaandetail.service';
 import { CreatePenerimaandetailDto } from './dto/create-penerimaandetail.dto';
 import { UpdatePenerimaandetailDto } from './dto/update-penerimaandetail.dto';
 import { dbMssql } from 'src/common/utils/db';
+import { FindAllDto, FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Controller('penerimaandetail')
 export class PenerimaandetailController {
@@ -23,19 +25,42 @@ export class PenerimaandetailController {
     return this.penerimaandetailService.create(createPenerimaandetailDto);
   }
 
-  @Get(':id')
-  async findAll(@Param('id') id: string) {
+  @Get()
+  async findAll(@Query() query: FindAllDto) {
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
+
+    const sortParams = {
+      sortBy: sortBy || 'nobukti',
+      sortDirection: sortDirection || 'asc',
+    };
+    const params: FindAllParams = {
+      search,
+      filters,
+      sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
+    };
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.penerimaandetailService.findAll(id, trx);
-      trx.commit();
+      const result = await this.penerimaandetailService.findAll(params, trx);
+
+      if (result.data.length === 0) {
+        await trx.commit();
+
+        return {
+          status: false,
+          message: 'No data found',
+          data: [],
+        };
+      }
+      await trx.commit();
+
       return result;
     } catch (error) {
-      trx.rollback();
-      console.error('Error fetching penerimaandetail:', error);
+      await trx.rollback();
+      console.error('Error in findAll:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
-
   @Patch(':id')
   update(
     @Param('id') id: string,

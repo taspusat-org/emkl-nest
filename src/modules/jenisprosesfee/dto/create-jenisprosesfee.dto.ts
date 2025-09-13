@@ -56,7 +56,6 @@ export const UpdateJenisProsesFeeSchema = z
       'jenisprosesfee',
       data.id,
     );
-    console.log('existsName', existsName);
 
     if (existsName) {
       ctx.addIssue({
