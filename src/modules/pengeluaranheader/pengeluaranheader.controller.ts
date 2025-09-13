@@ -96,9 +96,12 @@ export class PengeluaranheaderController {
   }
 
   @UseGuards(AuthGuard)
-  @Get(':id')
+  @Get('/report')
   //@PENGELUARAN
-  async findOne(@Param('id') id: string, @Query() query: FindAllDto) {
+  async findOne(
+    @Query('mainNobukti') mainNobukti: string,
+    @Query() query: FindAllDto,
+  ) {
     console.log('query', query);
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
       query;
@@ -124,7 +127,7 @@ export class PengeluaranheaderController {
     try {
       const result = await this.pengeluaranheaderService.findOne(
         params,
-        id,
+        mainNobukti,
         trx,
       );
       trx.commit();
@@ -178,9 +181,9 @@ export class PengeluaranheaderController {
     }
   }
 
-  @Get('/export/:id')
+  @Get('/export')
   async exportToExcel(
-    @Param('id') id: string,
+    @Query('mainNobukti') mainNobukti: string,
     @Query() query: any,
     @Res() res: Response,
   ) {
@@ -189,7 +192,7 @@ export class PengeluaranheaderController {
       const trx = await dbMssql.transaction();
       const { data } = await this.pengeluaranheaderService.findOne(
         query,
-        id,
+        mainNobukti,
         trx,
       );
 

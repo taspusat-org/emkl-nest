@@ -3,6 +3,7 @@ import { CreateKasgantungdetailDto } from './dto/create-kasgantungdetail.dto';
 import { UpdateKasgantungdetailDto } from './dto/update-kasgantungdetail.dto';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Injectable()
 export class KasgantungdetailService {
@@ -113,6 +114,7 @@ export class KasgantungdetailService {
         kasgantung_id: trx.raw(`${tempTableName}.kasgantung_id`),
         created_at: trx.raw(`${tempTableName}.created_at`),
         updated_at: trx.raw(`${tempTableName}.updated_at`),
+        pengeluarandetail_id: trx.raw(`${tempTableName}.pengeluarandetail_id`),
       })
       .returning('*')
       .then((result: any) => result[0])
@@ -134,6 +136,7 @@ export class KasgantungdetailService {
         trx.raw('? as kasgantung_id', [id]),
         'created_at',
         'updated_at',
+        'pengeluarandetail_id',
       ])
       .where(`${tempTableName}.id`, '0');
 
@@ -154,6 +157,7 @@ export class KasgantungdetailService {
         'kasgantungdetail.editing_at',
         'kasgantungdetail.created_at',
         'kasgantungdetail.updated_at',
+        'kasgantungdetail.pengeluarandetail_id',
         'kasgantungdetail.kasgantung_id',
       )
       .whereNull(`${tempTableName}.id`)
@@ -208,38 +212,93 @@ export class KasgantungdetailService {
     return updatedData || insertedData;
   }
 
-  async findAll(id: string, trx: any) {
-    const result = await trx(`${this.tableName} as p`)
-      .select(
-        'p.id',
-        'p.kasgantung_id', // Updated field name
-        'p.nobukti',
-        'p.keterangan',
-        'p.nominal', // Updated field name
-        'p.info',
-        'p.modifiedby',
-        'p.editing_by',
-        trx.raw("FORMAT(p.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
-        trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-        trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-      )
-      .where('p.kasgantung_id', id) // Updated field name
-      .orderBy('p.created_at', 'desc'); // Optional: Order by creation date
+  async findAll(
+    trx: any,
+    mainNobukti: string,
+    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+  ) {
+    let { page, limit } = pagination ?? {};
+    page = page ?? 1;
+    limit = limit ?? 0;
+    try {
+      const query = trx(`${this.tableName} as p`)
+        .select(
+          'p.id',
+          'p.kasgantung_id', // Updated field name
+          'p.nobukti',
+          'p.keterangan',
+          'p.nominal', // Updated field name
+          'p.info',
+          'p.modifiedby',
+          'p.editing_by',
+          trx.raw("FORMAT(p.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
+          trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+        )
+        .where('p.nobukti', mainNobukti)
+        .orderBy('p.created_at', 'desc');
 
-    if (!result.length) {
-      this.logger.warn(`No Data found for ID: ${id}`);
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+        query.where((builder) => {
+          builder
+            .orWhere('p.nobukti', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.nominal', 'like', `%${sanitizedValue}%`);
+        });
+      }
+
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          if (!value || key === 'mainNobukti') continue;
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+
+          switch (key) {
+            case 'tglbukti':
+              query.andWhere('p.tglbukti', 'like', sanitizedValue);
+              break;
+
+            case 'nominal':
+              query.andWhere('p.nominal', 'like', `%${sanitizedValue}%`);
+              break;
+
+            default:
+              query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
+          }
+        }
+      }
+
+      if (sort?.sortBy && sort?.sortDirection) {
+        query.orderBy(sort.sortBy, sort.sortDirection);
+      }
+
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.offset(offset).limit(limit);
+      }
+
+      const result = await query;
+
+      if (!result.length) {
+        this.logger.warn(
+          `No Data found for jurnalumum_nobukti: ${mainNobukti}`,
+        );
+        return {
+          status: false,
+          message: 'No data found',
+          data: [],
+        };
+      }
+
       return {
-        status: false,
-        message: 'No data found',
-        data: [],
+        status: true,
+        message: 'Kas Gantung Detail data fetched successfully',
+        data: result,
       };
+    } catch (error) {
+      console.error('Error in findAll Kas Gantung Detail', error);
+      throw new Error(error);
     }
-
-    return {
-      status: true,
-      message: 'Kas Gantung Detail data fetched successfully',
-      data: result,
-    };
   }
 
   findOne(id: number) {

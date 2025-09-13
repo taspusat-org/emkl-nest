@@ -8,7 +8,11 @@ import { CreateKasgantungheaderDto } from './dto/create-kasgantungheader.dto';
 import { UpdateKasgantungheaderDto } from './dto/update-kasgantungheader.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { RedisService } from 'src/common/redis/redis.service';
-import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
+import {
+  formatDateToSQL,
+  UtilsService,
+  tandatanya,
+} from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { PengembaliankasgantungdetailService } from '../pengembaliankasgantungdetail/pengembaliankasgantungdetail.service';
@@ -56,20 +60,28 @@ export class KasgantungheaderService {
       });
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti));
 
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+      const getCoaDebet = await trx('parameter')
+        .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`))
+        .where('grp', 'NOMOR PENERIMAAN GANTUNG')
+        .andWhere('subgrp', 'NOMOR PENERIMAAN GANTUNG KAS')
+        .first();
+
       const pengeluaranHeaderData = {
         tglbukti: data.tglbukti,
         keterangan: insertData.keterangan,
         relasi_id: insertData.relasi_id,
         bank_id: insertData.bank_id,
         alatbayar_id: insertData.alatbayar_id,
+        modifiedby: insertData.modifiedby,
       };
 
       const pengeluaranDetails = details.map((detail: any) => ({
         id: 0,
-        coadebet: detail.coadebet ?? null,
+        coadebet: getCoaDebet.coa_nama ?? null,
         keterangan: detail.keterangan ?? null,
         nominal: detail.nominal ?? null,
-        dpp: detail.dpp ?? null,
+        dpp: detail.dpp ?? 0,
         transaksibiaya_nobukti: detail.transaksibiaya_nobukti ?? null,
         transaksilain_nobukti: detail.transaksilain_nobukti ?? null,
         noinvoiceemkl: detail.noinvoiceemkl ?? null,
@@ -81,7 +93,7 @@ export class KasgantungheaderService {
         penerimaanemklheader_nobukti:
           detail.penerimaanemklheader_nobukti ?? null,
         info: detail.info ?? null,
-        modifiedby: detail.modifiedby ?? null,
+        modifiedby: insertData.modifiedby ?? null,
       }));
 
       const pengeluaranData = {
@@ -95,11 +107,19 @@ export class KasgantungheaderService {
       );
 
       const pengeluaranNoBukti = pengeluaranResult?.newItem?.nobukti;
+
       if (!pengeluaranNoBukti) {
         throw new Error('Gagal membuat pengeluaran: nobukti tidak terbentuk');
       }
 
-      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+      const pengeluaranDetailItems = await trx('pengeluarandetail')
+        .select('id')
+        .where('nobukti', pengeluaranNoBukti)
+        .orderBy('id');
+
+      if (pengeluaranDetailItems.length !== details.length) {
+        throw new Error('Jumlah detail pengeluaran tidak sesuai dengan input');
+      }
       const parameterCabang = await trx('parameter')
         .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
         .where('grp', 'CABANG')
@@ -145,11 +165,14 @@ export class KasgantungheaderService {
       }
 
       if ((details || []).length > 0) {
-        const detailsWithNobukti = details.map((detail: any) => ({
-          ...detail,
-          nobukti: nomorBuktiKasGantung,
-          modifiedby: detail.modifiedby ?? insertData.modifiedby,
-        }));
+        const detailsWithNobukti = details.map(
+          (detail: any, index: number) => ({
+            ...detail,
+            nobukti: nomorBuktiKasGantung,
+            modifiedby: detail.modifiedby ?? insertData.modifiedby,
+            pengeluarandetail_id: pengeluaranDetailItems[index]?.id ?? null,
+          }),
+        );
 
         await this.kasgantungdetailService.create(
           detailsWithNobukti,
@@ -238,6 +261,32 @@ export class KasgantungheaderService {
         }
       }
 
+      const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
+
+      await trx.schema.createTable(tempUrl, (t) => {
+        t.integer('id').nullable();
+        t.string('pengeluaran_nobukti').nullable();
+        t.text('link').nullable();
+      });
+      const url = 'pengeluaran';
+
+      await trx(tempUrl).insert(
+        trx
+          .select(
+            'u.id',
+            'u.pengeluaran_nobukti',
+            trx.raw(`
+                    STRING_AGG(
+                      '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'pengeluaran_nobukti=' + u.pengeluaran_nobukti + '">' +
+                      '<HighlightWrapper value="' + u.pengeluaran_nobukti + '" />' +
+                      '</a>', ','
+                    ) AS link
+                  `),
+          )
+          .from(this.tableName + ' as u')
+          .groupBy('u.id', 'u.pengeluaran_nobukti'),
+      );
+
       const query = trx(`${this.tableName} as u`)
         .select([
           'u.id as id',
@@ -262,7 +311,13 @@ export class KasgantungheaderService {
           trx.raw("FORMAT(u.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"), // editing_at (datetime)
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
+          'tempUrl.link',
         ])
+        .innerJoin(
+          trx.raw(`${tempUrl} as tempUrl`),
+          'u.pengeluaran_nobukti',
+          'tempUrl.pengeluaran_nobukti',
+        )
         .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
         .leftJoin('bank as b', 'u.bank_id', 'b.id')
         .leftJoin('alatbayar as ab', 'u.alatbayar_id', 'ab.id');
@@ -354,7 +409,7 @@ export class KasgantungheaderService {
   }
   async findOne(
     { search, filters, pagination, sort }: FindAllParams,
-    id: string,
+    mainNobukti: string,
     trx: any,
   ) {
     try {
@@ -391,7 +446,7 @@ export class KasgantungheaderService {
         .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
         .leftJoin('bank as b', 'u.bank_id', 'b.id')
         .leftJoin('alatbayar as ab', 'u.alatbayar_id', 'ab.id')
-        .where('u.id', id);
+        .where('u.nobukti', mainNobukti);
 
       if (filters?.tglDari && filters?.tglSampai) {
         // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
@@ -424,6 +479,7 @@ export class KasgantungheaderService {
 
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
+          if (!value || key === 'mainNobukti') continue;
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
           // Menambahkan pengecualian untuk 'tglDari' dan 'tglSampai'
@@ -904,7 +960,11 @@ export class KasgantungheaderService {
     let currentRow = 5;
 
     for (const h of data) {
-      const detailRes = await this.kasgantungdetailService.findAll(h.id, trx);
+      const detailRes = await this.kasgantungdetailService.findAll(
+        trx,
+        h.nobukti,
+        {} as FindAllParams,
+      );
       const details = detailRes.data ?? [];
 
       const headerInfo = [

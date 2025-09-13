@@ -188,9 +188,12 @@ export class KasgantungheaderController {
     }
   }
   @UseGuards(AuthGuard)
-  @Get(':id')
+  @Get('/report')
   //@KAS-GANTUNG
-  async findOne(@Param('id') id: string, @Query() query: FindAllDto) {
+  async findOne(
+    @Query('mainNobukti') mainNobukti: string,
+    @Query() query: FindAllDto,
+  ) {
     console.log('query', query);
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
       query;
@@ -216,7 +219,7 @@ export class KasgantungheaderController {
     try {
       const result = await this.kasgantungheaderService.findOne(
         params,
-        id,
+        mainNobukti,
         trx,
       );
       trx.commit();
@@ -251,9 +254,9 @@ export class KasgantungheaderController {
     }
   }
 
-  @Get('/export/:id')
+  @Get('/export')
   async exportToExcel(
-    @Param('id') id: string,
+    @Query('mainNobukti') mainNobukti: string,
     @Query() query: any,
     @Res() res: Response,
   ) {
@@ -262,7 +265,7 @@ export class KasgantungheaderController {
       const trx = await dbMssql.transaction();
       const { data } = await this.kasgantungheaderService.findOne(
         query,
-        id,
+        mainNobukti,
         trx,
       );
 

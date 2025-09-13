@@ -9,6 +9,7 @@ import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 import { RunningNumberModule } from '../running-number/running-number.module';
 import { GlobalModule } from '../global/global.module';
 import { LocksModule } from '../locks/locks.module';
+import { JurnalumumheaderModule } from '../jurnalumumheader/jurnalumumheader.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { LocksModule } from '../locks/locks.module';
     LogtrailModule,
     RunningNumberModule,
     PengeluarandetailModule,
+    JurnalumumheaderModule,
     GlobalModule,
     LocksModule,
   ],
