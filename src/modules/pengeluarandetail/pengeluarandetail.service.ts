@@ -3,6 +3,7 @@ import { CreatePengeluarandetailDto } from './dto/create-pengeluarandetail.dto';
 import { UpdatePengeluarandetailDto } from './dto/update-pengeluarandetail.dto';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Injectable()
 export class PengeluarandetailService {
@@ -238,53 +239,116 @@ export class PengeluarandetailService {
     return updatedData || insertedData;
   }
 
-  async findAll(id: string, trx: any) {
-    const result = await trx
-      .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
-      .select(
-        'p.id',
-        'p.pengeluaran_id',
-        'p.coadebet',
-        'p.nobukti',
-        'p.keterangan',
-        'p.nominal',
-        'p.dpp',
-        'p.transaksibiaya_nobukti',
-        'p.transaksilain_nobukti',
-        'p.noinvoiceemkl',
-        trx.raw("FORMAT(p.tglinvoiceemkl, 'dd-MM-yyyy') as tglinvoiceemkl"),
-        'p.nofakturpajakemkl',
-        'p.perioderefund',
-        'p.pengeluaranemklheader_nobukti',
-        'p.penerimaanemklheader_nobukti',
-        'q.keterangancoa as coadebet_text', // ganti sesuai nama kolom sebenarnya
-        'p.info',
-        'p.modifiedby',
-        trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-        trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-      )
-      .leftJoin(
-        trx.raw('akunpusat as q WITH (READUNCOMMITTED)'),
-        'p.coadebet',
-        'q.coa',
-      )
-      .where('p.pengeluaran_id', id)
-      .orderBy('p.created_at', 'desc');
+  async findAll(
+    trx: any,
+    mainNobukti: string,
+    { search, filters, pagination, sort }: FindAllParams,
+  ) {
+    try {
+      // Default pagination
+      let { page, limit } = pagination ?? {};
+      page = page ?? 1;
+      limit = limit ?? 0;
 
-    if (!result.length) {
-      this.logger.warn(`No Data found for ID: ${id}`);
+      const query = trx
+        .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
+        .select(
+          'p.id',
+          'p.pengeluaran_id',
+          'p.coadebet',
+          'p.nobukti',
+          'p.keterangan',
+          'p.nominal',
+          'p.dpp',
+          'p.transaksibiaya_nobukti',
+          'p.transaksilain_nobukti',
+          'p.noinvoiceemkl',
+          trx.raw("FORMAT(p.tglinvoiceemkl, 'dd-MM-yyyy') as tglinvoiceemkl"),
+          'p.nofakturpajakemkl',
+          'p.perioderefund',
+          'p.pengeluaranemklheader_nobukti',
+          'p.penerimaanemklheader_nobukti',
+          'q.keterangancoa as coadebet_text',
+          'p.info',
+          'p.modifiedby',
+          trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+        )
+        .leftJoin(
+          trx.raw('akunpusat as q WITH (READUNCOMMITTED)'),
+          'p.coadebet',
+          'q.coa',
+        )
+        .where('p.nobukti', mainNobukti)
+        .orderBy('p.created_at', 'desc');
+
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+        query.where((builder) => {
+          builder
+            .orWhere('p.nobukti', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.noinvoiceemkl', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.nofakturpajakemkl', 'like', `%${sanitizedValue}%`)
+            .orWhere('q.keterangancoa', 'like', `%${sanitizedValue}%`);
+        });
+      }
+
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          if (!value || key === 'mainNobukti') continue;
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+          if (value) {
+            switch (key) {
+              case 'coadebet_text':
+                query.andWhere(
+                  'q.keterangancoa',
+                  'like',
+                  `%${sanitizedValue}%`,
+                );
+                break;
+              case 'tglinvoiceemkl_dari':
+                query.andWhere('p.tglinvoiceemkl', '>=', sanitizedValue);
+                break;
+              case 'tglinvoiceemkl_sampai':
+                query.andWhere('p.tglinvoiceemkl', '<=', sanitizedValue);
+                break;
+              default:
+                query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
+            }
+          }
+        }
+      }
+
+      if (sort?.sortBy && sort?.sortDirection) {
+        query.orderBy(sort.sortBy, sort.sortDirection);
+      }
+
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.offset(offset).limit(limit);
+      }
+
+      const result = await query;
+
+      if (!result.length) {
+        this.logger.warn(`No Data found for no bukti: ${mainNobukti}`);
+        return {
+          status: false,
+          message: 'No data found',
+          data: [],
+        };
+      }
+
       return {
-        status: false,
-        message: 'No data found',
-        data: [],
+        status: true,
+        message: 'Pengeluaran Detail data fetched successfully',
+        data: result,
       };
+    } catch (error) {
+      console.error('Error in findAll Pengeluaran Detail', error);
+      throw new Error(error);
     }
-
-    return {
-      status: true,
-      message: 'Pengeluaran Detail data fetched successfully',
-      data: result,
-    };
   }
 
   findOne(id: number) {

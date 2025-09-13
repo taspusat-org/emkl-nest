@@ -3,6 +3,8 @@ import { CreateJurnalumumdetailDto } from './dto/create-jurnalumumdetail.dto';
 import { UpdateJurnalumumdetailDto } from './dto/update-jurnalumumdetail.dto';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
+import { filter } from 'rxjs';
 
 @Injectable()
 export class JurnalumumdetailService {
@@ -208,44 +210,137 @@ export class JurnalumumdetailService {
     return updatedData || insertedData;
   }
 
-  async findAll(id: string, trx: any) {
-    const result = await trx(`${this.tableName} as p`)
-      .select(
-        'p.id',
-        'p.jurnalumum_id',
-        trx.raw("FORMAT(p.tglbukti, 'dd-MM-yyyy') as tglbukti"),
-        'p.nobukti',
-        'p.coa',
-        'p.keterangan',
-        'ap.keterangancoa',
-        trx.raw(
-          'CASE WHEN p.nominal < 0 THEN ABS(p.nominal) ELSE 0 END AS nominalkredit',
-        ),
-        // jika nominal > 0 → nominaldebet = nominal, selain itu 0
-        trx.raw(
-          'CASE WHEN p.nominal > 0 THEN p.nominal ELSE 0 END AS nominaldebet',
-        ),
-        trx.raw('ABS(p.nominal) AS nominal'),
+  async findAll(
+    trx: any,
+    mainNobukti: string,
+    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+  ) {
+    try {
+      // =========================
+      // PAGINATION DEFAULT
+      // =========================
+      let { page, limit } = pagination ?? {};
+      page = page ?? 1;
+      limit = limit ?? 0;
 
-        'p.info',
-        'p.modifiedby',
-        trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-        trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-      )
-      .leftJoin('akunpusat as ap', 'p.coa', 'ap.coa')
-      .where('p.jurnalumum_id', id)
-      .orderBy('p.created_at', 'desc');
+      // =========================
+      // BASE QUERY
+      // =========================
+      const query = trx
+        .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
+        .select(
+          'p.id',
+          'p.jurnalumum_id',
+          trx.raw("FORMAT(p.tglbukti, 'dd-MM-yyyy') as tglbukti"),
+          'p.nobukti',
+          'p.coa',
+          'p.keterangan',
+          'ap.keterangancoa',
 
-    if (!result.length) {
-      this.logger.warn(`No Data found for ID: ${id}`);
-      return { status: false, message: 'No data found', data: [] };
+          // Jika nominal < 0 → nominalkredit = ABS(nominal), selain itu 0
+          trx.raw(
+            'CASE WHEN p.nominal < 0 THEN ABS(p.nominal) ELSE 0 END AS nominalkredit',
+          ),
+
+          // Jika nominal > 0 → nominaldebet = nominal, selain itu 0
+          trx.raw(
+            'CASE WHEN p.nominal > 0 THEN p.nominal ELSE 0 END AS nominaldebet',
+          ),
+
+          trx.raw('ABS(p.nominal) AS nominal'),
+          'p.info',
+          'p.modifiedby',
+          trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+        )
+        .leftJoin(
+          trx.raw('akunpusat as ap WITH (READUNCOMMITTED)'),
+          'p.coa',
+          'ap.coa',
+        )
+        .where('p.nobukti', mainNobukti)
+        .orderBy('p.created_at', 'desc');
+
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+        query.where((builder) => {
+          builder
+            .orWhere('p.nobukti', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('ap.keterangancoa', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.coa', 'like', `%${sanitizedValue}%`);
+        });
+      }
+
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          if (!value || key === 'mainNobukti') continue;
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+
+          switch (key) {
+            case 'keterangancoa':
+              query.andWhere('ap.keterangancoa', 'like', `%${sanitizedValue}%`);
+              break;
+
+            case 'tglbukti':
+              query.andWhere('p.tglbukti', 'like', sanitizedValue);
+              break;
+
+            case 'nominaldebet':
+              query.andWhere(
+                trx.raw('CASE WHEN p.nominal > 0 THEN p.nominal ELSE 0 END'),
+                'like',
+                `%${sanitizedValue}%`,
+              );
+              break;
+
+            case 'nominalkredit':
+              query.andWhere(
+                trx.raw(
+                  'CASE WHEN p.nominal < 0 THEN ABS(p.nominal) ELSE 0 END',
+                ),
+                'like',
+                `%${sanitizedValue}%`,
+              );
+              break;
+
+            default:
+              query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
+          }
+        }
+      }
+
+      if (sort?.sortBy && sort?.sortDirection) {
+        query.orderBy(sort.sortBy, sort.sortDirection);
+      }
+
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.offset(offset).limit(limit);
+      }
+
+      const result = await query;
+
+      if (!result.length) {
+        this.logger.warn(
+          `No Data found for jurnalumum_nobukti: ${mainNobukti}`,
+        );
+        return {
+          status: false,
+          message: 'No data found',
+          data: [],
+        };
+      }
+
+      return {
+        status: true,
+        message: 'Kas Gantung Detail data fetched successfully',
+        data: result,
+      };
+    } catch (error) {
+      console.error('Error in findAll Kas Gantung Detail', error);
+      throw new Error(error);
     }
-
-    return {
-      status: true,
-      message: 'Kas Gantung Detail data fetched successfully',
-      data: result,
-    };
   }
 
   findOne(id: number) {

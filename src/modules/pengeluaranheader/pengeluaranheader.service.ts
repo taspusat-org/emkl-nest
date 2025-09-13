@@ -8,10 +8,15 @@ import { CreatePengeluaranheaderDto } from './dto/create-pengeluaranheader.dto';
 import { UpdatePengeluaranheaderDto } from './dto/update-pengeluaranheader.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { RedisService } from 'src/common/redis/redis.service';
-import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
+import {
+  formatDateToSQL,
+  UtilsService,
+  tandatanya,
+} from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { PengeluarandetailService } from '../pengeluarandetail/pengeluarandetail.service';
+import { JurnalumumheaderService } from '../jurnalumumheader/jurnalumumheader.service';
 import { GlobalService } from '../global/global.service';
 import { LocksService } from '../locks/locks.service';
 import * as fs from 'fs';
@@ -26,6 +31,7 @@ export class PengeluaranheaderService {
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
     private readonly pengeluarandetailService: PengeluarandetailService,
+    private readonly JurnalumumheaderService: JurnalumumheaderService,
     private readonly locksService: LocksService,
     private readonly globalService: GlobalService,
   ) {}
@@ -78,7 +84,7 @@ export class PengeluaranheaderService {
           'p.grp as grp',
           'p.subgrp as subgrp',
           'p.text as text',
-          'p.memo as memo',
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
         )
         .where('b.id', insertData.bank_id)
         .first();
@@ -105,13 +111,13 @@ export class PengeluaranheaderService {
         paramData.subgrp,
         this.tableName,
         insertData.tglbukti,
-        null,
         cabangId,
       );
       insertData.nobukti = nomorBukti;
       insertData.statusformat = getStatusBank
         ? getStatusBank.formatpengeluaran
         : null;
+      insertData.postingdari = paramData ? paramData.memo_nama : null;
 
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
@@ -131,8 +137,56 @@ export class PengeluaranheaderService {
           trx,
         );
       }
+      const getCoaLawan = await trx('bank')
+        .select('coa')
+        .where('id', insertData.bank_id)
+        .first();
 
       const newItem = insertedItems[0];
+
+      const processDetails = (details) => {
+        return details.flatMap((detail) => [
+          {
+            id: 0,
+            coa: detail.coadebet,
+            nobukti: nomorBukti,
+            tglbukti: formatDateToSQL(insertData.tglbukti),
+            keterangan: detail.keterangan,
+            nominaldebet: detail.nominal,
+            nominalkredit: '',
+            modifiedby: insertData.modifiedby,
+          },
+          {
+            id: 0,
+            coa: getCoaLawan?.coa || null,
+            nobukti: nomorBukti,
+            tglbukti: formatDateToSQL(insertData.tglbukti),
+            keterangan: detail.keterangan,
+            nominaldebet: '',
+            nominalkredit: detail.nominal,
+            modifiedby: insertData.modifiedby,
+          },
+        ]);
+      };
+
+      const result = processDetails(details);
+
+      const jurnalPayload = {
+        nobukti: nomorBukti,
+        tglbukti: insertData.tglbukti,
+        postingdari: insertData.postingdari,
+        statusformat: insertData.statusformat,
+        keterangan: insertData.keterangan,
+        created_at: this.utilsService.getTime(),
+        updated_at: this.utilsService.getTime(),
+        modifiedby: insertData.modifiedby,
+        details: result,
+      };
+
+      const jurnalHeaderInserted = await this.JurnalumumheaderService.create(
+        jurnalPayload,
+        trx,
+      );
 
       const { data: filteredItems } = await this.findAll(
         {
@@ -213,6 +267,32 @@ export class PengeluaranheaderService {
         }
       }
 
+      const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
+
+      await trx.schema.createTable(tempUrl, (t) => {
+        t.integer('id').nullable();
+        t.string('nobukti').nullable();
+        t.text('link').nullable();
+      });
+      const url = 'jurnal-umum';
+
+      await trx(tempUrl).insert(
+        trx
+          .select(
+            'u.id',
+            'u.nobukti',
+            trx.raw(`
+                    STRING_AGG(
+                      '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'nobukti=' + u.nobukti + '">' +
+                      '<HighlightWrapper value="' + u.nobukti + '" />' +
+                      '</a>', ','
+                    ) AS link
+                  `),
+          )
+          .from(this.tableName + ' as u')
+          .groupBy('u.id', 'u.nobukti'),
+      );
+
       const query = trx
         .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
         .select([
@@ -239,7 +319,13 @@ export class PengeluaranheaderService {
           'a.keterangancoa as coakredit_text',
           'c.nama as alatbayar_text',
           'd.nama as daftarbank_text',
+          'tempUrl.link',
         ])
+        .leftJoin(
+          trx.raw(`${tempUrl} as tempUrl`),
+          'u.nobukti',
+          'tempUrl.nobukti',
+        )
         .leftJoin(
           trx.raw('relasi as r WITH (READUNCOMMITTED)'),
           'u.relasi_id',
@@ -365,7 +451,7 @@ export class PengeluaranheaderService {
 
   async findOne(
     { search, filters, pagination, sort }: FindAllParams,
-    id: string,
+    mainNobukti: string,
     trx: any,
   ) {
     try {
@@ -426,7 +512,7 @@ export class PengeluaranheaderService {
           'u.daftarbank_id',
           'd.id',
         )
-        .where('u.id', id);
+        .where('u.nobukti', mainNobukti);
 
       if (filters?.tglDari && filters?.tglSampai) {
         // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
@@ -459,6 +545,7 @@ export class PengeluaranheaderService {
 
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
+          if (!value || key === 'mainNobukti') continue;
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
           // Menambahkan pengecualian untuk 'tglDari' dan 'tglSampai'
@@ -670,7 +757,11 @@ export class PengeluaranheaderService {
     let currentRow = 5;
 
     for (const h of data) {
-      const detailRes = await this.pengeluarandetailService.findAll(h.id, trx);
+      const detailRes = await this.pengeluarandetailService.findAll(
+        trx,
+        h.nobukti,
+        {} as FindAllParams,
+      );
       const details = detailRes.data ?? [];
 
       const headerInfo = [
