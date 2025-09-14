@@ -245,6 +245,7 @@ export class JurnalumumdetailService {
           'ap.coa',
         )
         .orderBy('p.created_at', 'desc');
+
       if (filters?.nobukti) {
         query.where('p.nobukti', filters?.nobukti);
       }
@@ -261,6 +262,9 @@ export class JurnalumumdetailService {
 
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
+          if (key === 'pengeluaran_nobukti') {
+            continue;
+          }
           if (!value) continue;
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 

@@ -96,40 +96,13 @@ export class PengeluaranheaderController {
   }
 
   @UseGuards(AuthGuard)
-  @Get('/report')
+  @Get(':id')
   //@PENGELUARAN
-  async findOne(
-    @Query('mainNobukti') mainNobukti: string,
-    @Query() query: FindAllDto,
-  ) {
-    console.log('query', query);
-    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
-      query;
-
-    const sortParams = {
-      sortBy: sortBy || 'nobukti',
-      sortDirection: sortDirection || 'asc',
-    };
-
-    const pagination = {
-      page: page || 1,
-      limit: limit === 0 || !limit ? undefined : limit,
-    };
-
-    const params: FindAllParams = {
-      search,
-      filters,
-      pagination,
-      sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
-    };
+  async findOne(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
 
     try {
-      const result = await this.pengeluaranheaderService.findOne(
-        params,
-        mainNobukti,
-        trx,
-      );
+      const result = await this.pengeluaranheaderService.findOne(id, trx);
       trx.commit();
 
       return result;
@@ -181,20 +154,12 @@ export class PengeluaranheaderController {
     }
   }
 
-  @Get('/export')
-  async exportToExcel(
-    @Query('mainNobukti') mainNobukti: string,
-    @Query() query: any,
-    @Res() res: Response,
-  ) {
+  @Get('/export/:id')
+  async exportToExcel(@Param('id') id: string, @Res() res: Response) {
     try {
       // Ambil data
       const trx = await dbMssql.transaction();
-      const { data } = await this.pengeluaranheaderService.findOne(
-        query,
-        mainNobukti,
-        trx,
-      );
+      const { data } = await this.pengeluaranheaderService.findOne(id, trx);
 
       if (!Array.isArray(data)) {
         return res

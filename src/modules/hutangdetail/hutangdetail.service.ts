@@ -3,6 +3,7 @@ import { CreateHutangdetailDto } from './dto/create-hutangdetail.dto';
 import { UpdateHutangdetailDto } from './dto/update-hutangdetail.dto';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Injectable()
 export class HutangdetailService {
@@ -204,53 +205,101 @@ export class HutangdetailService {
     return updatedData || insertedData;
   }
 
-  async findAll(id: string, trx: any) {
-    const result = await trx
-      .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
-      .select(
-        'p.id',
-        'p.hutang_id',
-        'p.nobukti',
-        'p.coa',
-        'p.keterangan',
-        'p.nominal',
-        'p.dpp',
-        'p.noinvoiceemkl',
-        trx.raw(`
+  async findAll({ search, filters, sort }: FindAllParams, trx: any) {
+    try {
+      const query = trx
+        .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
+        .select(
+          'p.id',
+          'p.hutang_id',
+          'p.nobukti',
+          'p.coa',
+          'p.keterangan',
+          'p.nominal',
+          'p.dpp',
+          'p.noinvoiceemkl',
+          trx.raw(`
           FORMAT(
             TRY_CONVERT(datetime, p.tglinvoiceemkl),
             'dd-MM-yyyy'
           ) as tglinvoiceemkl
         `),
-        'p.nofakturpajakemkl',
-        'q.keterangancoa as coa_text',
-        'p.info',
-        'p.modifiedby',
-        trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-        trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-      )
-      .leftJoin(
-        trx.raw('akunpusat as q WITH (READUNCOMMITTED)'),
-        'p.coa',
-        'q.coa',
-      )
-      .where('p.hutang_id', id)
-      .orderBy('p.created_at', 'desc');
+          'p.nofakturpajakemkl',
+          'q.keterangancoa as coa_text',
+          'p.info',
+          'p.modifiedby',
+          trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+        )
+        .leftJoin(
+          trx.raw('akunpusat as q WITH (READUNCOMMITTED)'),
+          'p.coa',
+          'q.coa',
+        )
+        .orderBy('p.created_at', 'desc');
 
-    if (!result.length) {
-      this.logger.warn(`No Data found for ID: ${id}`);
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+        query.where((builder) => {
+          builder
+            .orWhere('p.nobukti', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.nominal', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.noinvoiceemkl', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.nofakturpajakemkl', 'like', `%${sanitizedValue}%`)
+            .orWhere('q.keterangancoa', 'like', `%${sanitizedValue}%`);
+        });
+      }
+
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          if (!value) continue;
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+
+          switch (key) {
+            case 'tglinvoiceemkl':
+              query.andWhere('p.tglinvoiceemkl', 'like', sanitizedValue);
+              break;
+
+            case 'coa_text':
+              query.andWhere('q.keterangancoa', 'like', sanitizedValue);
+              break;
+
+            case 'nominal':
+            case 'dpp':
+              query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
+              break;
+
+            default:
+              query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
+          }
+        }
+      }
+
+      if (sort?.sortBy && sort?.sortDirection) {
+        query.orderBy(sort.sortBy, sort.sortDirection);
+      }
+
+      const result = await query;
+
+      if (!result.length) {
+        this.logger.warn('No Data found');
+        return {
+          status: false,
+          message: 'No data found',
+          data: [],
+        };
+      }
+
       return {
-        status: false,
-        message: 'No data found',
-        data: [],
+        status: true,
+        message: 'Hutang Detail data fetched successfully',
+        data: result,
       };
+    } catch (error) {
+      console.error('Error in findAll Hutang Detail', error);
+      throw new Error(error);
     }
-
-    return {
-      status: true,
-      message: 'Hutang Detail data fetched successfully',
-      data: result,
-    };
   }
 
   findOne(id: number) {

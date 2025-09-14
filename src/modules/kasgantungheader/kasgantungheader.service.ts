@@ -407,17 +407,8 @@ export class KasgantungheaderService {
       throw new Error('Failed to fetch data');
     }
   }
-  async findOne(
-    { search, filters, pagination, sort }: FindAllParams,
-    mainNobukti: string,
-    trx: any,
-  ) {
+  async findOne(id: string, trx: any) {
     try {
-      let { page, limit } = pagination ?? {};
-
-      page = page ?? 1;
-      limit = limit ?? 0;
-
       const query = trx(`${this.tableName} as u`)
         .select([
           'u.id as id',
@@ -446,69 +437,7 @@ export class KasgantungheaderService {
         .leftJoin('relasi as r', 'u.relasi_id', 'r.id')
         .leftJoin('bank as b', 'u.bank_id', 'b.id')
         .leftJoin('alatbayar as ab', 'u.alatbayar_id', 'ab.id')
-        .where('u.nobukti', mainNobukti);
-
-      if (filters?.tglDari && filters?.tglSampai) {
-        // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
-        const tglDariFormatted = formatDateToSQL(String(filters?.tglDari)); // Fungsi untuk format
-        const tglSampaiFormatted = formatDateToSQL(String(filters?.tglSampai));
-
-        // Menggunakan whereBetween dengan tanggal yang sudah diformat
-        query.whereBetween('u.tglbukti', [
-          tglDariFormatted,
-          tglSampaiFormatted,
-        ]);
-      }
-      const excludeSearchKeys = ['tglDari', 'tglSampai'];
-      if (limit > 0) {
-        const offset = (page - 1) * limit;
-        query.limit(limit).offset(offset);
-      }
-      const searchFields = Object.keys(filters || {}).filter(
-        (k) => !excludeSearchKeys.includes(k) && filters![k],
-      );
-      if (search) {
-        const sanitized = String(search).replace(/\[/g, '[[]').trim();
-
-        query.where((qb) => {
-          searchFields.forEach((field) => {
-            qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
-          });
-        });
-      }
-
-      if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          if (!value || key === 'mainNobukti') continue;
-          const sanitizedValue = String(value).replace(/\[/g, '[[]');
-
-          // Menambahkan pengecualian untuk 'tglDari' dan 'tglSampai'
-          if (key === 'tglDari' || key === 'tglSampai') {
-            continue; // Lewati filter jika key adalah 'tglDari' atau 'tglSampai'
-          }
-
-          if (value) {
-            if (
-              key === 'created_at' ||
-              key === 'updated_at' ||
-              key === 'editing_at' ||
-              key === 'tglbukti' ||
-              key === 'tgljatuhtempo'
-            ) {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-                key,
-                `%${sanitizedValue}%`,
-              ]);
-            } else {
-              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
-            }
-          }
-        }
-      }
-
-      if (sort?.sortBy && sort?.sortDirection) {
-        query.orderBy(sort.sortBy, sort.sortDirection);
-      }
+        .where('u.id', id);
 
       const data = await query;
 
@@ -960,9 +889,12 @@ export class KasgantungheaderService {
 
     for (const h of data) {
       const detailRes = await this.kasgantungdetailService.findAll(
+        {
+          filters: {
+            nobukti: h.nobukti,
+          },
+        },
         trx,
-        h.nobukti,
-        {} as FindAllParams,
       );
       const details = detailRes.data ?? [];
 

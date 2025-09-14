@@ -26,11 +26,8 @@ export class PengeluarandetailController {
     return this.pengeluarandetailService.create(createPengeluarandetailDto);
   }
 
-  @Get('/detail')
-  async findAll(
-    @Query('mainNobukti') mainNobukti: string,
-    @Query() query: FindAllDto,
-  ) {
+  @Get()
+  async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
       query;
 
@@ -54,24 +51,24 @@ export class PengeluarandetailController {
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.pengeluarandetailService.findAll(
-        trx,
-        mainNobukti,
-        params,
-      );
+      const result = await this.pengeluarandetailService.findAll(params, trx);
 
-      trx.commit();
+      if (result.data.length === 0) {
+        await trx.commit();
+
+        return {
+          status: false,
+          message: 'No data found',
+          data: [],
+        };
+      }
+      await trx.commit();
+
       return result;
     } catch (error) {
-      trx.rollback();
-      console.error(
-        'Error fetching data pengeluaran in controller ',
-        error,
-        error.message,
-      );
-      throw new InternalServerErrorException(
-        'Failed to fetch pengeluaran in controller',
-      );
+      await trx.rollback();
+      console.error('Error in findAll:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
 
