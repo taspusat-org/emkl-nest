@@ -25,11 +25,8 @@ export class KasgantungdetailController {
     return this.kasgantungdetailService.create(createKasgantungdetailDto);
   }
 
-  @Get('/detail')
-  async findAll(
-    @Query('mainNobukti') mainNobukti: string,
-    @Query() query: FindAllDto,
-  ) {
+  @Get()
+  async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
       query;
 
@@ -52,16 +49,24 @@ export class KasgantungdetailController {
       sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
     };
     try {
-      const result = await this.kasgantungdetailService.findAll(
-        trx,
-        mainNobukti,
-        params,
-      );
-      trx.commit();
+      const result = await this.kasgantungdetailService.findAll(params, trx);
+
+      if (result.data.length === 0) {
+        await trx.commit();
+
+        return {
+          status: false,
+          message: 'No data found',
+          data: [],
+        };
+      }
+      await trx.commit();
+
       return result;
     } catch (error) {
-      trx.rollback();
-      console.error('Error fetching kas gantung detail:', error);
+      await trx.rollback();
+      console.error('Error in findAll:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
 

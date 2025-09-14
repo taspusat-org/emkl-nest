@@ -239,17 +239,8 @@ export class PengeluarandetailService {
     return updatedData || insertedData;
   }
 
-  async findAll(
-    trx: any,
-    mainNobukti: string,
-    { search, filters, pagination, sort }: FindAllParams,
-  ) {
+  async findAll({ search, filters, sort }: FindAllParams, trx: any) {
     try {
-      // Default pagination
-      let { page, limit } = pagination ?? {};
-      page = page ?? 1;
-      limit = limit ?? 0;
-
       const query = trx
         .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
         .select(
@@ -279,9 +270,10 @@ export class PengeluarandetailService {
           'p.coadebet',
           'q.coa',
         )
-        .where('p.nobukti', mainNobukti)
         .orderBy('p.created_at', 'desc');
-
+      if (filters?.nobukti) {
+        query.where('p.nobukti', filters?.nobukti);
+      }
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
@@ -296,7 +288,9 @@ export class PengeluarandetailService {
 
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
-          if (!value || key === 'mainNobukti') continue;
+          if (key === 'pengeluaran_nobukti') {
+            continue;
+          }
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
             switch (key) {
@@ -319,20 +313,14 @@ export class PengeluarandetailService {
           }
         }
       }
-
       if (sort?.sortBy && sort?.sortDirection) {
         query.orderBy(sort.sortBy, sort.sortDirection);
-      }
-
-      if (limit > 0) {
-        const offset = (page - 1) * limit;
-        query.offset(offset).limit(limit);
       }
 
       const result = await query;
 
       if (!result.length) {
-        this.logger.warn(`No Data found for no bukti: ${mainNobukti}`);
+        this.logger.warn(`No Data found`);
         return {
           status: false,
           message: 'No data found',

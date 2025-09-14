@@ -8,7 +8,11 @@ import { CreateHutangheaderDto } from './dto/create-hutangheader.dto';
 import { UpdateHutangheaderDto } from './dto/update-hutangheader.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { RedisService } from 'src/common/redis/redis.service';
-import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
+import {
+  formatDateToSQL,
+  UtilsService,
+  tandatanya,
+} from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { HutangdetailService } from '../hutangdetail/hutangdetail.service';
@@ -57,6 +61,9 @@ export class HutangheaderService {
         }
       });
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
+      insertData.tgljatuhtempo = formatDateToSQL(
+        String(insertData?.tgljatuhtempo),
+      ); // Fungsi untuk format
       insertData.modifiedby = modifiedby;
       insertData.created_at = created_at || this.utilsService.getTime();
       insertData.updated_at = updated_at || this.utilsService.getTime();
@@ -241,6 +248,32 @@ export class HutangheaderService {
         }
       }
 
+      const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
+
+      await trx.schema.createTable(tempUrl, (t) => {
+        t.integer('id').nullable();
+        t.string('nobukti').nullable();
+        t.text('link').nullable();
+      });
+      const url = 'jurnal-umum';
+
+      await trx(tempUrl).insert(
+        trx
+          .select(
+            'u.id',
+            'u.nobukti',
+            trx.raw(`
+                          STRING_AGG(
+                            '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'nobukti=' + u.nobukti + '">' +
+                            '<HighlightWrapper value="' + u.nobukti + '" />' +
+                            '</a>', ','
+                          ) AS link
+                        `),
+          )
+          .from(this.tableName + ' as u')
+          .groupBy('u.id', 'u.nobukti'),
+      );
+
       const query = trx
         .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
         .select([
@@ -257,7 +290,13 @@ export class HutangheaderService {
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'r.nama as relasi_text',
           'a.keterangancoa as coa_text',
+          'tempUrl.link',
         ])
+        .leftJoin(
+          trx.raw(`${tempUrl} as tempUrl`),
+          'u.nobukti',
+          'tempUrl.nobukti',
+        )
         .leftJoin(
           trx.raw('relasi as r WITH (READUNCOMMITTED)'),
           'u.relasi_id',
@@ -656,7 +695,14 @@ export class HutangheaderService {
     let currentRow = 5;
 
     for (const h of data) {
-      const detailRes = await this.hutangdetailService.findAll(h.id, trx);
+      const detailRes = await this.hutangdetailService.findAll(
+        {
+          filters: {
+            nobukti: h.nobukti,
+          },
+        },
+        trx,
+      );
       const details = detailRes.data ?? [];
 
       const headerInfo = [

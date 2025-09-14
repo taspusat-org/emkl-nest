@@ -212,14 +212,7 @@ export class KasgantungdetailService {
     return updatedData || insertedData;
   }
 
-  async findAll(
-    trx: any,
-    mainNobukti: string,
-    { search, filters, pagination, sort, isLookUp }: FindAllParams,
-  ) {
-    let { page, limit } = pagination ?? {};
-    page = page ?? 1;
-    limit = limit ?? 0;
+  async findAll({ search, filters, sort }: FindAllParams, trx: any) {
     try {
       const query = trx(`${this.tableName} as p`)
         .select(
@@ -235,9 +228,10 @@ export class KasgantungdetailService {
           trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
         )
-        .where('p.nobukti', mainNobukti)
         .orderBy('p.created_at', 'desc');
-
+      if (filters?.nobukti) {
+        query.where('p.nobukti', filters?.nobukti);
+      }
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
@@ -250,7 +244,7 @@ export class KasgantungdetailService {
 
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
-          if (!value || key === 'mainNobukti') continue;
+          if (!value) continue;
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
           switch (key) {
@@ -272,17 +266,10 @@ export class KasgantungdetailService {
         query.orderBy(sort.sortBy, sort.sortDirection);
       }
 
-      if (limit > 0) {
-        const offset = (page - 1) * limit;
-        query.offset(offset).limit(limit);
-      }
-
       const result = await query;
 
       if (!result.length) {
-        this.logger.warn(
-          `No Data found for jurnalumum_nobukti: ${mainNobukti}`,
-        );
+        this.logger.warn(`No Data found`);
         return {
           status: false,
           message: 'No data found',
