@@ -1,4 +1,9 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateKaryawanDto } from './dto/create-karyawan.dto';
 import { RedisService } from 'src/common/redis/redis.service';
 import { UtilsService } from 'src/utils/utils.service';
@@ -128,9 +133,7 @@ export class KaryawanService {
           'kar.absen_id',
           'kar.jabatan_id',
           'kar.karyawan_id',
-          trx.raw(
-            "karyawan.namakaryawan as karyawan_nama",
-          ),
+          trx.raw('karyawan.namakaryawan as karyawan_nama'),
           trx.raw(
             "FORMAT(kar.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at",
           ),
@@ -142,7 +145,11 @@ export class KaryawanService {
           'jabatan.nama as jabatan_nama',
         ])
         .leftJoin('jabatan', 'kar.jabatan_id', 'jabatan.id')
-        .leftJoin(`hr.dbo.karyawan as karyawan`, 'kar.karyawan_id', 'karyawan.id')
+        .leftJoin(
+          `hr.dbo.karyawan as karyawan`,
+          'kar.karyawan_id',
+          'karyawan.id',
+        )
         .leftJoin('parameter as par', 'kar.statusaktif', 'par.id');
 
       if (limit > 0) {

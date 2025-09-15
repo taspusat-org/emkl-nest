@@ -13,8 +13,8 @@ import { LocksModule } from '../locks/locks.module';
     UtilsModule,
     AuthModule,
     LogtrailModule,
-    // GlobalModule, 
-    LocksModule
+    // GlobalModule,
+    LocksModule,
   ],
   controllers: [KaryawanController],
   providers: [KaryawanService],
