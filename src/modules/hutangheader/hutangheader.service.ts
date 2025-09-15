@@ -525,6 +525,7 @@ export class HutangheaderService {
   async update(id: any, data: any, trx: any) {
     try {
       data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
+      data.tgljatuhtempo = formatDateToSQL(String(data?.tgljatuhtempo)); // Fungsi untuk format
 
       const {
         sortBy,
