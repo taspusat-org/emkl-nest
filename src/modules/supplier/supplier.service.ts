@@ -243,12 +243,12 @@ export class SupplierService {
             .orWhere('u.nominalpph21', 'like', `%${sanitizedValue}%`)
             .orWhere('u.nominalpph23', 'like', `%${sanitizedValue}%`)
             .orWhere('u.noskb', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.tglskb', 'like', `%${sanitizedValue}%`)
+            .orWhereRaw("FORMAT(u.tglskb, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
             .orWhere('u.nosk', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.tglsk', 'like', `%${sanitizedValue}%`)
+            .orWhereRaw("FORMAT(u.tglsk, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.created_at', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.updated_at', 'like', `%${sanitizedValue}%`);
+            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`]);
         });
       }
 
@@ -258,6 +258,11 @@ export class SupplierService {
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
               query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (key === 'tglskb' || key === 'tglsk') {
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [
                 key,
                 `%${sanitizedValue}%`,
               ]);
@@ -282,9 +287,10 @@ export class SupplierService {
         }
       }
 
-      const result = await trx(this.tableName).count('id as total').first();
-      const total = result?.total as number;
-      const totalPages = Math.ceil(total / limit);
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.limit(limit).offset(offset);
+      }
 
       if (sort?.sortBy && sort?.sortDirection) {
         if (sort?.sortBy == 'coa') {
@@ -300,6 +306,9 @@ export class SupplierService {
         }
       }
 
+      const result = await trx(this.tableName).count('id as total').first();
+      const total = result?.total as number;
+      const totalPages = Math.ceil(total / limit);
       const data = await query;
       const responseType = Number(total) > 500 ? 'json' : 'local';
 

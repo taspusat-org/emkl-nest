@@ -180,24 +180,17 @@ export class ScheduleHeaderService {
           tglSampaiFormatted,
         ]);
       }
-      const excludeSearchKeys = ['tglDari', 'tglSampai'];
-
-      const searchFields = Object.keys(filters || {}).filter(
-        // (k) => !excludeSearchKeys.includes(k) && filters![k],
-        (k) => !excludeSearchKeys.includes(k),
-      );
 
       if (search) {
-        const sanitized = String(search).replace(/\[/g, '[[]').trim();
-
+        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
         query.where((builder) => {
-          searchFields.forEach((field) => {
-            // if (field == 'created_at' || field == 'updated_at') {
-            //   query.orWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [field, `%${sanitized}%`]);
-            // } else {
-            builder.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
-            // }
-          });
+          builder
+            .orWhere('u.nobukti', 'like', `%${sanitizedValue}%`)
+            .orWhereRaw("FORMAT(u.tglbukti, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
+            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
         });
       }
 
@@ -210,12 +203,13 @@ export class ScheduleHeaderService {
           }
 
           if (value) {
-            if (
-              key === 'created_at' ||
-              key === 'updated_at' ||
-              key === 'tglbukti'
-            ) {
+            if (key === 'created_at' || key === 'updated_at') {
               query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (key === 'tglbukti') {
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [
                 key,
                 `%${sanitizedValue}%`,
               ]);
