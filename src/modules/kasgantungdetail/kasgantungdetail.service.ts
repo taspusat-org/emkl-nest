@@ -229,9 +229,9 @@ export class KasgantungdetailService {
           trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
         )
         .orderBy('p.created_at', 'desc');
-        if (filters?.nobukti) {
-          query.where('p.nobukti', filters?.nobukti);
-        }
+      if (filters?.nobukti) {
+        query.where('p.nobukti', filters?.nobukti);
+      }
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {

@@ -61,10 +61,21 @@ export class KasgantungheaderService {
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti));
 
       const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
-      const getCoaDebet = await trx('parameter')
-        .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`))
-        .where('grp', 'NOMOR PENERIMAAN GANTUNG')
-        .andWhere('subgrp', 'NOMOR PENERIMAAN GANTUNG KAS')
+
+      const formatpengeluarangantung = await trx(`bank as b`)
+        .select('p.grp', 'p.subgrp', 'b.formatpengeluarangantung')
+        .leftJoin('parameter as p', 'p.id', 'b.formatpengeluarangantung')
+        .where('b.id', insertData.bank_id)
+        .first();
+
+      const parameter = await trx('parameter')
+        .select(
+          'grp',
+          'subgrp',
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
+        )
+        .where('id', formatpengeluarangantung.formatpengeluarangantung)
         .first();
 
       const pengeluaranHeaderData = {
@@ -78,7 +89,7 @@ export class KasgantungheaderService {
 
       const pengeluaranDetails = details.map((detail: any) => ({
         id: 0,
-        coadebet: getCoaDebet.coa_nama ?? null,
+        coadebet: parameter.coa_nama ?? null,
         keterangan: detail.keterangan ?? null,
         nominal: detail.nominal ?? null,
         dpp: detail.dpp ?? 0,
@@ -124,11 +135,6 @@ export class KasgantungheaderService {
         .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
         .where('grp', 'CABANG')
         .andWhere('subgrp', 'CABANG')
-        .first();
-      const formatpengeluarangantung = await trx(`bank as b`)
-        .select('p.grp', 'p.subgrp', 'b.formatpengeluarangantung')
-        .leftJoin('parameter as p', 'p.id', 'b.formatpengeluarangantung')
-        .where('b.id', insertData.bank_id)
         .first();
 
       const grp = formatpengeluarangantung.grp;

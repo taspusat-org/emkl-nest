@@ -90,6 +90,7 @@ import { PengeluaranEmklModule } from './modules/pengeluaran-emkl/pengeluaran-em
 import { PengeluaranemklheaderModule } from './modules/pengeluaranemklheader/pengeluaranemklheader.module';
 import { PengeluaranemkldetailModule } from './modules/pengeluaranemkldetail/pengeluaranemkldetail.module';
 import { KaryawanModule } from './modules/karyawan/karyawan.module';
+import { MasterbiayaModule } from './modules/masterbiaya/masterbiaya.module';
 import { PindahBukuModule } from './modules/pindah-buku/pindah-buku.module';
 
 @Module({
@@ -182,6 +183,7 @@ import { PindahBukuModule } from './modules/pindah-buku/pindah-buku.module';
     PengeluaranemklheaderModule,
     PengeluaranemkldetailModule,
     KaryawanModule,
+    MasterbiayaModule,
     PindahBukuModule,
   ],
   controllers: [],
