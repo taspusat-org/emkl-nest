@@ -74,50 +74,46 @@ export class PengeluaranheaderService {
         .andWhere('subgrp', 'CABANG')
         .first();
 
-      const paramData = await trx('bank as b')
-        .leftJoin('parameter as p', 'b.formatpengeluaran', 'p.id')
-        .select(
-          'b.id as bank_id',
-          'b.nama as bank_nama',
-          'b.formatpengeluaran',
-          'p.id as parameter_id',
-          'p.grp as grp',
-          'p.subgrp as subgrp',
-          'p.text as text',
-          trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
-        )
+      const formatpengeluaran = await trx(`bank as b`)
+        .select('p.grp', 'p.subgrp', 'b.formatpengeluaran', 'b.coa')
+        .leftJoin('parameter as p', 'p.id', 'b.formatpengeluaran')
         .where('b.id', insertData.bank_id)
         .first();
 
-      const getStatusBank = await trx('bank')
-        .select('formatpengeluaran')
-        .where('id', insertData.bank_id)
+      const parameter = await trx('parameter')
+        .select(
+          'grp',
+          'subgrp',
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
+        )
+        .where('id', formatpengeluaran.formatpengeluaran)
         .first();
 
-      if (!getStatusBank) {
+      if (!formatpengeluaran) {
         throw new Error(`Bank dengan id ${insertData.bank_id} tidak ditemukan`);
       }
 
-      if (!paramData) {
+      if (!parameter) {
         throw new Error(
-          `Parameter dengan id ${getStatusBank.formatpengeluaran} tidak ditemukan`,
+          `Parameter dengan id ${formatpengeluaran.formatpengeluaran} tidak ditemukan`,
         );
       }
 
       const cabangId = parameterCabang.cabang_id;
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
-        paramData.grp,
-        paramData.subgrp,
+        parameter.grp,
+        parameter.subgrp,
         this.tableName,
         insertData.tglbukti,
         cabangId,
       );
       insertData.nobukti = nomorBukti;
-      insertData.statusformat = getStatusBank
-        ? getStatusBank.formatpengeluaran
+      insertData.statusformat = formatpengeluaran
+        ? formatpengeluaran.formatpengeluaran
         : null;
-      insertData.postingdari = paramData ? paramData.memo_nama : null;
+      insertData.postingdari = parameter ? parameter.memo_nama : null;
 
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
@@ -137,10 +133,6 @@ export class PengeluaranheaderService {
           trx,
         );
       }
-      const getCoaLawan = await trx('bank')
-        .select('coa')
-        .where('id', insertData.bank_id)
-        .first();
 
       const newItem = insertedItems[0];
 
@@ -158,7 +150,7 @@ export class PengeluaranheaderService {
           },
           {
             id: 0,
-            coa: getCoaLawan?.coa || null,
+            coa: formatpengeluaran?.coa || null,
             nobukti: nomorBukti,
             tglbukti: formatDateToSQL(insertData.tglbukti),
             keterangan: detail.keterangan,

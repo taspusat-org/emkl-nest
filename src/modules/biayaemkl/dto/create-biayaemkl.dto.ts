@@ -8,7 +8,7 @@ export const CreateBiayaemklSchema = z.object({
     .max(100)
     .refine(
       async (value) => {
-        const exists = await isRecordExist('nama', value, 'biaya');
+        const exists = await isRecordExist('nama', value, 'biayaemkl');
         return !exists; // Validasi jika nama sudah ada
       },
       {
