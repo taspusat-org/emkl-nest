@@ -161,8 +161,8 @@ export class TypeAkuntansiService {
             .orWhere('ak.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('p.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.created_at', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.updated_at', 'like', `%${sanitizedValue}%`);
+            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`]);
         });
       }
 
