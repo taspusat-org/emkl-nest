@@ -219,8 +219,8 @@ export class PenerimaanEmklService {
             )
             .orWhere('p.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.created_at', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.updated_at', 'like', `%${sanitizedValue}%`);
+            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`]);
         });
       }
 
@@ -280,9 +280,10 @@ export class PenerimaanEmklService {
         }
       }
 
-      const result = await trx(this.tableName).count('id as total').first();
-      const total = result?.total as number;
-      const totalPages = Math.ceil(total / limit);
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.limit(limit).offset(offset);
+      }
 
       if (sort?.sortBy && sort?.sortDirection) {
         if (sort?.sortBy === 'coadebet_text') {
@@ -304,6 +305,9 @@ export class PenerimaanEmklService {
         }
       }
 
+      const result = await trx(this.tableName).count('id as total').first();
+      const total = result?.total as number;
+      const totalPages = Math.ceil(total / limit);
       const data = await query;
       console.log('data', data);
       const responseType = Number(total) > 500 ? 'json' : 'local';
