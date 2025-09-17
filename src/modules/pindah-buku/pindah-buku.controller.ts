@@ -1,4 +1,4 @@
-import { 
+import {
   Res,
   Get,
   Put,
@@ -23,9 +23,17 @@ import { AuthGuard } from '../auth/auth.guard';
 import { PindahBukuService } from './pindah-buku.service';
 import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
-import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
-import { CreatePindahBukuSchema, UpdatePindahBukuDto, UpdatePindahBukuSchema } from './dto/create-pindah-buku.dto';
+import {
+  CreatePindahBukuSchema,
+  UpdatePindahBukuDto,
+  UpdatePindahBukuSchema,
+} from './dto/create-pindah-buku.dto';
 
 @Controller('pindahbuku')
 export class PindahBukuController {
@@ -38,7 +46,7 @@ export class PindahBukuController {
     @Body(
       new InjectMethodPipe('create'),
       new ZodValidationPipe(CreatePindahBukuSchema),
-      KeyboardOnlyValidationPipe
+      KeyboardOnlyValidationPipe,
     )
     data: any,
     @Req() req,
@@ -55,7 +63,7 @@ export class PindahBukuController {
       console.error('Error while creating pindah buku in controller', error);
 
       if (error instanceof HttpException) {
-        throw error; 
+        throw error;
       }
 
       throw new HttpException(
@@ -72,15 +80,8 @@ export class PindahBukuController {
   //@PINDAH-BUKU
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
-    const { 
-      search, 
-      page, 
-      limit, 
-      sortBy, 
-      sortDirection, 
-      isLookUp, 
-      ...filters } 
-    = query;
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
 
     const sortParams = {
       sortBy: sortBy || 'nobukti',
@@ -138,16 +139,14 @@ export class PindahBukuController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error(
-        'Error while updating pindah buku in controller:',
-        error,
-      );
+      console.error('Error while updating pindah buku in controller:', error);
 
-      if (error instanceof HttpException) { // Ensure any other errors get caught and returned
+      if (error instanceof HttpException) {
+        // Ensure any other errors get caught and returned
         throw error; // If it's already a HttpException, rethrow it
       }
 
-      throw new HttpException(  // Generic error handling, if something unexpected happens
+      throw new HttpException( // Generic error handling, if something unexpected happens
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
           message: 'Failed to update pindah buku',

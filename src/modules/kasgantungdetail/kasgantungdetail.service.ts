@@ -4,6 +4,7 @@ import { UpdateKasgantungdetailDto } from './dto/update-kasgantungdetail.dto';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
+import { filter } from 'rxjs';
 
 @Injectable()
 export class KasgantungdetailService {
@@ -214,6 +215,13 @@ export class KasgantungdetailService {
 
   async findAll({ search, filters, sort }: FindAllParams, trx: any) {
     try {
+      if (!filters?.nobukti) {
+        return {
+          status: true,
+          message: 'Kas Gantung Detail failed',
+          data: [],
+        };
+      }
       const query = trx(`${this.tableName} as p`)
         .select(
           'p.id',
@@ -227,6 +235,7 @@ export class KasgantungdetailService {
           trx.raw("FORMAT(p.editing_at, 'dd-MM-yyyy HH:mm:ss') as editing_at"),
           trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+          'p.pengeluarandetail_id',
         )
         .orderBy('p.created_at', 'desc');
       if (filters?.nobukti) {

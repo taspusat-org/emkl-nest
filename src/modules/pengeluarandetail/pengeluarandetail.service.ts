@@ -128,6 +128,7 @@ export class PengeluarandetailService {
         pengeluaran_id: trx.raw(`${tempTableName}.pengeluaran_id`),
         created_at: trx.raw(`${tempTableName}.created_at`),
         updated_at: trx.raw(`${tempTableName}.updated_at`),
+        kasgantung_nobukti: trx.raw(`${tempTableName}.kasgantung_nobukti`),
       })
       .returning('*')
       .then((result: any) => result[0])
@@ -157,6 +158,7 @@ export class PengeluarandetailService {
         trx.raw('? as pengeluaran_id', [id]),
         'created_at',
         'updated_at',
+        'kasgantung_nobukti',
       ])
       .where(`${tempTableName}.id`, '0');
 
@@ -185,6 +187,7 @@ export class PengeluarandetailService {
         'pengeluarandetail.modifiedby',
         'pengeluarandetail.created_at',
         'pengeluarandetail.updated_at',
+        'pengeluarandetail.kasgantung_nobukti',
         'pengeluarandetail.pengeluaran_id',
       )
       .whereNull(`${tempTableName}.id`)
@@ -241,6 +244,13 @@ export class PengeluarandetailService {
 
   async findAll({ search, filters, sort }: FindAllParams, trx: any) {
     try {
+      if (!filters?.nobukti) {
+        return {
+          status: true,
+          message: 'Pengeluaran Detail failed to fetch',
+          data: [],
+        };
+      }
       const query = trx
         .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
         .select(

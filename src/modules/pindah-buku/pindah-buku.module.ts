@@ -23,7 +23,7 @@ import { JurnalumumheaderModule } from '../jurnalumumheader/jurnalumumheader.mod
     GlobalModule,
     LogtrailModule,
     RunningNumberModule,
-    JurnalumumheaderModule
-  ]
+    JurnalumumheaderModule,
+  ],
 })
 export class PindahBukuModule {}

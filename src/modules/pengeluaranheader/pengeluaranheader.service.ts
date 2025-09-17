@@ -56,7 +56,7 @@ export class PengeluaranheaderService {
         updated_at,
         ...insertData
       } = data;
-
+      console.log(insertData, 'inidia');
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
@@ -509,7 +509,7 @@ export class PengeluaranheaderService {
 
   async update(id: any, data: any, trx: any) {
     try {
-      data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
+      data.tglbukti = formatDateToSQL(String(data?.tglbukti));
 
       const {
         sortBy,
@@ -532,28 +532,113 @@ export class PengeluaranheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
+
       const existingData = await trx(this.tableName).where('id', id).first();
+      if (!existingData) {
+        throw new Error(`Pengeluaran dengan id ${id} tidak ditemukan`);
+      }
+
+      // Get format pengeluaran untuk COA kredit
+      const formatpengeluaran = await trx(`bank as b`)
+        .select('p.grp', 'p.subgrp', 'b.formatpengeluaran', 'b.coa')
+        .leftJoin('parameter as p', 'p.id', 'b.formatpengeluaran')
+        .where('b.id', insertData.bank_id || existingData.bank_id)
+        .first();
 
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
 
       if (hasChanges) {
         insertData.updated_at = this.utilsService.getTime();
-
         await trx(this.tableName).where('id', id).update(insertData);
       }
 
-      // Check each detail, update or set id accordingly
-      if (details.length > 0) {
+      // Handle detail updates
+      if (details && details.length > 0) {
         const nobuktiHeader = insertData.nobukti || existingData.nobukti;
         const cleanedDetails = details.map(({ coadebet_text, ...rest }) => ({
           ...rest,
           nobukti: nobuktiHeader,
+          modifiedby: insertData.modifiedby || existingData.modifiedby,
         }));
 
         await this.pengeluarandetailService.create(cleanedDetails, id, trx);
       }
 
-      // If there are details, call the service to handle create or update
+      // Update jurnal jika ada perubahan
+      if (hasChanges || (details && details.length > 0)) {
+        const updatedData = { ...existingData, ...insertData };
+        const nobukti = updatedData.nobukti;
+
+        // Process details untuk jurnal
+        const processDetails = (details) => {
+          return details.flatMap((detail) => [
+            {
+              id: 0, // Set 0 untuk update, service akan handle existing ID
+              coa: detail.coadebet,
+              nobukti: nobukti,
+              tglbukti: formatDateToSQL(updatedData.tglbukti),
+              keterangan: detail.keterangan,
+              nominaldebet: detail.nominal,
+              nominalkredit: '',
+              modifiedby: updatedData.modifiedby,
+            },
+            {
+              id: 0, // Set 0 untuk update, service akan handle existing ID
+              coa: formatpengeluaran?.coa || null,
+              nobukti: nobukti,
+              tglbukti: formatDateToSQL(updatedData.tglbukti),
+              keterangan: detail.keterangan,
+              nominaldebet: '',
+              nominalkredit: detail.nominal,
+              modifiedby: updatedData.modifiedby,
+            },
+          ]);
+        };
+
+        const jurnalDetails = processDetails(details || []);
+
+        // Cari jurnal header yang existing berdasarkan nobukti
+        const existingJurnal = await trx('jurnalumumheader')
+          .where('nobukti', nobukti)
+          .first();
+
+        if (existingJurnal) {
+          // Update existing jurnal
+          const jurnalUpdatePayload = {
+            nobukti: nobukti,
+            tglbukti: updatedData.tglbukti,
+            postingdari: updatedData.postingdari,
+            statusformat: updatedData.statusformat,
+            keterangan: updatedData.keterangan,
+            updated_at: this.utilsService.getTime(),
+            modifiedby: updatedData.modifiedby,
+            details: jurnalDetails,
+          };
+
+          console.log('Updating existing jurnal with ID:', existingJurnal.id);
+          await this.JurnalumumheaderService.update(
+            existingJurnal.id,
+            jurnalUpdatePayload,
+            trx,
+          );
+        } else {
+          // Create new jurnal jika tidak ada (fallback)
+          const jurnalCreatePayload = {
+            nobukti: nobukti,
+            tglbukti: updatedData.tglbukti,
+            postingdari: updatedData.postingdari,
+            statusformat: updatedData.statusformat,
+            keterangan: updatedData.keterangan,
+            created_at: this.utilsService.getTime(),
+            updated_at: this.utilsService.getTime(),
+            modifiedby: updatedData.modifiedby,
+            details: jurnalDetails,
+          };
+
+          console.log('Creating new jurnal for nobukti:', nobukti);
+          await this.JurnalumumheaderService.create(jurnalCreatePayload, trx);
+        }
+      }
 
       const { data: filteredItems } = await this.findAll(
         {
@@ -561,25 +646,20 @@ export class PengeluaranheaderService {
           filters,
           pagination: { page, limit },
           sort: { sortBy, sortDirection },
-          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+          isLookUp: false,
         },
         trx,
       );
 
-      // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex((item) => Number(item.id) === id);
-
       if (itemIndex === -1) {
         itemIndex = 0;
       }
 
       const pageNumber = Math.floor(itemIndex / limit) + 1;
       const endIndex = pageNumber * limit;
-
-      // Ambil data hingga halaman yang mencakup item baru
       const limitedItems = filteredItems.slice(0, endIndex);
 
-      // Simpan ke Redis
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
@@ -607,6 +687,7 @@ export class PengeluaranheaderService {
         itemIndex,
       };
     } catch (error) {
+      console.error('Error in pengeluaran update:', error);
       throw new Error(`Error: ${error.message}`);
     }
   }
