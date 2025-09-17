@@ -104,7 +104,6 @@ export class PengembaliankasgantungheaderService {
         relasi_id: insertData.relasi_id,
         alatbayar_id: insertData.alatbayar_id,
         postingdari: parameter.memo_nama,
-        statusformat: formatpenerimaangantung.formatpenerimaangantung,
         coakasmasuk: insertData.coakasmasuk,
         modifiedby: data.modifiedby,
         details: detailPenerimaan,
@@ -113,7 +112,9 @@ export class PengembaliankasgantungheaderService {
         dataPenerimaan,
         trx,
       );
+      console.log('insertPenerimaan', insertPenerimaan);
       insertData.penerimaan_nobukti = insertPenerimaan.newItem.nobukti;
+      insertData.statusformat = formatpenerimaangantung.formatpenerimaangantung;
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
@@ -194,6 +195,7 @@ export class PengembaliankasgantungheaderService {
         dataDetail,
       };
     } catch (error) {
+      console.error(error);
       throw new Error(`Error: ${error.message}`);
     }
   }

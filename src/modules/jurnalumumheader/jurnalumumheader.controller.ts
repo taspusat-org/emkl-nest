@@ -117,8 +117,20 @@ export class JurnalumumheaderController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error updating menu in controller:', error);
-      throw new Error('Failed to update menu');
+      // PENTING: Jangan wrap HttpException dengan Error baru
+      if (error instanceof HttpException) {
+        throw error; // Langsung throw HttpException yang sudah ada
+      }
+
+      // Untuk error lainnya yang bukan HttpException
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: error.message || 'Internal server error',
+          error: 'Internal Server Error',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 

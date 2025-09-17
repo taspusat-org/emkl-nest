@@ -82,7 +82,7 @@ export class PengeluaranemkldetailService {
     // Ensure each item has an idheader
     const processedData = mainDataToInsert.map((item: any) => ({
       ...item,
-      jurnalumum_id: item.jurnalumum_id ?? id, // Ensure correct field mapping
+      pengeluaranemkl_id: item.pengeluaranemkl_id ?? id, // Ensure correct field mapping
     }));
     const jsonString = JSON.stringify(processedData);
 
@@ -100,7 +100,7 @@ export class PengeluaranemkldetailService {
     // Insert into temp table
     await trx(tempTableName).insert(openJson);
 
-    // **Update or Insert into 'jurnalumumdetail' with correct idheader**
+    // **Update or Insert into 'pengeluaranemkldetail' with correct idheader**
     const updatedData = await trx('pengeluaranemkldetail')
       .join(
         `${tempTableName}`,
@@ -109,8 +109,6 @@ export class PengeluaranemkldetailService {
       )
       .update({
         nobukti: trx.raw(`pengeluaranemkldetail.nobukti`),
-        tglbukti: trx.raw(`pengeluaranemkldetail.tglbukti`),
-        coa: trx.raw(`pengeluaranemkldetail.coa`),
         keterangan: trx.raw(`${tempTableName}.keterangan`),
         nominal: trx.raw(`${tempTableName}.nominal`),
         info: trx.raw(`${tempTableName}.info`),
@@ -130,8 +128,6 @@ export class PengeluaranemkldetailService {
     const insertedDataQuery = await trx(tempTableName)
       .select([
         'nobukti',
-        'tglbukti',
-        'coa',
         'keterangan',
         'nominal',
         'info',
@@ -150,19 +146,18 @@ export class PengeluaranemkldetailService {
       )
       .select(
         'pengeluaranemkldetail.id',
-        'jurnalumumdetail.nobukti',
-        'jurnalumumdetail.tglbukti',
-        'pengeluaranemkldetail.coa',
+        'pengeluaranemkldetail.nobukti',
         'pengeluaranemkldetail.keterangan',
         'pengeluaranemkldetail.nominal',
-        'jurnalumumdetail.info',
-        'jurnalumumdetail.modifiedby',
-        'jurnalumumdetail.created_at',
-        'jurnalumumdetail.updated_at',
-        'jurnalumumdetail.jurnalumum_id',
+        'pengeluaranemkldetail.info',
+        'pengeluaranemkldetail.modifiedby',
+        'pengeluaranemkldetail.created_at',
+        'pengeluaranemkldetail.updated_at',
+        'pengeluaranemkldetail.pengeluaranemkl_id',
       )
+
       .whereNull(`${tempTableName}.id`)
-      .where('jurnalumumdetail.jurnalumum_id', id);
+      .where('pengeluaranemkldetail.pengeluaranemkl_id', id);
 
     let pushToLog: any[] = [];
 
@@ -180,14 +175,14 @@ export class PengeluaranemkldetailService {
     const deletedData = await trx(this.tableName)
       .leftJoin(
         `${tempTableName}`,
-        'jurnalumumdetail.id',
+        'pengeluaranemkldetail.id',
         `${tempTableName}.id`,
       )
       .whereNull(`${tempTableName}.id`)
-      .where('jurnalumumdetail.jurnalumum_id', id)
+      .where('pengeluaranemkldetail.pengeluaranemkl_id', id)
       .del();
     if (insertedDataQuery.length > 0) {
-      insertedData = await trx('jurnalumumdetail')
+      insertedData = await trx('pengeluaranemkldetail')
         .insert(insertedDataQuery)
         .returning('*')
         .then((result: any) => result[0])
@@ -200,7 +195,7 @@ export class PengeluaranemkldetailService {
     await this.logTrailService.create(
       {
         namatabel: this.tableName,
-        postingdari: 'PENGEMBALIAN KAS GANTUNG HEADER',
+        postingdari: 'PENGELUARAN EMKL DETAIL',
         idtrans: id,
         nobuktitrans: id,
         aksi: 'EDIT',
@@ -221,9 +216,10 @@ export class PengeluaranemkldetailService {
           'p.id',
           'p.pengeluaranemkl_id',
           'p.nobukti',
+          'p.nominal',
           'p.keterangan',
           'p.pengeluaranemkl_nobukti',
-          'p.penerimaanemkl_nobukti',
+          'p.pengeluaranemkl_nobukti',
           'p.info',
           'p.modifiedby',
           trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
@@ -270,7 +266,7 @@ export class PengeluaranemkldetailService {
         data: result,
       };
     } catch (error) {
-      console.error('Error in findAll Kas Gantung Detail', error);
+      console.error('Error in findAll Pengeluaran EMKL Detail', error);
       throw new Error(error);
     }
   }

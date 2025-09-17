@@ -36,6 +36,8 @@ import {
   UpdateTypeAkuntansiSchema,
 } from './dto/create-type-akuntansi.dto';
 import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
+import { AclGuard } from '../auth/acl.guard';
+import { RequireAcos } from '../auth/access.decorator';
 
 @Controller('type-akuntansi')
 export class TypeAkuntansiController {
@@ -81,7 +83,9 @@ export class TypeAkuntansiController {
   }
 
   @Get()
+  @UseGuards(AuthGuard, AclGuard)
   //@TYPE-AKUNTANSI
+  @RequireAcos({ action: 'GET', subject: 'type-akuntansi' })
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =

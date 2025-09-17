@@ -1,0 +1,116 @@
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { CreateStatuspendukungDto } from './dto/create-statuspendukung.dto';
+import { UpdateStatuspendukungDto } from './dto/update-statuspendukung.dto';
+import { UtilsService } from 'src/utils/utils.service';
+import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+
+@Injectable()
+export class StatuspendukungService {
+  private readonly tableName = 'statuspendukung';
+
+  constructor(
+    private readonly utilsService: UtilsService,
+    private readonly logTrailService: LogtrailService,
+  ) {}
+  async create(tablename: string, id: any, modifiedby: any, trx: any) {
+    const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+
+    try {
+      const getDataRequest = await trx('parameter')
+        .select(
+          'id',
+          'grp',
+          'subgrp',
+          'text',
+          'kelompok',
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+          trx.raw(`JSON_VALUE(${memoExpr}, '$."NILAI YA"') AS nilai_ya`),
+          trx.raw(`JSON_VALUE(${memoExpr}, '$."NILAI TIDAK"') AS nilai_tidak`),
+        )
+        .where('grp', 'DATA PENDUKUNG')
+        .andWhere('subgrp', tablename);
+      console.log(getDataRequest);
+      if (getDataRequest && getDataRequest.length > 0) {
+        const payload = getDataRequest.map((data: any) => ({
+          statusdatapendukung: data.id,
+          transaksi_id: id,
+          statuspendukung: data.nilai_tidak,
+          keterangan: null,
+          modifiedby: modifiedby,
+          updated_at: this.utilsService.getTime(),
+          created_at: this.utilsService.getTime(),
+        }));
+        const insertedData = await trx(this.tableName)
+          .insert(payload)
+          .returning('*');
+        await this.logTrailService.create(
+          {
+            namatabel: this.tableName,
+            postingdari: `ADD STATUS PENDUKUNG`,
+            idtrans: insertedData[0].id,
+            nobuktitrans: insertedData[0].id,
+            aksi: 'ADD',
+            datajson: JSON.stringify(insertedData[0]),
+            modifiedby: insertedData[0]?.modifiedby,
+          },
+          trx,
+        );
+        return { success: true };
+      }
+      return { success: true };
+    } catch (error) {
+      throw new Error(error);
+    }
+  }
+
+  findAll() {
+    return `This action returns all statuspendukung`;
+  }
+
+  findOne(id: number) {
+    return `This action returns a #${id} statuspendukung`;
+  }
+
+  update(id: number, updateStatuspendukungDto: UpdateStatuspendukungDto) {
+    return `This action updates a #${id} statuspendukung`;
+  }
+
+  async remove(id: number, modifiedby: string, trx: any) {
+    try {
+      const deletedDataDetail = await this.utilsService.lockAndDestroy(
+        id,
+        'statuspendukung',
+        'transaksi_id',
+        trx,
+      );
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE STATUS PENDUKUNG',
+          idtrans: deletedDataDetail.id,
+          nobuktitrans: deletedDataDetail.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedDataDetail),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+
+      return {
+        status: 200,
+        message: 'Data deleted successfully',
+        deletedDataDetail,
+      };
+    } catch (error) {
+      console.log('Error deleting data:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to delete data');
+    }
+  }
+}

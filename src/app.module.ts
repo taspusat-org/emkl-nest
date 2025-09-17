@@ -92,6 +92,10 @@ import { PengeluaranemkldetailModule } from './modules/pengeluaranemkldetail/pen
 import { KaryawanModule } from './modules/karyawan/karyawan.module';
 import { MasterbiayaModule } from './modules/masterbiaya/masterbiaya.module';
 import { PindahBukuModule } from './modules/pindah-buku/pindah-buku.module';
+import { APP_GUARD } from '@nestjs/core';
+import { AclGuard } from './modules/auth/acl.guard';
+import { UtilsService } from './utils/utils.service';
+import { StatuspendukungModule } from './modules/statuspendukung/statuspendukung.module';
 
 @Module({
   imports: [
@@ -185,6 +189,7 @@ import { PindahBukuModule } from './modules/pindah-buku/pindah-buku.module';
     KaryawanModule,
     MasterbiayaModule,
     PindahBukuModule,
+    StatuspendukungModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

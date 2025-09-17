@@ -19,6 +19,7 @@ import { LocksService } from '../locks/locks.service';
 import { Column, Workbook } from 'exceljs';
 import * as fs from 'fs';
 import * as path from 'path';
+import { StatuspendukungService } from '../statuspendukung/statuspendukung.service';
 @Injectable()
 export class JurnalumumheaderService {
   constructor(
@@ -27,6 +28,7 @@ export class JurnalumumheaderService {
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
     private readonly jurnalumumdetailService: JurnalumumdetailService,
+    private readonly statuspendukungService: StatuspendukungService,
     private readonly locksService: LocksService,
     private readonly globalService: GlobalService,
   ) {}
@@ -52,7 +54,6 @@ export class JurnalumumheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-
       // **HELPER FUNCTION: Parse currency string to number**
       const parseCurrency = (value: any): number => {
         if (value === null || value === undefined || value === '') {
@@ -219,6 +220,13 @@ export class JurnalumumheaderService {
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
+      );
+
+      await this.statuspendukungService.create(
+        this.tableName,
+        newItem.id,
+        data.modifiedby,
+        trx,
       );
 
       await this.logTrailService.create(
@@ -591,7 +599,7 @@ export class JurnalumumheaderService {
         itemIndex,
       };
     } catch (error) {
-      throw new Error(`Error: ${error.message}`);
+      throw new Error(`${error.message}`);
     }
   }
   async delete(id: number, trx: any, modifiedby: string) {
@@ -608,11 +616,12 @@ export class JurnalumumheaderService {
         'jurnalumum_id',
         trx,
       );
+      await this.statuspendukungService.remove(id, modifiedby, trx);
 
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE KAS GANTUNG DETAIL',
+          postingdari: 'DELETE JURNAL UMUM DETAIL',
           idtrans: deletedDataDetail.id,
           nobuktitrans: deletedDataDetail.id,
           aksi: 'DELETE',
@@ -624,7 +633,7 @@ export class JurnalumumheaderService {
 
       return { status: 200, message: 'Data deleted successfully', deletedData };
     } catch (error) {
-      console.error('Error deleting data:', error);
+      console.log('Error deleting data:', error);
       if (error instanceof NotFoundException) {
         throw error;
       }

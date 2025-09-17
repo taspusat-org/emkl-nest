@@ -16,10 +16,12 @@ import * as path from 'path';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RedisService } from 'src/common/redis/redis.service';
-import { UtilsService } from 'src/utils/utils.service';
+import { tandatanya, UtilsService } from 'src/utils/utils.service';
 import { formatDateToSQL } from 'src/utils/utils.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { PengeluaranemkldetailService } from '../pengeluaranemkldetail/pengeluaranemkldetail.service';
+import { PengeluaranheaderService } from '../pengeluaranheader/pengeluaranheader.service';
+import { HutangheaderService } from '../hutangheader/hutangheader.service';
 @Injectable()
 export class PengeluaranemklheaderService {
   constructor(
@@ -30,12 +32,12 @@ export class PengeluaranemklheaderService {
     private readonly locksService: LocksService,
     private readonly globalService: GlobalService,
     private readonly pengeluaranemkldetailService: PengeluaranemkldetailService,
+    private readonly pengeluaranheaderService: PengeluaranheaderService,
+    private readonly hutangheaderService: HutangheaderService,
   ) {}
   private readonly tableName = 'pengeluaranemklheader';
   async create(data: any, trx: any) {
     try {
-      data.tglbukti = formatDateToSQL(String(data?.tglbukti));
-
       const {
         sortBy,
         sortDirection,
@@ -43,154 +45,188 @@ export class PengeluaranemklheaderService {
         search,
         page,
         limit,
+        statusformat_nama,
+        pengembaliankasgantung_nobukti,
+        relasi_nama,
+        jenisposting_nama,
+        pengeluaran_nobukti,
+        format,
+        coadebet,
+        alatbayar_nama,
+        penerimaan_nobukti,
+        bank_nama,
+        karyawan_nama,
         details,
         ...insertData
       } = data;
-      insertData.updated_at = this.utilsService.getTime();
-      insertData.created_at = this.utilsService.getTime();
+
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
 
-      // **HELPER FUNCTION: Parse currency string to number**
-      const parseCurrency = (value: any): number => {
-        if (value === null || value === undefined || value === '') {
-          return 0;
-        }
-        if (typeof value === 'number') {
-          return value;
-        }
-        if (typeof value === 'string') {
-          const cleanValue = value.replace(/[^0-9.-]/g, '');
-          const parsed = parseFloat(cleanValue);
-          return isNaN(parsed) ? 0 : parsed;
-        }
-        return 0;
-      };
+      insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
+      insertData.tgljatuhtempo = formatDateToSQL(
+        String(insertData?.tgljatuhtempo),
+      ); // Fungsi untuk format
+      insertData.statusformat = format;
+      insertData.created_at = this.utilsService.getTime();
+      insertData.updated_at = this.utilsService.getTime();
 
-      // **PROSES DETAILS DAN VALIDASI BALANCE**
-      if (details && details.length > 0) {
-        let totalDebet = 0;
-        let totalKredit = 0;
-
-        // Transform details: konversi nominaldebet/nominalkredit menjadi nominal
-        const processedDetails = details.map((detail: any, index: number) => {
-          // Parse nominal debet dan kredit dari string currency
-          const nominalDebetValue = parseCurrency(detail.nominaldebet);
-          const nominalKreditValue = parseCurrency(detail.nominalkredit);
-
-          // Validasi: minimal salah satu harus ada nilainya
-          if (nominalDebetValue === 0 && nominalKreditValue === 0) {
-            throw new HttpException(
-              {
-                statusCode: HttpStatus.BAD_REQUEST,
-                message: `Line ${index + 1}: Nominal Debet atau Kredit harus diisi`,
-                error: 'Bad Request',
-              },
-              HttpStatus.BAD_REQUEST,
-            );
-          }
-
-          // Validasi: tidak boleh kedua-duanya terisi
-          if (nominalDebetValue > 0 && nominalKreditValue > 0) {
-            throw new HttpException(
-              {
-                statusCode: HttpStatus.BAD_REQUEST,
-                message: `Line ${index + 1}: Tidak boleh mengisi Debet dan Kredit bersamaan`,
-                error: 'Bad Request',
-              },
-              HttpStatus.BAD_REQUEST,
-            );
-          }
-
-          // Buat object baru tanpa nominaldebet dan nominalkredit
-          const { nominaldebet, nominalkredit, ...cleanDetail } = detail;
-
-          // Set nominal berdasarkan debet atau kredit
-          if (nominalDebetValue > 0) {
-            cleanDetail.nominal = nominalDebetValue; // Positif untuk debet
-            totalDebet += nominalDebetValue;
-          } else if (nominalKreditValue > 0) {
-            cleanDetail.nominal = nominalKreditValue * -1; // Negatif untuk kredit
-            totalKredit += nominalKreditValue;
-          }
-
-          return cleanDetail;
-        });
-
-        // **VALIDASI BALANCE: Total Debet harus sama dengan Total Kredit**
-        const selisih = totalDebet - totalKredit;
-
-        const tolerance = 0.01;
-
-        if (Math.abs(selisih) > tolerance) {
-          throw new HttpException(
-            {
-              statusCode: HttpStatus.BAD_REQUEST,
-              message: `Jurnal tidak balance!`,
-              error: 'Bad Request',
-            },
-            HttpStatus.BAD_REQUEST,
-          );
-        }
-
-        // Update details dengan yang sudah diproses
-        data.details = processedDetails;
-      } else {
-        // Jika tidak ada details
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: 'Detail jurnal tidak boleh kosong',
-            error: 'Bad Request',
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      if (!insertData.nobukti) {
-        const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
+      let pengeluaranNoBukti = '';
+      let hutangNoBukti = '';
+      let grp = '';
+      let subgrp = '';
+      let coakredit = '';
+      let postingdari = '';
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+      if (insertData.jenisposting === 168) {
+        const datacoakredit = await trx(`bank as b`)
+          .select('b.coa')
+          .where('b.id', insertData.bank_id)
+          .first();
         const parameter = await trx('parameter')
           .select(
             'grp',
             'subgrp',
             trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+            trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
           )
-          .where('grp', 'NOMOR PENERIMAAN')
-          .andWhere('subgrp', 'NOMOR PENERIMAAN JURNAL')
+          .where('id', format)
           .first();
-
-        const nomorBukti =
-          await this.runningNumberService.generateRunningNumber(
-            trx,
-            parameter.grp,
-            parameter.subgrp,
-            this.tableName,
-            insertData.tglbukti,
-          );
-
-        insertData.nobukti = nomorBukti;
-        insertData.postingdari = parameter.memo_nama;
+        grp = parameter.grp;
+        subgrp = parameter.subgrp;
+        postingdari = parameter.memo_nama;
+        coakredit = datacoakredit.coa;
+      } else {
+        const datacoakredit = await trx(`parameter as p`)
+          .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`))
+          .where('p.grp', 'NOMOR HUTANG')
+          .andWhere('p.subgrp', 'NOMOR HUTANG')
+          .first();
+        const parameter = await trx('parameter')
+          .select(
+            'grp',
+            'subgrp',
+            trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+            trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
+          )
+          .where('id', format)
+          .first();
+        grp = parameter.grp;
+        subgrp = parameter.subgrp;
+        postingdari = parameter.memo_nama;
+        coakredit = datacoakredit.coa_nama;
       }
+
+      const nomorBukti = await this.runningNumberService.generateRunningNumber(
+        trx,
+        grp,
+        subgrp,
+        this.tableName,
+        insertData.tglbukti,
+      );
+      insertData.nobukti = nomorBukti;
+      if (insertData.jenisposting === 168) {
+        const requestPengeluaran = {
+          tglbukti: insertData.tglbukti,
+          keterangan: insertData.keterangan,
+          bank_id: insertData.bank_id,
+          nowarkat: insertData.nowarkat,
+          tgljatuhtempo: insertData.tgljatuhtempo,
+          postingdari: postingdari,
+          coakredit: coakredit,
+        };
+
+        const pengeluaranDetails = details.map((detail: any) => ({
+          id: 0,
+          coadebet: coadebet ?? null,
+          keterangan: detail.keterangan ?? null,
+          nominal: detail.nominal ?? null,
+          dpp: detail.dpp ?? 0,
+          transaksibiaya_nobukti: detail.transaksibiaya_nobukti ?? null,
+          transaksilain_nobukti: detail.transaksilain_nobukti ?? null,
+          noinvoiceemkl: detail.noinvoiceemkl ?? null,
+          tglinvoiceemkl: detail.tglinvoiceemkl ?? null,
+          nofakturpajakemkl: detail.nofakturpajakemkl ?? null,
+          perioderefund: detail.perioderefund ?? null,
+          pengeluaranemklheader_nobukti: nomorBukti ?? null,
+          penerimaanemklheader_nobukti:
+            detail.penerimaanemklheader_nobukti ?? null,
+          info: detail.info ?? null,
+          modifiedby: insertData.modifiedby ?? null,
+        }));
+
+        const pengeluaranData = {
+          ...requestPengeluaran,
+          details: pengeluaranDetails,
+        };
+        const pengeluaranResult = await this.pengeluaranheaderService.create(
+          pengeluaranData,
+          trx,
+        );
+        pengeluaranNoBukti = pengeluaranResult?.newItem?.nobukti;
+        if (!pengeluaranNoBukti) {
+          throw new Error('Gagal membuat pengeluaran: nobukti tidak terbentuk');
+        }
+      } else {
+        const requestHutang = {
+          tglbukti: insertData.tglbukti,
+          keterangan: insertData.keterangan,
+          tgljatuhtempo: insertData.tgljatuhtempo,
+          coa: coadebet,
+        };
+
+        const hutangDetails = details.map((detail: any) => ({
+          id: 0,
+          coa: coakredit ?? null,
+          keterangan: detail.keterangan ?? null,
+          nominal: detail.nominal ?? null,
+          dpp: detail.dpp ?? 0,
+          noinvoiceemkl: detail.noinvoiceemkl ?? null,
+          tglinvoiceemkl: detail.tglinvoiceemkl ?? null,
+          nofakturpajakemkl: detail.nofakturpajakemkl ?? null,
+          info: detail.info ?? null,
+          modifiedby: insertData.modifiedby ?? null,
+        }));
+
+        const hutangData = {
+          ...requestHutang,
+          details: hutangDetails,
+        };
+        const hutangResult = await this.hutangheaderService.create(
+          hutangData,
+          trx,
+        );
+        hutangNoBukti = hutangResult?.newItem?.nobukti;
+        if (!hutangNoBukti) {
+          throw new Error('Gagal membuat pengeluaran: nobukti tidak terbentuk');
+        }
+      }
+      insertData.pengeluaran_nobukti = pengeluaranNoBukti;
+      insertData.hutang_nobukti = hutangNoBukti;
 
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
 
-      if (data.details && data.details.length > 0) {
-        const detailsWithNobukti = data.details.map((detail: any) => ({
+      if (details.length > 0) {
+        const detailsWithNobukti = details.map((detail: any) => ({
           ...detail,
-          nobukti: insertData.nobukti,
+          nobukti: nomorBukti, // Inject nobukti into each detail
+          pengeluaranemkl_nobukti: nomorBukti,
           modifiedby: insertData.modifiedby,
         }));
+
+        // Pass the updated details with nobukti to the detail creation service
         await this.pengeluaranemkldetailService.create(
           detailsWithNobukti,
           insertedItems[0].id,
           trx,
         );
       }
+
       const newItem = insertedItems[0];
 
       const { data: filteredItems } = await this.findAll(
@@ -199,11 +235,12 @@ export class PengeluaranemklheaderService {
           filters,
           pagination: { page, limit },
           sort: { sortBy, sortDirection },
-          isLookUp: false,
+          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
         },
         trx,
       );
 
+      // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex(
         (item) => Number(item.id) === Number(newItem.id),
       );
@@ -215,8 +252,10 @@ export class PengeluaranemklheaderService {
       const pageNumber = Math.floor(itemIndex / limit) + 1;
       const endIndex = pageNumber * limit;
 
+      // Ambil data hingga halaman yang mencakup item baru
       const limitedItems = filteredItems.slice(0, endIndex);
 
+      // Simpan ke Redis
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
@@ -225,7 +264,7 @@ export class PengeluaranemklheaderService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: `ADD KAS GANTUNG HEADER`,
+          postingdari: `ADD PENGELUARAN EMKL HEADER`,
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -241,18 +280,7 @@ export class PengeluaranemklheaderService {
         itemIndex,
       };
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: error.message || 'Internal server error',
-          error: 'Internal Server Error',
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      throw new Error(`Error: ${error}`);
     }
   }
 
@@ -279,7 +307,31 @@ export class PengeluaranemklheaderService {
           limit = 0;
         }
       }
+      const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
 
+      await trx.schema.createTable(tempUrl, (t) => {
+        t.integer('id').nullable();
+        t.string('pengeluaran_nobukti').nullable();
+        t.text('link').nullable();
+      });
+      const url = 'pengeluaran';
+
+      await trx(tempUrl).insert(
+        trx
+          .select(
+            'u.id',
+            'u.pengeluaran_nobukti',
+            trx.raw(`
+              STRING_AGG(
+                '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'pengeluaran_nobukti=' + u.pengeluaran_nobukti + '">' +
+                '<HighlightWrapper value="' + u.pengeluaran_nobukti + '" />' +
+                '</a>', ','
+              ) AS link
+            `),
+          )
+          .from(this.tableName + ' as u')
+          .groupBy('u.id', 'u.pengeluaran_nobukti'),
+      );
       const query = trx(`${this.tableName} as u`)
         .select([
           'u.id as id',
@@ -289,20 +341,26 @@ export class PengeluaranemklheaderService {
           'u.keterangan', // keterangan (nvarchar(max))
           'u.karyawan_id', // keterangan (nvarchar(max))
           'k.nama as karyawan_nama',
+          'p.text as jenisposting_nama',
           'u.jenisposting', // keterangan (nvarchar(max))
           'u.bank_id', // keterangan (nvarchar(max))
           'b.nama as bank_nama',
           'u.nowarkat', // keterangan (nvarchar(max))
           'u.pengeluaran_nobukti', // keterangan (nvarchar(max))
           'u.hutang_nobukti', // keterangan (nvarchar(max))
+          'pe.nama as statusformat_nama',
           'u.statusformat', // bank_id (integer)
           'u.info', // info (nvarchar(max))
           'u.modifiedby', // modifiedby (varchar(200))
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
+          'tempUrl.link',
         ])
         .leftJoin('karyawan as k', 'u.karyawan_id', 'k.id')
-        .leftJoin('bank as b', 'u.bank_id', 'b.id');
+        .leftJoin('parameter as p', 'u.jenisposting', 'p.id')
+        .leftJoin('bank as b', 'u.bank_id', 'b.id')
+        .leftJoin('pengeluaranemkl as pe', 'u.statusformat', 'pe.format')
+        .innerJoin(trx.raw(`${tempUrl} as tempUrl`), 'u.id', 'tempUrl.id');
 
       if (filters?.tglDari && filters?.tglSampai) {
         // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
@@ -432,8 +490,6 @@ export class PengeluaranemklheaderService {
 
   async update(id: any, data: any, trx: any) {
     try {
-      data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
-
       const {
         sortBy,
         sortDirection,
@@ -441,8 +497,17 @@ export class PengeluaranemklheaderService {
         search,
         page,
         limit,
-        postingdari,
-        statusformat,
+        pengembaliankasgantung_nobukti,
+        relasi_nama,
+        jenisposting_nama,
+        pengeluaran_nobukti,
+        format,
+        statusformat_nama,
+        coadebet,
+        alatbayar_nama,
+        penerimaan_nobukti,
+        bank_nama,
+        karyawan_nama,
         details,
         ...insertData
       } = data;
@@ -452,7 +517,136 @@ export class PengeluaranemklheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
+
+      insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
+      insertData.tgljatuhtempo = formatDateToSQL(
+        String(insertData?.tgljatuhtempo),
+      ); // Fungsi untuk format
       const existingData = await trx(this.tableName).where('id', id).first();
+
+      const pengeluaranNoBukti = '';
+      const hutangNoBukti = '';
+      let grp = '';
+      let subgrp = '';
+      let coakredit = '';
+      let postingdari = '';
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+      if (insertData.jenisposting === 168) {
+        const datacoakredit = await trx(`bank as b`)
+          .select('b.coa')
+          .where('b.id', insertData.bank_id)
+          .first();
+        const parameter = await trx('parameter')
+          .select(
+            'grp',
+            'subgrp',
+            trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+            trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
+          )
+          .where('id', format)
+          .first();
+        grp = parameter.grp;
+        subgrp = parameter.subgrp;
+        postingdari = parameter.memo_nama;
+        coakredit = datacoakredit.coa;
+      } else {
+        const datacoakredit = await trx(`parameter as p`)
+          .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`))
+          .where('p.grp', 'NOMOR HUTANG')
+          .andWhere('p.subgrp', 'NOMOR HUTANG')
+          .first();
+        const parameter = await trx('parameter')
+          .select(
+            'grp',
+            'subgrp',
+            trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+            trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
+          )
+          .where('id', format)
+          .first();
+        grp = parameter.grp;
+        subgrp = parameter.subgrp;
+        postingdari = parameter.memo_nama;
+        coakredit = datacoakredit.coa_nama;
+      }
+
+      if (insertData.jenisposting === 168) {
+        const existingPengeluaran = await trx('pengeluaranheader')
+          .where('nobukti', existingData.pengeluaran_nobukti)
+          .first();
+        const requestPengeluaran = {
+          tglbukti: insertData.tglbukti,
+          keterangan: insertData.keterangan,
+          bank_id: insertData.bank_id,
+          nowarkat: insertData.nowarkat,
+          tgljatuhtempo: insertData.tgljatuhtempo,
+          postingdari: postingdari,
+          coakredit: existingPengeluaran.coakredit,
+        };
+
+        const pengeluaranDetails = details.map((detail: any) => ({
+          id: 0,
+          coadebet: coadebet ?? null,
+          keterangan: detail.keterangan ?? null,
+          nominal: detail.nominal ?? null,
+          dpp: detail.dpp ?? 0,
+          transaksibiaya_nobukti: detail.transaksibiaya_nobukti ?? null,
+          transaksilain_nobukti: detail.transaksilain_nobukti ?? null,
+          noinvoiceemkl: detail.noinvoiceemkl ?? null,
+          tglinvoiceemkl: detail.tglinvoiceemkl ?? null,
+          nofakturpajakemkl: detail.nofakturpajakemkl ?? null,
+          perioderefund: detail.perioderefund ?? null,
+          pengeluaranemklheader_nobukti: insertData.nobukti ?? null,
+          penerimaanemklheader_nobukti:
+            detail.penerimaanemklheader_nobukti ?? null,
+          info: detail.info ?? null,
+          modifiedby: insertData.modifiedby ?? null,
+        }));
+
+        const pengeluaranData = {
+          ...requestPengeluaran,
+          details: pengeluaranDetails,
+        };
+        const pengeluaranResult = await this.pengeluaranheaderService.update(
+          existingPengeluaran.id,
+          pengeluaranData,
+          trx,
+        );
+      } else {
+        const existingHutang = await trx('hutangheader')
+          .where('nobukti', existingData.hutang_nobukti)
+          .first();
+        const requestHutang = {
+          tglbukti: insertData.tglbukti,
+          keterangan: insertData.keterangan,
+          tgljatuhtempo: insertData.tgljatuhtempo,
+          coa: coadebet,
+        };
+
+        const hutangDetails = details.map((detail: any) => ({
+          id: 0,
+          coa: coakredit ?? null,
+          keterangan: detail.keterangan ?? null,
+          nominal: detail.nominal ?? null,
+          dpp: detail.dpp ?? 0,
+          noinvoiceemkl: detail.noinvoiceemkl ?? null,
+          tglinvoiceemkl: detail.tglinvoiceemkl ?? null,
+          nofakturpajakemkl: detail.nofakturpajakemkl ?? null,
+          info: detail.info ?? null,
+          modifiedby: insertData.modifiedby ?? null,
+        }));
+
+        const hutangData = {
+          ...requestHutang,
+          details: hutangDetails,
+        };
+        const hutangResult = await this.hutangheaderService.update(
+          existingHutang.id,
+          hutangData,
+          trx,
+        );
+      }
+
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
 
       if (hasChanges) {
@@ -460,120 +654,28 @@ export class PengeluaranemklheaderService {
 
         await trx(this.tableName).where('id', id).update(insertData);
       }
-      // **HELPER FUNCTION: Parse currency string to number**
-      const parseCurrency = (value: any): number => {
-        if (value === null || value === undefined || value === '') {
-          return 0;
-        }
-        if (typeof value === 'number') {
-          return value;
-        }
-        if (typeof value === 'string') {
-          const cleanValue = value.replace(/[^0-9.-]/g, '');
-          const parsed = parseFloat(cleanValue);
-          return isNaN(parsed) ? 0 : parsed;
-        }
-        return 0;
-      };
 
-      // **PROSES DETAILS DAN VALIDASI BALANCE**
-      if (details && details.length > 0) {
-        let totalDebet = 0;
-        let totalKredit = 0;
+      if (details.length > 0) {
+        const detailsWithNobukti = details.map((detail: any) => ({
+          ...detail,
+          nobukti: insertData.nobukti, // Inject nobukti into each detail
+          pengeluaranemkl_nobukti: insertData.nobukti,
+          modifiedby: insertData.modifiedby,
+        }));
 
-        // Transform details: konversi nominaldebet/nominalkredit menjadi nominal
-        const processedDetails = details.map((detail: any, index: number) => {
-          // Parse nominal debet dan kredit dari string currency
-          const nominalDebetValue = parseCurrency(detail.nominaldebet);
-          const nominalKreditValue = parseCurrency(detail.nominalkredit);
-
-          // Validasi: minimal salah satu harus ada nilainya
-          if (nominalDebetValue === 0 && nominalKreditValue === 0) {
-            throw new HttpException(
-              {
-                statusCode: HttpStatus.BAD_REQUEST,
-                message: `Line ${index + 1}: Nominal Debet atau Kredit harus diisi`,
-                error: 'Bad Request',
-              },
-              HttpStatus.BAD_REQUEST,
-            );
-          }
-
-          // Validasi: tidak boleh kedua-duanya terisi
-          if (nominalDebetValue > 0 && nominalKreditValue > 0) {
-            throw new HttpException(
-              {
-                statusCode: HttpStatus.BAD_REQUEST,
-                message: `Line ${index + 1}: Tidak boleh mengisi Debet dan Kredit bersamaan`,
-                error: 'Bad Request',
-              },
-              HttpStatus.BAD_REQUEST,
-            );
-          }
-
-          // Buat object baru tanpa nominaldebet dan nominalkredit
-          const { nominaldebet, nominalkredit, ...cleanDetail } = detail;
-
-          // Set nominal berdasarkan debet atau kredit
-          if (nominalDebetValue > 0) {
-            cleanDetail.nominal = nominalDebetValue; // Positif untuk debet
-            totalDebet += nominalDebetValue;
-          } else if (nominalKreditValue > 0) {
-            cleanDetail.nominal = nominalKreditValue * -1; // Negatif untuk kredit
-            totalKredit += nominalKreditValue;
-          }
-
-          return cleanDetail;
-        });
-
-        // **VALIDASI BALANCE: Total Debet harus sama dengan Total Kredit**
-        const selisih = totalDebet - totalKredit;
-        const tolerance = 0.01;
-
-        if (Math.abs(selisih) > tolerance) {
-          throw new HttpException(
-            {
-              statusCode: HttpStatus.BAD_REQUEST,
-              message: `Jurnal tidak balance!`,
-              error: 'Bad Request',
-            },
-            HttpStatus.BAD_REQUEST,
-          );
-        }
-
-        // Update details dengan yang sudah diproses
-        data.details = processedDetails;
-      } else {
-        // Jika tidak ada details
-        throw new HttpException(
-          {
-            statusCode: HttpStatus.BAD_REQUEST,
-            message: 'Detail jurnal tidak boleh kosong',
-            error: 'Bad Request',
-          },
-          HttpStatus.BAD_REQUEST,
+        // Pass the updated details with nobukti to the detail creation service
+        await this.pengeluaranemkldetailService.create(
+          detailsWithNobukti,
+          id,
+          trx,
         );
       }
-
-      // Check each detail, update or set id accordingly
-      const detailsWithNobukti = data.details.map((detail: any) => ({
-        ...detail,
-        nobukti: existingData.nobukti, // Inject nobukti into each detail
-        modifiedby: insertData.modifiedby,
-      }));
-      await this.pengeluaranemkldetailService.create(
-        detailsWithNobukti,
-        id,
-        trx,
-      );
-
-      // If there are details, call the service to handle create or update
 
       const { data: filteredItems } = await this.findAll(
         {
           search,
           filters,
-          pagination: { page, limit },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false, // Set based on your requirement (e.g., lookup flag)
         },
@@ -581,7 +683,9 @@ export class PengeluaranemklheaderService {
       );
 
       // Cari index item baru di hasil yang sudah difilter
-      let itemIndex = filteredItems.findIndex((item) => Number(item.id) === id);
+      let itemIndex = filteredItems.findIndex(
+        (item) => Number(item.id) === Number(id),
+      );
 
       if (itemIndex === -1) {
         itemIndex = 0;
@@ -602,12 +706,12 @@ export class PengeluaranemklheaderService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: `ADD KAS GANTUNG HEADER`,
+          postingdari: `ADD PENGELUARAN EMKL HEADER`,
           idtrans: id,
           nobuktitrans: id,
           aksi: 'ADD',
           datajson: JSON.stringify(data),
-          modifiedby: data.modifiedby,
+          modifiedby: insertData.modifiedby,
         },
         trx,
       );
@@ -621,9 +725,11 @@ export class PengeluaranemklheaderService {
         itemIndex,
       };
     } catch (error) {
-      throw new Error(`Error: ${error.message}`);
+      console.log(error);
+      throw new Error(`Error: ${error}`);
     }
   }
+
   async delete(id: number, trx: any, modifiedby: string) {
     try {
       const deletedData = await this.utilsService.lockAndDestroy(

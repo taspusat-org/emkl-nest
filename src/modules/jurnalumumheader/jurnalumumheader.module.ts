@@ -9,6 +9,7 @@ import { RunningNumberModule } from '../running-number/running-number.module';
 import { JurnalumumdetailModule } from '../jurnalumumdetail/jurnalumumdetail.module';
 import { GlobalModule } from '../global/global.module';
 import { LocksModule } from '../locks/locks.module';
+import { StatuspendukungModule } from '../statuspendukung/statuspendukung.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { LocksModule } from '../locks/locks.module';
     JurnalumumdetailModule,
     GlobalModule,
     LocksModule,
+    StatuspendukungModule,
   ],
   controllers: [JurnalumumheaderController],
   providers: [JurnalumumheaderService],
