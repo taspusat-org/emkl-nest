@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CreateJurnalumumdetailDto } from './dto/create-jurnalumumdetail.dto';
 import { UpdateJurnalumumdetailDto } from './dto/update-jurnalumumdetail.dto';
-import { UtilsService } from 'src/utils/utils.service';
+import { tandatanya, UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { filter } from 'rxjs';
@@ -211,6 +211,37 @@ export class JurnalumumdetailService {
   }
 
   async findAll({ search, filters, sort }: FindAllParams, trx: any) {
+    if (!filters?.nobukti) {
+      return {
+        data: [],
+      };
+    }
+    const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
+
+    await trx.schema.createTable(tempUrl, (t) => {
+      t.integer('id').nullable();
+      t.string('nobukti').nullable();
+      t.text('link').nullable();
+    });
+    const url = 'jurnal-umum';
+
+    await trx(tempUrl).insert(
+      trx
+        .select(
+          'u.id',
+          'u.nobukti',
+          trx.raw(`
+            STRING_AGG(
+              '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'nobukti=' + u.nobukti + '">' +
+              '<HighlightWrapper value="' + u.nobukti + '" />' +
+              '</a>', ','
+            ) AS link
+          `),
+        )
+        .from(this.tableName + ' as u')
+        .groupBy('u.id', 'u.nobukti'),
+    );
+
     try {
       if (!filters?.nobukti) {
         return {
@@ -245,7 +276,9 @@ export class JurnalumumdetailService {
           'p.modifiedby',
           trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+          'tempUrl.link',
         )
+        .innerJoin(trx.raw(`${tempUrl} as tempUrl`), 'p.id', 'tempUrl.id')
         .leftJoin(
           trx.raw('akunpusat as ap WITH (READUNCOMMITTED)'),
           'p.coa',
@@ -256,17 +289,19 @@ export class JurnalumumdetailService {
       if (filters?.nobukti) {
         query.where('p.nobukti', filters?.nobukti);
       }
+      const excludeSearchKeys = ['tglDari', 'tglSampai', 'nobukti'];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k) && filters![k],
+      );
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('p.nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('ap.keterangancoa', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.coa', 'like', `%${sanitizedValue}%`);
+        const sanitized = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            qb.orWhere(`p.${field}`, 'like', `%${sanitized}%`);
+          });
         });
       }
-
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
           if (key === 'pengeluaran_nobukti') {

@@ -174,7 +174,7 @@ export class PengeluaranheaderService {
         modifiedby: insertData.modifiedby,
         details: result,
       };
-
+      console.log('jurnalPayload', jurnalPayload);
       const jurnalHeaderInserted = await this.JurnalumumheaderService.create(
         jurnalPayload,
         trx,

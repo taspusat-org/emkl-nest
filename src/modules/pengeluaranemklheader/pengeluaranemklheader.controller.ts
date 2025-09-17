@@ -47,7 +47,7 @@ export class PengeluaranemklheaderController {
       return result;
     } catch (error) {
       await trx.rollback();
-
+      console.error('Error in create:', error);
       // PENTING: Jangan wrap HttpException dengan Error baru
       if (error instanceof HttpException) {
         throw error; // Langsung throw HttpException yang sudah ada

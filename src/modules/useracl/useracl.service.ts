@@ -53,15 +53,25 @@ export class UseraclService {
 
   async update(id: number, acoIds: number[], modifiedBy: string, trx: any) {
     try {
+      console.log('acoIds', acoIds);
       if (acoIds.length === 0) {
-        await trx('acl').where('role_id', id).del();
+        await trx('useracl').where('user_id', id).del();
+        const { abilities } =
+          await this.utilsService.fetchUserRolesAndAbilities(id, trx);
+        console.log('abilities', abilities);
+        // Update menu after roles and ACL updates
+        const menuData = await this.utilsService.getDataMenuSidebar(trx);
+        const menuString = this.utilsService.buildMenuString(
+          menuData,
+          abilities,
+        );
+
+        await trx('users').update({ menu: menuString }).where('id', id);
         return {
           status: true,
           message: 'All ACL entries deleted successfully',
         };
       }
-
-      await trx('useracl').where('user_id', id).del();
 
       const userAclData = acoIds.map((acoId) => ({
         user_id: id,
@@ -79,7 +89,7 @@ export class UseraclService {
       // Update menu after roles and ACL updates
       const menuData = await this.utilsService.getDataMenuSidebar(trx);
       const menuString = this.utilsService.buildMenuString(menuData, abilities);
-
+      console.log('abilities2', abilities);
       await trx('users').update({ menu: menuString }).where('id', id);
       return { status: true, message: 'USER and ACL updated successfully' };
     } catch (error) {

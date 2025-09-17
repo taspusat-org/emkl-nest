@@ -62,7 +62,6 @@ export class PenerimaanheaderService {
 
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
       insertData.tgllunas = formatDateToSQL(String(insertData?.tgllunas)); // Fungsi untuk format
-
       const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
       const parameterCabang = await trx('parameter')
         .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
@@ -83,6 +82,7 @@ export class PenerimaanheaderService {
         )
         .where('id', formatpenerimaan.formatpenerimaan)
         .first();
+
       const grp = formatpenerimaan.grp;
       const subgrp = formatpenerimaan.subgrp;
       const cabangId = parameterCabang.cabang_id;
@@ -172,7 +172,7 @@ export class PenerimaanheaderService {
       const dataDetail = await this.penerimaandetailService.findAll(
         {
           filters: {
-            penerimaan_id: newItem.id,
+            nobukti: newItem.nobukti,
           },
         },
         trx,
@@ -433,6 +433,8 @@ export class PenerimaanheaderService {
       const jurnalUmumData = await trx('jurnalumumheader')
         .where('nobukti', existingData.nobukti)
         .first();
+      console.log(jurnalUmumData, 'jurnalUmumData');
+      console.log(existingData, 'existingData');
       if (hasChanges) {
         insertData.updated_at = this.utilsService.getTime();
 
@@ -507,18 +509,19 @@ export class PenerimaanheaderService {
         {
           search,
           filters,
-          pagination: { page, limit },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false, // Set based on your requirement (e.g., lookup flag)
         },
         trx,
       );
-
+      console.log(filteredItems, 'filteredItems');
       // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex(
         (item) => Number(item.id) === Number(id),
       );
-
+      console.log(itemIndex, 'itemIndex');
+      console.log(id, 'id');
       if (itemIndex === -1) {
         itemIndex = 0;
       }
@@ -557,6 +560,7 @@ export class PenerimaanheaderService {
         itemIndex,
       };
     } catch (error) {
+      console.error('Error updating data:', error);
       throw new Error(`Error: ${error.message}`);
     }
   }

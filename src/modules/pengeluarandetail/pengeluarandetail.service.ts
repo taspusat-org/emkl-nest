@@ -103,7 +103,7 @@ export class PengeluarandetailService {
     const updatedData = await trx('pengeluarandetail')
       .join(`${tempTableName}`, 'pengeluarandetail.id', `${tempTableName}.id`)
       .update({
-        coadebet: trx.raw(`${tempTableName}.coadebet`),
+        coadebet: trx.raw(`pengeluarandetail.coadebet`),
         keterangan: trx.raw(`${tempTableName}.keterangan`),
         nominal: trx.raw(`${tempTableName}.nominal`),
         dpp: trx.raw(`${tempTableName}.dpp`),
@@ -243,6 +243,11 @@ export class PengeluarandetailService {
   }
 
   async findAll({ search, filters, sort }: FindAllParams, trx: any) {
+    if (!filters?.nobukti) {
+      return {
+        data: [],
+      };
+    }
     try {
       if (!filters?.nobukti) {
         return {

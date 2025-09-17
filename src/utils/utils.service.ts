@@ -121,7 +121,7 @@ export class UtilsService {
 
       // Jika data tidak ada, tidak perlu return error, cukup keluar dari fungsi
       if (!record) {
-        return;
+        return true;
       }
 
       const isDeleted = await trx(table).where(field, identifier).delete();
@@ -185,7 +185,7 @@ export class UtilsService {
         class: 'acos.class',
       })
       .distinct('acos.id');
-
+    console.log('userAbilities', userAbilities);
     const roleAbilities = await trx('acl')
       .join('acos', 'acl.aco_id', 'acos.id')
       .whereIn('acl.role_id', roles)
