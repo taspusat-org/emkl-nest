@@ -11,7 +11,6 @@ const baseFields = {
     .string({ message: 'TGL BUKTI WAJIB DIISI' })
     .nonempty({ message: 'TGL BUKTI WAJIB DIISI' }),
 
-  
   bankdari_id: z
     .number()
     .int({ message: 'BANK DARI' })
@@ -32,7 +31,7 @@ const baseFields = {
 
   nowarkat: z.string().nullable().optional(),
 
-   tgljatuhtempo: z
+  tgljatuhtempo: z
     .string({ message: 'TGL JATUH TEMPO WAJIB DIISI' })
     .nonempty({ message: 'TGL JATUH TEMPO WAJIB DIISI' }),
 
@@ -50,11 +49,7 @@ const baseFields = {
   // nowarkat: z
   //   .string({ message: dynamicRequiredMessage('nowarkat') })
   //   .nonempty({ message: dynamicRequiredMessage('nowarkat') }),
-
 };
-
-
-
 
 // ------------------------
 // 2. KHUSUS CREATE
@@ -98,9 +93,6 @@ export const CreatePindahBukuSchema = z
     // Validasi khusus penambahan create dapat disimpan di sini
   });
 export type CreatePindahBukuDto = z.infer<typeof CreatePindahBukuSchema>;
-
-
-
 
 // ------------------------
 // 3. KHUSUS UPDATE

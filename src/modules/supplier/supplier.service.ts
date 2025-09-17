@@ -243,12 +243,20 @@ export class SupplierService {
             .orWhere('u.nominalpph21', 'like', `%${sanitizedValue}%`)
             .orWhere('u.nominalpph23', 'like', `%${sanitizedValue}%`)
             .orWhere('u.noskb', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.tglskb, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.tglskb, 'dd-MM-yyyy') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
             .orWhere('u.nosk', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.tglsk, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.tglsk, 'dd-MM-yyyy') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
-            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`]);
+            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
+            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ]);
         });
       }
 

@@ -186,11 +186,17 @@ export class ScheduleHeaderService {
         query.where((builder) => {
           builder
             .orWhere('u.nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.tglbukti, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.tglbukti, 'dd-MM-yyyy') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
             .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
-            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
+            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ]);
         });
       }
 

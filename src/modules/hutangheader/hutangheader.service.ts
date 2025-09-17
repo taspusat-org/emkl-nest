@@ -524,8 +524,8 @@ export class HutangheaderService {
 
   async update(id: any, data: any, trx: any) {
     try {
-      data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
-      data.tgljatuhtempo = formatDateToSQL(String(data?.tgljatuhtempo)); // Fungsi untuk format
+      data.tglbukti = formatDateToSQL(String(data?.tglbukti));
+      data.tgljatuhtempo = formatDateToSQL(String(data?.tgljatuhtempo));
 
       const {
         sortBy,
@@ -545,10 +545,32 @@ export class HutangheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
+
       const existingData = await trx(this.tableName).where('id', id).first();
+      if (!existingData) {
+        throw new Error(`Hutang dengan id ${id} tidak ditemukan`);
+      }
+
       if (!insertData.coa) {
         insertData.coa = existingData?.coa;
       }
+
+      // Get parameter untuk jurnal
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
+      const getParam = await trx('parameter')
+        .select([
+          'id',
+          'grp',
+          'subgrp',
+          'kelompok',
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') as coa_nama`),
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') as memo_nama`),
+        ])
+        .whereRaw("RTRIM(LTRIM(grp)) = 'NOMOR HUTANG'")
+        .andWhereRaw("RTRIM(LTRIM(subgrp)) = 'NOMOR HUTANG'")
+        .andWhereRaw("RTRIM(LTRIM(kelompok)) = 'HUTANG'")
+        .first();
+
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
 
       if (hasChanges) {
@@ -561,18 +583,113 @@ export class HutangheaderService {
         await trx(this.tableName).where('id', id).update(insertData);
       }
 
-      // Check each detail, update or set id accordingly
-      if (details.length > 0) {
+      // Handle detail updates
+      if (details && details.length > 0) {
         const nobuktiHeader = insertData.nobukti || existingData.nobukti;
         const cleanedDetails = details.map(({ coa_text, ...rest }) => ({
           ...rest,
           nobukti: nobuktiHeader,
+          modifiedby: insertData.modifiedby || existingData.modifiedby,
         }));
 
         await this.hutangdetailService.create(cleanedDetails, id, trx);
       }
 
-      // If there are details, call the service to handle create or update
+      // Update jurnal jika ada perubahan
+      if (hasChanges || (details && details.length > 0)) {
+        const updatedData = { ...existingData, ...insertData };
+        const nobukti = updatedData.nobukti;
+
+        if (!getParam) {
+          console.warn(
+            'Parameter untuk jurnal tidak ditemukan, skip update jurnal',
+          );
+        } else {
+          const defaultCoa = getParam.coa_nama;
+
+          if (!defaultCoa) {
+            console.warn(
+              'Default COA untuk jurnal tidak ditemukan di memo, skip update jurnal',
+            );
+          } else {
+            // Process details untuk jurnal
+            const processDetails = (details) => {
+              return details.flatMap((detail) => [
+                {
+                  id: 0, // Set 0 untuk update, service akan handle existing ID
+                  coa: detail.coa,
+                  nobukti: nobukti,
+                  tglbukti: formatDateToSQL(updatedData.tglbukti),
+                  keterangan: detail.keterangan,
+                  nominaldebet: detail.nominal,
+                  nominalkredit: '',
+                  modifiedby: updatedData.modifiedby,
+                },
+                {
+                  id: 0, // Set 0 untuk update, service akan handle existing ID
+                  coa: defaultCoa,
+                  nobukti: nobukti,
+                  tglbukti: formatDateToSQL(updatedData.tglbukti),
+                  keterangan: detail.keterangan,
+                  nominaldebet: '',
+                  nominalkredit: detail.nominal,
+                  modifiedby: updatedData.modifiedby,
+                },
+              ]);
+            };
+
+            const jurnalDetails = processDetails(details || []);
+
+            // Cari jurnal header yang existing berdasarkan nobukti
+            const existingJurnal = await trx('jurnalumumheader')
+              .where('nobukti', nobukti)
+              .first();
+
+            if (existingJurnal) {
+              // Update existing jurnal
+              const jurnalUpdatePayload = {
+                nobukti: nobukti,
+                tglbukti: updatedData.tglbukti,
+                postingdari: getParam.memo_nama,
+                statusformat: getParam.id,
+                keterangan: updatedData.keterangan,
+                updated_at: this.utilsService.getTime(),
+                modifiedby: updatedData.modifiedby,
+                details: jurnalDetails,
+              };
+
+              console.log(
+                'Updating existing jurnal hutang with ID:',
+                existingJurnal.id,
+              );
+              await this.JurnalumumheaderService.update(
+                existingJurnal.id,
+                jurnalUpdatePayload,
+                trx,
+              );
+            } else {
+              // Create new jurnal jika tidak ada (fallback)
+              const jurnalCreatePayload = {
+                nobukti: nobukti,
+                tglbukti: updatedData.tglbukti,
+                postingdari: getParam.memo_nama,
+                statusformat: getParam.id,
+                keterangan: updatedData.keterangan,
+                created_at: this.utilsService.getTime(),
+                updated_at: this.utilsService.getTime(),
+                modifiedby: updatedData.modifiedby,
+                details: jurnalDetails,
+              };
+
+              console.log('Creating new jurnal hutang for nobukti:', nobukti);
+              await this.JurnalumumheaderService.create(
+                jurnalCreatePayload,
+                trx,
+              );
+            }
+          }
+        }
+      }
 
       const { data: filteredItems } = await this.findAll(
         {
@@ -580,25 +697,20 @@ export class HutangheaderService {
           filters,
           pagination: { page, limit },
           sort: { sortBy, sortDirection },
-          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+          isLookUp: false,
         },
         trx,
       );
 
-      // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex((item) => Number(item.id) === id);
-
       if (itemIndex === -1) {
         itemIndex = 0;
       }
 
       const pageNumber = Math.floor(itemIndex / limit) + 1;
       const endIndex = pageNumber * limit;
-
-      // Ambil data hingga halaman yang mencakup item baru
       const limitedItems = filteredItems.slice(0, endIndex);
 
-      // Simpan ke Redis
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
@@ -626,6 +738,7 @@ export class HutangheaderService {
         itemIndex,
       };
     } catch (error) {
+      console.error('Error in hutang update:', error);
       throw new Error(`Error: ${error.message}`);
     }
   }

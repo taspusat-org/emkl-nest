@@ -62,6 +62,12 @@ export class KasgantungheaderService {
 
       const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
 
+      const parameterCabang = await trx('parameter')
+        .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
+        .where('grp', 'CABANG')
+        .andWhere('subgrp', 'CABANG')
+        .first();
+
       const formatpengeluarangantung = await trx(`bank as b`)
         .select('p.grp', 'p.subgrp', 'b.formatpengeluarangantung')
         .leftJoin('parameter as p', 'p.id', 'b.formatpengeluarangantung')
@@ -77,6 +83,26 @@ export class KasgantungheaderService {
         )
         .where('id', formatpengeluarangantung.formatpengeluarangantung)
         .first();
+
+      const grp = formatpengeluarangantung.grp;
+      const subgrp = formatpengeluarangantung.subgrp;
+      const cabangId = parameterCabang.cabang_id;
+
+      if (!grp || !subgrp) {
+        throw new Error(
+          'Format nomor kas gantung (grp/subgrp) tidak ditemukan',
+        );
+      }
+
+      const nomorBuktiKasGantung =
+        await this.runningNumberService.generateRunningNumber(
+          trx,
+          grp,
+          subgrp,
+          this.tableName,
+          insertData.tglbukti,
+          cabangId,
+        );
 
       const pengeluaranHeaderData = {
         tglbukti: data.tglbukti,
@@ -105,6 +131,7 @@ export class KasgantungheaderService {
           detail.penerimaanemklheader_nobukti ?? null,
         info: detail.info ?? null,
         modifiedby: insertData.modifiedby ?? null,
+        kasgantung_nobukti: nomorBuktiKasGantung ?? null,
       }));
 
       const pengeluaranData = {
@@ -131,31 +158,6 @@ export class KasgantungheaderService {
       if (pengeluaranDetailItems.length !== details.length) {
         throw new Error('Jumlah detail pengeluaran tidak sesuai dengan input');
       }
-      const parameterCabang = await trx('parameter')
-        .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
-        .where('grp', 'CABANG')
-        .andWhere('subgrp', 'CABANG')
-        .first();
-
-      const grp = formatpengeluarangantung.grp;
-      const subgrp = formatpengeluarangantung.subgrp;
-      const cabangId = parameterCabang.cabang_id;
-
-      if (!grp || !subgrp) {
-        throw new Error(
-          'Format nomor kas gantung (grp/subgrp) tidak ditemukan',
-        );
-      }
-
-      const nomorBuktiKasGantung =
-        await this.runningNumberService.generateRunningNumber(
-          trx,
-          grp,
-          subgrp,
-          this.tableName,
-          insertData.tglbukti,
-          cabangId,
-        );
 
       insertData.nobukti = nomorBuktiKasGantung;
       insertData.pengeluaran_nobukti = pengeluaranNoBukti;
@@ -707,7 +709,7 @@ export class KasgantungheaderService {
 
   async update(id: any, data: any, trx: any) {
     try {
-      data.tglbukti = formatDateToSQL(String(data?.tglbukti)); // Fungsi untuk format
+      data.tglbukti = formatDateToSQL(String(data?.tglbukti));
 
       const {
         sortBy,
@@ -728,26 +730,97 @@ export class KasgantungheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
+
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
+
+      const formatpengeluarangantung = await trx(`bank as b`)
+        .select('p.grp', 'p.subgrp', 'b.formatpengeluarangantung')
+        .leftJoin('parameter as p', 'p.id', 'b.formatpengeluarangantung')
+        .where('b.id', insertData.bank_id)
+        .first();
+
+      const parameter = await trx('parameter')
+        .select(
+          'grp',
+          'subgrp',
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
+        )
+        .where('id', formatpengeluarangantung.formatpengeluarangantung)
+        .first();
+
       const existingData = await trx(this.tableName).where('id', id).first();
+      const pengeluaranData = await trx('pengeluaranheader')
+        .where('nobukti', insertData.pengeluaran_nobukti)
+        .first();
+
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
 
       if (hasChanges) {
         insertData.updated_at = this.utilsService.getTime();
-
         await trx(this.tableName).where('id', id).update(insertData);
       }
+      console.log(details, 'ini detailnya');
 
-      // Check each detail, update or set id accordingly
-      if (details.length > 0) {
-        const detailsWithNobukti = details.map((detail: any) => ({
-          ...detail,
-          nobukti: existingData.nobukti, // Inject nobukti into each detail
-          modifiedby: insertData.modifiedby,
-        }));
-        await this.kasgantungdetailService.create(detailsWithNobukti, id, trx);
+      const detailPengeluaran = details.map((detail: any) => {
+        const { pengeluarandetail_id, ...rest } = detail;
+
+        return {
+          ...rest,
+          id: pengeluarandetail_id,
+          coadebet: parameter.coa_nama ?? null,
+          keterangan: detail.keterangan ?? null,
+          nominal: detail.nominal ?? null,
+          dpp: detail.dpp ?? 0,
+          modifiedby: insertData.modifiedby ?? null,
+        };
+      });
+
+      // Update pengeluaran header dan detail
+      const dataPengeluaran = {
+        tglbukti: data.tglbukti,
+        relasi_id: insertData.relasi_id,
+        keterangan: insertData.keterangan,
+        bank_id: insertData.bank_id,
+        alatbayar_id: insertData.alatbayar_id,
+        modifiedby: insertData.modifiedby,
+        details: detailPengeluaran,
+      };
+      console.log(dataPengeluaran, 'cek');
+      const updatedPengeluaran = await this.pengeluaranheaderService.update(
+        pengeluaranData.id,
+        dataPengeluaran,
+        trx,
+      );
+
+      // Handle kas gantung detail - hanya field yang dibutuhkan
+      if (details && details.length > 0) {
+        const existingDetails = await trx('kasgantungdetail').where(
+          'kasgantung_id',
+          id,
+        );
+
+        const updatedDetails = details.map((detail: any) => {
+          const existingDetail = existingDetails.find(
+            (existing: any) => existing.nobukti === detail.nobukti,
+          );
+
+          return {
+            id: existingDetail ? existingDetail.id : 0,
+            kasgantung_id: id,
+            nobukti: existingData.nobukti,
+            keterangan: detail.keterangan,
+            nominal: detail.nominal,
+            modifiedby: insertData.modifiedby,
+            created_at: existingDetail
+              ? existingDetail.created_at
+              : this.utilsService.getTime(),
+            updated_at: this.utilsService.getTime(),
+          };
+        });
+
+        await this.kasgantungdetailService.create(updatedDetails, id, trx);
       }
-
-      // If there are details, call the service to handle create or update
 
       const { data: filteredItems } = await this.findAll(
         {
@@ -755,12 +828,14 @@ export class KasgantungheaderService {
           filters,
           pagination: { page, limit },
           sort: { sortBy, sortDirection },
-          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+          isLookUp: false,
         },
         trx,
       );
 
-      // Cari index item baru di hasil yang sudah difilter
+      const dataDetail = await this.kasgantungdetailService.findAll(id, trx);
+
+      // Cari index item di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex((item) => Number(item.id) === id);
 
       if (itemIndex === -1) {
@@ -770,7 +845,7 @@ export class KasgantungheaderService {
       const pageNumber = Math.floor(itemIndex / limit) + 1;
       const endIndex = pageNumber * limit;
 
-      // Ambil data hingga halaman yang mencakup item baru
+      // Ambil data hingga halaman yang mencakup item
       const limitedItems = filteredItems.slice(0, endIndex);
 
       // Simpan ke Redis
@@ -795,15 +870,18 @@ export class KasgantungheaderService {
       return {
         updatedItem: {
           id,
-          ...data,
+          ...insertData,
+          pengeluaran_data: updatedPengeluaran,
         },
         pageNumber,
         itemIndex,
+        dataDetail,
       };
     } catch (error) {
       throw new Error(`Error: ${error.message}`);
     }
   }
+
   async delete(id: number, trx: any, modifiedby: string) {
     try {
       const deletedData = await this.utilsService.lockAndDestroy(

@@ -207,6 +207,13 @@ export class HutangdetailService {
 
   async findAll({ search, filters, sort }: FindAllParams, trx: any) {
     try {
+      if (!filters?.nobukti) {
+        return {
+          status: true,
+          message: 'Hutang Detail failed to fetch',
+          data: [],
+        };
+      }
       const query = trx
         .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
         .select(

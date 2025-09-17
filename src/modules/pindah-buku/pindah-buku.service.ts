@@ -1,10 +1,10 @@
-import { 
+import {
   HttpException,
   HttpStatus,
   Inject,
   Injectable,
   InternalServerErrorException,
-  NotFoundException
+  NotFoundException,
 } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -47,7 +47,7 @@ export class PindahBukuService {
         alatbayar_nama,
         ...insertData
       } = createData;
-      
+
       const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
       const getFormatPindahBuku = await trx
         .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
@@ -59,7 +59,7 @@ export class PindahBukuService {
         ])
         .where('grp', 'NOMOR PINDAH BUKU')
         .first();
-        
+
       createData.tglbukti = formatDateToSQL(String(createData?.tglbukti));
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
@@ -80,7 +80,7 @@ export class PindahBukuService {
         .select('coa')
         .where('id', insertData.bankdari_id)
         .first();
-      
+
       insertData.nobukti = nomorBukti;
       insertData.coadebet = getCoaDebet.coa;
       insertData.coakredit = getCoaKredit.coa;
@@ -88,7 +88,6 @@ export class PindahBukuService {
       insertData.updated_at = this.utilsService.getTime();
       insertData.created_at = this.utilsService.getTime();
       console.log('insertData', insertData);
-      
 
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
@@ -136,13 +135,13 @@ export class PindahBukuService {
             nominalkredit: insertData.nominal,
           },
         ],
-      }
+      };
 
       const jurnalHeaderInserted = await this.jurnalUmumHeaderService.create(
         jurnalPayload,
         trx,
       );
-      
+
       const newItem = insertedData[0];
       const { data, pagination } = await this.findAll(
         {
@@ -162,7 +161,7 @@ export class PindahBukuService {
 
       // Optionally, you can find the page number or other info if needed
       const pageNumber = pagination?.currentPage;
-      
+
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(data),
@@ -181,10 +180,10 @@ export class PindahBukuService {
         trx,
       );
 
-      return { 
-        newItem, 
-        pageNumber, 
-        dataIndex 
+      return {
+        newItem,
+        pageNumber,
+        dataIndex,
       };
     } catch (error) {
       throw new Error(`Error creating pindah buku: ${error.message}`);
@@ -231,10 +230,10 @@ export class PindahBukuService {
         .leftJoin('akunpusat as coadebet', 'u.coadebet', 'coadebet.coa')
         .leftJoin('akunpusat as coakredit', 'u.coakredit', 'coakredit.coa')
         .leftJoin('alatbayar as p', 'u.alatbayar_id', 'p.id');
-        // .leftJoin('parameter as q', 'u.statusformat', 'p.id');
+      // .leftJoin('parameter as q', 'u.statusformat', 'p.id');
 
-        console.log('filters', filters, filters?.tglDari, filters?.tglSampai);
-        
+      console.log('filters', filters, filters?.tglDari, filters?.tglSampai);
+
       if (filters?.tglDari && filters?.tglSampai) {
         const tglDariFormatted = formatDateToSQL(String(filters?.tglDari));
         const tglSampaiFormatted = formatDateToSQL(String(filters?.tglSampai));
@@ -250,19 +249,27 @@ export class PindahBukuService {
         query.where((builder) => {
           builder
             .orWhere('u.nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.tglbukti, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.tglbukti, 'dd-MM-yyyy') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
             .orWhere('bankdari.keterangan', 'like', `%${sanitizedValue}%`)
             .orWhere('bankke.keterangan', 'like', `%${sanitizedValue}%`)
             .orWhere('coadebet.keterangancoa', 'like', `%${sanitizedValue}%`)
             .orWhere('coakredit.keterangancoa', 'like', `%${sanitizedValue}%`)
             .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
             .orWhere('u.nowarkat', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.tgljatuhtempo, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.tgljatuhtempo, 'dd-MM-yyyy') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
             .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
             .orWhere('u.nominal', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
-            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
+            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ]);
         });
       }
 
@@ -286,13 +293,29 @@ export class PindahBukuService {
                 `%${sanitizedValue}%`,
               ]);
             } else if (key === 'coadebet_text') {
-              query.andWhere('coadebet.keterangancoa', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'coadebet.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'coakredit_text') {
-              query.andWhere('coakredit.keterangancoa', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'coakredit.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'bankdari_text') {
-              query.andWhere('bankdari.keterangan', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'bankdari.keterangan',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'bankke_text') {
-              query.andWhere('bankke.keterangan', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'bankke.keterangan',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'alatbayar_text') {
               query.andWhere('p.keterangan', 'like', `%${sanitizedValue}%`);
             } else {
@@ -311,13 +334,13 @@ export class PindahBukuService {
         if (sort?.sortBy === 'bankdari_text') {
           query.orderBy('bankdari.keterangan', sort.sortDirection);
         } else if (sort?.sortBy === 'bankke_text') {
-          query.orderBy('bankke.keterangan', sort.sortDirection);          
+          query.orderBy('bankke.keterangan', sort.sortDirection);
         } else if (sort?.sortBy === 'coadebet_text') {
           query.orderBy('coadebet.keterangancoa', sort.sortDirection);
         } else if (sort?.sortBy === 'coakredit_text') {
-          query.orderBy('coakredit.keterangancoa', sort.sortDirection);          
+          query.orderBy('coakredit.keterangancoa', sort.sortDirection);
         } else if (sort?.sortBy === 'alatbayar_text') {
-          query.orderBy('p.keterangan', sort.sortDirection);          
+          query.orderBy('p.keterangan', sort.sortDirection);
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }
@@ -393,9 +416,7 @@ export class PindahBukuService {
 
   async update(id: number, data: any, trx: any) {
     try {
-      const existingData = await trx(this.tableName)
-        .where('id', id)
-        .first();
+      const existingData = await trx(this.tableName).where('id', id).first();
 
       if (!existingData) {
         throw new HttpException(
@@ -468,7 +489,7 @@ export class PindahBukuService {
         updateData.updated_at = this.utilsService.getTime();
         await trx(this.tableName).where('id', id).update(updateData);
       }
-      
+
       const jurnalPayload = {
         nobukti: updateData.nobukti,
         tglbukti: updateData.tglbukti,
@@ -498,7 +519,7 @@ export class PindahBukuService {
             nominalkredit: updateData.nominal,
           },
         ],
-      }
+      };
 
       const getJurnal = await trx
         .from(trx.raw(`jurnalumumheader WITH (READUNCOMMITTED)`))
@@ -506,7 +527,7 @@ export class PindahBukuService {
         .first();
 
       if (getJurnal) {
-         const jurnalHeaderUpdated = await this.jurnalUmumHeaderService.update(
+        const jurnalHeaderUpdated = await this.jurnalUmumHeaderService.update(
           getJurnal.id,
           jurnalPayload,
           trx,
@@ -606,9 +627,13 @@ export class PindahBukuService {
         .first();
 
       if (getJurnal) {
-        await this.jurnalUmumHeaderService.delete(getJurnal.id, trx, modifiedby)
+        await this.jurnalUmumHeaderService.delete(
+          getJurnal.id,
+          trx,
+          modifiedby,
+        );
       }
-        
+
       return {
         status: 200,
         message: 'Data deleted successfully',
@@ -688,9 +713,9 @@ export class PindahBukuService {
           tgljatuhtempo: h.tgljatuhtempo,
           nowarkat: h.nowarkat,
           keterangan: h.keterangan,
-          nominal: h.nominal
-        }
-      ]
+          nominal: h.nominal,
+        },
+      ];
 
       // Merge kolom A dan B untuk seluruh area header info
       const headerStartRow = currentRow;
@@ -718,7 +743,14 @@ export class PindahBukuService {
       currentRow++;
 
       if (details.length > 0) {
-        const tableHeaders = ['NO.', 'ALAT BAYAR', 'TGL JATUH TEMPO', 'NO WARKAT', 'KETERANGAN', 'NOMINAL'];
+        const tableHeaders = [
+          'NO.',
+          'ALAT BAYAR',
+          'TGL JATUH TEMPO',
+          'NO WARKAT',
+          'KETERANGAN',
+          'NOMINAL',
+        ];
 
         tableHeaders.forEach((header, index) => {
           const cell = worksheet.getCell(currentRow, index + 1);
@@ -767,9 +799,9 @@ export class PindahBukuService {
             if (colIndex === 5) {
               cell.value = Number(value) ?? 0;
               cell.numFmt = '#,##0.00'; // format angka dengan ribuan
-              cell.alignment = { 
-                horizontal: 'right', 
-                vertical: 'middle' 
+              cell.alignment = {
+                horizontal: 'right',
+                vertical: 'middle',
               };
             } else if (colIndex === 0) {
               cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -805,7 +837,7 @@ export class PindahBukuService {
           bottom: { style: 'thin' },
           right: { style: 'thin' },
         };
-        
+
         const totalValueCell = worksheet.getCell(currentRow, 6);
         totalValueCell.value = totalNominal;
         totalValueCell.font = { bold: true, name: 'Tahoma', size: 10 };
@@ -828,7 +860,6 @@ export class PindahBukuService {
     worksheet.getColumn(4).width = 30;
     worksheet.getColumn(5).width = 40;
     worksheet.getColumn(6).width = 30;
-
 
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
