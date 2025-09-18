@@ -4,25 +4,31 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateMasterBiayaDto } from './dto/create-masterbiaya.dto';
-import { UpdateMasterBiayaDto } from './dto/update-masterbiaya.dto';
-import { FindAllParams } from 'src/common/interfaces/all.interface';
+
+import { CreateJenissealDto } from './dto/create-jenisseal.dto';
+import { UpdateJenissealDto } from './dto/update-jenisseal.dto';
+import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
-import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
+import { LocksService } from '../locks/locks.service';
+import { GlobalService } from '../global/global.service';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
+import { dbMssql } from 'src/common/utils/db';
 import { RedisService } from 'src/common/redis/redis.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Workbook, Column } from 'exceljs';
 
 @Injectable()
-export class MasterbiayaService {
+export class JenissealService {
+  private readonly tableName = 'jenisseal';
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
+    private readonly globalService: GlobalService,
+    private readonly locksService: LocksService,
   ) {}
-  private readonly tableName = 'masterbiaya';
-  async create(CreateMasterBiayaDto: any, trx: any) {
+  async create(createJenissealDto: any, trx: any) {
     try {
       const {
         sortBy,
@@ -31,44 +37,36 @@ export class MasterbiayaService {
         search,
         page,
         limit,
-        tujuankapal_id,
-        sandarkapal_id,
-        pelayaran_id,
-        container_id,
-        biayaemkl_id,
-        jenisorder_id,
-        tglberlaku,
-        nominal,
+        nama,
+        keterangan,
         statusaktif,
         modifiedby,
         created_at,
         updated_at,
         info,
-      } = CreateMasterBiayaDto;
+      } = createJenissealDto;
+
       const insertData = {
-        tujuankapal_id: tujuankapal_id,
-        sandarkapal_id: sandarkapal_id,
-        pelayaran_id: pelayaran_id,
-        container_id: container_id,
-        biayaemkl_id: biayaemkl_id,
-        jenisorder_id: jenisorder_id,
-        tglberlaku: formatDateToSQL(String(tglberlaku)),
-        nominal: nominal,
+        nama: nama ? nama.toUpperCase() : null,
+        keterangan: keterangan ? keterangan.toUpperCase() : null,
         statusaktif: statusaktif,
         modifiedby: modifiedby,
         created_at: created_at || this.utilsService.getTime(),
         updated_at: updated_at || this.utilsService.getTime(),
       };
+
       // Insert the new item
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
+
       const newItem = insertedItems[0]; // Get the inserted item
+
       const { data, pagination } = await this.findAll(
         {
           search,
           filters,
-          pagination: { page, limit: 0 },
+          pagination: { page, limit },
           sort: { sortBy, sortDirection },
           isLookUp: false, // Set based on your requirement (e.g., lookup flag)
         },
@@ -78,16 +76,19 @@ export class MasterbiayaService {
       if (itemIndex === -1) {
         itemIndex = 0;
       }
+
       // Optionally, you can find the page number or other info if needed
       const pageNumber = pagination?.currentPage;
+
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(newItem),
       );
+
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'ADD MASTER BIAYA',
+          postingdari: 'ADD JENIS SEAL',
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -96,13 +97,14 @@ export class MasterbiayaService {
         },
         trx,
       );
+
       return {
         newItem,
         pageNumber,
         itemIndex,
       };
     } catch (error) {
-      throw new Error(`Error creating MASTER BIAYA: ${error.message}`);
+      throw new Error(`Error creating jenis seal: ${error.message}`);
     }
   }
 
@@ -111,158 +113,75 @@ export class MasterbiayaService {
     trx: any,
   ) {
     try {
-      // default pagination
       let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
       limit = limit ?? 0;
 
-      // lookup mode: jika total > 500, kirim json saja
       if (isLookUp) {
-        const countResult = await trx(this.tableName)
+        const acoCountResult = await trx(this.tableName)
           .count('id as total')
           .first();
-        const totalCount = Number(countResult?.total) || 0;
-        if (totalCount > 500) {
+
+        const acoCount = acoCountResult?.total || 0;
+
+        if (Number(acoCount) > 500) {
           return { data: { type: 'json' } };
+        } else {
+          limit = 0;
         }
-        limit = 0;
       }
 
-      // build query
       const query = trx
-        .from(trx.raw(`${this.tableName} as b WITH (READUNCOMMITTED)`))
+        .from(trx.raw(`${this.tableName} as u with (readuncommitted)`))
         .select([
-          'b.id',
-          'b.tujuankapal_id',
-          'b.sandarkapal_id',
-          'b.pelayaran_id',
-          'b.container_id',
-          'b.biayaemkl_id',
-          'b.jenisorder_id',
-          trx.raw("FORMAT(b.tglberlaku, 'dd-MM-yyyy') as tglberlaku"),
-          'b.nominal',
-          'b.statusaktif',
-          'b.info',
-          'b.modifiedby',
-          trx.raw("FORMAT(b.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-          trx.raw("FORMAT(b.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+          'u.id as id',
+          'u.nama',
+          'u.keterangan',
+          'u.statusaktif',
+          'u.modifiedby',
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'p.memo',
           'p.text',
-          'p2.nama as tujuankapal_text',
-          'p3.nama as sandarkapal_text',
-          'p4.nama as pelayaran_text',
-          'p5.nama as container_text',
-          'p6.nama as biayaemkl_text',
-          'p7.nama as jenisorderan_text',
         ])
         .leftJoin(
           trx.raw('parameter as p WITH (READUNCOMMITTED)'),
-          'b.statusaktif',
+          'u.statusaktif',
           'p.id',
-        )
-        .leftJoin(
-          trx.raw('tujuankapal as p2 WITH (READUNCOMMITTED)'),
-          'b.tujuankapal_id',
-          'p2.id',
-        )
-        .leftJoin(
-          trx.raw('sandarkapal as p3 WITH (READUNCOMMITTED)'),
-          'b.sandarkapal_id',
-          'p3.id',
-        )
-        .leftJoin(
-          trx.raw('pelayaran as p4 WITH (READUNCOMMITTED)'),
-          'b.pelayaran_id',
-          'p4.id',
-        )
-        .leftJoin(
-          trx.raw('container as p5 WITH (READUNCOMMITTED)'),
-          'b.container_id',
-          'p5.id',
-        )
-        .leftJoin(
-          trx.raw('biayaemkl as p6 WITH (READUNCOMMITTED)'),
-          'b.biayaemkl_id',
-          'p6.id',
-        )
-        .leftJoin(
-          trx.raw('jenisorderan as p7 WITH (READUNCOMMITTED)'),
-          'b.jenisorder_id',
-          'p7.id',
         );
+
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.limit(limit).offset(offset);
+      }
 
       if (search) {
-        const val = String(search).replace(/\[/g, '[[]');
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
 
-        query.where((builder) =>
+        query.where((builder) => {
           builder
-            .orWhere('p2.nama', 'like', `%${val}%`) // tujuan kapal
-            .orWhere('p3.nama', 'like', `%${val}%`) // sandar kapal
-            .orWhere('p4.nama', 'like', `%${val}%`) // pelayaran
-            .orWhere('p5.nama', 'like', `%${val}%`) // container
-            .orWhere('p6.nama', 'like', `%${val}%`) // biaya emkl
-            .orWhere('p7.nama', 'like', `%${val}%`) // jenis orderan
-            .orWhere('p.memo', 'like', `%${val}%`)
-            .orWhere('p.text', 'like', `%${val}%`),
-        );
+            .orWhere('u.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.memo', 'like', `%${sanitizedValue}%`)
+            .orWhere('p.text', 'like', `%${sanitizedValue}%`);
+        });
       }
 
       if (filters) {
-        for (const [key, rawValue] of Object.entries(filters)) {
-          if (key === 'tglDari' || key === 'tglSampai') continue;
-          if (!rawValue) continue;
-
-          const val = String(rawValue).replace(/\[/g, '[[]');
-
-          switch (key) {
-            case 'created_at':
-            case 'updated_at':
-              query.andWhereRaw("FORMAT(b.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+        for (const [key, value] of Object.entries(filters)) {
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+          if (value) {
+            if (key === 'created_at' || key === 'updated_at') {
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
                 key,
-                `%${val}%`,
+                `%${sanitizedValue}%`,
               ]);
-              break;
-
-            case 'statusaktif':
-              query.andWhere('b.statusaktif', 'like', `%${val}%`);
-              break;
-
-            case 'memo':
-              query.andWhere('p.memo', 'like', `%${val}%`);
-              break;
-
-            case 'text':
-              query.andWhere('p.text', 'like', `%${val}%`);
-              break;
-
-            case 'tujuankapal_text':
-              query.andWhere('p2.nama', 'like', `%${val}%`);
-              break;
-
-            case 'sandarkapal_text':
-              query.andWhere('p3.nama', 'like', `%${val}%`);
-              break;
-
-            case 'pelayaran_text':
-              query.andWhere('p4.nama', 'like', `%${val}%`);
-              break;
-
-            case 'container_text':
-              query.andWhere('p5.nama', 'like', `%${val}%`);
-              break;
-
-            case 'biayaemkl_text':
-              query.andWhere('p6.nama', 'like', `%${val}%`);
-              break;
-
-            case 'jenisorderan_text':
-              query.andWhere('p7.nama', 'like', `%${val}%`);
-              break;
-
-            default:
-              query.andWhere(`b.${key}`, 'like', `%${val}%`);
-              break;
+            } else if (key === 'text' || key === 'memo') {
+              query.andWhere(`p.${key}`, '=', sanitizedValue);
+            } else {
+              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+            }
           }
         }
       }
@@ -276,6 +195,7 @@ export class MasterbiayaService {
       }
 
       const data = await query;
+
       const responseType = Number(total) > 500 ? 'json' : 'local';
 
       return {
@@ -290,8 +210,69 @@ export class MasterbiayaService {
         },
       };
     } catch (error) {
-      console.error('Error fetching biaya data:', error);
-      throw new Error('Failed to fetch biaya data');
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
+  }
+
+  async findAllByIds(ids: { id: number }[]) {
+    try {
+      const idList = ids.map((item) => item.id);
+      const tempData = `##temp_${Math.random().toString(36).substring(2, 15)}`;
+
+      const createTempTableQuery = `
+            CREATE TABLE ${tempData} (
+              id INT
+            );
+          `;
+      await dbMssql.raw(createTempTableQuery);
+
+      const insertTempTableQuery = `
+            INSERT INTO ${tempData} (id)
+            VALUES ${idList.map((id) => `(${id})`).join(', ')};
+          `;
+      await dbMssql.raw(insertTempTableQuery);
+
+      const query = dbMssql(`${this.tableName} as m`)
+        .select([
+          'm.id as id',
+          'm.nama',
+          'm.keterangan',
+          'm.statusaktif',
+          'm.modifiedby',
+          dbMssql.raw(
+            "FORMAT(m.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at",
+          ),
+          dbMssql.raw(
+            "FORMAT(m.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at",
+          ),
+        ])
+        .join(dbMssql.raw(`${tempData} as temp`), 'm.id', 'temp.id')
+        .orderBy('m.nama', 'ASC');
+
+      const data = await query;
+
+      const dropTempTableQuery = `DROP TABLE ${tempData};`;
+      await dbMssql.raw(dropTempTableQuery);
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
+  }
+  async getById(id: number, trx: any) {
+    try {
+      const result = await trx(this.tableName).where('id', id).first();
+
+      if (!result) {
+        throw new Error('Data not found');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error fetching data by id:', error);
+      throw new Error('Failed to fetch data by id');
     }
   }
 
@@ -300,7 +281,7 @@ export class MasterbiayaService {
       const existingData = await trx(this.tableName).where('id', id).first();
 
       if (!existingData) {
-        throw new Error('Biaya not found');
+        throw new Error('Container not found');
       }
 
       const {
@@ -310,13 +291,7 @@ export class MasterbiayaService {
         search,
         page,
         limit,
-        tujuankapal_text,
-        sandarkapal_text,
-        pelayaran_text,
-        container_text,
-        biayaemkl_text,
-        jenisorderan_text,
-        text,
+        statusaktif_nama,
         ...insertData
       } = data;
 
@@ -336,7 +311,7 @@ export class MasterbiayaService {
         {
           search,
           filters,
-          pagination: { page, limit: 0 },
+          pagination: { page, limit },
           sort: { sortBy, sortDirection },
           isLookUp: false, // Set based on your requirement (e.g., lookup flag)
         },
@@ -364,7 +339,7 @@ export class MasterbiayaService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'EDIT MASTER BIAYA',
+          postingdari: 'EDIT JENIS SEAL',
           idtrans: id,
           nobuktitrans: id,
           aksi: 'EDIT',
@@ -383,8 +358,8 @@ export class MasterbiayaService {
         itemIndex,
       };
     } catch (error) {
-      console.error('Error updating Biaya:', error);
-      throw new Error('Failed to update Biaya');
+      console.error('Error updating jenis seal:', error);
+      throw new Error('Failed to update jenis seal');
     }
   }
 
@@ -400,7 +375,7 @@ export class MasterbiayaService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE MASTER BIAYA',
+          postingdari: 'DELETE JENIS SEAL',
           idtrans: deletedData.id,
           nobuktitrans: deletedData.id,
           aksi: 'DELETE',
@@ -424,14 +399,12 @@ export class MasterbiayaService {
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Data Export');
 
-    // Merge dan header utama
-    worksheet.mergeCells('A1:J1');
-    worksheet.mergeCells('A2:J2');
-    worksheet.mergeCells('A3:J3');
+    worksheet.mergeCells('A1:D1');
+    worksheet.mergeCells('A2:D2');
+    worksheet.mergeCells('A3:D3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
-    worksheet.getCell('A2').value = 'LAPORAN MASTER BIAYA';
+    worksheet.getCell('A2').value = 'LAPORAN JENIS SEAL';
     worksheet.getCell('A3').value = 'Data Export';
-
     ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
       worksheet.getCell(cellKey).alignment = {
         horizontal: 'center',
@@ -444,19 +417,7 @@ export class MasterbiayaService {
       };
     });
 
-    // Header tabel
-    const headers = [
-      'NO.',
-      'TUJUAN KAPAL',
-      'SANDAR KAPAL',
-      'PELAYARAN',
-      'CONTAINER',
-      'BIAYA EMKL',
-      'JENIS ORDERAN',
-      'TANGGAL BERLAKU',
-      'NOMINAL',
-      'STATUS AKTIF',
-    ];
+    const headers = ['NO.', 'NAMA', 'KETERANGAN', 'STATUS AKTIF'];
 
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(5, index + 1);
@@ -467,10 +428,7 @@ export class MasterbiayaService {
         fgColor: { argb: 'FFFF00' },
       };
       cell.font = { bold: true, name: 'Tahoma', size: 10 };
-      cell.alignment = {
-        horizontal: index === 0 || index === 8 ? 'center' : 'center', // NO. & NOMINAL -> kanan
-        vertical: 'middle',
-      };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
       cell.border = {
         top: { style: 'thin' },
         left: { style: 'thin' },
@@ -479,56 +437,40 @@ export class MasterbiayaService {
       };
     });
 
-    worksheet.getRow(5).height = 18;
-
-    // Isi data
     data.forEach((row, rowIndex) => {
       const currentRow = rowIndex + 6;
-
-      worksheet.getCell(currentRow, 1).value = rowIndex + 1;
-      worksheet.getCell(currentRow, 2).value = row.tujuankapal_text;
-      worksheet.getCell(currentRow, 3).value = row.sandarkapal_text;
-      worksheet.getCell(currentRow, 4).value = row.pelayaran_text;
-      worksheet.getCell(currentRow, 5).value = row.container_text;
-      worksheet.getCell(currentRow, 6).value = row.biayaemkl_text;
-      worksheet.getCell(currentRow, 7).value = row.jenisorderan_text;
-      worksheet.getCell(currentRow, 8).value = row.tglberlaku;
-      worksheet.getCell(currentRow, 9).value = row.nominal;
-      worksheet.getCell(currentRow, 10).value = row.text;
-
-      // Styling cell per baris
-      for (let col = 1; col <= headers.length; col++) {
-        const cell = worksheet.getCell(currentRow, col);
+      const rowValues = [rowIndex + 1, row.nama, row.keterangan, row.text];
+      rowValues.forEach((value, colIndex) => {
+        const cell = worksheet.getCell(currentRow, colIndex + 1);
+        cell.value = value ?? '';
         cell.font = { name: 'Tahoma', size: 10 };
+        cell.alignment = {
+          horizontal: colIndex === 0 ? 'right' : 'left',
+          vertical: 'middle',
+        };
         cell.border = {
           top: { style: 'thin' },
           left: { style: 'thin' },
           bottom: { style: 'thin' },
           right: { style: 'thin' },
         };
-
-        // Kolom 1 dan 9 align kanan, lainnya kiri
-        if (col === 1 || col === 9) {
-          cell.alignment = { horizontal: 'right', vertical: 'middle' };
-        } else {
-          cell.alignment = { horizontal: 'left', vertical: 'middle' };
-        }
-      }
+      });
     });
 
-    // Lebar kolom
-    worksheet.getColumn(1).width = 6;
-    worksheet.getColumn(2).width = 20;
-    worksheet.getColumn(3).width = 30;
-    worksheet.getColumn(4).width = 25;
-    worksheet.getColumn(5).width = 25;
-    worksheet.getColumn(6).width = 25;
-    worksheet.getColumn(7).width = 25;
-    worksheet.getColumn(8).width = 25;
-    worksheet.getColumn(9).width = 25;
-    worksheet.getColumn(10).width = 25;
+    worksheet.columns
+      .filter((c): c is Column => !!c)
+      .forEach((col) => {
+        let maxLength = 0;
+        col.eachCell({ includeEmpty: true }, (cell) => {
+          const cellValue = cell.value ? cell.value.toString() : '';
+          maxLength = Math.max(maxLength, cellValue.length);
+        });
+        col.width = maxLength + 2;
+      });
 
-    // Simpan file
+    worksheet.getColumn(1).width = 6;
+    worksheet.getColumn(4).width = 20;
+
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
@@ -536,10 +478,37 @@ export class MasterbiayaService {
 
     const tempFilePath = path.resolve(
       tempDir,
-      `laporan_master_biaya_${Date.now()}.xlsx`,
+      `laporan_jenisseal_${Date.now()}.xlsx`,
     );
     await workbook.xlsx.writeFile(tempFilePath);
 
     return tempFilePath;
+  }
+
+  async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
+    try {
+      if (aksi === 'EDIT') {
+        const forceEdit = await this.locksService.forceEdit(
+          this.tableName,
+          value,
+          editedby,
+          trx,
+        );
+
+        return forceEdit;
+      } else if (aksi === 'DELETE') {
+        const validasi = await this.globalService.checkUsed(
+          'hargatrucking',
+          'container_id',
+          value,
+          trx,
+        );
+
+        return validasi;
+      }
+    } catch (error) {
+      console.error('Error di checkValidasi:', error);
+      throw new InternalServerErrorException('Failed to check validation');
+    }
   }
 }

@@ -23,6 +23,8 @@ import { LocksService } from '../locks/locks.service';
 import { Column, Workbook } from 'exceljs';
 import * as fs from 'fs';
 import * as path from 'path';
+import { StatuspendukungService } from '../statuspendukung/statuspendukung.service';
+
 @Injectable()
 export class KasgantungheaderService {
   constructor(
@@ -32,6 +34,7 @@ export class KasgantungheaderService {
     private readonly runningNumberService: RunningNumberService,
     private readonly kasgantungdetailService: KasgantungdetailService,
     private readonly pengeluaranheaderService: PengeluaranheaderService,
+    private readonly statuspendukungService: StatuspendukungService,
     private readonly locksService: LocksService,
     private readonly globalService: GlobalService,
   ) {}
@@ -213,6 +216,15 @@ export class KasgantungheaderService {
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
+      );
+
+      const newItem = insertedKasGantungItems[0];
+
+      await this.statuspendukungService.create(
+        this.tableName,
+        newItem.id,
+        data.modifiedby,
+        trx,
       );
 
       // Log trail untuk kas gantung
@@ -760,7 +772,6 @@ export class KasgantungheaderService {
         insertData.updated_at = this.utilsService.getTime();
         await trx(this.tableName).where('id', id).update(insertData);
       }
-      console.log(details, 'ini detailnya');
 
       const detailPengeluaran = details.map((detail: any) => {
         const { pengeluarandetail_id, ...rest } = detail;
@@ -773,6 +784,7 @@ export class KasgantungheaderService {
           nominal: detail.nominal ?? null,
           dpp: detail.dpp ?? 0,
           modifiedby: insertData.modifiedby ?? null,
+          kasgantung_nobukti: insertData.nobukti ?? null,
         };
       });
 
@@ -896,6 +908,8 @@ export class KasgantungheaderService {
         'kasgantung_id',
         trx,
       );
+
+      await this.statuspendukungService.remove(id, modifiedby, trx);
 
       await this.logTrailService.create(
         {

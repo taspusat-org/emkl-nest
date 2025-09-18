@@ -10,6 +10,7 @@ import { RunningNumberModule } from '../running-number/running-number.module';
 import { GlobalModule } from '../global/global.module';
 import { LocksModule } from '../locks/locks.module';
 import { JurnalumumheaderModule } from '../jurnalumumheader/jurnalumumheader.module';
+import { StatuspendukungModule } from '../statuspendukung/statuspendukung.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { JurnalumumheaderModule } from '../jurnalumumheader/jurnalumumheader.mod
     JurnalumumheaderModule,
     GlobalModule,
     LocksModule,
+    StatuspendukungModule,
   ],
   controllers: [HutangheaderController],
   providers: [HutangheaderService],
