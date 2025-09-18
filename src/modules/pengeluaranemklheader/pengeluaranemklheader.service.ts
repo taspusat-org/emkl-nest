@@ -233,7 +233,7 @@ export class PengeluaranemklheaderService {
         {
           search,
           filters,
-          pagination: { page, limit },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false, // Set based on your requirement (e.g., lookup flag)
         },
@@ -462,19 +462,24 @@ export class PengeluaranemklheaderService {
           'u.keterangan', // keterangan (nvarchar(max))
           'u.karyawan_id', // keterangan (nvarchar(max))
           'k.nama as karyawan_nama',
+          'p.text as jenisposting_nama',
           'u.jenisposting', // keterangan (nvarchar(max))
           'u.bank_id', // keterangan (nvarchar(max))
           'b.nama as bank_nama',
           'u.nowarkat', // keterangan (nvarchar(max))
           'u.pengeluaran_nobukti', // keterangan (nvarchar(max))
           'u.hutang_nobukti', // keterangan (nvarchar(max))
-          'u.postingdari', // relasi_id (integer)
+          'pe.nama as statusformat_nama',
           'u.statusformat', // bank_id (integer)
           'u.info', // info (nvarchar(max))
           'u.modifiedby', // modifiedby (varchar(200))
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
         ])
+        .leftJoin('karyawan as k', 'u.karyawan_id', 'k.id')
+        .leftJoin('parameter as p', 'u.jenisposting', 'p.id')
+        .leftJoin('bank as b', 'u.bank_id', 'b.id')
+        .leftJoin('pengeluaranemkl as pe', 'u.statusformat', 'pe.format')
         .where('u.id', id);
 
       const data = await query;
@@ -748,7 +753,7 @@ export class PengeluaranemklheaderService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE KAS GANTUNG DETAIL',
+          postingdari: 'DELETE PENGELUARAN EMKL DETAIL',
           idtrans: deletedDataDetail.id,
           nobuktitrans: deletedDataDetail.id,
           aksi: 'DELETE',
@@ -772,11 +777,11 @@ export class PengeluaranemklheaderService {
     const worksheet = workbook.addWorksheet('Data Export');
 
     // Header laporan
-    worksheet.mergeCells('A1:E1');
-    worksheet.mergeCells('A2:E2');
-    worksheet.mergeCells('A3:E3');
+    worksheet.mergeCells('A1:D1');
+    worksheet.mergeCells('A2:D2');
+    worksheet.mergeCells('A3:D3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
-    worksheet.getCell('A2').value = 'LAPORAN JURNAL UMUM';
+    worksheet.getCell('A2').value = 'LAPORAN PENGELUARAN EMKL';
     worksheet.getCell('A3').value = 'Data Export';
     ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
       worksheet.getCell(cellKey).alignment = {
@@ -824,14 +829,7 @@ export class PengeluaranemklheaderService {
       currentRow++;
 
       if (details.length > 0) {
-        const tableHeaders = [
-          'NO.',
-          'NO BUKTI',
-          'KETERANGAN',
-          'COA',
-          'NOMINAL DEBET',
-          'NOMINAL KREDIT',
-        ];
+        const tableHeaders = ['NO.', 'NO BUKTI', 'KETERANGAN', 'NOMINAL'];
         tableHeaders.forEach((header, index) => {
           const cell = worksheet.getCell(currentRow, index + 1);
           cell.value = header;
@@ -856,9 +854,7 @@ export class PengeluaranemklheaderService {
             detailIndex + 1,
             d.nobukti ?? '',
             d.keterangan ?? '',
-            d.coa ?? '',
-            d.nominaldebet ?? '',
-            d.nominalkredit ?? '',
+            d.nominal ?? '',
           ];
           rowValues.forEach((value, colIndex) => {
             const cell = worksheet.getCell(currentRow, colIndex + 1);
@@ -866,7 +862,7 @@ export class PengeluaranemklheaderService {
             cell.font = { name: 'Tahoma', size: 10 };
 
             // kolom angka rata kanan, selain itu rata kiri
-            if (colIndex === 3 || colIndex === 4 || colIndex === 5) {
+            if (colIndex === 3) {
               // kolom nominal
               cell.alignment = { horizontal: 'right', vertical: 'middle' };
             } else if (colIndex === 0) {
@@ -930,7 +926,6 @@ export class PengeluaranemklheaderService {
         };
 
         currentRow++;
-        currentRow++;
       }
     }
 
@@ -952,7 +947,7 @@ export class PengeluaranemklheaderService {
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
     const tempFilePath = path.resolve(
       tempDir,
-      `laporan_jurnal_umum${Date.now()}.xlsx`,
+      `laporan_pengeluaran_emkl${Date.now()}.xlsx`,
     );
     await workbook.xlsx.writeFile(tempFilePath);
 
