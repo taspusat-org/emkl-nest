@@ -89,7 +89,6 @@ export class UseraclService {
       // Update menu after roles and ACL updates
       const menuData = await this.utilsService.getDataMenuSidebar(trx);
       const menuString = this.utilsService.buildMenuString(menuData, abilities);
-      console.log('abilities2', abilities);
       await trx('users').update({ menu: menuString }).where('id', id);
       return { status: true, message: 'USER and ACL updated successfully' };
     } catch (error) {

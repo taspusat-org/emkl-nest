@@ -194,7 +194,7 @@ export class PengeluaranemklheaderController {
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_jurnal_umum.xlsx"',
+        'attachment; filename="laporan_pengeluaran_emkl.xlsx"',
       );
 
       const fileStream = fs.createReadStream(tempFilePath);
