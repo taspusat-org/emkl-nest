@@ -22,6 +22,7 @@ import { LocksService } from '../locks/locks.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Workbook, Column } from 'exceljs';
+import { StatuspendukungService } from '../statuspendukung/statuspendukung.service';
 
 @Injectable()
 export class PengeluaranheaderService {
@@ -32,6 +33,7 @@ export class PengeluaranheaderService {
     private readonly runningNumberService: RunningNumberService,
     private readonly pengeluarandetailService: PengeluarandetailService,
     private readonly JurnalumumheaderService: JurnalumumheaderService,
+    private readonly statuspendukungService: StatuspendukungService,
     private readonly locksService: LocksService,
     private readonly globalService: GlobalService,
   ) {}
@@ -210,6 +212,13 @@ export class PengeluaranheaderService {
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
+      );
+
+      await this.statuspendukungService.create(
+        this.tableName,
+        newItem.id,
+        data.modifiedby,
+        trx,
       );
 
       await this.logTrailService.create(
@@ -706,6 +715,7 @@ export class PengeluaranheaderService {
         'pengeluaran_id',
         trx,
       );
+      await this.statuspendukungService.remove(id, modifiedby, trx);
 
       await this.logTrailService.create(
         {

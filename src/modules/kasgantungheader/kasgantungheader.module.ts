@@ -10,6 +10,7 @@ import { KasgantungdetailModule } from '../kasgantungdetail/kasgantungdetail.mod
 import { GlobalModule } from '../global/global.module';
 import { LocksModule } from '../locks/locks.module';
 import { PengeluaranheaderModule } from '../pengeluaranheader/pengeluaranheader.module';
+import { StatuspendukungModule } from '../statuspendukung/statuspendukung.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { PengeluaranheaderModule } from '../pengeluaranheader/pengeluaranheader.
     PengeluaranheaderModule,
     GlobalModule,
     LocksModule,
+    StatuspendukungModule,
   ],
   controllers: [KasgantungheaderController],
   providers: [KasgantungheaderService],

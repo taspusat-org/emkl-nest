@@ -218,7 +218,7 @@ export class KasgantungdetailService {
       if (!filters?.nobukti) {
         return {
           status: true,
-          message: 'Kas Gantung Detail failed',
+          message: 'Kas Gantung Detail failed to fetch',
           data: [],
         };
       }
