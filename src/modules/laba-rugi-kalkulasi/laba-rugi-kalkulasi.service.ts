@@ -1,10 +1,10 @@
-import {
+import { 
   HttpException,
   HttpStatus,
   Inject,
   Injectable,
   InternalServerErrorException,
-  NotFoundException,
+  NotFoundException
 } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -17,15 +17,15 @@ import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 
 @Injectable()
-export class PenerimaanEmklService {
-  private readonly tableName: string = 'penerimaanemkl';
+export class LabaRugiKalkulasiService {
+  private readonly tableName: string = 'labarugikalkulasi';
 
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
-    private readonly globalService: GlobalService,
-    private readonly locksService: LocksService,
-    private readonly logTrailService: LogtrailService,
     private readonly utilsService: UtilsService,
+    private readonly locksService: LocksService,
+    private readonly globalService: GlobalService,
+    private readonly logTrailService: LogtrailService,
   ) {}
 
   async create(createData: any, trx: any) {
@@ -38,36 +38,27 @@ export class PenerimaanEmklService {
         page,
         limit,
         method,
-        coadebet_nama,
-        coakredit_nama,
-        coabankdebet_nama,
-        coabankkredit_nama,
-        coahutangdebet_nama,
-        coahutangkredit_nama,
-        coaproses_nama,
-        nilaiproses_nama,
-        statuspenarikan_nama,
-        format_nama,
-        statusaktif_nama,
         id,
+        statusfinalkomisi_nama,
+        statusfinalbonus_nama,
         ...insertData
       } = createData;
 
       insertData.updated_at = this.utilsService.getTime();
       insertData.created_at = this.utilsService.getTime();
+      console.log('insertData', insertData);
 
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
-          insertData[key] = insertData[key].toUpperCase();
+            insertData[key] = insertData[key].toUpperCase();
         }
       });
 
       const insertedData = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
-
+        
       const newItem = insertedData[0];
-
       const { data, pagination } = await this.findAll(
         {
           search,
@@ -78,6 +69,7 @@ export class PenerimaanEmklService {
         },
         trx,
       );
+
       let dataIndex = data.findIndex((item) => item.id === newItem.id);
       if (dataIndex === -1) {
         dataIndex = 0;
@@ -85,7 +77,7 @@ export class PenerimaanEmklService {
 
       // Optionally, you can find the page number or other info if needed
       const pageNumber = pagination?.currentPage;
-
+      
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(data),
@@ -94,7 +86,7 @@ export class PenerimaanEmklService {
       await this.logTrailService.create(
         {
           namatable: this.tableName,
-          postingdari: 'ADD PENERIMAAN EMKL',
+          postingdari: 'ADD LABA RUGI KALKULASI',
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -104,13 +96,13 @@ export class PenerimaanEmklService {
         trx,
       );
 
-      return {
-        newItem,
-        pageNumber,
-        dataIndex,
+      return { 
+        newItem, 
+        pageNumber, 
+        dataIndex 
       };
     } catch (error) {
-      throw new Error(`Error creating penerimaan emkl: ${error.message}`);
+      throw new Error(`Error creating laba rugi kalkulasi: ${error.message}`);
     }
   }
 
@@ -123,197 +115,73 @@ export class PenerimaanEmklService {
       page = page ?? 1;
       limit = 0;
 
-      if (isLookUp) {
-        const totalData = await trx(this.tableName)
-          .count('id as total')
-          .first();
-
-        const resultTotalData = totalData?.total || 0;
-
-        if (Number(resultTotalData) > 500) {
-          return {
-            data: {
-              type: 'json',
-            },
-          };
-        } else {
-          limit = 0;
-        }
-      }
-
-      const query = trx(`${this.tableName} as u`)
+      const query = trx
+        .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
         .select([
           'u.id as id',
-          'u.nama',
-          'u.keterangan',
-          'u.coadebet',
-          'u.coakredit',
-          'u.coapostingkasbankdebet',
-          'u.coapostingkasbankkredit',
-          'u.coapostinghutangdebet',
-          'u.coapostinghutangkredit',
-          'u.coaproses',
-          'u.nilaiproses',
-          'u.statuspenarikan',
-          'u.format',
-          'u.statusaktif',
+          'u.periode',
+          // trx.raw("FORMAT(u.periode, 'MM-yyyy') as periode"),
+          'u.estkomisimarketing',
+          'u.komisimarketing',
+          'u.biayakantorpusat',
+          'u.biayatour',
+          'u.gajidireksi',
+          'u.estkomisikacab',
+          'u.biayabonustriwulan',
+          'u.estkomisimarketing2',
+          'u.estkomisikacabcabang1',
+          'u.estkomisikacabcabang2',
+          'u.statusfinalkomisimarketing',
+          'u.statusfinalbonustriwulan',
           'u.modifiedby',
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          'coadebet.keterangancoa as coadebet_nama',
-          'coakredit.keterangancoa as coakredit_nama',
-          'coabankdebet.keterangancoa as coabankdebet_nama',
-          'coabankkredit.keterangancoa as coabankkredit_nama',
-          'coahutangdebet.keterangancoa as coahutangdebet_nama',
-          'coahutangkredit.keterangancoa as coahutangkredit_nama',
-          'coaproses.keterangancoa as coaproses_nama',
-          'nilaiproses.text as nilaiproses_nama',
-          'nilaiproses.memo as nilaiproses_memo',
-          'statuspenarikan.text as statuspenarikan_nama',
-          'statuspenarikan.memo as statuspenarikan_memo',
-          'p.text as format_nama',
-          'q.memo',
-          'q.text as statusaktif_nama',
+          'p.text as statusfinalkomisi_nama',
+          'p.memo as statusfinalkomisi_memo',
+          'q.text as statusfinalbonus_nama',
+          'q.memo as statusfinalbonus_memo',
         ])
-        .leftJoin('akunpusat as coadebet', 'u.coadebet', 'coadebet.coa')
-        .leftJoin('akunpusat as coakredit', 'u.coakredit', 'coakredit.coa')
-        .leftJoin(
-          'akunpusat as coabankdebet',
-          'u.coapostingkasbankdebet',
-          'coabankdebet.coa',
-        )
-        .leftJoin(
-          'akunpusat as coabankkredit',
-          'u.coapostingkasbankkredit',
-          'coabankkredit.coa',
-        )
-        .leftJoin(
-          'akunpusat as coahutangdebet',
-          'u.coapostinghutangdebet',
-          'coahutangdebet.coa',
-        )
-        .leftJoin(
-          'akunpusat as coahutangkredit',
-          'u.coapostinghutangkredit',
-          'coahutangkredit.coa',
-        )
-        .leftJoin('akunpusat as coaproses', 'u.coaproses', 'coaproses.coa')
-        .leftJoin('parameter as nilaiproses', 'u.nilaiproses', 'nilaiproses.id')
-        .leftJoin('parameter as statuspenarikan', 'u.statuspenarikan', 'statuspenarikan.id')
-        .leftJoin('parameter as p', 'u.format', 'p.id')
-        .leftJoin('parameter as q', 'u.statusaktif', 'q.id');
+        .leftJoin('parameter as p', 'u.statusfinalkomisimarketing', 'p.id')
+        .leftJoin('parameter as q', 'u.statusfinalbonustriwulan', 'q.id');
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
           builder
-            .orWhere('u.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('coadebet.keterangancoa', 'like', `%${sanitizedValue}%`)
-            .orWhere('coakredit.keterangancoa', 'like', `%${sanitizedValue}%`)
-            .orWhere(
-              'coabankdebet.keterangancoa',
-              'like',
-              `%${sanitizedValue}%`,
-            )
-            .orWhere(
-              'coabankkredit.keterangancoa',
-              'like',
-              `%${sanitizedValue}%`,
-            )
-            .orWhere(
-              'coahutangdebet.keterangancoa',
-              'like',
-              `%${sanitizedValue}%`,
-            )
-            .orWhere(
-              'coahutangkredit.keterangancoa',
-              'like',
-              `%${sanitizedValue}%`,
-            )
-            .orWhere(
-              'coaproses.keterangancoa',
-              'like',
-              `%${sanitizedValue}%`,
-            )
+            // .orWhereRaw("FORMAT(u.periode, 'MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhere('u.periode', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.estkomisimarketing', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.komisimarketing', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.biayakantorpusat', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.biayatour', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.gajidireksi', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.estkomisikacab', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.biayabonustriwulan', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.estkomisimarketing2', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.estkomisikacabcabang1', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.estkomisikacabcabang2', 'like', `%${sanitizedValue}%`)
             .orWhere('p.text', 'like', `%${sanitizedValue}%`)
+            .orWhere('q.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ])
-            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ]);
+            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
         });
       }
 
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
+          
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
               query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
                 key,
                 `%${sanitizedValue}%`,
               ]);
-            } else if (key === 'coadebet_text') {
-              query.andWhere(
-                'coadebet.keterangancoa',
-                'like',
-                `%${sanitizedValue}%`,
-              );
-            } else if (key === 'coakredit_text') {
-              query.andWhere(
-                'coakredit.keterangancoa',
-                'like',
-                `%${sanitizedValue}%`,
-              );
-            } else if (key === 'coabankdebet_text') {
-              query.andWhere(
-                'coabankdebet.keterangancoa',
-                'like',
-                `%${sanitizedValue}%`,
-              );
-            } else if (key === 'coabankkredit_text') {
-              query.andWhere(
-                'coabankkredit.keterangancoa',
-                'like',
-                `%${sanitizedValue}%`,
-              );
-            } else if (key === 'coahutangdebet_text') {
-              query.andWhere(
-                'coahutangdebet.keterangancoa',
-                'like',
-                `%${sanitizedValue}%`,
-              );
-            } else if (key === 'coahutangkredit_text') {
-              query.andWhere(
-                'coahutangkredit.keterangancoa',
-                'like',
-                `%${sanitizedValue}%`,
-              );
-            } else if (key === 'coaproses_text') {
-              query.andWhere(
-                'coaproses.keterangancoa',
-                'like',
-                `%${sanitizedValue}%`,
-              );
-            } else if (key === 'nilaiproses_text') {
-              query.andWhere(
-                'nilaiproses.id',
-                'like',
-                `%${sanitizedValue}%`,
-              );
-            } else if (key === 'statuspenarikan_text') {
-              query.andWhere(
-                'statuspenarikan.id',
-                'like',
-                `%${sanitizedValue}%`,
-              );
-            } else if (key === 'format_text') {
-              query.andWhere('p.text', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'statusaktif_text') {
-              query.andWhere(`q.id`, '=', sanitizedValue);
+            } else if (key === 'statusfinalkomisi_text') {
+              query.andWhere('p.id', '=', sanitizedValue);
+            } else if (key === 'statusfinalbonus_text') {
+              query.andWhere('q.id', '=', sanitizedValue);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
@@ -327,23 +195,13 @@ export class PenerimaanEmklService {
       }
 
       if (sort?.sortBy && sort?.sortDirection) {
-        if (sort?.sortBy === 'coadebet_text') {
-          query.orderBy('coadebet.keterangancoa', sort.sortDirection);
-        } else if (sort?.sortBy === 'coakredit_text') {
-          query.orderBy('coakredit.keterangancoa', sort.sortDirection);
-        } else if (sort?.sortBy === 'coabankdebet_text') {
-          query.orderBy('coabankdebet.keterangancoa', sort.sortDirection);
-        } else if (sort?.sortBy === 'coabankkredit_text') {
-          query.orderBy('coabankkredit.keterangancoa', sort.sortDirection);
-        } else if (sort?.sortBy === 'coahutangdebet_text') {
-          query.orderBy('coahutangdebet.keterangancoa', sort.sortDirection);
-        } else if (sort?.sortBy === 'coahutangkredit_text') {
-          query.orderBy('coahutangkredit.keterangancoa', sort.sortDirection);
-        } else if (sort?.sortBy === 'coaproses_text') {
-          query.orderBy('coaproses.keterangancoa', sort.sortDirection);
-        } else if (sort?.sortBy === 'format_text') {
-          query.orderBy('q.text', sort.sortDirection);
-        } else {
+        if (sort?.sortBy === 'periode') {
+          // query.orderBy(sort.sortBy, sort.sortDirection);
+          query.orderByRaw(
+            `RIGHT(??, 4) + LEFT(??, 2) ${sort.sortDirection}`,
+            [sort.sortBy, sort.sortBy]
+          );
+        } else{
           query.orderBy(sort.sortBy, sort.sortDirection);
         }
       }
@@ -367,7 +225,7 @@ export class PenerimaanEmklService {
         },
       };
     } catch (error) {
-      console.error('Error to findAll Penerimaan Emkl', error);
+      console.error('Error to findAll Laba Rugi Kalkulasi', error);
       throw new Error(error);
     }
   }
@@ -395,17 +253,8 @@ export class PenerimaanEmklService {
         search,
         page,
         limit,
-        coadebet_nama,
-        coakredit_nama,
-        coabankdebet_nama,
-        coabankkredit_nama,
-        coahutangdebet_nama,
-        coahutangkredit_nama,
-        coaproses_nama,
-        nilaiproses_nama,
-        statuspenarikan_nama,
-        format_nama,
-        statusaktif_nama,
+        statusfinalkomisi_nama,
+        statusfinalbonus_nama,
         id,
         method,
         ...updateData
@@ -416,6 +265,8 @@ export class PenerimaanEmklService {
           updateData[key] = updateData[key].toUpperCase();
         }
       });
+      console.log('updateData',updateData);
+      
 
       const hasChanges = this.utilsService.hasChanges(updateData, existingData);
 
@@ -443,14 +294,8 @@ export class PenerimaanEmklService {
         dataIndex = 0;
       }
 
-      if (dataIndex === -1) {
-        throw new Error('Updated item not found in all items');
-      }
-
       const itemsPerPage = limit || 30;
       const pageNumber = Math.floor(dataIndex / itemsPerPage) + 1;
-
-      // ambil data hingga halaman yg mencakup item yg baru diupdate
       const endIndex = pageNumber * itemsPerPage;
       const limitedItems = filteredData.slice(0, endIndex);
 
@@ -462,7 +307,7 @@ export class PenerimaanEmklService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'EDIT PENERIMAAN EMKL',
+          postingdari: 'EDIT LABA RUGI KALKULASI',
           idtrans: dataId,
           nobuktitrans: dataId,
           aksi: 'EDIT',
@@ -485,8 +330,8 @@ export class PenerimaanEmklService {
         throw error; // If it's already a HttpException, rethrow it
       }
 
-      console.error('Error updating penerimaan emkl:', error);
-      throw new Error('Failed to update penerimaan emkl');
+      console.error('Error updating laba rugi kalkulasi:', error);
+      throw new Error('Failed to update laba rugi kalkulasi');
     }
   }
 
@@ -502,7 +347,7 @@ export class PenerimaanEmklService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE PENERIMAAN EMKL',
+          postingdari: 'DELETE LABA RUGI KALKULASI',
           idtrans: id,
           nobuktitrans: id,
           aksi: 'DELETE',
@@ -557,7 +402,7 @@ export class PenerimaanEmklService {
     worksheet.mergeCells('A2:K2');
     worksheet.mergeCells('A3:K3');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
-    worksheet.getCell('A2').value = 'LAPORAN PENERIMAAN EMKL';
+    worksheet.getCell('A2').value = 'LAPORAN LABA RUGI KALKULASI';
     worksheet.getCell('A3').value = 'Data Export';
     ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
       worksheet.getCell(cellKey).alignment = {
@@ -573,19 +418,19 @@ export class PenerimaanEmklService {
 
     const headers = [
       'NO.',
-      'NAMA',
-      'KETERANGAN',
-      'COA DEBET',
-      'COA KREDIT',
-      'COA POSTING KASBANK DEBET',
-      'COA POSTING KASBANK KREDIT',
-      'COA POSTING HUTANG DEBET',
-      'COA POSTING HUTANG KREDIT',
-      'COA PROSES',
-      'NILAI PROSES',
-      'STATUS PENARIKAN',
-      'FORMAT',
-      'STATUS AKTIF',
+      'PERIODE',
+      'EST KOMISI MARKETING',
+      'KOMISI MARKETING',
+      'BIAYA KANTOR PUSAT',
+      'BIAYA TOUR',
+      'GAJI DIREKSI',
+      'EST KOMISI KACAB',
+      'BIAYA BONUS TRI WULAN',
+      'EST KOMISI MARKETING 2',
+      'EST KOMISI KACAB CABANG 1',
+      'EST KOMISI KACAB CABANG 2',
+      'STATUS FINAL KOMISI MARKETING',
+      'STATUS FINAL BONUS TRI WULAN',
     ];
 
     headers.forEach((header, index) => {
@@ -610,28 +455,56 @@ export class PenerimaanEmklService {
       const currentRow = rowIndex + 6;
       const rowValues = [
         rowIndex + 1,
-        row.nama,
-        row.keterangan,
-        row.coadebet_nama,
-        row.coakredit_nama,
-        row.coabankdebet_nama,
-        row.coabankkredit_nama,
-        row.coahutangdebet_nama,
-        row.coahutangkredit_nama,
-        row.coaproses_nama,
-        row.nilaiproses_nama,
-        row.statuspenarikan_nama,
-        row.format_nama,
-        row.statusaktif_nama,
+        row.periode,
+        row.estkomisimarketing,
+        row.komisimarketing,
+        row.biayakantorpusat,
+        row.biayatour,
+        row.gajidireksi,
+        row.estkomisikacab,
+        row.biayabonustriwulan,
+        row.estkomisimarketing2,
+        row.estkomisikacabcabang1,
+        row.estkomisikacabcabang2,
+        row.statusfinalkomisi_nama,
+        row.statusfinalbonus_nama,
       ];
       rowValues.forEach((value, colIndex) => {
         const cell = worksheet.getCell(currentRow, colIndex + 1);
-        cell.value = value ?? '';
+
+        if (colIndex === 1) {
+          cell.value = value ?? '';
+          cell.alignment = {
+            horizontal: 'left',
+            vertical: 'middle',
+          };
+        } else if (colIndex === 0) {
+          cell.value = value ?? '';
+          cell.alignment = {
+            horizontal: 'right',
+            vertical: 'middle',
+          };
+        } else if (colIndex === 12 || colIndex === 13) {
+          cell.value = value ?? '';
+          cell.alignment = {
+            horizontal: 'right',
+            vertical: 'middle',
+          };
+        } else {
+          cell.value = Number(value); '';
+          cell.numFmt = '#,##0.00';
+          cell.alignment = {
+            horizontal: 'right',
+            vertical: 'middle',
+          };
+        }
+        
+        // cell.value = value ?? '';
         cell.font = { name: 'Tahoma', size: 10 };
-        cell.alignment = {
-          horizontal: colIndex === 0 ? 'right' : 'left',
-          vertical: 'middle',
-        };
+        // cell.alignment = {
+        //   horizontal: colIndex === 0 ? 'right' : 'left',
+        //   vertical: 'middle',
+        // };
         cell.border = {
           top: { style: 'thin' },
           left: { style: 'thin' },
@@ -662,7 +535,7 @@ export class PenerimaanEmklService {
 
     const tempFilePath = path.resolve(
       tempDir,
-      `laporan_penerimaan_emkl_${Date.now()}.xlsx`,
+      `laporan_labarugi_kalkulasi_${Date.now()}.xlsx`,
     );
     await workbook.xlsx.writeFile(tempFilePath);
 
