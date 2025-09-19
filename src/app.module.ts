@@ -97,6 +97,7 @@ import { AclGuard } from './modules/auth/acl.guard';
 import { UtilsService } from './utils/utils.service';
 import { StatuspendukungModule } from './modules/statuspendukung/statuspendukung.module';
 import { JenissealModule } from './modules/jenisseal/jenisseal.module';
+import { LabaRugiKalkulasiModule } from './modules/laba-rugi-kalkulasi/laba-rugi-kalkulasi.module';
 
 @Module({
   imports: [
@@ -192,6 +193,7 @@ import { JenissealModule } from './modules/jenisseal/jenisseal.module';
     PindahBukuModule,
     StatuspendukungModule,
     JenissealModule,
+    LabaRugiKalkulasiModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

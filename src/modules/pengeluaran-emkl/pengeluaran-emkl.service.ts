@@ -44,6 +44,9 @@ export class PengeluaranEmklService {
         coabankkredit_nama,
         coahutangdebet_nama,
         coahutangkredit_nama,
+        coaproses_nama,
+        nilaiproses_nama,
+        statuspenarikan_nama,
         format_nama,
         statusaktif_nama,
         id,
@@ -149,6 +152,9 @@ export class PengeluaranEmklService {
           'u.coapostingkasbankkredit',
           'u.coapostinghutangdebet',
           'u.coapostinghutangkredit',
+          'u.coaproses',
+          'u.nilaiproses',
+          'u.statuspenarikan',
           'u.format',
           'u.statusaktif',
           'u.modifiedby',
@@ -160,6 +166,11 @@ export class PengeluaranEmklService {
           'coabankkredit.keterangancoa as coabankkredit_nama',
           'coahutangdebet.keterangancoa as coahutangdebet_nama',
           'coahutangkredit.keterangancoa as coahutangkredit_nama',
+          'coaproses.keterangancoa as coaproses_nama',
+          'nilaiproses.text as nilaiproses_nama',
+          'nilaiproses.memo as nilaiproses_memo',
+          'statuspenarikan.text as statuspenarikan_nama',
+          'statuspenarikan.memo as statuspenarikan_memo',
           'p.text as format_nama',
           'q.memo',
           'q.text as statusaktif_nama',
@@ -186,6 +197,9 @@ export class PengeluaranEmklService {
           'u.coapostinghutangkredit',
           'coahutangkredit.coa',
         )
+        .leftJoin('akunpusat as coaproses', 'u.coaproses', 'coaproses.coa')
+        .leftJoin('parameter as nilaiproses', 'u.nilaiproses', 'nilaiproses.id')
+        .leftJoin('parameter as statuspenarikan', 'u.statuspenarikan', 'statuspenarikan.id')
         .leftJoin('parameter as p', 'u.format', 'p.id')
         .leftJoin('parameter as q', 'u.statusaktif', 'q.id');
 
@@ -214,6 +228,11 @@ export class PengeluaranEmklService {
             )
             .orWhere(
               'coahutangkredit.keterangancoa',
+              'like',
+              `%${sanitizedValue}%`,
+            )
+            .orWhere(
+              'coaproses.keterangancoa',
               'like',
               `%${sanitizedValue}%`,
             )
@@ -273,6 +292,24 @@ export class PengeluaranEmklService {
                 'like',
                 `%${sanitizedValue}%`,
               );
+            } else if (key === 'coaproses_text') {
+              query.andWhere(
+                'coaproses.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
+            } else if (key === 'nilaiproses_text') {
+              query.andWhere(
+                'nilaiproses.id',
+                'like',
+                `%${sanitizedValue}%`,
+              );
+            } else if (key === 'statuspenarikan_text') {
+              query.andWhere(
+                'statuspenarikan.id',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'format_text') {
               query.andWhere('p.text', 'like', `%${sanitizedValue}%`);
             } else if (key === 'statusaktif_text') {
@@ -302,6 +339,8 @@ export class PengeluaranEmklService {
           query.orderBy('coahutangdebet.keterangancoa', sort.sortDirection);
         } else if (sort?.sortBy === 'coahutangkredit_text') {
           query.orderBy('coahutangkredit.keterangancoa', sort.sortDirection);
+        } else if (sort?.sortBy === 'coaproses_text') {
+          query.orderBy('coaproses.keterangancoa', sort.sortDirection);
         } else if (sort?.sortBy === 'format_text') {
           query.orderBy('q.text', sort.sortDirection);
         } else {
@@ -362,6 +401,9 @@ export class PengeluaranEmklService {
         coabankkredit_nama,
         coahutangdebet_nama,
         coahutangkredit_nama,
+        coaproses_nama,
+        nilaiproses_nama,
+        statuspenarikan_nama,
         format_nama,
         statusaktif_nama,
         id,
@@ -539,6 +581,9 @@ export class PengeluaranEmklService {
       'COA POSTING KASBANK KREDIT',
       'COA POSTING HUTANG DEBET',
       'COA POSTING HUTANG KREDIT',
+      'COA PROSES',
+      'NILAI PROSES',
+      'STATUS PENARIKAN',
       'FORMAT',
       'STATUS AKTIF',
     ];
@@ -573,6 +618,9 @@ export class PengeluaranEmklService {
         row.coabankkredit_nama,
         row.coahutangdebet_nama,
         row.coahutangkredit_nama,
+        row.coaproses_nama,
+        row.nilaiproses_nama,
+        row.statuspenarikan_nama,
         row.format_nama,
         row.statusaktif_nama,
       ];

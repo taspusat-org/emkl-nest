@@ -28,6 +28,21 @@ const baseFields = {
   coapostinghutangkredit: z.string().nullable().optional(),
   coahutangkredit_nama: z.string().nullable().optional(),
 
+  coaproses: z.string().nullable().optional(),
+  coaproses_nama: z.string().nullable().optional(),
+
+  nilaiproses: z
+    .number()
+    .int({ message: 'Nilai Proses harus bulat' })
+    .min(1, { message: 'Nilai Proses Wajib Diisi' }),
+  nilaiproses_nama: z.string().nullable().optional(),
+
+  statuspenarikan: z
+    .number()
+    .int({ message: 'Status Penarikan harus bulat' })
+    .min(1, { message: 'Status Penarikan Wajib Diisi' }),
+  statuspenarikan_nama: z.string().nullable().optional(),
+
   format: z
     .number()
     .int({ message: 'format Wajib Diisi' })
@@ -86,6 +101,7 @@ export const CreatePenerimaanEmklSchema = z
         value: data.coapostinghutangkredit,
         name: 'COA POSTING HUTANG KREDIT',
       },
+      { field: 'coaproses', value: data.coaproses, name: 'COA PROSES' },
     ];
 
     for (let i = 0; i < coaValues.length; i++) {
@@ -160,6 +176,7 @@ export const UpdatePenerimaanEmklSchema = z
         value: data.coapostinghutangkredit,
         name: 'COA POSTING HUTANG KREDIT',
       },
+      { field: 'coaproses', value: data.coaproses, name: 'COA PROSES' },
     ];
 
     for (let i = 0; i < coaValues.length; i++) {
