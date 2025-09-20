@@ -98,6 +98,8 @@ import { UtilsService } from './utils/utils.service';
 import { StatuspendukungModule } from './modules/statuspendukung/statuspendukung.module';
 import { JenissealModule } from './modules/jenisseal/jenisseal.module';
 import { LabaRugiKalkulasiModule } from './modules/laba-rugi-kalkulasi/laba-rugi-kalkulasi.module';
+import { PenerimaanemklheaderModule } from './modules/penerimaanemklheader/penerimaanemklheader.module';
+import { PenerimaanemkldetailModule } from './modules/penerimaanemkldetail/penerimaanemkldetail.module';
 
 @Module({
   imports: [
@@ -194,6 +196,8 @@ import { LabaRugiKalkulasiModule } from './modules/laba-rugi-kalkulasi/laba-rugi
     StatuspendukungModule,
     JenissealModule,
     LabaRugiKalkulasiModule,
+    PenerimaanemklheaderModule,
+    PenerimaanemkldetailModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

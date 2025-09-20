@@ -1,18 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CreatePengeluaranemkldetailDto } from './dto/create-pengeluaranemkldetail.dto';
-import { UpdatePengeluaranemkldetailDto } from './dto/update-pengeluaranemkldetail.dto';
+import { CreatePenerimaanemkldetailDto } from './dto/create-penerimaanemkldetail.dto';
+import { UpdatePenerimaanemkldetailDto } from './dto/update-penerimaanemkldetail.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
-import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { UtilsService } from 'src/utils/utils.service';
 
 @Injectable()
-export class PengeluaranemkldetailService {
-  private readonly tableName = 'pengeluaranemkldetail';
+export class PenerimaanemkldetailService {
+  private readonly tableName = 'penerimaanemkldetail';
   constructor(
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
-  private readonly logger = new Logger(PengeluaranemkldetailService.name);
+  private readonly logger = new Logger(PenerimaanemkldetailService.name);
   async create(details: any, id: any = 0, trx: any = null) {
     let insertedData = null;
     let data: any = null;
@@ -30,7 +30,7 @@ export class PengeluaranemkldetailService {
     const logData: any[] = [];
     const mainDataToInsert: any[] = [];
     if (details.length === 0) {
-      await trx(this.tableName).delete().where('pengeluaranemklheader_id', id);
+      await trx(this.tableName).delete().where('penerimaanemklheader_id', id);
       return;
     }
     for (data of details) {
@@ -82,7 +82,7 @@ export class PengeluaranemkldetailService {
     // Ensure each item has an idheader
     const processedData = mainDataToInsert.map((item: any) => ({
       ...item,
-      pengeluaranemklheader_id: item.pengeluaranemklheader_id ?? id, // Ensure correct field mapping
+      penerimaanemklheader_id: item.penerimaanemklheader_id ?? id, // Ensure correct field mapping
     }));
     const jsonString = JSON.stringify(processedData);
 
@@ -100,22 +100,24 @@ export class PengeluaranemkldetailService {
     // Insert into temp table
     await trx(tempTableName).insert(openJson);
 
-    // **Update or Insert into 'pengeluaranemkldetail' with correct idheader**
-    const updatedData = await trx('pengeluaranemkldetail')
+    // **Update or Insert into 'penerimaanemkldetail' with correct idheader**
+    const updatedData = await trx('penerimaanemkldetail')
       .join(
         `${tempTableName}`,
-        'pengeluaranemkldetail.id',
+        'penerimaanemkldetail.id',
         `${tempTableName}.id`,
       )
       .update({
-        nobukti: trx.raw(`pengeluaranemkldetail.nobukti`),
-        noseal: trx.raw(`${tempTableName}.noseal`),
+        nobukti: trx.raw(`penerimaanemkldetail.nobukti`),
         keterangan: trx.raw(`${tempTableName}.keterangan`),
         nominal: trx.raw(`${tempTableName}.nominal`),
+        pengeluaranemkl_nobukti: trx.raw(
+          `${tempTableName}.pengeluaranemkl_nobukti`,
+        ),
         info: trx.raw(`${tempTableName}.info`),
         modifiedby: trx.raw(`${tempTableName}.modifiedby`),
-        pengeluaranemklheader_id: trx.raw(
-          `${tempTableName}.pengeluaranemklheader_id`,
+        penerimaanemklheader_id: trx.raw(
+          `${tempTableName}.penerimaanemklheader_id`,
         ),
         created_at: trx.raw(`${tempTableName}.created_at`),
         updated_at: trx.raw(`${tempTableName}.updated_at`),
@@ -131,12 +133,12 @@ export class PengeluaranemkldetailService {
     const insertedDataQuery = await trx(tempTableName)
       .select([
         'nobukti',
-        'noseal',
         'keterangan',
         'nominal',
+        'pengeluaranemkl_nobukti',
         'info',
         'modifiedby',
-        trx.raw('? as pengeluaranemklheader_id', [id]),
+        trx.raw('? as penerimaanemklheader_id', [id]),
         'created_at',
         'updated_at',
       ])
@@ -145,24 +147,24 @@ export class PengeluaranemkldetailService {
     const getDeleted = await trx(this.tableName)
       .leftJoin(
         `${tempTableName}`,
-        'pengeluaranemkldetail.id',
+        'penerimaanemkldetail.id',
         `${tempTableName}.id`,
       )
       .select(
-        'pengeluaranemkldetail.id',
-        'pengeluaranemkldetail.nobukti',
-        'pengeluaranemkldetail.noseal',
-        'pengeluaranemkldetail.keterangan',
-        'pengeluaranemkldetail.nominal',
-        'pengeluaranemkldetail.info',
-        'pengeluaranemkldetail.modifiedby',
-        'pengeluaranemkldetail.created_at',
-        'pengeluaranemkldetail.updated_at',
-        'pengeluaranemkldetail.pengeluaranemklheader_id',
+        'penerimaanemkldetail.id',
+        'penerimaanemkldetail.nobukti',
+        'penerimaanemkldetail.keterangan',
+        'penerimaanemkldetail.nominal',
+        'penerimaanemkldetail.pengeluaranemkl_nobukti',
+        'penerimaanemkldetail.info',
+        'penerimaanemkldetail.modifiedby',
+        'penerimaanemkldetail.created_at',
+        'penerimaanemkldetail.updated_at',
+        'penerimaanemkldetail.penerimaanemklheader_id',
       )
 
       .whereNull(`${tempTableName}.id`)
-      .where('pengeluaranemkldetail.pengeluaranemklheader_id', id);
+      .where('penerimaanemkldetail.penerimaanemklheader_id', id);
 
     let pushToLog: any[] = [];
 
@@ -180,14 +182,14 @@ export class PengeluaranemkldetailService {
     const deletedData = await trx(this.tableName)
       .leftJoin(
         `${tempTableName}`,
-        'pengeluaranemkldetail.id',
+        'penerimaanemkldetail.id',
         `${tempTableName}.id`,
       )
       .whereNull(`${tempTableName}.id`)
-      .where('pengeluaranemkldetail.pengeluaranemklheader_id', id)
+      .where('penerimaanemkldetail.penerimaanemklheader_id', id)
       .del();
     if (insertedDataQuery.length > 0) {
-      insertedData = await trx('pengeluaranemkldetail')
+      insertedData = await trx('penerimaanemkldetail')
         .insert(insertedDataQuery)
         .returning('*')
         .then((result: any) => result[0])
@@ -214,27 +216,25 @@ export class PengeluaranemkldetailService {
   }
 
   async findAll({ search, filters, sort }: FindAllParams, trx: any) {
+    if (!filters?.nobukti) {
+      return {
+        data: [],
+      };
+    }
     try {
-      if (!filters?.nobukti) {
-        return {
-          data: [],
-        };
-      }
       const query = trx
         .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
         .select(
           'p.id',
-          'p.pengeluaranemklheader_id',
+          'p.penerimaanemklheader_id',
           'p.nobukti',
           'p.nominal',
           'p.keterangan',
-          'p.pengeluaranemkl_nobukti',
           'p.pengeluaranemkl_nobukti',
           'p.info',
           'p.modifiedby',
           trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          'p.noseal',
         )
         .orderBy('p.created_at', 'desc');
       if (filters?.nobukti) {
@@ -280,5 +280,19 @@ export class PengeluaranemkldetailService {
       console.error('Error in findAll Pengeluaran EMKL Detail', error);
       throw new Error(error);
     }
+  }
+  findOne(id: number) {
+    return `This action returns a #${id} penerimaanemkldetail`;
+  }
+
+  update(
+    id: number,
+    updatePenerimaanemkldetailDto: UpdatePenerimaanemkldetailDto,
+  ) {
+    return `This action updates a #${id} penerimaanemkldetail`;
+  }
+
+  remove(id: number) {
+    return `This action removes a #${id} penerimaanemkldetail`;
   }
 }

@@ -153,23 +153,6 @@ export class PengeluaranemklheaderController {
     }
   }
 
-  @UseGuards(AuthGuard)
-  @Get(':id')
-  //@PENGELUARAN-EMKL-HEADER
-  async findOne(@Param('id') id: string) {
-    const trx = await dbMssql.transaction();
-
-    try {
-      const result = await this.pengeluaranemklheaderService.findOne(id, trx);
-      trx.commit();
-
-      return result;
-    } catch (error) {
-      trx.rollback();
-      console.error('Error in findOne:', error);
-      throw error; // Re-throw the error to be handled by the global exception filter
-    }
-  }
   @Get('/export/:id')
   async exportToExcel(@Param('id') id: string, @Res() res: Response) {
     try {
@@ -233,6 +216,72 @@ export class PengeluaranemklheaderController {
       trx.rollback();
       console.error('Error checking validation:', error);
       throw new InternalServerErrorException('Failed to check validation');
+    }
+  }
+  @Get('list')
+  //@PENGELUARAN-EMKL-HEADER
+  @UsePipes(new ZodValidationPipe(FindAllSchema))
+  async findAllPengeluaranEmkl(
+    @Query() query: { dari: string; sampai: string },
+  ) {
+    const { dari, sampai } = query;
+    const trx = await dbMssql.transaction();
+
+    try {
+      const result = await this.pengeluaranemklheaderService.getPengeluaranEmkl(
+        dari,
+        sampai,
+        trx,
+      );
+      trx.commit();
+
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error in findAll:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
+    }
+  }
+  @Get('pengembalian')
+  //@PENGELUARAN-EMKL-HEADER
+  @UsePipes(new ZodValidationPipe(FindAllSchema))
+  async findAllPengembalian(
+    @Query() query: { id: any; dari: string; sampai: string },
+  ) {
+    const { dari, sampai, id } = query;
+    const trx = await dbMssql.transaction();
+    try {
+      const result =
+        await this.pengeluaranemklheaderService.getPengembalianPinjaman(
+          id,
+          dari,
+          sampai,
+          trx,
+        );
+      trx.commit();
+
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error in findAll:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
+    }
+  }
+  @UseGuards(AuthGuard)
+  @Get(':id')
+  //@PENGELUARAN-EMKL-HEADER
+  async findOne(@Param('id') id: string) {
+    const trx = await dbMssql.transaction();
+
+    try {
+      const result = await this.pengeluaranemklheaderService.findOne(id, trx);
+      trx.commit();
+
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error in findOne:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
 }
