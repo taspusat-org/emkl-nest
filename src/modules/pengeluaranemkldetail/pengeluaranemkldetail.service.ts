@@ -30,7 +30,7 @@ export class PengeluaranemkldetailService {
     const logData: any[] = [];
     const mainDataToInsert: any[] = [];
     if (details.length === 0) {
-      await trx(this.tableName).delete().where('pengeluaranemkl_id', id);
+      await trx(this.tableName).delete().where('pengeluaranemklheader_id', id);
       return;
     }
     for (data of details) {
@@ -82,7 +82,7 @@ export class PengeluaranemkldetailService {
     // Ensure each item has an idheader
     const processedData = mainDataToInsert.map((item: any) => ({
       ...item,
-      pengeluaranemkl_id: item.pengeluaranemkl_id ?? id, // Ensure correct field mapping
+      pengeluaranemklheader_id: item.pengeluaranemklheader_id ?? id, // Ensure correct field mapping
     }));
     const jsonString = JSON.stringify(processedData);
 
@@ -109,11 +109,14 @@ export class PengeluaranemkldetailService {
       )
       .update({
         nobukti: trx.raw(`pengeluaranemkldetail.nobukti`),
+        noseal: trx.raw(`${tempTableName}.noseal`),
         keterangan: trx.raw(`${tempTableName}.keterangan`),
         nominal: trx.raw(`${tempTableName}.nominal`),
         info: trx.raw(`${tempTableName}.info`),
         modifiedby: trx.raw(`${tempTableName}.modifiedby`),
-        pengeluaranemkl_id: trx.raw(`${tempTableName}.pengeluaranemkl_id`),
+        pengeluaranemklheader_id: trx.raw(
+          `${tempTableName}.pengeluaranemklheader_id`,
+        ),
         created_at: trx.raw(`${tempTableName}.created_at`),
         updated_at: trx.raw(`${tempTableName}.updated_at`),
       })
@@ -128,11 +131,12 @@ export class PengeluaranemkldetailService {
     const insertedDataQuery = await trx(tempTableName)
       .select([
         'nobukti',
+        'noseal',
         'keterangan',
         'nominal',
         'info',
         'modifiedby',
-        trx.raw('? as pengeluaranemkl_id', [id]),
+        trx.raw('? as pengeluaranemklheader_id', [id]),
         'created_at',
         'updated_at',
       ])
@@ -147,17 +151,18 @@ export class PengeluaranemkldetailService {
       .select(
         'pengeluaranemkldetail.id',
         'pengeluaranemkldetail.nobukti',
+        'pengeluaranemkldetail.noseal',
         'pengeluaranemkldetail.keterangan',
         'pengeluaranemkldetail.nominal',
         'pengeluaranemkldetail.info',
         'pengeluaranemkldetail.modifiedby',
         'pengeluaranemkldetail.created_at',
         'pengeluaranemkldetail.updated_at',
-        'pengeluaranemkldetail.pengeluaranemkl_id',
+        'pengeluaranemkldetail.pengeluaranemklheader_id',
       )
 
       .whereNull(`${tempTableName}.id`)
-      .where('pengeluaranemkldetail.pengeluaranemkl_id', id);
+      .where('pengeluaranemkldetail.pengeluaranemklheader_id', id);
 
     let pushToLog: any[] = [];
 
@@ -179,7 +184,7 @@ export class PengeluaranemkldetailService {
         `${tempTableName}.id`,
       )
       .whereNull(`${tempTableName}.id`)
-      .where('pengeluaranemkldetail.pengeluaranemkl_id', id)
+      .where('pengeluaranemkldetail.pengeluaranemklheader_id', id)
       .del();
     if (insertedDataQuery.length > 0) {
       insertedData = await trx('pengeluaranemkldetail')
@@ -214,7 +219,7 @@ export class PengeluaranemkldetailService {
         .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
         .select(
           'p.id',
-          'p.pengeluaranemkl_id',
+          'p.pengeluaranemklheader_id',
           'p.nobukti',
           'p.nominal',
           'p.keterangan',
@@ -224,6 +229,7 @@ export class PengeluaranemkldetailService {
           'p.modifiedby',
           trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+          'p.noseal',
         )
         .orderBy('p.created_at', 'desc');
       if (filters?.nobukti) {

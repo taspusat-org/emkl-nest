@@ -56,6 +56,7 @@ export class PengeluaranemklheaderService {
         penerimaan_nobukti,
         bank_nama,
         karyawan_nama,
+        jenisseal_text,
         details,
         ...insertData
       } = data;
@@ -354,11 +355,14 @@ export class PengeluaranemklheaderService {
           'u.modifiedby', // modifiedby (varchar(200))
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
+          'u.jenisseal_id', // bank_id (integer)
+          'j.nama as jenisseal_text',
           'tempUrl.link',
         ])
         .leftJoin('karyawan as k', 'u.karyawan_id', 'k.id')
         .leftJoin('parameter as p', 'u.jenisposting', 'p.id')
         .leftJoin('bank as b', 'u.bank_id', 'b.id')
+        .leftJoin('jenisseal as j', 'u.jenisseal_id', 'j.id')
         .leftJoin('pengeluaranemkl as pe', 'u.statusformat', 'pe.format')
         .innerJoin(trx.raw(`${tempUrl} as tempUrl`), 'u.id', 'tempUrl.id');
 
@@ -415,6 +419,10 @@ export class PengeluaranemklheaderService {
               query.andWhere('k.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'bank_nama') {
               query.andWhere('b.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'jenisseal_text') {
+              query.andWhere('j.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'jenisseal_id') {
+              query.andWhere('u.jenisseal_id', 'like', `%${sanitizedValue}%`);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
@@ -513,6 +521,7 @@ export class PengeluaranemklheaderService {
         penerimaan_nobukti,
         bank_nama,
         karyawan_nama,
+        jenisseal_text,
         details,
         ...insertData
       } = data;
