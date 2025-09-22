@@ -6,61 +6,68 @@ import {
   Patch,
   Param,
   Delete,
-  Query,
-  UsePipes,
   UseGuards,
   Req,
-  Put,
-  InternalServerErrorException,
-  Res,
+  HttpException,
   HttpStatus,
+  UsePipes,
+  Query,
+  Put,
+  Res,
+  InternalServerErrorException,
 } from '@nestjs/common';
-import { KasgantungheaderService } from './kasgantungheader.service';
-import { CreateKasgantungheaderDto } from './dto/create-kasgantungheader.dto';
-import { UpdateKasgantungheaderDto } from './dto/update-kasgantungheader.dto';
-import {
-  FindAllDto,
-  FindAllParams,
-  FindAllSchema,
-} from 'src/common/interfaces/all.interface';
+import { PenerimaanemklheaderService } from './penerimaanemklheader.service';
+import { CreatePenerimaanemklheaderDto } from './dto/create-penerimaanemklheader.dto';
+import { UpdatePenerimaanemklheaderDto } from './dto/update-penerimaanemklheader.dto';
 import { dbMssql } from 'src/common/utils/db';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
 import { Response } from 'express';
 import * as fs from 'fs';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
 
-@Controller('kasgantungheader')
-export class KasgantungheaderController {
+@Controller('penerimaanemklheader')
+export class PenerimaanemklheaderController {
   constructor(
-    private readonly kasgantungheaderService: KasgantungheaderService,
+    private readonly penerimaanemklheaderService: PenerimaanemklheaderService,
   ) {}
 
   @UseGuards(AuthGuard)
   @Post()
-  //@KAS-GANTUNG
-  async create(
-    @Body()
-    data: any,
-    @Req() req,
-  ) {
+  //@PENERIMAAN-EMKL-HEADER
+  async create(@Body() data: any, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-
-      const result = await this.kasgantungheaderService.create(data, trx);
-
+      const result = await this.penerimaanemklheaderService.create(data, trx);
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('error', error);
-      throw new Error(`Error: ${error.message}`);
+      console.error('Error in create:', error);
+      // PENTING: Jangan wrap HttpException dengan Error baru
+      if (error instanceof HttpException) {
+        throw error; // Langsung throw HttpException yang sudah ada
+      }
+
+      // Untuk error lainnya yang bukan HttpException
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: error.message || 'Internal server error',
+          error: 'Internal Server Error',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
-
   @UseGuards(AuthGuard)
   @Get()
-  //@KAS-GANTUNG
+  //@PENERIMAAN-EMKL-HEADER
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
@@ -86,7 +93,10 @@ export class KasgantungheaderController {
     const trx = await dbMssql.transaction();
 
     try {
-      const result = await this.kasgantungheaderService.findAll(params, trx);
+      const result = await this.penerimaanemklheaderService.findAll(
+        params,
+        trx,
+      );
       trx.commit();
 
       return result;
@@ -99,13 +109,17 @@ export class KasgantungheaderController {
 
   @UseGuards(AuthGuard)
   @Put(':id')
-  //@KAS-GANTUNG
+  //@PENERIMAAN-EMKL-HEADER
   async update(@Param('id') id: string, @Body() data: any, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.kasgantungheaderService.update(+id, data, trx);
+      const result = await this.penerimaanemklheaderService.update(
+        +id,
+        data,
+        trx,
+      );
 
       await trx.commit();
       return result;
@@ -118,12 +132,12 @@ export class KasgantungheaderController {
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  //@KAS-GANTUNG
+  //@PENERIMAAN-EMKL-HEADER
   async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     const modifiedby = req.user?.user?.username || 'unknown';
     try {
-      const result = await this.kasgantungheaderService.delete(
+      const result = await this.penerimaanemklheaderService.delete(
         +id,
         trx,
         modifiedby,
@@ -133,69 +147,19 @@ export class KasgantungheaderController {
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error deleting pengembaliankasgantungheader:', error);
-      throw new Error(
-        `Error deleting pengembaliankasgantungheader: ${error.message}`,
-      );
+      console.error('Error deleting penerimaanemklheader:', error);
+      throw new Error(`Error deleting penerimaanemklheader: ${error.message}`);
     }
   }
 
-  @Get('list')
-  //@KAS-GANTUNG
-  @UsePipes(new ZodValidationPipe(FindAllSchema))
-  async findAllKasgantung(@Query() query: { dari: string; sampai: string }) {
-    const { dari, sampai } = query;
-    const trx = await dbMssql.transaction();
-
-    try {
-      const result = await this.kasgantungheaderService.getKasGantung(
-        dari,
-        sampai,
-        trx,
-      );
-      trx.commit();
-
-      return result;
-    } catch (error) {
-      trx.rollback();
-      console.error('Error in findAll:', error);
-      throw error; // Re-throw the error to be handled by the global exception filter
-    }
-  }
-
-  @Get('pengembalian')
-  //@KAS-GANTUNG
-  @UsePipes(new ZodValidationPipe(FindAllSchema))
-  async findAllPengembalian(
-    @Query() query: { id: any; dari: string; sampai: string },
-  ) {
-    const { dari, sampai, id } = query;
-    const trx = await dbMssql.transaction();
-
-    try {
-      const result = await this.kasgantungheaderService.getPengembalian(
-        id,
-        dari,
-        sampai,
-        trx,
-      );
-      trx.commit();
-
-      return result;
-    } catch (error) {
-      trx.rollback();
-      console.error('Error in findAll:', error);
-      throw error; // Re-throw the error to be handled by the global exception filter
-    }
-  }
   @UseGuards(AuthGuard)
   @Get(':id')
-  //@KAS-GANTUNG
+  //@PENERIMAAN-EMKL-HEADER
   async findOne(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
 
     try {
-      const result = await this.kasgantungheaderService.findOne(id, trx);
+      const result = await this.penerimaanemklheaderService.findOne(id, trx);
       trx.commit();
 
       return result;
@@ -205,35 +169,12 @@ export class KasgantungheaderController {
       throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
-  @Post('check-validation')
-  @UseGuards(AuthGuard)
-  async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
-    const { aksi, value } = body;
-
-    const trx = await dbMssql.transaction();
-    const editedby = req.user?.user?.username;
-    try {
-      const forceEdit = await this.kasgantungheaderService.checkValidasi(
-        aksi,
-        value,
-        editedby,
-        trx,
-      );
-      trx.commit();
-      return forceEdit;
-    } catch (error) {
-      trx.rollback();
-      console.error('Error checking validation:', error);
-      throw new InternalServerErrorException('Failed to check validation');
-    }
-  }
-
   @Get('/export/:id')
   async exportToExcel(@Param('id') id: string, @Res() res: Response) {
     try {
       // Ambil data
       const trx = await dbMssql.transaction();
-      const { data } = await this.kasgantungheaderService.findOne(id, trx);
+      const { data } = await this.penerimaanemklheaderService.findOne(id, trx);
 
       if (!Array.isArray(data)) {
         return res
@@ -242,7 +183,7 @@ export class KasgantungheaderController {
       }
 
       // Buat Excel file
-      const tempFilePath = await this.kasgantungheaderService.exportToExcel(
+      const tempFilePath = await this.penerimaanemklheaderService.exportToExcel(
         data,
         trx,
       );
@@ -254,7 +195,7 @@ export class KasgantungheaderController {
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_kasgantung.xlsx"',
+        'attachment; filename="laporan_penerimaan_emkl.xlsx"',
       );
 
       const fileStream = fs.createReadStream(tempFilePath);
@@ -271,6 +212,28 @@ export class KasgantungheaderController {
       return res
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
         .send('Failed to export file');
+    }
+  }
+  @Post('check-validation')
+  @UseGuards(AuthGuard)
+  async checkValidasi(@Body() body: { aksi: string; value: any }, @Req() req) {
+    const { aksi, value } = body;
+
+    const trx = await dbMssql.transaction();
+    const editedby = req.user?.user?.username;
+    try {
+      const forceEdit = await this.penerimaanemklheaderService.checkValidasi(
+        aksi,
+        value,
+        editedby,
+        trx,
+      );
+      trx.commit();
+      return forceEdit;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error checking validation:', error);
+      throw new InternalServerErrorException('Failed to check validation');
     }
   }
 }

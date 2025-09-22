@@ -112,7 +112,6 @@ export class PengembaliankasgantungheaderService {
         dataPenerimaan,
         trx,
       );
-      console.log('insertPenerimaan', insertPenerimaan);
       insertData.penerimaan_nobukti = insertPenerimaan.newItem.nobukti;
       insertData.statusformat = formatpenerimaangantung.formatpenerimaangantung;
       const insertedItems = await trx(this.tableName)
