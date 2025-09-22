@@ -100,6 +100,8 @@ import { JenissealModule } from './modules/jenisseal/jenisseal.module';
 import { LabaRugiKalkulasiModule } from './modules/laba-rugi-kalkulasi/laba-rugi-kalkulasi.module';
 import { PenerimaanemklheaderModule } from './modules/penerimaanemklheader/penerimaanemklheader.module';
 import { PenerimaanemkldetailModule } from './modules/penerimaanemkldetail/penerimaanemkldetail.module';
+import { TradoModule } from './modules/trado/trado.module';
+import { GandenganModule } from './modules/gandengan/gandengan.module';
 
 @Module({
   imports: [
@@ -198,6 +200,8 @@ import { PenerimaanemkldetailModule } from './modules/penerimaanemkldetail/pener
     LabaRugiKalkulasiModule,
     PenerimaanemklheaderModule,
     PenerimaanemkldetailModule,
+    TradoModule,
+    GandenganModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

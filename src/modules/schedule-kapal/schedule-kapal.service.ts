@@ -74,7 +74,20 @@ export class ScheduleKapalService {
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
-      //
+      
+      if (isLookUp) {
+        const totalData = await trx(this.tableName)
+          .count('id as total')
+          .first();
+
+        const resultTotalData = totalData?.total || 0;
+
+        if (Number(resultTotalData) > 500) {
+          return { data: { type: 'json' } };
+        } else {
+          limit = 0;
+        }
+      }
 
       const query = trx(`${this.tableName} as u`)
         .select([
@@ -112,11 +125,6 @@ export class ScheduleKapalService {
         .leftJoin('asalkapal as e', 'u.asalkapal_id', 'e.id')
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id');
 
-      if (limit > 0) {
-        const offset = (page - 1) * limit;
-        query.limit(limit).offset(offset);
-      }
-
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
@@ -136,8 +144,12 @@ export class ScheduleKapalService {
             .orWhere('u.batasmuatankapal', 'like', `%${sanitizedValue}%`)
             .orWhere('p.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.created_at', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.updated_at', 'like', `%${sanitizedValue}%`);
+            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
+            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ]);
         });
       }
 
@@ -169,10 +181,10 @@ export class ScheduleKapalService {
         }
       }
 
-      const result = await trx(this.tableName).count('id as total').first();
-      const total = result?.total as number;
-      // const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
-      const totalPages = Math.ceil(total / limit);
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.limit(limit).offset(offset);
+      }
 
       if (sort?.sortBy && sort?.sortDirection) {
         if (sort?.sortBy === 'jenisorderan') {
@@ -190,6 +202,10 @@ export class ScheduleKapalService {
         }
       }
 
+      const result = await trx(this.tableName).count('id as total').first();
+      const total = result?.total as number;
+      // const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+      const totalPages = Math.ceil(total / limit);
       const data = await query;
 
       return {
