@@ -11,6 +11,7 @@ export class RunningNumberService {
     type: string,
     statusformat: string,
   ) {
+    // Code for fetching the last number based on the date range
     if (type === 'RESET BULAN') {
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 1);
@@ -33,6 +34,7 @@ export class RunningNumberService {
       return rows;
     }
 
+    // Reset Year logic
     if (type === 'RESET TAHUN') {
       const startDate = `${year}-01-01`;
       const endDate = `${year + 1}-01-01`;
@@ -126,14 +128,46 @@ export class RunningNumberService {
         .first();
       cabangData = datacabang.kodecabang;
     }
+
+    let tujuanData = '';
+    if (tujuan) {
+      const datatujuan = await trx('tujuankapal')
+        .select('kode')
+        .where('id', tujuan)
+        .first();
+      tujuanData = datatujuan.kode;
+    }
+
+    let marketingData = '';
+    if (marketing) {
+      const datamarketing = await trx('marketing')
+        .select('kode')
+        .where('id', marketing)
+        .first();
+      marketingData = datamarketing.kode;
+    }
+
     const placeholders = {
       '9999': nextNumber,
       R: this.numberToRoman(month), // Bulan dalam format Roman
-      Y: year, // Tahun dalam format string (untuk memastikan diubah dengan benar)
+      M: marketingData, // Kode Marketing
+      T: tujuanData, // Kode Tujuan
+      y: year.toString().slice(-2), // Tahun 2 digit
+      Y: year, // Tahun 4 digit
       C: cabangData || '', // Cabang
     };
 
     let runningNumber = this.formatNumber(format, placeholders);
+
+    // New logic to handle digits for '9'
+    const digitCount = (format.match(/9/g) || []).length;
+    let nextNumberString = nextNumber.toString();
+    if (digitCount === 4) {
+      nextNumberString = nextNumberString.padStart(4, '0');
+    }
+
+    // Ensure the correct running number format
+    runningNumber = runningNumber.replace(/(\d+)/, nextNumberString);
 
     let isUnique = false;
     while (!isUnique) {
@@ -148,7 +182,10 @@ export class RunningNumberService {
         const newPlaceholders = {
           '9999': nextNumber,
           R: this.numberToRoman(month),
-          Y: year, // Tahun dalam format string
+          M: marketingData,
+          T: tujuanData,
+          y: year.toString().slice(-2),
+          Y: year,
           C: cabangData || '',
         };
         runningNumber = this.formatNumber(format, newPlaceholders);
@@ -156,6 +193,40 @@ export class RunningNumberService {
     }
 
     return runningNumber;
+  }
+
+  formatNumber(format: string, placeholders: { [key: string]: any }): string {
+    let formatted = format;
+    console.log('placeholders', placeholders);
+    console.log('format', format);
+    // Mengganti placeholder yang diapit dengan '#', seperti #9999#, #R#, #Y#
+    for (const [placeholder, value] of Object.entries(placeholders)) {
+      const regex = new RegExp(`#${placeholder}#`, 'g');
+      if (regex.test(formatted)) {
+        // Gantikan hanya placeholder yang diapit dengan tanda '#'
+        formatted = formatted.replace(regex, value.toString());
+      }
+    }
+
+    // Mengganti placeholder tanpa tanda '#', misalnya 'T', 'M', dll
+    // Gunakan word boundaries untuk menghindari penggantian di dalam kata literal seperti "BST"
+    for (const [placeholder, value] of Object.entries(placeholders)) {
+      if (!format.includes(`#${placeholder}#`)) {
+        // Hanya menggantikan jika tidak ada tanda '#', misalnya 'T', 'M', dll
+        // Gunakan \b untuk word boundaries agar hanya ganti jika standalone
+        const escapedPlaceholder = placeholder.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          '\\$&',
+        ); // Escape special chars jika ada
+        const regex = new RegExp(`\\b${escapedPlaceholder}\\b`, 'g');
+        formatted = formatted.replace(regex, value.toString());
+      }
+    }
+    console.log('formatted', formatted);
+    // Menghapus semua tanda '#' yang tersisa jika ada, misalnya dalam #BST
+    formatted = formatted.replace(/#/g, '');
+
+    return formatted;
   }
 
   numberToRoman(num: number): string {
@@ -180,35 +251,5 @@ export class RunningNumberService {
       num %= value;
       return acc + numeral.repeat(count);
     }, '');
-  }
-
-  formatNumber(format: string, placeholders: { [key: string]: any }): string {
-    let formatted = format;
-
-    for (const [placeholder, value] of Object.entries(placeholders)) {
-      if (placeholder === '9999') {
-        // For '9999', make sure it is padded to 4 digits
-        formatted = formatted.replace(
-          new RegExp(`#${placeholder}#`, 'g'),
-          value.toString().padStart(4, '0'),
-        );
-      } else if (formatted.includes(`#${placeholder}#`)) {
-        // For placeholders like #R#, #Y#, #C# etc.
-        formatted = formatted.replace(
-          new RegExp(`#${placeholder}#`, 'g'),
-          value.toString(),
-        );
-      } else if (formatted.includes(placeholder)) {
-        // For placeholders like R, Y, C directly embedded
-        formatted = formatted.replace(
-          new RegExp(placeholder, 'g'),
-          value.toString(),
-        );
-      }
-    }
-
-    // Remove any remaining '#' characters
-    formatted = formatted.replace(/#/g, '');
-    return formatted;
   }
 }
