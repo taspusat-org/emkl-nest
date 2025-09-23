@@ -33,6 +33,7 @@ export class JenisOrderanService {
         page,
         limit,
         statusaktif_text,
+        statusformat_nama,
         ...insertData
       } = createJenisOrderanDto;
       insertData.updated_at = this.utilsService.getTime();
@@ -125,6 +126,7 @@ export class JenisOrderanService {
           'jenisorderan.id as id',
           'jenisorderan.nama',
           'jenisorderan.keterangan',
+          'jenisorderan.statusformat',
           'jenisorderan.statusaktif',
           'jenisorderan.modifiedby',
           trx.raw(
@@ -135,11 +137,17 @@ export class JenisOrderanService {
           ),
           'par.memo',
           'par.text',
+          'format.text as format_nama'
         ])
         .leftJoin(
           trx.raw('parameter as par WITH (READUNCOMMITTED)'),
           'jenisorderan.statusaktif',
           'par.id',
+        )
+        .leftJoin(
+          trx.raw('parameter as format WITH (READUNCOMMITTED)'),
+          'jenisorderan.statusformat',
+          'format.id',
         );
 
       if (limit > 0) {
@@ -153,8 +161,13 @@ export class JenisOrderanService {
           builder
             .orWhere('jenisorderan.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('jenisorderan.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('par.memo', 'like', `%${sanitizedValue}%`)
-            .orWhere('par.text', 'like', `%${sanitizedValue}%`);
+            .orWhere('format.text', 'like', `%${sanitizedValue}%`)
+            .orWhereRaw("FORMAT(jenisorderan.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
+            .orWhereRaw("FORMAT(jenisorderan.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ]);
         });
       }
 
@@ -169,8 +182,10 @@ export class JenisOrderanService {
               );
             } else if (key === 'text' || key === 'memo') {
               query.andWhere(`par.${key}`, '=', sanitizedValue);
-            } else {
-              query.andWhere(
+            } else if (key === 'format_text') {
+              query.andWhere(`format.text`, 'like', `%${sanitizedValue}%`);
+            }else {
+              query.andWhere( 
                 `jenisorderan.${key}`,
                 'like',
                 `%${sanitizedValue}%`,
@@ -184,7 +199,11 @@ export class JenisOrderanService {
       const totalPages = Math.ceil(total / limit);
 
       if (sort?.sortBy && sort?.sortDirection) {
-        query.orderBy(sort.sortBy, sort.sortDirection);
+        if (sort?.sortBy === 'format_text') {
+          query.orderBy('format.text', sort.sortDirection);
+        } else {
+          query.orderBy(sort.sortBy, sort.sortDirection);
+        }
       }
 
       const data = await query;
@@ -290,6 +309,7 @@ export class JenisOrderanService {
         page,
         limit,
         statusaktif_text,
+        statusformat_nama,
         ...insertData
       } = data;
       Object.keys(insertData).forEach((key) => {
