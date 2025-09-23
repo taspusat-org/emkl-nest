@@ -22,6 +22,6 @@ import { JurnalumumheaderModule } from '../jurnalumumheader/jurnalumumheader.mod
     UtilsModule,
     GlobalModule,
     LogtrailModule,
-  ]
+  ],
 })
 export class LabaRugiKalkulasiModule {}

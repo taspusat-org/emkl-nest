@@ -1,10 +1,10 @@
-import { 
+import {
   HttpException,
   HttpStatus,
   Inject,
   Injectable,
   InternalServerErrorException,
-  NotFoundException
+  NotFoundException,
 } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -50,14 +50,14 @@ export class LabaRugiKalkulasiService {
 
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
-            insertData[key] = insertData[key].toUpperCase();
+          insertData[key] = insertData[key].toUpperCase();
         }
       });
 
       const insertedData = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
-        
+
       const newItem = insertedData[0];
       const { data, pagination } = await this.findAll(
         {
@@ -77,7 +77,7 @@ export class LabaRugiKalkulasiService {
 
       // Optionally, you can find the page number or other info if needed
       const pageNumber = pagination?.currentPage;
-      
+
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(data),
@@ -96,10 +96,10 @@ export class LabaRugiKalkulasiService {
         trx,
       );
 
-      return { 
-        newItem, 
-        pageNumber, 
-        dataIndex 
+      return {
+        newItem,
+        pageNumber,
+        dataIndex,
       };
     } catch (error) {
       throw new Error(`Error creating laba rugi kalkulasi: ${error.message}`);
@@ -163,15 +163,19 @@ export class LabaRugiKalkulasiService {
             .orWhere('p.text', 'like', `%${sanitizedValue}%`)
             .orWhere('q.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
-            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
+            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ]);
         });
       }
 
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
-          
+
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
               query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
@@ -197,11 +201,11 @@ export class LabaRugiKalkulasiService {
       if (sort?.sortBy && sort?.sortDirection) {
         if (sort?.sortBy === 'periode') {
           // query.orderBy(sort.sortBy, sort.sortDirection);
-          query.orderByRaw(
-            `RIGHT(??, 4) + LEFT(??, 2) ${sort.sortDirection}`,
-            [sort.sortBy, sort.sortBy]
-          );
-        } else{
+          query.orderByRaw(`RIGHT(??, 4) + LEFT(??, 2) ${sort.sortDirection}`, [
+            sort.sortBy,
+            sort.sortBy,
+          ]);
+        } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }
       }
@@ -265,8 +269,7 @@ export class LabaRugiKalkulasiService {
           updateData[key] = updateData[key].toUpperCase();
         }
       });
-      console.log('updateData',updateData);
-      
+      console.log('updateData', updateData);
 
       const hasChanges = this.utilsService.hasChanges(updateData, existingData);
 
@@ -491,14 +494,15 @@ export class LabaRugiKalkulasiService {
             vertical: 'middle',
           };
         } else {
-          cell.value = Number(value); '';
+          cell.value = Number(value);
+          ('');
           cell.numFmt = '#,##0.00';
           cell.alignment = {
             horizontal: 'right',
             vertical: 'middle',
           };
         }
-        
+
         // cell.value = value ?? '';
         cell.font = { name: 'Tahoma', size: 10 };
         // cell.alignment = {
