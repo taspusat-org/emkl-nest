@@ -199,7 +199,11 @@ export class PengeluaranEmklService {
         )
         .leftJoin('akunpusat as coaproses', 'u.coaproses', 'coaproses.coa')
         .leftJoin('parameter as nilaiproses', 'u.nilaiproses', 'nilaiproses.id')
-        .leftJoin('parameter as statuspenarikan', 'u.statuspenarikan', 'statuspenarikan.id')
+        .leftJoin(
+          'parameter as statuspenarikan',
+          'u.statuspenarikan',
+          'statuspenarikan.id',
+        )
         .leftJoin('parameter as p', 'u.format', 'p.id')
         .leftJoin('parameter as q', 'u.statusaktif', 'q.id');
 
@@ -231,11 +235,7 @@ export class PengeluaranEmklService {
               'like',
               `%${sanitizedValue}%`,
             )
-            .orWhere(
-              'coaproses.keterangancoa',
-              'like',
-              `%${sanitizedValue}%`,
-            )
+            .orWhere('coaproses.keterangancoa', 'like', `%${sanitizedValue}%`)
             .orWhere('p.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
             .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
@@ -299,11 +299,7 @@ export class PengeluaranEmklService {
                 `%${sanitizedValue}%`,
               );
             } else if (key === 'nilaiproses_text') {
-              query.andWhere(
-                'nilaiproses.id',
-                'like',
-                `%${sanitizedValue}%`,
-              );
+              query.andWhere('nilaiproses.id', 'like', `%${sanitizedValue}%`);
             } else if (key === 'statuspenarikan_text') {
               query.andWhere(
                 'statuspenarikan.id',

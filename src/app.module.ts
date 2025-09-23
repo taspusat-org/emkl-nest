@@ -102,6 +102,7 @@ import { PenerimaanemklheaderModule } from './modules/penerimaanemklheader/pener
 import { PenerimaanemkldetailModule } from './modules/penerimaanemkldetail/penerimaanemkldetail.module';
 import { TradoModule } from './modules/trado/trado.module';
 import { GandenganModule } from './modules/gandengan/gandengan.module';
+import { PrinterModule } from './modules/printer/printer.module';
 
 @Module({
   imports: [
@@ -202,6 +203,7 @@ import { GandenganModule } from './modules/gandengan/gandengan.module';
     PenerimaanemkldetailModule,
     TradoModule,
     GandenganModule,
+    PrinterModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

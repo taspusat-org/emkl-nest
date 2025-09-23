@@ -1,4 +1,4 @@
-import { 
+import {
   Res,
   Get,
   Put,
@@ -24,12 +24,22 @@ import { AuthGuard } from '../auth/auth.guard';
 import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
-import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
-import { CreateLabaRugiKalkulasiSchema, UpdateLabaRugiKalkulasiDto, UpdateLabaRugiKalkulasiSchema } from './dto/create-laba-rugi-kalkulasi.dto';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
+import {
+  CreateLabaRugiKalkulasiSchema,
+  UpdateLabaRugiKalkulasiDto,
+  UpdateLabaRugiKalkulasiSchema,
+} from './dto/create-laba-rugi-kalkulasi.dto';
 
 @Controller('labarugikalkulasi')
 export class LabaRugiKalkulasiController {
-  constructor(private readonly labaRugiKalkulasiService: LabaRugiKalkulasiService) {}
+  constructor(
+    private readonly labaRugiKalkulasiService: LabaRugiKalkulasiService,
+  ) {}
 
   @UseGuards(AuthGuard)
   @Post()
@@ -38,7 +48,7 @@ export class LabaRugiKalkulasiController {
     @Body(
       new InjectMethodPipe('create'),
       new ZodValidationPipe(CreateLabaRugiKalkulasiSchema),
-      KeyboardOnlyValidationPipe
+      KeyboardOnlyValidationPipe,
     )
     data: any,
     @Req() req,
@@ -47,17 +57,20 @@ export class LabaRugiKalkulasiController {
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
       console.log('data di controller', data);
-      
+
       const result = await this.labaRugiKalkulasiService.create(data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating laba rugi kalkulasi in controller', error);
+      console.error(
+        'Error while creating laba rugi kalkulasi in controller',
+        error,
+      );
 
       if (error instanceof HttpException) {
-        throw error; 
+        throw error;
       }
 
       throw new HttpException(
@@ -74,15 +87,8 @@ export class LabaRugiKalkulasiController {
   //@LABA-RUGI-KALKULASI
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
-    const { 
-      search, 
-      page, 
-      limit, 
-      sortBy, 
-      sortDirection, 
-      isLookUp, 
-      ...filters } 
-    = query;
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
 
     const sortParams = {
       sortBy: sortBy || 'periode',
@@ -114,7 +120,9 @@ export class LabaRugiKalkulasiController {
         error,
         error.message,
       );
-      throw new InternalServerErrorException('Failed to fetch laba rugi kalkulasi');
+      throw new InternalServerErrorException(
+        'Failed to fetch laba rugi kalkulasi',
+      );
     }
   }
 
@@ -226,7 +234,8 @@ export class LabaRugiKalkulasiController {
         throw new Error('Data is not an array or is undefined');
       }
 
-      const tempFilePath = await this.labaRugiKalkulasiService.exportToExcel(data);
+      const tempFilePath =
+        await this.labaRugiKalkulasiService.exportToExcel(data);
       const fileStream = fs.createReadStream(tempFilePath);
 
       res.setHeader(
