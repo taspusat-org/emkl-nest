@@ -25,6 +25,7 @@ async function bootstrap() {
       'http://192.168.3.211:3001',
       'http://192.168.3.21:3000',
       'http://localhost:3000',
+      'http://192.168.3.217:3000',
     ], // List of allowed origins
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
     allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers

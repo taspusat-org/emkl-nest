@@ -197,8 +197,6 @@ export class RunningNumberService {
 
   formatNumber(format: string, placeholders: { [key: string]: any }): string {
     let formatted = format;
-    console.log('placeholders', placeholders);
-    console.log('format', format);
     // Mengganti placeholder yang diapit dengan '#', seperti #9999#, #R#, #Y#
     for (const [placeholder, value] of Object.entries(placeholders)) {
       const regex = new RegExp(`#${placeholder}#`, 'g');
@@ -222,7 +220,6 @@ export class RunningNumberService {
         formatted = formatted.replace(regex, value.toString());
       }
     }
-    console.log('formatted', formatted);
     // Menghapus semua tanda '#' yang tersisa jika ada, misalnya dalam #BST
     formatted = formatted.replace(/#/g, '');
 

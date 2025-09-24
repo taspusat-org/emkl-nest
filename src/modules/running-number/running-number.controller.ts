@@ -1,31 +1,45 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { RunningNumberService } from './running-number.service';
+import { dbMssql } from 'src/common/utils/db';
 
 @Controller('running-number')
 export class RunningNumberController {
   constructor(private readonly runningNumberService: RunningNumberService) {}
 
-  // @Get('generate')
-  // async generateRunningNumber(
-  //   @Query('group') group: string,
-  //   @Query('subGroup') subGroup: string,
-  //   @Query('table') table: string,
-  //   @Query('tgl') tgl: string,
-  //   @Query('tujuan') tujuan: string | null,
-  //   @Query('cabang') cabang: string | null,
-  //   @Query('jenisbiaya') jenisbiaya: string | null,
-  //   @Query('marketing') marketing: string | null,
-  // ): Promise<string> {
-  //   return await this.runningNumberService.generateRunningNumber(
-  //     null, // transaction if you need one
-  //     group,
-  //     subGroup,
-  //     table,
-  //     tgl,
-  //     tujuan,
-  //     cabang,
-  //     jenisbiaya,
-  //     marketing,
-  //   );
-  // }
+  @Get('generate')
+  async generateRunningNumber(
+    @Query('group') group: string,
+    @Query('subGroup') subGroup: string,
+    @Query('table') table: string,
+    @Query('tgl') tgl: string,
+    @Query('tujuan') tujuan: string | null,
+    @Query('cabang') cabang: string | null,
+    @Query('jenisbiaya') jenisbiaya: string | null,
+    @Query('marketing') marketing: string | null,
+  ): Promise<string> {
+    const trx = await dbMssql.transaction();
+    try {
+      console.log('tujuan', tujuan);
+      console.log('cabang', cabang);
+      console.log('jenisbiaya', jenisbiaya);
+      console.log('marketing', marketing);
+      const result = await this.runningNumberService.generateRunningNumber(
+        trx, // transaction if you need one
+        group,
+        subGroup,
+        table,
+        tgl,
+        cabang,
+        tujuan,
+        jenisbiaya,
+        marketing,
+      );
+      await trx.commit();
+      return result;
+    } catch (error) {
+      console.error('Error generating running number:', error);
+      await trx.rollback();
+      throw new Error('Failed to generate running number');
+    }
+  }
 }

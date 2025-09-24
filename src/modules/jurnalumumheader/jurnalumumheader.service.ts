@@ -289,18 +289,32 @@ export class JurnalumumheaderService {
         }
       }
 
-      const query = trx(`${this.tableName} as u`).select([
-        'u.id as id',
-        'u.nobukti', // nobukti (nvarchar(100))
-        trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
-        'u.keterangan', // keterangan (nvarchar(max))
-        'u.postingdari', // relasi_id (integer)
-        'u.statusformat', // bank_id (integer)
-        'u.info', // info (nvarchar(max))
-        'u.modifiedby', // modifiedby (varchar(200))
-        trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
-        trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
-      ]);
+      const dataTempStatusPendukung = await this.tempStatusPendukung(
+        trx,
+        this.tableName,
+      );
+      const query = trx(`${this.tableName} as u`)
+        .select([
+          'u.id as id',
+          'u.nobukti', // nobukti (nvarchar(100))
+          trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
+          'u.keterangan', // keterangan (nvarchar(max))
+          'u.postingdari', // relasi_id (integer)
+          'u.statusformat', // bank_id (integer)
+          'u.info', // info (nvarchar(max))
+          'u.modifiedby', // modifiedby (varchar(200))
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
+          'd.keterangan as keteranganapproval',
+          'd.tglapproval as tglapproval',
+          'd.statusapproval as statusapproval',
+          'd.keterangan_cetak as keterangancetak',
+          'd.tglcetak as tglcetak',
+          'd.statuscetak as statuscetak',
+          'd.statusapproval_id as statusapproval_id',
+          'd.statuscetak_id as statuscetak_id',
+        ])
+        .innerJoin(`${dataTempStatusPendukung} as d`, 'u.nobukti', 'd.nobukti');
 
       if (filters?.tglDari && filters?.tglSampai) {
         // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
@@ -313,6 +327,7 @@ export class JurnalumumheaderService {
           tglSampaiFormatted,
         ]);
       }
+
       const excludeSearchKeys = ['tglDari', 'tglSampai'];
       if (limit > 0) {
         const offset = (page - 1) * limit;
@@ -350,6 +365,14 @@ export class JurnalumumheaderService {
                 key,
                 `%${sanitizedValue}%`,
               ]);
+            } else if (key === 'statusapproval') {
+              query.andWhere(
+                'd.statusapproval_id',
+                'like',
+                `%${sanitizedValue}%`,
+              );
+            } else if (key === 'statuscetak') {
+              query.andWhere('d.statuscetak_id', 'like', `%${sanitizedValue}%`);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
@@ -386,6 +409,173 @@ export class JurnalumumheaderService {
     }
   }
 
+  async tempStatusPendukung(trx: any, tablename: string) {
+    try {
+      const tempStatusPendukung = `##temp_${Math.random().toString(36).substring(2, 15)}`;
+      const tempData = `##temp_data${Math.random().toString(36).substring(2, 15)}`;
+      const tempHasil = `##temp_hasil${Math.random().toString(36).substring(2, 15)}`;
+
+      // Create tempStatusPendukung table
+      await trx.schema.createTable(tempStatusPendukung, (t) => {
+        t.bigInteger('id').nullable();
+        t.bigInteger('statusdatapendukung').nullable();
+        t.bigInteger('transaksi_id').nullable();
+        t.string('statuspendukung').nullable();
+        t.text('keterangan').nullable();
+        t.string('modifiedby').nullable();
+        t.string('updated_at').nullable();
+        t.string('created_at').nullable();
+      });
+
+      // Create tempHasil table
+      await trx.schema.createTable(tempData, (t) => {
+        t.string('nobukti').nullable();
+        t.text('keterangan').nullable();
+        t.string('judul').nullable();
+      });
+      await trx.schema.createTable(tempHasil, (t) => {
+        t.string('nobukti').nullable();
+        t.text('statusapproval').nullable();
+        t.text('statuscetak').nullable();
+        t.text('keterangan').nullable();
+        t.string('statusapproval_id').nullable();
+        t.string('tglapproval').nullable();
+        t.string('keterangan_cetak').nullable();
+        t.string('statuscetak_id').nullable();
+        t.string('tglcetak').nullable();
+      });
+
+      // Insert into tempStatusPendukung
+      await trx(tempStatusPendukung).insert(
+        trx
+          .select(
+            'a.id',
+            'a.statusdatapendukung',
+            'a.transaksi_id',
+            'a.statuspendukung',
+            'a.keterangan',
+            'a.modifiedby',
+            'a.updated_at',
+            'a.created_at',
+          )
+          .from('statuspendukung as a')
+          .innerJoin('parameter as b', 'a.statusdatapendukung', 'b.id')
+          .where('b.subgrp', tablename),
+      );
+
+      await trx(tempData).insert(
+        trx
+          .select(
+            'a.nobukti',
+            trx.raw(
+              `CONCAT(
+                '{"statusdatapendukung":"',
+                CASE 
+                  WHEN ISJSON(CAST(c.memo AS NVARCHAR(MAX))) = 1 
+                    THEN JSON_VALUE(CAST(c.memo AS NVARCHAR(MAX)), '$.MEMO') 
+                  ELSE '' 
+                END,
+                '","transaksi_id":',
+                TRIM(STR(ISNULL(b.transaksi_id, 0))),
+                ',"statuspendukung":"',
+                CASE 
+                  WHEN ISJSON(CAST(d.memo AS NVARCHAR(MAX))) = 1 
+                    THEN JSON_VALUE(CAST(d.memo AS NVARCHAR(MAX)), '$.MEMO') 
+                  ELSE '' 
+                END,
+                '","keterangan":"',
+                TRIM(ISNULL(b.keterangan, '')),
+                '","updated_at":"',
+                FORMAT(CAST(b.updated_at AS DATETIME), 'yyyy-MM-dd HH:mm:ss'),
+                '","statuspendukung_id":"',
+                TRIM(STR(ISNULL(d.id, 0))),
+                '","statuspendukung_memo":',
+               TRIM(CAST(d.memo AS NVARCHAR(MAX))),
+                '}'
+              ) AS keterangan`,
+            ),
+            trx.raw(
+              `CASE 
+                WHEN ISJSON(CAST(c.memo AS NVARCHAR(MAX))) = 1 
+                  THEN JSON_VALUE(CAST(c.memo AS NVARCHAR(MAX)), '$.MEMO') 
+                ELSE '' 
+              END AS judul`,
+            ),
+          )
+          .from('jurnalumumheader as a')
+          .innerJoin(`${tempStatusPendukung} as b`, 'a.id', 'b.transaksi_id')
+          .innerJoin('parameter as c', 'b.statusdatapendukung', 'c.id')
+          .innerJoin('parameter as d', 'b.statuspendukung', 'd.id'),
+      );
+
+      // Generate dynamic columns for PIVOT
+      const columnsResult = await trx
+        .select('judul')
+        .from(tempData)
+        .groupBy('judul');
+
+      let columns = '';
+      columnsResult.forEach((row, index) => {
+        if (index === 0) {
+          columns = `[${row.judul}]`;
+        } else {
+          columns += `, [${row.judul}]`;
+        }
+      });
+
+      if (!columns) {
+        throw new Error('No columns generated for PIVOT');
+      }
+      const pivotSubqueryRaw = `
+        (
+          SELECT nobukti, ${columns}
+          FROM (
+            SELECT nobukti, judul, keterangan
+            FROM ${tempData}
+          ) AS SourceTable
+          PIVOT (
+            MAX(keterangan)
+            FOR judul IN (${columns})
+          ) AS PivotTable
+        ) AS A
+      `;
+      await trx(tempHasil).insert(
+        trx
+          .select([
+            'A.nobukti',
+            trx.raw(
+              "JSON_QUERY(A.[approval transaksi], '$.statuspendukung_memo') as statusapproval",
+            ),
+            trx.raw(
+              "JSON_QUERY(A.[cetak], '$.statuspendukung_memo') as statuscetak",
+            ),
+            trx.raw(
+              "JSON_VALUE(A.[approval transaksi], '$.keterangan') as keterangan",
+            ),
+            trx.raw(
+              "JSON_VALUE(A.[approval transaksi], '$.statuspendukung_id') as statusapproval_id",
+            ),
+            trx.raw(
+              "CAST(JSON_VALUE(A.[approval transaksi], '$.updated_at') AS DATETIME) as tglapproval",
+            ),
+            trx.raw(
+              "JSON_VALUE(A.[cetak], '$.keterangan') as keterangan_cetak",
+            ),
+            trx.raw(
+              "JSON_VALUE(A.[cetak], '$.statuspendukung_id') as statuscetak_id",
+            ),
+            trx.raw(
+              "CAST(JSON_VALUE(A.[cetak], '$.updated_at') AS DATETIME) as tglcetak",
+            ),
+          ])
+          .from(trx.raw(pivotSubqueryRaw)),
+      );
+      return tempHasil;
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
+  }
   async findOne(id: string, trx: any) {
     try {
       const query = trx(`${this.tableName} as u`)

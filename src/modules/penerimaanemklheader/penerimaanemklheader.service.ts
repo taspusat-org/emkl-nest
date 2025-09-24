@@ -70,15 +70,10 @@ export class PenerimaanemklheaderService {
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
       insertData.tgljatuhtempo = formatDateToSQL(
         String(insertData?.tgljatuhtempo),
-      ); // Fungsi untuk format
+      );
       insertData.statusformat = format;
       insertData.created_at = this.utilsService.getTime();
       insertData.updated_at = this.utilsService.getTime();
-
-      const datacoadebet = await trx(`bank as b`)
-        .select('b.coa')
-        .where('b.id', insertData.bank_id)
-        .first();
       const parameter = await trx('parameter')
         .select('grp', 'subgrp')
         .where('id', format)
@@ -101,13 +96,12 @@ export class PenerimaanemklheaderService {
         bank_id: insertData.bank_id,
         nowarkat: insertData.nowarkat,
         postingdari: postingdari,
-        coakasmasuk: coakredit,
       };
 
       const penerimaanDetails = details.map((detail: any) => {
         return {
           ...detail,
-          coa: parameter.coa_nama,
+          coa: coakredit,
           penerimaanemklheader_nobukti: nomorBukti,
           modifiedby: data.modifiedby,
         };
@@ -282,7 +276,7 @@ export class PenerimaanemklheaderService {
         .leftJoin('karyawan as k', 'u.karyawan_id', 'k.id')
         .leftJoin('parameter as p', 'u.jenisposting', 'p.id')
         .leftJoin('bank as b', 'u.bank_id', 'b.id')
-        .leftJoin('pengeluaranemkl as pe', 'u.statusformat', 'pe.format')
+        .leftJoin('penerimaanemkl as pe', 'u.statusformat', 'pe.format')
         .innerJoin(trx.raw(`${tempUrl} as tempUrl`), 'u.id', 'tempUrl.id');
 
       if (filters?.tglDari && filters?.tglSampai) {
@@ -429,6 +423,7 @@ export class PenerimaanemklheaderService {
         pengembaliankasgantung_nobukti,
         relasi_nama,
         jenisposting_nama,
+        coakredit,
         pengeluaran_nobukti,
         format,
         statusformat_nama,
@@ -440,157 +435,67 @@ export class PenerimaanemklheaderService {
         details,
         ...insertData
       } = data;
-
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
       insertData.tgljatuhtempo = formatDateToSQL(
         String(insertData?.tgljatuhtempo),
       ); // Fungsi untuk format
+
       const existingData = await trx(this.tableName).where('id', id).first();
-
-      const pengeluaranNoBukti = '';
-      const hutangNoBukti = '';
-      let grp = '';
-      let subgrp = '';
-      let coakredit = '';
-      let postingdari = '';
-      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
-      if (insertData.jenisposting === 168) {
-        const datacoakredit = await trx(`bank as b`)
-          .select('b.coa')
-          .where('b.id', insertData.bank_id)
-          .first();
-        const parameter = await trx('parameter')
-          .select(
-            'grp',
-            'subgrp',
-            trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
-            trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
-          )
-          .where('id', format)
-          .first();
-        grp = parameter.grp;
-        subgrp = parameter.subgrp;
-        postingdari = parameter.memo_nama;
-        coakredit = datacoakredit.coa;
-      } else {
-        const datacoakredit = await trx(`parameter as p`)
-          .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`))
-          .where('p.grp', 'NOMOR HUTANG')
-          .andWhere('p.subgrp', 'NOMOR HUTANG')
-          .first();
-        const parameter = await trx('parameter')
-          .select(
-            'grp',
-            'subgrp',
-            trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
-            trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
-          )
-          .where('id', format)
-          .first();
-        grp = parameter.grp;
-        subgrp = parameter.subgrp;
-        postingdari = parameter.memo_nama;
-        coakredit = datacoakredit.coa_nama;
-      }
-
-      if (insertData.jenisposting === 168) {
-        const existingPengeluaran = await trx('pengeluaranheader')
-          .where('nobukti', existingData.pengeluaran_nobukti)
-          .first();
-        const requestPengeluaran = {
-          tglbukti: insertData.tglbukti,
-          keterangan: insertData.keterangan,
-          bank_id: insertData.bank_id,
-          nowarkat: insertData.nowarkat,
-          tgljatuhtempo: insertData.tgljatuhtempo,
-          postingdari: postingdari,
-          coakredit: existingPengeluaran.coakredit,
-        };
-
-        const pengeluaranDetails = details.map((detail: any) => ({
-          id: 0,
-          coadebet: coadebet ?? null,
-          keterangan: detail.keterangan ?? null,
-          nominal: detail.nominal ?? null,
-          dpp: detail.dpp ?? 0,
-          transaksibiaya_nobukti: detail.transaksibiaya_nobukti ?? null,
-          transaksilain_nobukti: detail.transaksilain_nobukti ?? null,
-          noinvoiceemkl: detail.noinvoiceemkl ?? null,
-          tglinvoiceemkl: detail.tglinvoiceemkl ?? null,
-          nofakturpajakemkl: detail.nofakturpajakemkl ?? null,
-          perioderefund: detail.perioderefund ?? null,
-          pengeluaranemklheader_nobukti: insertData.nobukti ?? null,
-          penerimaanemklheader_nobukti:
-            detail.penerimaanemklheader_nobukti ?? null,
-          info: detail.info ?? null,
-          modifiedby: insertData.modifiedby ?? null,
-        }));
-
-        const pengeluaranData = {
-          ...requestPengeluaran,
-          details: pengeluaranDetails,
-        };
-        const pengeluaranResult = await this.penerimaanheaderService.update(
-          existingPengeluaran.id,
-          pengeluaranData,
-          trx,
-        );
-      } else {
-        const existingHutang = await trx('hutangheader')
-          .where('nobukti', existingData.hutang_nobukti)
-          .first();
-        const requestHutang = {
-          tglbukti: insertData.tglbukti,
-          keterangan: insertData.keterangan,
-          tgljatuhtempo: insertData.tgljatuhtempo,
-          coa: coadebet,
-        };
-
-        const hutangDetails = details.map((detail: any) => ({
-          id: 0,
-          coa: coakredit ?? null,
-          keterangan: detail.keterangan ?? null,
-          nominal: detail.nominal ?? null,
-          dpp: detail.dpp ?? 0,
-          noinvoiceemkl: detail.noinvoiceemkl ?? null,
-          tglinvoiceemkl: detail.tglinvoiceemkl ?? null,
-          nofakturpajakemkl: detail.nofakturpajakemkl ?? null,
-          info: detail.info ?? null,
-          modifiedby: insertData.modifiedby ?? null,
-        }));
-
-        const hutangData = {
-          ...requestHutang,
-          details: hutangDetails,
-        };
-        const hutangResult = await this.hutangheaderService.update(
-          existingHutang.id,
-          hutangData,
-          trx,
-        );
-      }
-
+      const penerimaanData = await trx('penerimaanheader')
+        .where('nobukti', existingData.penerimaan_nobukti)
+        .first();
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
+      const requestPenerimaan = {
+        nobukti: insertData.penerimaan_nobukti,
+        tglbukti: insertData.tglbukti,
+        keterangan: insertData.keterangan,
+        bank_id: insertData.bank_id,
+        nowarkat: insertData.nowarkat,
+      };
 
+      const penerimaanDetails = details.map((detail: any) => {
+        const { id, ...rest } = detail;
+        return {
+          ...rest,
+          id: 0,
+          coa: coakredit,
+          penerimaanemklheader_nobukti: insertData.penerimaan_nobukti,
+          nobukti: insertData.penerimaan_nobukti,
+          modifiedby: data.modifiedby,
+        };
+      });
+
+      const payloadPenerimaan = {
+        ...requestPenerimaan,
+        details: penerimaanDetails,
+      };
+      const penerimaanResult = await this.penerimaanheaderService.update(
+        penerimaanData.id,
+        payloadPenerimaan,
+        trx,
+      );
       if (hasChanges) {
         insertData.updated_at = this.utilsService.getTime();
 
         await trx(this.tableName).where('id', id).update(insertData);
       }
-
       if (details.length > 0) {
-        const detailsWithNobukti = details.map((detail: any) => ({
-          ...detail,
-          nobukti: insertData.nobukti, // Inject nobukti into each detail
-          pengeluaranemkl_nobukti: insertData.nobukti,
-          modifiedby: insertData.modifiedby,
-        }));
+        const detailsWithNobukti = details.map((detail: any) => {
+          const { id, ...rest } = detail;
+
+          return {
+            ...rest,
+            id: 0,
+            nobukti: insertData.nobukti, // Inject nobukti into each detail
+            pengeluaranemkl_nobukti: detail.nobukti,
+            modifiedby: insertData.modifiedby,
+          };
+        });
 
         // Pass the updated details with nobukti to the detail creation service
         await this.penerimaanemkldetailService.create(
@@ -599,7 +504,6 @@ export class PenerimaanemklheaderService {
           trx,
         );
       }
-
       const { data: filteredItems } = await this.findAll(
         {
           search,

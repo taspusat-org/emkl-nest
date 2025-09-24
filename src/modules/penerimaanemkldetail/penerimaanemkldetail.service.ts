@@ -198,7 +198,9 @@ export class PenerimaanemkldetailService {
           throw error;
         });
     }
-
+    console.log('insertedDataQuery', insertedDataQuery);
+    console.log('insertedData', insertedData);
+    console.log('updatedData', updatedData);
     await this.logTrailService.create(
       {
         namatabel: this.tableName,

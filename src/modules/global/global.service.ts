@@ -38,6 +38,7 @@ export class GlobalService {
       const mainData = await trx(data.tableName)
         .whereIn('id', data.transaksi_id)
         .forUpdate(); // LOCK ROWS untuk mencegah concurrent modification
+      console.log('mainData', mainData);
 
       // Jika tidak ada data ditemukan
       if (!mainData || mainData.length === 0) {
@@ -58,7 +59,9 @@ export class GlobalService {
         );
         const statusMsg = data.mode === 'APPROVAL' ? 'AKTIF' : 'NON AKTIF';
         if (sudahAktif && sudahAktif.length > 0) {
-          const namaList = sudahAktif.map((row: any) => row.nama).join(', ');
+          const namaList = sudahAktif
+            .map((row: any) => row.nama ?? row.nobukti)
+            .join(', ');
           return {
             status: HttpStatus.BAD_REQUEST,
             message: `Data ${namaList} sudah berstatus ${statusMsg}. Proses tidak bisa dilanjutkan.`,
@@ -72,9 +75,11 @@ export class GlobalService {
           .whereIn('transaksi_id', data.transaksi_id)
           .where('statusdatapendukung', data.id)
           .where('statuspendukung', data.value);
-
         if (checkStatusPendukung && checkStatusPendukung.length > 0) {
-          const namaList = mainData.map((row: any) => row.nama).join(', ');
+          const namaList = mainData
+            .map((row: any) => row.nama ?? row.nobukti)
+            .join(', ');
+          console.log('namaList', namaList);
           const statusMsg =
             data.mode === 'APPROVAL' ? 'APPROVED' : 'NON APPROVED';
 
