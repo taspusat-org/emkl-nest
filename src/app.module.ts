@@ -103,6 +103,7 @@ import { PenerimaanemkldetailModule } from './modules/penerimaanemkldetail/pener
 import { TradoModule } from './modules/trado/trado.module';
 import { GandenganModule } from './modules/gandengan/gandengan.module';
 import { PrinterModule } from './modules/printer/printer.module';
+import { StatusjobModule } from './modules/statusjob/statusjob.module';
 
 @Module({
   imports: [
@@ -204,6 +205,7 @@ import { PrinterModule } from './modules/printer/printer.module';
     TradoModule,
     GandenganModule,
     PrinterModule,
+    StatusjobModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],
