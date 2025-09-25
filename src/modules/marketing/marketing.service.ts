@@ -289,6 +289,7 @@ export class MarketingService {
         .select([
           'u.id',
           'u.nama',
+          'u.kode',
           'u.keterangan',
           'u.statusaktif',
           'u.email',
@@ -348,6 +349,7 @@ export class MarketingService {
         query.where((builder) => {
           builder
             .orWhere('u.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.kode', 'like', `%${sanitizedValue}%`)
             .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
             // .orWhere('statusaktif.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.email', 'like', `%${sanitizedValue}%`)
@@ -952,6 +954,7 @@ export class MarketingService {
 
       const headerInfo = [
         ['Nama', h.nama ?? ''],
+        ['Kode', h.kode ?? ''],
         ['Keterangan', h.keterangan ?? ''],
         ['Status Aktif', h.statusaktif_nama ?? ''],
         ['Email', h.email ?? ''],

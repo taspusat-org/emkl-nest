@@ -100,9 +100,11 @@ export class TradoService {
       const total = result?.total as number;
       const totalPages = Math.ceil(total / limit);
       const data = await query;
+      const responseType = Number(total) > 500 ? 'json' : 'local';
 
       return {
         data: data,
+        type: responseType,
         total,
         pagination: {
           currentPage: Number(page),

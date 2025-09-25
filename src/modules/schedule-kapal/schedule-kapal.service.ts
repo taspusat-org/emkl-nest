@@ -207,9 +207,11 @@ export class ScheduleKapalService {
       // const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
       const totalPages = Math.ceil(total / limit);
       const data = await query;
+      const responseType = Number(total) > 500 ? 'json' : 'local';
 
       return {
         data: data,
+        type: responseType,
         total,
         pagination: {
           currentPage: Number(page),

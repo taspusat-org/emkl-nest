@@ -34,6 +34,7 @@ export class TujuankapalService {
         page,
         limit,
         nama,
+        kode,
         cabang_id,
         keterangan,
         statusaktif,
@@ -44,6 +45,7 @@ export class TujuankapalService {
       } = createTujuankapalDto;
       const insertData = {
         nama: nama ? nama.toUpperCase() : null,
+        kode: kode ? kode.toUpperCase() : null,
         keterangan: keterangan ? keterangan.toUpperCase() : null,
         cabang_id: cabang_id,
         statusaktif: statusaktif,
@@ -127,6 +129,7 @@ export class TujuankapalService {
         .select([
           'u.id as id',
           'u.nama',
+          'u.kode',
           'u.keterangan',
           'u.cabang_id',
           'c.nama as namacabang',
@@ -159,6 +162,7 @@ export class TujuankapalService {
         query.where((builder) => {
           builder
             .orWhere('u.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.kode', 'like', `%${sanitizedValue}%`)
             .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
             .orWhere('c.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('p.memo', 'like', `%${sanitizedValue}%`)
@@ -429,7 +433,7 @@ export class TujuankapalService {
       };
     });
 
-    const headers = ['NO.', 'NAMA', 'KETERANGAN', 'CABANG', 'STATUS AKTIF'];
+    const headers = ['NO.', 'NAMA', 'KODE', 'KETERANGAN', 'CABANG', 'STATUS AKTIF'];
 
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(5, index + 1);
@@ -454,6 +458,7 @@ export class TujuankapalService {
       const rowValues = [
         rowIndex + 1,
         row.nama,
+        row.kode,
         row.keterangan,
         row.namacabang,
         row.text,
