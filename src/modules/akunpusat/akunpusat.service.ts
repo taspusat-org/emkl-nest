@@ -171,13 +171,12 @@ export class AkunpusatService {
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        // Use keys from filters for dynamic search conditions, excluding the ones in the excludedFields list
-        const filterKeys = Object.keys(filters).filter(
-          (key) => !excludedFields.includes(key),
-        );
+        // Tentukan dua field yang ingin dicari
+        const searchableFields = ['coa', 'keterangancoa']; // Misalnya hanya 'name' dan 'email'
+
         query.where((builder) => {
-          filterKeys.forEach((key) => {
-            builder.orWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+          searchableFields.forEach((field) => {
+            builder.orWhere(`u.${field}`, 'like', `%${sanitizedValue}%`);
           });
         });
       }

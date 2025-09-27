@@ -573,15 +573,23 @@ export class PenerimaanemklheaderService {
       );
       const deletedDataDetail = await this.utilsService.lockAndDestroy(
         id,
-        'pengeluaranemkldetail',
-        'jurnalumum_id',
+        'penerimaanemkldetail',
+        'penerimaanemklheader_id',
         trx,
+      );
+      const dataPenerimaan = await trx('penerimaanheader')
+        .where('nobukti', deletedDataDetail.penerimaan_nobukti)
+        .first();
+      await this.penerimaanheaderService.delete(
+        dataPenerimaan.id,
+        trx,
+        modifiedby,
       );
 
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE PENGELUARAN EMKL DETAIL',
+          postingdari: 'DELETE PENERIMAAN EMKL DETAIL',
           idtrans: deletedDataDetail.id,
           nobuktitrans: deletedDataDetail.id,
           aksi: 'DELETE',

@@ -123,9 +123,10 @@ export class PengeluaranheaderService {
 
       if (details.length > 0) {
         const detailsWithNobukti = details.map(
-          ({ coadebet_text, ...detail }: any) => ({
+          ({ coadebet_text, tglinvoiceemkl, ...detail }: any) => ({
             ...detail,
             nobukti: nomorBukti,
+            tglinvoiceemkl: formatDateToSQL(tglinvoiceemkl),
             modifiedby: data.modifiedby || null,
           }),
         );
@@ -176,7 +177,6 @@ export class PengeluaranheaderService {
         modifiedby: insertData.modifiedby,
         details: result,
       };
-      console.log('jurnalPayload', jurnalPayload);
       const jurnalHeaderInserted = await this.JurnalumumheaderService.create(
         jurnalPayload,
         trx,
