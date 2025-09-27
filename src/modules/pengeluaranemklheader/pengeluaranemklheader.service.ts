@@ -1,4 +1,5 @@
 import {
+  forwardRef,
   HttpException,
   HttpStatus,
   Inject,
@@ -32,6 +33,7 @@ export class PengeluaranemklheaderService {
     private readonly locksService: LocksService,
     private readonly globalService: GlobalService,
     private readonly pengeluaranemkldetailService: PengeluaranemkldetailService,
+    @Inject(forwardRef(() => PengeluaranheaderService)) // ← Index 7: Gunakan forwardRef di sini!
     private readonly pengeluaranheaderService: PengeluaranheaderService,
     private readonly hutangheaderService: HutangheaderService,
   ) {}
@@ -52,6 +54,7 @@ export class PengeluaranemklheaderService {
         pengeluaran_nobukti,
         format,
         coadebet,
+        coaproses,
         alatbayar_nama,
         penerimaan_nobukti,
         bank_nama,
@@ -71,12 +74,19 @@ export class PengeluaranemklheaderService {
       insertData.tgljatuhtempo = formatDateToSQL(
         String(insertData?.tgljatuhtempo),
       ); // Fungsi untuk format
-      insertData.statusformat = format;
+      let statusformat = insertData.format ?? null;
+      insertData.statusformat = statusformat;
       insertData.created_at = this.utilsService.getTime();
       insertData.updated_at = this.utilsService.getTime();
 
+      if (coaproses) {
+        const pengeluaranemklformat = await trx('pengeluaranemkl')
+          .where('coaproses', coaproses)
+          .first();
+        statusformat = pengeluaranemklformat.format;
+      }
       const pengeluaranemkl = await trx('pengeluaranemkl')
-        .where('format', format)
+        .where('format', statusformat)
         .first();
       let pengeluaranNoBukti = '';
       let hutangNoBukti = '';
@@ -132,82 +142,89 @@ export class PengeluaranemklheaderService {
         insertData.tglbukti,
       );
       insertData.nobukti = nomorBukti;
-      if (insertData.jenisposting === 168) {
-        const requestPengeluaran = {
-          tglbukti: insertData.tglbukti,
-          keterangan: insertData.keterangan,
-          bank_id: insertData.bank_id,
-          nowarkat: insertData.nowarkat,
-          tgljatuhtempo: insertData.tgljatuhtempo,
-          postingdari: postingdari,
-          coakredit: coakredit,
-        };
+      if (!coaproses) {
+        if (insertData.jenisposting === 168) {
+          const requestPengeluaran = {
+            tglbukti: insertData.tglbukti,
+            keterangan: insertData.keterangan,
+            bank_id: insertData.bank_id,
+            nowarkat: insertData.nowarkat,
+            tgljatuhtempo: insertData.tgljatuhtempo,
+            postingdari: postingdari,
+            coakredit: coakredit,
+          };
 
-        const pengeluaranDetails = details.map((detail: any) => ({
-          id: 0,
-          coadebet: coadebet ?? null,
-          keterangan: detail.keterangan ?? null,
-          nominal: detail.nominal ?? null,
-          dpp: detail.dpp ?? 0,
-          transaksibiaya_nobukti: detail.transaksibiaya_nobukti ?? null,
-          transaksilain_nobukti: detail.transaksilain_nobukti ?? null,
-          noinvoiceemkl: detail.noinvoiceemkl ?? null,
-          tglinvoiceemkl: detail.tglinvoiceemkl ?? null,
-          nofakturpajakemkl: detail.nofakturpajakemkl ?? null,
-          perioderefund: detail.perioderefund ?? null,
-          pengeluaranemklheader_nobukti: nomorBukti ?? null,
-          penerimaanemklheader_nobukti:
-            detail.penerimaanemklheader_nobukti ?? null,
-          info: detail.info ?? null,
-          modifiedby: insertData.modifiedby ?? null,
-        }));
+          const pengeluaranDetails = details.map((detail: any) => ({
+            id: 0,
+            coadebet: coadebet ?? null,
+            keterangan: detail.keterangan ?? null,
+            nominal: detail.nominal ?? null,
+            dpp: detail.dpp ?? 0,
+            transaksibiaya_nobukti: detail.transaksibiaya_nobukti ?? null,
+            transaksilain_nobukti: detail.transaksilain_nobukti ?? null,
+            noinvoiceemkl: detail.noinvoiceemkl ?? null,
+            tglinvoiceemkl: detail.tglinvoiceemkl ?? null,
+            nofakturpajakemkl: detail.nofakturpajakemkl ?? null,
+            perioderefund: detail.perioderefund ?? null,
+            pengeluaranemklheader_nobukti: nomorBukti ?? null,
+            penerimaanemklheader_nobukti:
+              detail.penerimaanemklheader_nobukti ?? null,
+            info: detail.info ?? null,
+            modifiedby: insertData.modifiedby ?? null,
+          }));
 
-        const pengeluaranData = {
-          ...requestPengeluaran,
-          details: pengeluaranDetails,
-        };
-        const pengeluaranResult = await this.pengeluaranheaderService.create(
-          pengeluaranData,
-          trx,
-        );
-        pengeluaranNoBukti = pengeluaranResult?.newItem?.nobukti;
-        if (!pengeluaranNoBukti) {
-          throw new Error('Gagal membuat pengeluaran: nobukti tidak terbentuk');
-        }
-      } else {
-        const requestHutang = {
-          tglbukti: insertData.tglbukti,
-          keterangan: insertData.keterangan,
-          tgljatuhtempo: insertData.tgljatuhtempo,
-          coa: coadebet,
-        };
+          const pengeluaranData = {
+            ...requestPengeluaran,
+            details: pengeluaranDetails,
+          };
+          const pengeluaranResult = await this.pengeluaranheaderService.create(
+            pengeluaranData,
+            trx,
+          );
+          pengeluaranNoBukti = pengeluaranResult?.newItem?.nobukti;
+          if (!pengeluaranNoBukti) {
+            throw new Error(
+              'Gagal membuat pengeluaran: nobukti tidak terbentuk',
+            );
+          }
+        } else {
+          const requestHutang = {
+            tglbukti: insertData.tglbukti,
+            keterangan: insertData.keterangan,
+            tgljatuhtempo: insertData.tgljatuhtempo,
+            coa: coadebet,
+          };
 
-        const hutangDetails = details.map((detail: any) => ({
-          id: 0,
-          coa: coakredit ?? null,
-          keterangan: detail.keterangan ?? null,
-          nominal: detail.nominal ?? null,
-          dpp: detail.dpp ?? 0,
-          noinvoiceemkl: detail.noinvoiceemkl ?? null,
-          tglinvoiceemkl: detail.tglinvoiceemkl ?? null,
-          nofakturpajakemkl: detail.nofakturpajakemkl ?? null,
-          info: detail.info ?? null,
-          modifiedby: insertData.modifiedby ?? null,
-        }));
+          const hutangDetails = details.map((detail: any) => ({
+            id: 0,
+            coa: coakredit ?? null,
+            keterangan: detail.keterangan ?? null,
+            nominal: detail.nominal ?? null,
+            dpp: detail.dpp ?? 0,
+            noinvoiceemkl: detail.noinvoiceemkl ?? null,
+            tglinvoiceemkl: detail.tglinvoiceemkl ?? null,
+            nofakturpajakemkl: detail.nofakturpajakemkl ?? null,
+            info: detail.info ?? null,
+            modifiedby: insertData.modifiedby ?? null,
+          }));
 
-        const hutangData = {
-          ...requestHutang,
-          details: hutangDetails,
-        };
-        const hutangResult = await this.hutangheaderService.create(
-          hutangData,
-          trx,
-        );
-        hutangNoBukti = hutangResult?.newItem?.nobukti;
-        if (!hutangNoBukti) {
-          throw new Error('Gagal membuat pengeluaran: nobukti tidak terbentuk');
+          const hutangData = {
+            ...requestHutang,
+            details: hutangDetails,
+          };
+          const hutangResult = await this.hutangheaderService.create(
+            hutangData,
+            trx,
+          );
+          hutangNoBukti = hutangResult?.newItem?.nobukti;
+          if (!hutangNoBukti) {
+            throw new Error(
+              'Gagal membuat pengeluaran: nobukti tidak terbentuk',
+            );
+          }
         }
       }
+
       insertData.pengeluaran_nobukti = pengeluaranNoBukti;
       insertData.hutang_nobukti = hutangNoBukti;
       insertData.pengeluaranemkl_id = pengeluaranemkl.id;

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { PengeluaranheaderService } from './pengeluaranheader.service';
 import { PengeluaranheaderController } from './pengeluaranheader.controller';
 import { PengeluarandetailModule } from '../pengeluarandetail/pengeluarandetail.module';
@@ -11,6 +11,7 @@ import { GlobalModule } from '../global/global.module';
 import { LocksModule } from '../locks/locks.module';
 import { JurnalumumheaderModule } from '../jurnalumumheader/jurnalumumheader.module';
 import { StatuspendukungModule } from '../statuspendukung/statuspendukung.module';
+import { PengeluaranemklheaderModule } from '../pengeluaranemklheader/pengeluaranemklheader.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { StatuspendukungModule } from '../statuspendukung/statuspendukung.module
     GlobalModule,
     LocksModule,
     StatuspendukungModule,
+    forwardRef(() => PengeluaranemklheaderModule),
   ],
   controllers: [PengeluaranheaderController],
   providers: [PengeluaranheaderService],
