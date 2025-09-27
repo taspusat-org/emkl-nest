@@ -31,16 +31,16 @@ const baseFields = {
   coaproses: z.string().nullable().optional(),
   coaproses_nama: z.string().nullable().optional(),
 
-  nilaiproses: z
-    .number()
-    .int({ message: 'Nilai Proses harus bulat' })
-    .min(1, { message: 'Nilai Proses Wajib Diisi' }),
-  nilaiproses_nama: z.string().nullable().optional(),
+  nilaiprosespenerimaan: z.number().nullable().optional(),
+  nilaiprosespenerimaan_nama: z.string().nullable().optional(),
 
-  statuspenarikan: z
-    .number()
-    .int({ message: 'Status Penarikan harus bulat' })
-    .min(1, { message: 'Status Penarikan Wajib Diisi' }),
+  nilaiprosespengeluaran: z.number().nullable().optional(),
+  nilaiprosespengeluaran_nama: z.string().nullable().optional(),
+
+  nilaiproseshutang: z.number().nullable().optional(),
+  nilaiproseshutang_nama: z.string().nullable().optional(),
+
+  statuspenarikan: z.number().nullable().optional(),
   statuspenarikan_nama: z.string().nullable().optional(),
 
   format: z

@@ -100,6 +100,7 @@ import { JenissealModule } from './modules/jenisseal/jenisseal.module';
 import { LabaRugiKalkulasiModule } from './modules/laba-rugi-kalkulasi/laba-rugi-kalkulasi.module';
 import { PenerimaanemklheaderModule } from './modules/penerimaanemklheader/penerimaanemklheader.module';
 import { PenerimaanemkldetailModule } from './modules/penerimaanemkldetail/penerimaanemkldetail.module';
+import { BookingOrderanHeaderModule } from './modules/booking-orderan-header/booking-orderan-header.module';
 import { TradoModule } from './modules/trado/trado.module';
 import { GandenganModule } from './modules/gandengan/gandengan.module';
 import { PrinterModule } from './modules/printer/printer.module';
@@ -202,6 +203,7 @@ import { StatusjobModule } from './modules/statusjob/statusjob.module';
     LabaRugiKalkulasiModule,
     PenerimaanemklheaderModule,
     PenerimaanemkldetailModule,
+    BookingOrderanHeaderModule,
     TradoModule,
     GandenganModule,
     PrinterModule,

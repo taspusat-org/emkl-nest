@@ -45,7 +45,9 @@ export class PengeluaranEmklService {
         coahutangdebet_nama,
         coahutangkredit_nama,
         coaproses_nama,
-        nilaiproses_nama,
+        nilaiprosespenerimaan_nama,
+        nilaiprosespengeluaran_nama,
+        nilaiproseshutang_nama,
         statuspenarikan_nama,
         format_nama,
         statusaktif_nama,
@@ -153,7 +155,9 @@ export class PengeluaranEmklService {
           'u.coapostinghutangdebet',
           'u.coapostinghutangkredit',
           'u.coaproses',
-          'u.nilaiproses',
+          'u.nilaiprosespenerimaan',
+          'u.nilaiprosespengeluaran',
+          'u.nilaiproseshutang',
           'u.statuspenarikan',
           'u.format',
           'u.statusaktif',
@@ -167,8 +171,12 @@ export class PengeluaranEmklService {
           'coahutangdebet.keterangancoa as coahutangdebet_nama',
           'coahutangkredit.keterangancoa as coahutangkredit_nama',
           'coaproses.keterangancoa as coaproses_nama',
-          'nilaiproses.text as nilaiproses_nama',
-          'nilaiproses.memo as nilaiproses_memo',
+          'nilaiprosespenerimaan.text as nilaiprosespenerimaan_nama',
+          'nilaiprosespenerimaan.memo as nilaiprosespenerimaan_memo',
+          'nilaiprosespengeluaran.text as nilaiprosespengeluaran_nama',
+          'nilaiprosespengeluaran.memo as nilaiprosespengeluaran_memo',
+          'nilaiproseshutang.text as nilaiproseshutang_nama',
+          'nilaiproseshutang.memo as nilaiproseshutang_memo',
           'statuspenarikan.text as statuspenarikan_nama',
           'statuspenarikan.memo as statuspenarikan_memo',
           'p.text as format_nama',
@@ -198,7 +206,9 @@ export class PengeluaranEmklService {
           'coahutangkredit.coa',
         )
         .leftJoin('akunpusat as coaproses', 'u.coaproses', 'coaproses.coa')
-        .leftJoin('parameter as nilaiproses', 'u.nilaiproses', 'nilaiproses.id')
+        .leftJoin('parameter as nilaiprosespenerimaan', 'u.nilaiprosespenerimaan', 'nilaiprosespenerimaan.id')
+        .leftJoin('parameter as nilaiprosespengeluaran', 'u.nilaiprosespengeluaran', 'nilaiprosespengeluaran.id')
+        .leftJoin('parameter as nilaiproseshutang', 'u.nilaiproseshutang', 'nilaiproseshutang.id')
         .leftJoin(
           'parameter as statuspenarikan',
           'u.statuspenarikan',
@@ -298,8 +308,12 @@ export class PengeluaranEmklService {
                 'like',
                 `%${sanitizedValue}%`,
               );
-            } else if (key === 'nilaiproses_text') {
-              query.andWhere('nilaiproses.id', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'nilaiprosespenerimaan_text') {
+              query.andWhere('nilaiprosespenerimaan.id', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'nilaiprosespengeluaran_text') {
+              query.andWhere('nilaiprosespengeluaran.id', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'nilaiproseshutang_text') {
+              query.andWhere('nilaiproseshutang.id', 'like', `%${sanitizedValue}%`);
             } else if (key === 'statuspenarikan_text') {
               query.andWhere(
                 'statuspenarikan.id',
@@ -398,7 +412,9 @@ export class PengeluaranEmklService {
         coahutangdebet_nama,
         coahutangkredit_nama,
         coaproses_nama,
-        nilaiproses_nama,
+        nilaiprosespenerimaan_nama,
+        nilaiprosespengeluaran_nama,
+        nilaiproseshutang_nama,
         statuspenarikan_nama,
         format_nama,
         statusaktif_nama,
