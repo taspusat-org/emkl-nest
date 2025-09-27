@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { PengeluaranemklheaderService } from './pengeluaranemklheader.service';
 import { PengeluaranemklheaderController } from './pengeluaranemklheader.controller';
 import { PengeluaranemkldetailModule } from '../pengeluaranemkldetail/pengeluaranemkldetail.module';
@@ -22,7 +22,7 @@ import { HutangheaderModule } from '../hutangheader/hutangheader.module';
     RunningNumberModule,
     GlobalModule,
     LocksModule,
-    PengeluaranheaderModule,
+    forwardRef(() => PengeluaranheaderModule),
     HutangheaderModule,
   ],
   controllers: [PengeluaranemklheaderController],

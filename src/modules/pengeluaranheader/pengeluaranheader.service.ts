@@ -1,4 +1,5 @@
 import {
+  forwardRef,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -23,6 +24,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Workbook, Column } from 'exceljs';
 import { StatuspendukungService } from '../statuspendukung/statuspendukung.service';
+import { PengeluaranemklheaderService } from '../pengeluaranemklheader/pengeluaranemklheader.service';
 
 @Injectable()
 export class PengeluaranheaderService {
@@ -34,8 +36,8 @@ export class PengeluaranheaderService {
     private readonly pengeluarandetailService: PengeluarandetailService,
     private readonly JurnalumumheaderService: JurnalumumheaderService,
     private readonly statuspendukungService: StatuspendukungService,
-    private readonly locksService: LocksService,
-    private readonly globalService: GlobalService,
+    @Inject(forwardRef(() => PengeluaranemklheaderService)) // ← Index 7: Gunakan forwardRef di sini!
+    private readonly pengeluaranemklheaderService: PengeluaranemklheaderService,
   ) {}
   private readonly tableName = 'pengeluaranheader';
   async create(data: any, trx: any) {
@@ -81,17 +83,17 @@ export class PengeluaranheaderService {
         .leftJoin('parameter as p', 'p.id', 'b.formatpengeluaran')
         .where('b.id', insertData.bank_id)
         .first();
-
+      console.log(formatpengeluaran.formatpengeluaran, 'formatpengeluaran');
       const parameter = await trx('parameter')
         .select(
           'grp',
           'subgrp',
           trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
-          trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
+          // trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
         )
         .where('id', formatpengeluaran.formatpengeluaran)
         .first();
-
+      console.log(parameter, 'parameter');
       if (!formatpengeluaran) {
         throw new Error(`Bank dengan id ${insertData.bank_id} tidak ditemukan`);
       }
@@ -121,13 +123,74 @@ export class PengeluaranheaderService {
         .insert(insertData)
         .returning('*');
 
+      const datapengeluaranemkl = await trx('pengeluaranemkl')
+        .whereNot('coaproses', null)
+        .first();
+
+      let pengeluaranemklheader_nobukti = '';
       if (details.length > 0) {
+        // Filter hanya detail yang coadebet-nya sama dengan coaproses
+        const filteredDetails = details.filter(
+          (detail: any) => detail.coadebet === datapengeluaranemkl.coaproses,
+        );
+
+        if (filteredDetails.length > 0) {
+          // Cek apakah SEMUA nominal negatif (harus < 0, dan valid)
+          const allNegative = filteredDetails.every((detail: any) => {
+            const nominalValue = parseFloat(detail.nominal);
+            // Harus valid (bukan NaN) DAN negatif (< 0)
+            return !isNaN(nominalValue) && nominalValue < 0;
+          });
+
+          if (!allNegative) {
+            throw new Error(
+              'Semua nominal pada detail pengeluaran harus bernilai negatif (minus) dan valid. Ditemukan nominal yang tidak negatif atau tidak valid.',
+            );
+          }
+
+          // Jika semua negatif, lanjut mapping dengan ubah nominal menjadi positif
+          const detailPengeluaranEmkl = filteredDetails.map((detail: any) => {
+            const nominalValue = parseFloat(detail.nominal); // Konversi ke number
+            const positiveNominal = Math.abs(nominalValue).toString(); // Hilangkan minus, kembali ke string
+
+            return {
+              keterangan: detail.keterangan ?? null,
+              nominal: positiveNominal ?? null, // Ubah nominal menjadi positif
+              modifiedby: insertData.modifiedby ?? null,
+            };
+          });
+          const payloadPengeluaranEmklHeader = {
+            tglbukti: insertData.tglbukti ?? null,
+            coaproses: datapengeluaranemkl.coaproses ?? null,
+            tgljatuhtempo: insertData.tgljatuhtempo ?? null,
+            keterangan: insertData.keterangan ?? null,
+            karyawan_id: insertData.karyawan_id ?? null,
+            jenisposting: insertData.jenisposting ?? null,
+            bank_id: insertData.bank_id ?? null,
+            nowarkat: insertData.nowarkat ?? null,
+            pengeluaran_nobukti: insertData.nobukti ?? null,
+            created_at: this.utilsService.getTime(),
+            updated_at: this.utilsService.getTime(),
+            modifiedby: insertData.modifiedby,
+            details: detailPengeluaranEmkl,
+          };
+          const jurnalHeaderInserted =
+            await this.pengeluaranemklheaderService.create(
+              payloadPengeluaranEmklHeader,
+              trx,
+            );
+          pengeluaranemklheader_nobukti = jurnalHeaderInserted.newItem.nobukti;
+        }
+      }
+
+      if (details.length >= 0) {
         const detailsWithNobukti = details.map(
           ({ coadebet_text, tglinvoiceemkl, ...detail }: any) => ({
             ...detail,
             nobukti: nomorBukti,
             tglinvoiceemkl: formatDateToSQL(tglinvoiceemkl),
             modifiedby: data.modifiedby || null,
+            pengeluaranemklheader_nobukti: pengeluaranemklheader_nobukti,
           }),
         );
         await this.pengeluarandetailService.create(
@@ -240,7 +303,7 @@ export class PengeluaranheaderService {
         itemIndex,
       };
     } catch (error) {
-      throw new Error(`Error: ${error.message}`);
+      throw new Error(`Error: ${error}`);
     }
   }
 
