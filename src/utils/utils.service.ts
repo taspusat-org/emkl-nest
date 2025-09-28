@@ -594,3 +594,44 @@ export const formatDateTimeToSQL = (val: string) => {
   return `${d} ${hh.padStart(2, '0')}:${mm.padStart(2, '0')}:${ss.padStart(2, '0')}.000`;
 };
 export const tandatanya = 'CHAR(63)';
+// Helper functions (diperbaiki untuk format US input, output Indonesia)
+export function parseNumberWithSeparators(str: string): number {
+  if (!str || typeof str !== 'string') return NaN;
+
+  // Hapus spasi dan koma (pemisah ribuan US style)
+  const cleaned = str.trim().replace(/,/g, '');
+
+  // parseFloat akan handle titik sebagai desimal
+  return parseFloat(cleaned);
+}
+
+export function formatIndonesianNumber(
+  num: number,
+  includeDecimals: boolean = false,
+): string {
+  if (isNaN(num) || num < 0) return '0'; // Hanya untuk positif
+
+  // Gunakan locale 'id-ID' untuk titik ribuan dan koma desimal
+  const options: Intl.NumberFormatOptions = {
+    style: 'decimal',
+    minimumFractionDigits: includeDecimals ? 2 : 0,
+    maximumFractionDigits: includeDecimals ? 2 : 0,
+  };
+
+  let formatted = num.toLocaleString('id-ID', options);
+
+  // Jika desimal adalah ',00', hapus untuk clean (opsional, sesuaikan kebutuhan)
+  if (!includeDecimals && formatted.endsWith(',00')) {
+    formatted = formatted.slice(0, -4); // Hapus ',00'
+  }
+
+  return formatted;
+}
+
+// Fungsi helper untuk format negatif (untuk log nominalValue)
+export function formatIndonesianNegative(num: number): string {
+  if (isNaN(num)) return '0';
+  const absNum = Math.abs(num);
+  const formattedAbs = formatIndonesianNumber(absNum);
+  return num < 0 ? `-${formattedAbs}` : formattedAbs;
+}

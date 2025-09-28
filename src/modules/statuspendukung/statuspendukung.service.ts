@@ -16,7 +16,13 @@ export class StatuspendukungService {
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
-  async create(tablename: string, id: any, modifiedby: any, trx: any, statuspendukung: any = 0) {
+  async create(
+    tablename: string,
+    id: any,
+    modifiedby: any,
+    trx: any,
+    statuspendukung: any = 0,
+  ) {
     const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
 
     try {
@@ -36,7 +42,7 @@ export class StatuspendukungService {
       // console.log(getDataRequest);
       if (getDataRequest && getDataRequest.length > 0) {
         const payload = getDataRequest.map((data: any) => {
-          const value = statuspendukung?.[data.text] ?? data.nilai_tidak
+          const value = statuspendukung?.[data.text] ?? data.nilai_tidak;
 
           return {
             statusdatapendukung: data.id,
@@ -47,9 +53,9 @@ export class StatuspendukungService {
             modifiedby: modifiedby,
             updated_at: this.utilsService.getTime(),
             created_at: this.utilsService.getTime(),
-          }
+          };
         });
-        
+
         const insertedData = await trx(this.tableName)
           .insert(payload)
           .returning('*');

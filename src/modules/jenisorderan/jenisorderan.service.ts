@@ -137,7 +137,7 @@ export class JenisOrderanService {
           ),
           'par.memo',
           'par.text',
-          'format.text as format_nama'
+          'format.text as format_nama',
         ])
         .leftJoin(
           trx.raw('parameter as par WITH (READUNCOMMITTED)'),
@@ -162,12 +162,14 @@ export class JenisOrderanService {
             .orWhere('jenisorderan.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('jenisorderan.keterangan', 'like', `%${sanitizedValue}%`)
             .orWhere('format.text', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(jenisorderan.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ])
-            .orWhereRaw("FORMAT(jenisorderan.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ]);
+            .orWhereRaw(
+              "FORMAT(jenisorderan.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?",
+              [`%${sanitizedValue}%`],
+            )
+            .orWhereRaw(
+              "FORMAT(jenisorderan.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?",
+              [`%${sanitizedValue}%`],
+            );
         });
       }
 
@@ -184,8 +186,8 @@ export class JenisOrderanService {
               query.andWhere(`par.${key}`, '=', sanitizedValue);
             } else if (key === 'format_text') {
               query.andWhere(`format.text`, 'like', `%${sanitizedValue}%`);
-            }else {
-              query.andWhere( 
+            } else {
+              query.andWhere(
                 `jenisorderan.${key}`,
                 'like',
                 `%${sanitizedValue}%`,

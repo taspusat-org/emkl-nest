@@ -30,7 +30,7 @@ export class BookingOrderanHeaderService {
     private readonly globalService: GlobalService,
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
-    private readonly bookingOrderanMuatanService: BookingOrderanMuatanService
+    private readonly bookingOrderanMuatanService: BookingOrderanMuatanService,
   ) {}
 
   async create(createData: any, trx: any) {
@@ -38,7 +38,7 @@ export class BookingOrderanHeaderService {
       const {
         sortBy,
         sortDirection,
-        filters, 
+        filters,
         search,
         page,
         limit,
@@ -57,45 +57,69 @@ export class BookingOrderanHeaderService {
         // tujuankapal_id,
         // tujuankapal_nama,
         ...bookingOrderanData
-      } = createData;      
-      
-      let bookingOrderanId
-      let serviceCreate
-      let serviceFindAll
+      } = createData;
+
+      let bookingOrderanId;
+      let serviceCreate;
+      let serviceFindAll;
       const insertedHeaders: any[] = [];
       const nomorBuktiList: string[] = [];
-      const headerData = { 
-        nobukti, 
-        tglbukti, 
-        jenisorder_id, 
-        statusformat: 0, 
+      const headerData = {
+        nobukti,
+        tglbukti,
+        jenisorder_id,
+        statusformat: 0,
         modifiedby: createData.modifiedby,
-        updated_at: '', 
-        created_at: ''
-      }      
-      const getJenisOrderanMuatan = await trx.from(trx.raw(`parameter WITH (READUNCOMMITTED)`)).select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'MUATAN').first();
-      const getJenisOrderanBongkaran = await trx.from(trx.raw(`parameter WITH (READUNCOMMITTED)`)).select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'BONGKARAN').first();
-      const getJenisOrderanImport = await trx.from(trx.raw(`parameter WITH (READUNCOMMITTED)`)).select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'IMPORT').first();
-      const getJenisOrderanExport = await trx.from(trx.raw(`parameter WITH (READUNCOMMITTED)`)).select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'EXPORT').first();
- 
+        updated_at: '',
+        created_at: '',
+      };
+      const getJenisOrderanMuatan = await trx
+        .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'MUATAN')
+        .first();
+      const getJenisOrderanBongkaran = await trx
+        .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'BONGKARAN')
+        .first();
+      const getJenisOrderanImport = await trx
+        .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'IMPORT')
+        .first();
+      const getJenisOrderanExport = await trx
+        .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'EXPORT')
+        .first();
+
       const getIdJenisOrderan = await trx
         .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
-        .select('text').where('id', jenisorder_id).first();
+        .select('text')
+        .where('id', jenisorder_id)
+        .first();
 
       const getStatusFormatFromOrderan = await trx
         .from(trx.raw(`jenisorderan WITH (READUNCOMMITTED)`))
-        .select('statusformat').where('id', getIdJenisOrderan?.text).first();
+        .select('statusformat')
+        .where('id', getIdJenisOrderan?.text)
+        .first();
 
       const getFormatBookingOrderan = await trx
         .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
         .select(['id', 'grp', 'subgrp', 'text'])
         .where('id', getStatusFormatFromOrderan.statusformat)
         .first();
-    
+
       switch (jenisorder_id) {
         case getJenisOrderanMuatan?.id:
           serviceCreate = this.bookingOrderanMuatanService;
-          serviceFindAll = this.bookingOrderanMuatanService
+          serviceFindAll = this.bookingOrderanMuatanService;
           break;
         // case 'IMPORT':
         //   service = this.hitungmodalimportService;
@@ -113,28 +137,29 @@ export class BookingOrderanHeaderService {
       if (party && party != null) {
         for (let i = 1; i <= party; i++) {
           // 1. generate nomor bukti
-          const nomorBukti = await this.runningNumberService.generateRunningNumber( 
-            trx,
-            getFormatBookingOrderan.grp, 
-            getFormatBookingOrderan.subgrp,
-            this.tableName,
-            createData.tglbukti,
-            null,
-            createData.tujuankapal_id,
-            null,
-            createData.marketing_id
-          );
-          nomorBuktiList.push(nomorBukti)
+          const nomorBukti =
+            await this.runningNumberService.generateRunningNumber(
+              trx,
+              getFormatBookingOrderan.grp,
+              getFormatBookingOrderan.subgrp,
+              this.tableName,
+              createData.tglbukti,
+              null,
+              createData.tujuankapal_id,
+              null,
+              createData.marketing_id,
+            );
+          nomorBuktiList.push(nomorBukti);
 
           // 2. susun headerData
-          let headerData = {
+          const headerData = {
             nobukti: nomorBukti,
             tglbukti: createData.tglbukti,
             jenisorder_id: getIdJenisOrderan.text,
             statusformat: getStatusFormatFromOrderan.statusformat,
             modifiedby: createData.modifiedby,
             updated_at: this.utilsService.getTime(),
-            created_at: this.utilsService.getTime()
+            created_at: this.utilsService.getTime(),
           };
 
           // 3. uppercase / format date
@@ -173,39 +198,39 @@ export class BookingOrderanHeaderService {
             trx,
           );
         }
-        
+
         const detailsWithNoBukti = details.map((detail, index) => ({
           ...detail,
           nobukti: nomorBuktiList[index] ?? null,
           bookingorderan_id: insertedHeaders[index].id ?? null,
-          ...bookingOrderanData
+          ...bookingOrderanData,
         }));
-        
+
         for (const detail of detailsWithNoBukti) {
           // await serviceCreate.create(detail, trx);
           const insertBookingOrderan = await serviceCreate.create(detail, trx);
-          bookingOrderanId = insertBookingOrderan.newItem.id
+          bookingOrderanId = insertBookingOrderan.newItem.id;
         }
-         
       } else {
-        const nomorBukti = await this.runningNumberService.generateRunningNumber( 
-          trx,
-          getFormatBookingOrderan.grp, 
-          getFormatBookingOrderan.subgrp,
-          this.tableName,
-          createData.tglbukti,
-          null,
-          createData.tujuankapal_id,
-          null,
-          createData.marketing_id
-        );
+        const nomorBukti =
+          await this.runningNumberService.generateRunningNumber(
+            trx,
+            getFormatBookingOrderan.grp,
+            getFormatBookingOrderan.subgrp,
+            this.tableName,
+            createData.tglbukti,
+            null,
+            createData.tujuankapal_id,
+            null,
+            createData.marketing_id,
+          );
 
-        headerData.nobukti = nomorBukti
-        headerData.jenisorder_id = getIdJenisOrderan.text
-        headerData.statusformat = getStatusFormatFromOrderan.statusformat
+        headerData.nobukti = nomorBukti;
+        headerData.jenisorder_id = getIdJenisOrderan.text;
+        headerData.statusformat = getStatusFormatFromOrderan.statusformat;
         headerData.updated_at = this.utilsService.getTime();
         headerData.created_at = this.utilsService.getTime();
- 
+
         Object.keys(headerData).forEach((key) => {
           if (typeof headerData[key] === 'string') {
             const value = headerData[key];
@@ -238,18 +263,15 @@ export class BookingOrderanHeaderService {
           trx,
         );
 
-        bookingOrderanData.bookingorderan_id = Number(newItem.id)
-        bookingOrderanData.nobukti = newItem.nobukti
-        
+        bookingOrderanData.bookingorderan_id = Number(newItem.id);
+        bookingOrderanData.nobukti = newItem.nobukti;
+
         const insertBookingOrderan = await serviceCreate.create(
           bookingOrderanData,
           trx,
         );
-        bookingOrderanId = insertBookingOrderan.newItem.id
-
+        bookingOrderanId = insertBookingOrderan.newItem.id;
       }
-      
-
 
       // const insertBookingOrderan = await serviceCreate.create(
       //   bookingOrderanData,
@@ -265,11 +287,11 @@ export class BookingOrderanHeaderService {
       //     nobuktitrans: newItem.id,
       //     aksi: 'ADD',
       //     datajson: JSON.stringify(newItem),
-      //     modifiedby: newItem.modifiedby, 
+      //     modifiedby: newItem.modifiedby,
       //   },
       //   trx,
       // );
-      
+
       const { data, pagination } = await serviceFindAll.findAll(
         {
           search,
@@ -281,16 +303,14 @@ export class BookingOrderanHeaderService {
         trx,
       );
       console.log(sortBy, sortDirection, serviceFindAll, data);
-      
+
       let dataIndex = data.findIndex((item) => item.id === bookingOrderanId);
       console.log('bookingOrderanId', bookingOrderanId, dataIndex);
 
       if (dataIndex === -1) {
         dataIndex = 0;
       }
-      
-      
-      
+
       const pageNumber = pagination?.currentPage;
       console.log('dataIndex', dataIndex, 'pageNumber', pageNumber);
 
@@ -305,7 +325,9 @@ export class BookingOrderanHeaderService {
         dataIndex,
       };
     } catch (error) {
-      throw new Error(`Error creating booking orderan header: ${error.message}`);
+      throw new Error(
+        `Error creating booking orderan header: ${error.message}`,
+      );
     }
   }
 
@@ -350,8 +372,16 @@ export class BookingOrderanHeaderService {
           'comodity as comodity_muatan',
           'gandengan as gandengan_muatan',
         ])
-        .leftJoin('bookingorderanmuatan as muatan', 'u.nobukti', 'muatan.nobukti')
-        .leftJoin('jenisorderan as jenisorderan', 'u.jenisorderan_id', 'jenisorderan.id')
+        .leftJoin(
+          'bookingorderanmuatan as muatan',
+          'u.nobukti',
+          'muatan.nobukti',
+        )
+        .leftJoin(
+          'jenisorderan as jenisorderan',
+          'u.jenisorderan_id',
+          'jenisorderan.id',
+        )
         .leftJoin('container', 'u.container_id', 'container.id')
         .leftJoin('shipper', 'u.shipper_id', 'shipper.id')
         .leftJoin('tujuankapal', 'u.tujuankapal_id', 'tujuankapal.id')
@@ -361,12 +391,7 @@ export class BookingOrderanHeaderService {
         .leftJoin('jenismuatan', 'u.jenismuatan_id', 'jenismuatan.id')
         .leftJoin('sandarkapal', 'u.sandarkapal_id', 'sandarkapal.id')
         .leftJoin('emkllain', 'u.emkllain_id', 'emkllain.id')
-        .leftJoin('daftarbl', 'u.daftarbl_id', 'daftarbl.id')
-
-
-
-
-
+        .leftJoin('daftarbl', 'u.daftarbl_id', 'daftarbl.id');
 
       console.log('filters', filters, filters?.tglDari, filters?.tglSampai);
 
@@ -535,34 +560,58 @@ export class BookingOrderanHeaderService {
         ...bookingOrderanData
       } = data;
 
-      let serviceCreate
-      let serviceFindAll
-      const headerData = { 
-        nobukti, 
-        tglbukti, 
-        jenisorder_id, 
-        statusformat: 0, 
-        modifiedby: data.modifiedby, 
-        updated_at: '', 
-        created_at: ''
-      }     
-      const getJenisOrderanMuatan = await trx.from(trx.raw(`parameter WITH (READUNCOMMITTED)`)).select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'MUATAN').first();
-      const getJenisOrderanBongkaran = await trx.from(trx.raw(`parameter WITH (READUNCOMMITTED)`)).select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'BONGKARAN').first();
-      const getJenisOrderanImport = await trx.from(trx.raw(`parameter WITH (READUNCOMMITTED)`)).select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'IMPORT').first();
-      const getJenisOrderanExport = await trx.from(trx.raw(`parameter WITH (READUNCOMMITTED)`)).select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'EXPORT').first();
- 
+      let serviceCreate;
+      let serviceFindAll;
+      const headerData = {
+        nobukti,
+        tglbukti,
+        jenisorder_id,
+        statusformat: 0,
+        modifiedby: data.modifiedby,
+        updated_at: '',
+        created_at: '',
+      };
+      const getJenisOrderanMuatan = await trx
+        .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'MUATAN')
+        .first();
+      const getJenisOrderanBongkaran = await trx
+        .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'BONGKARAN')
+        .first();
+      const getJenisOrderanImport = await trx
+        .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'IMPORT')
+        .first();
+      const getJenisOrderanExport = await trx
+        .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'EXPORT')
+        .first();
+
       const getIdJenisOrderan = await trx
         .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
-        .select('text').where('id', jenisorder_id).first();      
+        .select('text')
+        .where('id', jenisorder_id)
+        .first();
 
       const getStatusFormatFromOrderan = await trx
         .from(trx.raw(`jenisorderan WITH (READUNCOMMITTED)`))
-        .select('statusformat').where('id', getIdJenisOrderan?.text).first();
+        .select('statusformat')
+        .where('id', getIdJenisOrderan?.text)
+        .first();
 
-      headerData.jenisorder_id = getIdJenisOrderan.text
-      headerData.statusformat = getStatusFormatFromOrderan.statusformat 
-      bookingOrderanData.nobukti = nobukti
-      bookingOrderanData.bookingorderan_id = id
+      headerData.jenisorder_id = getIdJenisOrderan.text;
+      headerData.statusformat = getStatusFormatFromOrderan.statusformat;
+      bookingOrderanData.nobukti = nobukti;
+      bookingOrderanData.bookingorderan_id = id;
 
       Object.keys(headerData).forEach((key) => {
         if (typeof headerData[key] === 'string') {
@@ -587,7 +636,7 @@ export class BookingOrderanHeaderService {
       switch (jenisorder_id) {
         case getJenisOrderanMuatan?.id:
           serviceCreate = this.bookingOrderanMuatanService;
-          serviceFindAll = this.bookingOrderanMuatanService
+          serviceFindAll = this.bookingOrderanMuatanService;
           break;
         // case 'IMPORT':
         //   service = this.hitungmodalimportService;
@@ -605,7 +654,7 @@ export class BookingOrderanHeaderService {
         bookingOrderanData,
         trx,
       );
-      const idBookingOrderan = updateBookingOrderan.id
+      const idBookingOrderan = updateBookingOrderan.id;
 
       await this.logTrailService.create(
         {
@@ -668,11 +717,31 @@ export class BookingOrderanHeaderService {
 
   async delete(id: number, trx: any, modifiedby: string, data: any) {
     try {
-      let deleteService
-      const getJenisOrderanMuatan = await trx.from(trx.raw(`parameter WITH (READUNCOMMITTED)`)).select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'MUATAN').first();
-      const getJenisOrderanBongkaran = await trx.from(trx.raw(`parameter WITH (READUNCOMMITTED)`)).select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'BONGKARAN').first();
-      const getJenisOrderanImport = await trx.from(trx.raw(`parameter WITH (READUNCOMMITTED)`)).select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'IMPORT').first();
-      const getJenisOrderanExport = await trx.from(trx.raw(`parameter WITH (READUNCOMMITTED)`)).select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'EXPORT').first();
+      let deleteService;
+      const getJenisOrderanMuatan = await trx
+        .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'MUATAN')
+        .first();
+      const getJenisOrderanBongkaran = await trx
+        .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'BONGKARAN')
+        .first();
+      const getJenisOrderanImport = await trx
+        .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'IMPORT')
+        .first();
+      const getJenisOrderanExport = await trx
+        .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'EXPORT')
+        .first();
 
       switch (data.jenisOrderan) {
         case getJenisOrderanMuatan?.id:
@@ -689,11 +758,7 @@ export class BookingOrderanHeaderService {
           break;
       }
 
-      const result = await deleteService.delete(
-        +id,
-        trx,
-        modifiedby,
-      );
+      const result = await deleteService.delete(+id, trx, modifiedby);
 
       const deletedData = await this.utilsService.lockAndDestroy(
         result.headerId,
@@ -707,14 +772,14 @@ export class BookingOrderanHeaderService {
           namatabel: this.tableName,
           postingdari: 'DELETE BOOKING ORDERAN HEADER',
           idtransss: id,
-          nobuktitrans: id, 
+          nobuktitrans: id,
           aksi: 'DELETE',
           datajson: JSON.stringify(deletedData),
           modifiedby: modifiedby,
         },
         trx,
       );
-       
+
       return {
         status: 200,
         message: 'Data deleted successfully',

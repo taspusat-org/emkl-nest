@@ -495,7 +495,6 @@ export class LabaRugiKalkulasiService {
           };
         } else {
           cell.value = Number(value);
-          ('');
           cell.numFmt = '#,##0.00';
           cell.alignment = {
             horizontal: 'right',

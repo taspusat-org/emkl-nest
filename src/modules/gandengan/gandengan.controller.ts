@@ -80,7 +80,10 @@ export class GandenganController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateGandenganDto: UpdateGandenganDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateGandenganDto: UpdateGandenganDto,
+  ) {
     return this.gandenganService.update(+id, updateGandenganDto);
   }
 

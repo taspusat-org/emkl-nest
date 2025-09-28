@@ -14,10 +14,7 @@ import { StatuspendukungModule } from '../statuspendukung/statuspendukung.module
 
 @Module({
   controllers: [BookingOrderanHeaderController],
-  providers: [
-    BookingOrderanHeaderService,
-    BookingOrderanMuatanService
-  ],
+  providers: [BookingOrderanHeaderService, BookingOrderanMuatanService],
   imports: [
     JwtModule,
     AuthModule,
@@ -27,7 +24,7 @@ import { StatuspendukungModule } from '../statuspendukung/statuspendukung.module
     GlobalModule,
     LogtrailModule,
     RunningNumberModule,
-    StatuspendukungModule
+    StatuspendukungModule,
   ],
 })
 export class BookingOrderanHeaderModule {}

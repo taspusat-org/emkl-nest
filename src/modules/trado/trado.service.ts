@@ -8,9 +8,7 @@ import { FindAllParams } from 'src/common/interfaces/all.interface';
 export class TradoService {
   private readonly tableName: string = 'trado';
 
-  constructor(
-    private readonly utilService: UtilsService,
-  ) {}
+  constructor(private readonly utilService: UtilsService) {}
 
   create(createTradoDto: CreateTradoDto) {
     return 'This action adds a new trado';
@@ -24,7 +22,7 @@ export class TradoService {
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
-      
+
       if (isLookUp) {
         const totalData = await trx(this.tableName)
           .count('id as total')
@@ -51,7 +49,11 @@ export class TradoService {
           'statusaktif.memo',
           'statusaktif.text as statusaktif_nama',
         ])
-        .leftJoin('parameter as statusaktif', 'u.statusaktif', 'statusaktif.id');
+        .leftJoin(
+          'parameter as statusaktif',
+          'u.statusaktif',
+          'statusaktif.id',
+        );
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');

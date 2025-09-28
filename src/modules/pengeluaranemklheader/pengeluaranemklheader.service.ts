@@ -69,7 +69,7 @@ export class PengeluaranemklheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-
+      console.log(details, 'detailss');
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
       insertData.tgljatuhtempo = formatDateToSQL(
         String(insertData?.tgljatuhtempo),
@@ -79,23 +79,17 @@ export class PengeluaranemklheaderService {
       insertData.created_at = this.utilsService.getTime();
       insertData.updated_at = this.utilsService.getTime();
 
-      if (coaproses) {
-        const pengeluaranemklformat = await trx('pengeluaranemkl')
-          .where('coaproses', coaproses)
-          .first();
-        statusformat = pengeluaranemklformat.format;
-      }
-      const pengeluaranemkl = await trx('pengeluaranemkl')
-        .where('format', statusformat)
-        .first();
-      let pengeluaranNoBukti = '';
+      let pengeluaranNoBukti = pengeluaran_nobukti;
       let hutangNoBukti = '';
       let grp = '';
       let subgrp = '';
       let coakredit = '';
       let postingdari = '';
       const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
-      if (insertData.jenisposting === 168) {
+      if (coaproses) {
+        const pengeluaranemklformat = await trx('pengeluaranemkl')
+          .where('coaproses', coaproses)
+          .first();
         const datacoakredit = await trx(`bank as b`)
           .select('b.coa')
           .where('b.id', insertData.bank_id)
@@ -107,33 +101,57 @@ export class PengeluaranemklheaderService {
             trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
             trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
           )
-          .where('id', format)
+          .where('id', pengeluaranemklformat.format)
           .first();
         grp = parameter.grp;
         subgrp = parameter.subgrp;
         postingdari = parameter.memo_nama;
         coakredit = datacoakredit.coa;
-      } else {
-        const datacoakredit = await trx(`parameter as p`)
-          .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`))
-          .where('p.grp', 'NOMOR HUTANG')
-          .andWhere('p.subgrp', 'NOMOR HUTANG')
-          .first();
-        const parameter = await trx('parameter')
-          .select(
-            'grp',
-            'subgrp',
-            trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
-            trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
-          )
-          .where('id', format)
-          .first();
-        grp = parameter.grp;
-        subgrp = parameter.subgrp;
-        postingdari = parameter.memo_nama;
-        coakredit = datacoakredit.coa_nama;
+        statusformat = pengeluaranemklformat.format;
       }
-
+      const pengeluaranemkl = await trx('pengeluaranemkl')
+        .where('format', statusformat)
+        .first();
+      if (!coaproses) {
+        if (insertData.jenisposting === 168) {
+          const datacoakredit = await trx(`bank as b`)
+            .select('b.coa')
+            .where('b.id', insertData.bank_id)
+            .first();
+          const parameter = await trx('parameter')
+            .select(
+              'grp',
+              'subgrp',
+              trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+              trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
+            )
+            .where('id', statusformat)
+            .first();
+          grp = parameter.grp;
+          subgrp = parameter.subgrp;
+          postingdari = parameter.memo_nama;
+          coakredit = datacoakredit.coa;
+        } else {
+          const datacoakredit = await trx(`parameter as p`)
+            .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`))
+            .where('p.grp', 'NOMOR HUTANG')
+            .andWhere('p.subgrp', 'NOMOR HUTANG')
+            .first();
+          const parameter = await trx('parameter')
+            .select(
+              'grp',
+              'subgrp',
+              trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+              trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
+            )
+            .where('id', format)
+            .first();
+          grp = parameter.grp;
+          subgrp = parameter.subgrp;
+          postingdari = parameter.memo_nama;
+          coakredit = datacoakredit.coa_nama;
+        }
+      }
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
         grp,
@@ -143,6 +161,7 @@ export class PengeluaranemklheaderService {
       );
       insertData.nobukti = nomorBukti;
       if (!coaproses) {
+        console.log('masuk sini');
         if (insertData.jenisposting === 168) {
           const requestPengeluaran = {
             tglbukti: insertData.tglbukti,
@@ -260,7 +279,16 @@ export class PengeluaranemklheaderService {
         },
         trx,
       );
-
+      const detailPengeluaranEmkl =
+        await this.pengeluaranemkldetailService.findAll(
+          {
+            filters: { nobukti: newItem.nobukti },
+            pagination: { page: 1, limit: 0 },
+            sort: { sortBy: 'id', sortDirection: 'asc' },
+          },
+          trx,
+        );
+      console.log(detailPengeluaranEmkl, 'detailPengeluaranEmkl');
       // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex(
         (item) => Number(item.id) === Number(newItem.id),
@@ -301,6 +329,7 @@ export class PengeluaranemklheaderService {
         itemIndex,
       };
     } catch (error) {
+      console.log(error, 'error di pengeluaran emkl header');
       throw new Error(`Error: ${error}`);
     }
   }

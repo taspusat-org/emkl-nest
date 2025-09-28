@@ -40,7 +40,7 @@ export class AcosModel {
         .whereNotNull('text')
         .andWhere('subgrp', '!=', '')
         .andWhere('text', '!=', '');
- 
+
       const parameterDataLainnyaEntries = await dbMssql('parameter')
         .select('grp', 'subgrp', 'text')
         .where('grp', 'DATA LAINNYA')
