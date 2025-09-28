@@ -21,7 +21,6 @@ const baseFields = {
   modifiedby: z.string().max(200).optional(),
 };
 
-
 // ------------------------
 // 2. KHUSUS CREATE
 // ------------------------
@@ -33,8 +32,9 @@ export const CreateBookingOrderanHeaderSchema = z
   .superRefine(async (data, ctx) => {
     // Validasi khusus penambahan create dapat disimpan di sini
   });
-export type CreateBookingOrderanHeaderDto = z.infer<typeof CreateBookingOrderanHeaderSchema>;
-
+export type CreateBookingOrderanHeaderDto = z.infer<
+  typeof CreateBookingOrderanHeaderSchema
+>;
 
 // ------------------------
 // 3. KHUSUS UPDATE
@@ -45,6 +45,7 @@ export const UpdateBookingOrderanHeaderSchema = z
     // id: z.number({ required_error: 'Id wajib diisi untuk update' }),
     // Field atau aturan khusus update bisa ditambah di sini
   })
-  .superRefine(async (data, ctx) => {
-  });
-export type UpdateBookingOrderanHeaderDto = z.infer<typeof UpdateBookingOrderanHeaderSchema>;
+  .superRefine(async (data, ctx) => {});
+export type UpdateBookingOrderanHeaderDto = z.infer<
+  typeof UpdateBookingOrderanHeaderSchema
+>;

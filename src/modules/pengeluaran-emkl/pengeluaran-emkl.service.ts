@@ -206,9 +206,21 @@ export class PengeluaranEmklService {
           'coahutangkredit.coa',
         )
         .leftJoin('akunpusat as coaproses', 'u.coaproses', 'coaproses.coa')
-        .leftJoin('parameter as nilaiprosespenerimaan', 'u.nilaiprosespenerimaan', 'nilaiprosespenerimaan.id')
-        .leftJoin('parameter as nilaiprosespengeluaran', 'u.nilaiprosespengeluaran', 'nilaiprosespengeluaran.id')
-        .leftJoin('parameter as nilaiproseshutang', 'u.nilaiproseshutang', 'nilaiproseshutang.id')
+        .leftJoin(
+          'parameter as nilaiprosespenerimaan',
+          'u.nilaiprosespenerimaan',
+          'nilaiprosespenerimaan.id',
+        )
+        .leftJoin(
+          'parameter as nilaiprosespengeluaran',
+          'u.nilaiprosespengeluaran',
+          'nilaiprosespengeluaran.id',
+        )
+        .leftJoin(
+          'parameter as nilaiproseshutang',
+          'u.nilaiproseshutang',
+          'nilaiproseshutang.id',
+        )
         .leftJoin(
           'parameter as statuspenarikan',
           'u.statuspenarikan',
@@ -309,11 +321,23 @@ export class PengeluaranEmklService {
                 `%${sanitizedValue}%`,
               );
             } else if (key === 'nilaiprosespenerimaan_text') {
-              query.andWhere('nilaiprosespenerimaan.id', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'nilaiprosespenerimaan.id',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'nilaiprosespengeluaran_text') {
-              query.andWhere('nilaiprosespengeluaran.id', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'nilaiprosespengeluaran.id',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'nilaiproseshutang_text') {
-              query.andWhere('nilaiproseshutang.id', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'nilaiproseshutang.id',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'statuspenarikan_text') {
               query.andWhere(
                 'statuspenarikan.id',

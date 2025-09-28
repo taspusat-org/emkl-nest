@@ -433,7 +433,14 @@ export class TujuankapalService {
       };
     });
 
-    const headers = ['NO.', 'NAMA', 'KODE', 'KETERANGAN', 'CABANG', 'STATUS AKTIF'];
+    const headers = [
+      'NO.',
+      'NAMA',
+      'KODE',
+      'KETERANGAN',
+      'CABANG',
+      'STATUS AKTIF',
+    ];
 
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(5, index + 1);

@@ -13,6 +13,9 @@ import {
   formatDateToSQL,
   UtilsService,
   tandatanya,
+  formatIndonesianNumber,
+  parseNumberWithSeparators,
+  formatIndonesianNegative,
 } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
@@ -67,6 +70,9 @@ export class PengeluaranheaderService {
         }
       });
       insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
+      insertData.tgljatuhtempo = formatDateToSQL(
+        String(insertData?.tgljatuhtempo),
+      ); // Fungsi untuk format
       insertData.modifiedby = modifiedby;
       insertData.created_at = created_at || this.utilsService.getTime();
       insertData.updated_at = updated_at || this.utilsService.getTime();
@@ -128,6 +134,10 @@ export class PengeluaranheaderService {
         .first();
 
       let pengeluaranemklheader_nobukti = '';
+
+      // Kode utama yang diperbaiki
+
+      // Kode utama yang diperbaiki
       if (details.length > 0) {
         // Filter hanya detail yang coadebet-nya sama dengan coaproses
         const filteredDetails = details.filter(
@@ -135,9 +145,9 @@ export class PengeluaranheaderService {
         );
 
         if (filteredDetails.length > 0) {
-          // Cek apakah SEMUA nominal negatif (harus < 0, dan valid)
+          // Cek apakah SEMUA nominal negatif (harus < 0, dan valid) menggunakan parser US
           const allNegative = filteredDetails.every((detail: any) => {
-            const nominalValue = parseFloat(detail.nominal);
+            const nominalValue = parseNumberWithSeparators(detail.nominal);
             // Harus valid (bukan NaN) DAN negatif (< 0)
             return !isNaN(nominalValue) && nominalValue < 0;
           });
@@ -148,17 +158,28 @@ export class PengeluaranheaderService {
             );
           }
 
-          // Jika semua negatif, lanjut mapping dengan ubah nominal menjadi positif
+          // Jika semua negatif, lanjut mapping dengan ubah nominal menjadi positif dan format ulang
           const detailPengeluaranEmkl = filteredDetails.map((detail: any) => {
-            const nominalValue = parseFloat(detail.nominal); // Konversi ke number
-            const positiveNominal = Math.abs(nominalValue).toString(); // Hilangkan minus, kembali ke string
+            const nominalValue = parseNumberWithSeparators(detail.nominal); // Konversi ke number dengan format US
+            const positiveNominal = Math.abs(nominalValue)
+              .toFixed(0)
+              .toString();
+
+            // Debug log (diperbaiki: tampilkan formatted untuk nominalValue seperti yang diinginkan)
+            console.log(
+              `${formatIndonesianNegative(nominalValue)} nominalValue`,
+            ); // -100.000
+            console.log(`${detail.nominal} detail.nominal`); // -100,000.00
+            console.log(`${positiveNominal} positiveNominal`); // 100.000
 
             return {
+              id: 0,
               keterangan: detail.keterangan ?? null,
-              nominal: positiveNominal ?? null, // Ubah nominal menjadi positif
+              nominal: positiveNominal ?? null, // Ubah nominal menjadi positif dengan format Indonesia
               modifiedby: insertData.modifiedby ?? null,
             };
           });
+
           const payloadPengeluaranEmklHeader = {
             tglbukti: insertData.tglbukti ?? null,
             coaproses: datapengeluaranemkl.coaproses ?? null,
@@ -168,17 +189,19 @@ export class PengeluaranheaderService {
             jenisposting: insertData.jenisposting ?? null,
             bank_id: insertData.bank_id ?? null,
             nowarkat: insertData.nowarkat ?? null,
-            pengeluaran_nobukti: insertData.nobukti ?? null,
+            pengeluaran_nobukti: nomorBukti ?? null,
             created_at: this.utilsService.getTime(),
             updated_at: this.utilsService.getTime(),
             modifiedby: insertData.modifiedby,
             details: detailPengeluaranEmkl,
           };
+
           const jurnalHeaderInserted =
             await this.pengeluaranemklheaderService.create(
               payloadPengeluaranEmklHeader,
               trx,
             );
+          console.log(jurnalHeaderInserted, 'jurnalHeaderInserted');
           pengeluaranemklheader_nobukti = jurnalHeaderInserted.newItem.nobukti;
         }
       }
@@ -303,6 +326,7 @@ export class PengeluaranheaderService {
         itemIndex,
       };
     } catch (error) {
+      console.log(error, 'error di pengeluaran header');
       throw new Error(`Error: ${error}`);
     }
   }

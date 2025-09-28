@@ -6,8 +6,6 @@ import { UtilsModule } from 'src/utils/utils.module';
 @Module({
   controllers: [TradoController],
   providers: [TradoService],
-  imports: [
-    UtilsModule,
-  ],
+  imports: [UtilsModule],
 })
 export class TradoModule {}

@@ -74,7 +74,7 @@ export class ScheduleKapalService {
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
-      
+
       if (isLookUp) {
         const totalData = await trx(this.tableName)
           .count('id as total')

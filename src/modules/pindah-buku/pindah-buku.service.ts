@@ -797,7 +797,7 @@ export class PindahBukuService {
             };
 
             if (colIndex === 5) {
-              cell.value = Number(value) ?? 0;
+              cell.value = Number(value);
               cell.numFmt = '#,##0.00'; // format angka dengan ribuan
               cell.alignment = {
                 horizontal: 'right',

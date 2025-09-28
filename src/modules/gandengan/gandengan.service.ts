@@ -4,14 +4,11 @@ import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { CreateGandenganDto } from './dto/create-gandengan.dto';
 import { UpdateGandenganDto } from './dto/update-gandengan.dto';
 
-
 @Injectable()
 export class GandenganService {
   private readonly tableName: string = 'gandengan';
 
-  constructor(
-    private readonly utilService: UtilsService,
-  ) {}
+  constructor(private readonly utilService: UtilsService) {}
 
   create(createGandenganDto: CreateGandenganDto) {
     return 'This action adds a new gandengan';
@@ -25,7 +22,7 @@ export class GandenganService {
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
-      
+
       if (isLookUp) {
         const totalData = await trx(this.tableName)
           .count('id as total')
@@ -52,7 +49,11 @@ export class GandenganService {
           'statusaktif.memo',
           'statusaktif.text as statusaktif_nama',
         ])
-        .leftJoin('parameter as statusaktif', 'u.statusaktif', 'statusaktif.id');
+        .leftJoin(
+          'parameter as statusaktif',
+          'u.statusaktif',
+          'statusaktif.id',
+        );
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');

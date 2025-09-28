@@ -31,7 +31,7 @@ export class BookingOrderanMuatanService {
     private readonly logTrailService: LogtrailService,
     private readonly statuspendukungService: StatuspendukungService,
   ) {}
- 
+
   async create(createData: any, trx: any) {
     try {
       const {
@@ -76,8 +76,8 @@ export class BookingOrderanMuatanService {
         hargatrucking_nama,
         estmuat,
         ...insertData
-      } = createData;      
-      
+      } = createData;
+
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
@@ -94,23 +94,23 @@ export class BookingOrderanMuatanService {
       const newItem = insertedData[0];
 
       const dataPendukungMuatan = {
-        'TRADO LUAR' : tradoluar, 
-        'PISAH BL' : pisahbl,
-        'JOB PTD' : jobptd,
-        'TRANSIT' : transit,
-        'STUFFING DEPO' : stuffingdepo,
-        'OPEN DOOR' : opendoor,
-        'BATAL MUAT' : batalmuat,
-        'SOC' : soc,
-        'PENGURUSAN DOOR EKSPEDISI LAIN' : pengurusandoorekspedisilain
-      }
-      
+        'TRADO LUAR': tradoluar,
+        'PISAH BL': pisahbl,
+        'JOB PTD': jobptd,
+        TRANSIT: transit,
+        'STUFFING DEPO': stuffingdepo,
+        'OPEN DOOR': opendoor,
+        'BATAL MUAT': batalmuat,
+        SOC: soc,
+        'PENGURUSAN DOOR EKSPEDISI LAIN': pengurusandoorekspedisilain,
+      };
+
       const test = await this.statuspendukungService.create(
         this.tableName,
         newItem.id,
         newItem.modifiedby,
         trx,
-        dataPendukungMuatan
+        dataPendukungMuatan,
       );
 
       await this.logTrailService.create(
@@ -127,10 +127,12 @@ export class BookingOrderanMuatanService {
       );
 
       return {
-        newItem
+        newItem,
       };
     } catch (error) {
-      throw new Error(`Error creating booking orderan muatan: ${error.message}`);
+      throw new Error(
+        `Error creating booking orderan muatan: ${error.message}`,
+      );
     }
   }
 
@@ -140,11 +142,11 @@ export class BookingOrderanMuatanService {
   ) {
     try {
       console.log('MASUKK KE MUATAN??');
-      
+
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = 0;
-      
+
       const dataTempStatusPendukung = await this.tempStatusPendukung(
         trx,
         this.tableName,
@@ -227,7 +229,11 @@ export class BookingOrderanMuatanService {
           'pivot.pengurusandoor_nama as pengurusandoor_nama',
           'pivot.pengurusandoor_memo as pengurusandoor_memo',
         ])
-        .leftJoin('bookingorderanheader as header', 'u.nobukti', 'header.nobukti')
+        .leftJoin(
+          'bookingorderanheader as header',
+          'u.nobukti',
+          'header.nobukti',
+        )
         .leftJoin('jenisorderan', 'header.jenisorder_id', 'jenisorderan.id')
         .leftJoin('container', 'u.container_id', 'container.id')
         .leftJoin('shipper', 'u.shipper_id', 'shipper.id')
@@ -241,7 +247,11 @@ export class BookingOrderanMuatanService {
         .leftJoin('hargatrucking', 'u.lokasistuffing', 'hargatrucking.id')
         .leftJoin('emkl', 'u.emkllain_id', 'emkl.id')
         .leftJoin('daftarbl', 'u.daftarbl_id', 'daftarbl.id')
-        .innerJoin(`${dataTempStatusPendukung} as pivot`, 'u.nobukti', 'pivot.nobukti')
+        .innerJoin(
+          `${dataTempStatusPendukung} as pivot`,
+          'u.nobukti',
+          'pivot.nobukti',
+        );
 
       if (filters?.tglDari && filters?.tglSampai) {
         const tglDariFormatted = formatDateToSQL(String(filters?.tglDari));
@@ -281,14 +291,18 @@ export class BookingOrderanMuatanService {
             .orWhere('shipper.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('tujuankapal.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('marketing.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('schedulekapal.voyberangkat', 'like', `%${sanitizedValue}%`)
+            .orWhere(
+              'schedulekapal.voyberangkat',
+              'like',
+              `%${sanitizedValue}%`,
+            )
             .orWhere('pelayaran.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('jenismuatan.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('sandarkapal.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('hargatrucking.keterangan', 'like', `%${sanitizedValue}%`)
             .orWhere('emkl.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('daftarbl.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('marketing.nama', 'like', `%${sanitizedValue}%`)
+            .orWhere('marketing.nama', 'like', `%${sanitizedValue}%`);
         });
       }
 
@@ -296,17 +310,31 @@ export class BookingOrderanMuatanService {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
-          if (key === 'tglDari' || key === 'tglSampai' || key === 'jenisOrderan') {
+          if (
+            key === 'tglDari' ||
+            key === 'tglSampai' ||
+            key === 'jenisOrderan'
+          ) {
             continue; // Lewati filter jika key adalah 'tglDari' atau 'tglSampai'
           }
-        
+
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'tglbukti') {
-              query.andWhereRaw("FORMAT(header.??, 'dd-MM-yyyy') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(header.??, 'dd-MM-yyyy') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'jenisorder_text') {
-              query.andWhere('jenisorderan.nama', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'jenisorderan.nama',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'container_text') {
               query.andWhere('container.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'shipper_text') {
@@ -316,7 +344,11 @@ export class BookingOrderanMuatanService {
             } else if (key === 'marketing_text') {
               query.andWhere('marketing.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'schedule_text') {
-              query.andWhere('schedulekapal.voyberangkat', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'schedulekapal.voyberangkat',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'pelayarancontainer_text') {
               query.andWhere('pelayaran.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'jenismuatan_text') {
@@ -324,7 +356,11 @@ export class BookingOrderanMuatanService {
             } else if (key === 'sandarkapal_text') {
               query.andWhere('sandarkapal.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'lokasistuffing_text') {
-              query.andWhere('hargatrucking.keterangan', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'hargatrucking.keterangan',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'emkllain_text') {
               query.andWhere('emkl.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'daftarbl_text') {
@@ -413,7 +449,6 @@ export class BookingOrderanMuatanService {
     }
   }
 
-  
   async tempStatusPendukung(trx: any, tablename: string) {
     try {
       const tempStatusPendukung = `##temp_${Math.random().toString(36).substring(2, 15)}`;
@@ -485,7 +520,7 @@ export class BookingOrderanMuatanService {
           .from('statuspendukung as a')
           .innerJoin('parameter as b', 'a.statusdatapendukung', 'b.id')
           .where('b.subgrp', tablename),
-      );      
+      );
 
       await trx(tempData).insert(
         trx
@@ -539,7 +574,7 @@ export class BookingOrderanMuatanService {
         .from(tempData)
         .groupBy('judul');
       // console.log('columnsResult', columnsResult);
-      
+
       let columns = '';
       columnsResult.forEach((row, index) => {
         if (index === 0) {
@@ -634,12 +669,8 @@ export class BookingOrderanMuatanService {
             trx.raw(
               "JSON_QUERY(A.[batal muat], '$.statuspendukung_memo') as batalmuat_memo",
             ),
-            trx.raw(
-              "JSON_VALUE(A.[soc], '$.statuspendukung_id') as soc",
-            ),
-            trx.raw(
-              "JSON_VALUE(A.[soc], '$.statuspendukung') as soc_nama",
-            ),
+            trx.raw("JSON_VALUE(A.[soc], '$.statuspendukung_id') as soc"),
+            trx.raw("JSON_VALUE(A.[soc], '$.statuspendukung') as soc_nama"),
             trx.raw(
               "JSON_QUERY(A.[soc], '$.statuspendukung_memo') as soc_memo",
             ),
@@ -656,7 +687,7 @@ export class BookingOrderanMuatanService {
           .from(trx.raw(pivotSubqueryRaw)),
       );
       // console.log('hasil', await trx(tempHasil).select('*'));
-      
+
       return tempHasil;
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -666,8 +697,14 @@ export class BookingOrderanMuatanService {
 
   async update(id: number, data: any, trx: any) {
     try {
-      const getIdOrderanMuatan = await trx.from(trx.raw(`${this.tableName} WITH (READUNCOMMITTED)`)).select('id').where('bookingorderan_id', id).first()
-      const existingData = await trx(this.tableName).where('id', getIdOrderanMuatan.id).first();      
+      const getIdOrderanMuatan = await trx
+        .from(trx.raw(`${this.tableName} WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('bookingorderan_id', id)
+        .first();
+      const existingData = await trx(this.tableName)
+        .where('id', getIdOrderanMuatan.id)
+        .first();
       const {
         container_nama,
         shipper_nama,
@@ -700,17 +737,22 @@ export class BookingOrderanMuatanService {
         pengurusandoorekspedisilain_nama,
         ...bookingOrderanData
       } = data;
-      
+
       Object.keys(bookingOrderanData).forEach((key) => {
         if (typeof bookingOrderanData[key] === 'string') {
           bookingOrderanData[key] = bookingOrderanData[key].toUpperCase();
         }
       });
 
-      const hasChanges = this.utilsService.hasChanges(bookingOrderanData, existingData);
+      const hasChanges = this.utilsService.hasChanges(
+        bookingOrderanData,
+        existingData,
+      );
       if (hasChanges) {
         bookingOrderanData.updated_at = this.utilsService.getTime();
-        await trx(this.tableName).where('id', getIdOrderanMuatan.id).update(bookingOrderanData);
+        await trx(this.tableName)
+          .where('id', getIdOrderanMuatan.id)
+          .update(bookingOrderanData);
       }
 
       await this.logTrailService.create(
@@ -727,7 +769,7 @@ export class BookingOrderanMuatanService {
       );
 
       return {
-        id: getIdOrderanMuatan.id
+        id: getIdOrderanMuatan.id,
       };
     } catch (error) {
       if (error instanceof HttpException) {
@@ -761,23 +803,31 @@ export class BookingOrderanMuatanService {
         trx,
       );
 
-      const statusPendukung = await trx.from(trx.raw(`statuspendukung WITH (READUNCOMMITTED)`)).where('transaksi_id', deletedData.id);
+      const statusPendukung = await trx
+        .from(trx.raw(`statuspendukung WITH (READUNCOMMITTED)`))
+        .where('transaksi_id', deletedData.id);
       if (statusPendukung.length > 0) {
-        await this.statuspendukungService.remove(deletedData.id, modifiedby, trx);
+        await this.statuspendukungService.remove(
+          deletedData.id,
+          modifiedby,
+          trx,
+        );
       }
 
       return {
         status: 200,
         message: 'Data deleted successfully',
         id: deletedData.id,
-        headerId: deletedData.bookingorderan_id
+        headerId: deletedData.bookingorderan_id,
       };
     } catch (error) {
       console.error('Error deleting data booking orderan muatan: ', error);
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to delete data booking orderan muatan');
+      throw new InternalServerErrorException(
+        'Failed to delete data booking orderan muatan',
+      );
     }
   }
 
@@ -832,7 +882,11 @@ export class BookingOrderanMuatanService {
           'emkl.nama as emkllain_nama',
           'daftarbl.nama as daftarbl_nama',
         ])
-        .leftJoin('bookingorderanheader as header', 'u.nobukti', 'header.nobukti')
+        .leftJoin(
+          'bookingorderanheader as header',
+          'u.nobukti',
+          'header.nobukti',
+        )
         .leftJoin('jenisorderan', 'header.jenisorder_id', 'jenisorderan.id')
         .leftJoin('container', 'u.container_id', 'container.id')
         .leftJoin('shipper', 'u.shipper_id', 'shipper.id')
@@ -849,7 +903,6 @@ export class BookingOrderanMuatanService {
 
       const data = await query;
       console.log('data', data);
-      
 
       return {
         data: data,
@@ -882,5 +935,4 @@ export class BookingOrderanMuatanService {
       throw new InternalServerErrorException('Failed to check validation');
     }
   }
-
 }

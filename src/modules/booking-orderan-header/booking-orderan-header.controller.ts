@@ -23,7 +23,10 @@ import { AuthGuard } from '../auth/auth.guard';
 import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { BookingOrderanHeaderService } from './booking-orderan-header.service';
-import { CreateBookingOrderanHeaderDto, CreateBookingOrderanHeaderSchema } from './dto/create-booking-orderan-header.dto';
+import {
+  CreateBookingOrderanHeaderDto,
+  CreateBookingOrderanHeaderSchema,
+} from './dto/create-booking-orderan-header.dto';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
 import {
   FindAllDto,
@@ -36,7 +39,7 @@ import { BookingOrderanMuatanService } from './bookingorderanmuatan.service';
 export class BookingOrderanHeaderController {
   constructor(
     private readonly bookingOrderanHeaderService: BookingOrderanHeaderService,
-    private readonly bookingOrderanMuatanService: BookingOrderanMuatanService
+    private readonly bookingOrderanMuatanService: BookingOrderanMuatanService,
   ) {}
 
   @UseGuards(AuthGuard)
@@ -49,8 +52,8 @@ export class BookingOrderanHeaderController {
       KeyboardOnlyValidationPipe,
     )
     data: any,
-    @Req() req, 
-  ) {    
+    @Req() req,
+  ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
@@ -60,7 +63,11 @@ export class BookingOrderanHeaderController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating booking orderan header in controller', error, error.message);
+      console.error(
+        'Error while creating booking orderan header in controller',
+        error,
+        error.message,
+      );
 
       if (error instanceof HttpException) {
         throw error;
@@ -74,18 +81,26 @@ export class BookingOrderanHeaderController {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-  } 
- 
+  }
+
   @Get()
   //@BOOKINGORDERANMUATAN
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: any) {
-    const { search, page, limit, sortBy, sortDirection, isLookUp, jenisOrderan, ...filters } =
-      query;
-    let service: any
+    const {
+      search,
+      page,
+      limit,
+      sortBy,
+      sortDirection,
+      isLookUp,
+      jenisOrderan,
+      ...filters
+    } = query;
+    let service: any;
 
     const sortParams = {
-      sortBy: sortBy || 'nobukti', 
+      sortBy: sortBy || 'nobukti',
       sortDirection: sortDirection || 'asc',
     };
 
@@ -104,12 +119,32 @@ export class BookingOrderanHeaderController {
 
     const trx = await dbMssql.transaction();
     try {
-      const getJenisOrderanMuatan = await trx('parameter').select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'MUATAN').first();
-      const getJenisOrderanBongkaran = await trx('parameter').select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'BONGKARAN').first();
-      const getJenisOrderanImport = await trx('parameter').select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'IMPORT').first();
-      const getJenisOrderanExport = await trx('parameter').select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'EXPORT').first();
-      console.log('getJenisOrderanMuatan', getJenisOrderanMuatan, getJenisOrderanMuatan.id);
-      
+      const getJenisOrderanMuatan = await trx('parameter')
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'MUATAN')
+        .first();
+      const getJenisOrderanBongkaran = await trx('parameter')
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'BONGKARAN')
+        .first();
+      const getJenisOrderanImport = await trx('parameter')
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'IMPORT')
+        .first();
+      const getJenisOrderanExport = await trx('parameter')
+        .select('id')
+        .where('grp', 'JENIS ORDERAN')
+        .where('subgrp', 'EXPORT')
+        .first();
+      console.log(
+        'getJenisOrderanMuatan',
+        getJenisOrderanMuatan,
+        getJenisOrderanMuatan.id,
+      );
+
       switch (jenisOrderan) {
         case getJenisOrderanMuatan?.id:
           service = this.bookingOrderanMuatanService;
@@ -135,7 +170,9 @@ export class BookingOrderanHeaderController {
         error,
         error.message,
       );
-      throw new InternalServerErrorException('Failed to fetch booking orderan header');
+      throw new InternalServerErrorException(
+        'Failed to fetch booking orderan header',
+      );
     }
   }
 
@@ -154,13 +191,20 @@ export class BookingOrderanHeaderController {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      const result = await this.bookingOrderanHeaderService.update(+id, data, trx);
+      const result = await this.bookingOrderanHeaderService.update(
+        +id,
+        data,
+        trx,
+      );
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while updating booking orderan header in controller:', error);
+      console.error(
+        'Error while updating booking orderan header in controller:',
+        error,
+      );
 
       if (error instanceof HttpException) {
         // Ensure any other errors get caught and returned
@@ -184,10 +228,10 @@ export class BookingOrderanHeaderController {
     const trx = await dbMssql.transaction();
     try {
       const result = await this.bookingOrderanHeaderService.delete(
-        +id, 
+        +id,
         trx,
         req.user?.user?.username,
-        data
+        data,
       );
 
       if (result.status === 404) {
@@ -227,16 +271,35 @@ export class BookingOrderanHeaderController {
 
   @Post('check-validation')
   @UseGuards(AuthGuard)
-  async checkValidasi(@Body() body: { aksi: string; value: any, jenisOrderan: any }, @Req() req) {
-    let serviceCheckValidation: any
+  async checkValidasi(
+    @Body() body: { aksi: string; value: any; jenisOrderan: any },
+    @Req() req,
+  ) {
+    let serviceCheckValidation: any;
     const { aksi, value, jenisOrderan } = body;
     const trx = await dbMssql.transaction();
     const editedby = req.user?.user?.username;
 
-    const getJenisOrderanMuatan = await trx('parameter').select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'MUATAN').first();
-    const getJenisOrderanBongkaran = await trx('parameter').select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'BONGKARAN').first();
-    const getJenisOrderanImport = await trx('parameter').select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'IMPORT').first();
-    const getJenisOrderanExport = await trx('parameter').select('id').where('grp', 'JENIS ORDERAN').where('subgrp', 'EXPORT').first();
+    const getJenisOrderanMuatan = await trx('parameter')
+      .select('id')
+      .where('grp', 'JENIS ORDERAN')
+      .where('subgrp', 'MUATAN')
+      .first();
+    const getJenisOrderanBongkaran = await trx('parameter')
+      .select('id')
+      .where('grp', 'JENIS ORDERAN')
+      .where('subgrp', 'BONGKARAN')
+      .first();
+    const getJenisOrderanImport = await trx('parameter')
+      .select('id')
+      .where('grp', 'JENIS ORDERAN')
+      .where('subgrp', 'IMPORT')
+      .first();
+    const getJenisOrderanExport = await trx('parameter')
+      .select('id')
+      .where('grp', 'JENIS ORDERAN')
+      .where('subgrp', 'EXPORT')
+      .first();
 
     switch (jenisOrderan) {
       case getJenisOrderanMuatan?.id:
