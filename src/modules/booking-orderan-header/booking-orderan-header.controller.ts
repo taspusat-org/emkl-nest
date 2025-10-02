@@ -139,11 +139,6 @@ export class BookingOrderanHeaderController {
         .where('grp', 'JENIS ORDERAN')
         .where('subgrp', 'EXPORT')
         .first();
-      console.log(
-        'getJenisOrderanMuatan',
-        getJenisOrderanMuatan,
-        getJenisOrderanMuatan.id,
-      );
 
       switch (jenisOrderan) {
         case getJenisOrderanMuatan?.id:

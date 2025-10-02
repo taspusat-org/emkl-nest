@@ -107,8 +107,6 @@ export class JurnalumumheaderService {
 
           // Buat object baru tanpa nominaldebet dan nominalkredit
           const { nominaldebet, nominalkredit, ...cleanDetail } = detail;
-
-          // Set nominal berdasarkan debet atau kredit
           if (nominalDebetValue > 0) {
             cleanDetail.nominal = nominalDebetValue; // Positif untuk debet
             totalDebet += nominalDebetValue;
@@ -119,8 +117,6 @@ export class JurnalumumheaderService {
 
           return cleanDetail;
         });
-
-        // **VALIDASI BALANCE: Total Debet harus sama dengan Total Kredit**
         const selisih = totalDebet - totalKredit;
 
         const tolerance = 0.01;
@@ -186,7 +182,6 @@ export class JurnalumumheaderService {
           tglbukti: insertData.tglbukti,
           modifiedby: insertData.modifiedby,
         }));
-        console.log('detailsWithNobukti', detailsWithNobukti);
         await this.jurnalumumdetailService.create(
           detailsWithNobukti,
           insertedItems[0].id,

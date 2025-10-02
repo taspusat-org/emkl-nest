@@ -40,92 +40,97 @@ export class PenerimaanemklheaderService {
   private readonly tableName = 'penerimaanemklheader';
   async create(data: any, trx: any) {
     try {
-      const {
-        sortBy,
-        sortDirection,
-        filters,
-        search,
-        page,
-        limit,
-        statusformat_nama,
-        pengembaliankasgantung_nobukti,
-        relasi_nama,
-        jenisposting_nama,
-        penerimaan_nobukti,
-        format,
-        coakredit,
-        alatbayar_nama,
-        bank_nama,
-        karyawan_nama,
-        details,
-        ...insertData
-      } = data;
+      let penerimaanNoBukti = data.penerimaan_nobukti;
+      let hutangNoBukti = '';
+      let grp = '';
+      let subgrp = '';
+      let postingdari = '';
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // Convert TEXT/NTEXT -> nvarchar(max)
+      const insertData = {
+        nobukti: data.nobukti,
+        tglbukti: formatDateToSQL(data.tglbukti),
+        tgljatuhtempo: formatDateToSQL(data.tgljatuhtempo),
+        keterangan: data.keterangan ?? null,
+        karyawan_id: data.karyawan_id ?? null,
+        jenisposting: data.jenisposting,
+        bank_id: data.bank_id ?? null,
+        nowarkat: data.nowarkat ?? null,
+        penerimaan_nobukti:
+          penerimaanNoBukti ?? data.penerimaan_nobukti ?? null,
+        hutang_nobukti: hutangNoBukti ?? data.hutang_nobukti ?? null,
+        statusformat: data.format ?? null,
+        info: data.info ?? null,
+        modifiedby: data.modifiedby ?? null,
+        created_at: this.utilsService.getTime(),
+        updated_at: this.utilsService.getTime(),
+      };
 
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-
-      insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
-      insertData.tgljatuhtempo = formatDateToSQL(
-        String(insertData?.tgljatuhtempo),
-      );
-      insertData.statusformat = format;
-      insertData.created_at = this.utilsService.getTime();
-      insertData.updated_at = this.utilsService.getTime();
+      console.log(data, 'data');
       const parameter = await trx('parameter')
         .select('grp', 'subgrp')
-        .where('id', format)
+        .where('id', data.format)
         .first();
-
-      const grp = parameter.grp;
-      const subgrp = parameter.subgrp;
-      const postingdari = parameter.memo_nama;
+      grp = parameter.grp;
+      subgrp = parameter.subgrp;
+      postingdari = parameter.memo_nama;
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
         grp,
         subgrp,
         this.tableName,
-        insertData.tglbukti,
+        String(insertData.tglbukti),
       );
       insertData.nobukti = nomorBukti;
-      const requestPenerimaan = {
-        tglbukti: insertData.tglbukti,
-        keterangan: insertData.keterangan,
-        bank_id: insertData.bank_id,
-        nowarkat: insertData.nowarkat,
-        postingdari: postingdari,
-      };
 
-      const penerimaanDetails = details.map((detail: any) => {
-        return {
-          ...detail,
-          coa: coakredit,
-          penerimaanemklheader_nobukti: nomorBukti,
-          modifiedby: data.modifiedby,
+      if (!data.coaproses) {
+        const requestPenerimaan = {
+          tglbukti: insertData.tglbukti,
+          keterangan: insertData.keterangan,
+          bank_id: insertData.bank_id,
+          nowarkat: insertData.nowarkat,
+          postingdari: postingdari,
         };
-      });
 
-      const penerimaanData = {
-        ...requestPenerimaan,
-        details: penerimaanDetails,
-      };
-      const penerimaanResult = await this.penerimaanheaderService.create(
-        penerimaanData,
-        trx,
-      );
-      const penerimaanNoBukti = penerimaanResult?.newItem?.nobukti;
-      if (!penerimaanNoBukti) {
-        throw new Error('Gagal membuat pengeluaran: nobukti tidak terbentuk');
+        const penerimaanDetails = data.details.map((detail: any) => {
+          return {
+            ...detail,
+            coa: data.coakredit,
+            penerimaanemklheader_nobukti: nomorBukti,
+            modifiedby: data.modifiedby,
+          };
+        });
+
+        const penerimaanData = {
+          ...requestPenerimaan,
+          details: penerimaanDetails,
+        };
+        const penerimaanResult = await this.penerimaanheaderService.create(
+          penerimaanData,
+          trx,
+        );
+        penerimaanNoBukti = penerimaanResult?.newItem?.nobukti;
+        if (!penerimaanNoBukti) {
+          throw new Error('Gagal membuat pengeluaran: nobukti tidak terbentuk');
+        }
+        insertData.penerimaan_nobukti = penerimaanNoBukti;
       }
-      insertData.penerimaan_nobukti = penerimaanNoBukti;
+
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
-      if (details.length > 0) {
-        const detailsWithNobukti = details.map((detail: any) => {
-          const { nobukti, ...rest } = detail;
+      if (data.details.length > 0) {
+        const detailsWithNobukti = data.details.map((detail: any) => {
+          const {
+            nobukti,
+            transaksibiaya_nobukti,
+            transaksilain_nobukti,
+            ...rest
+          } = detail;
           return {
             ...rest,
             nobukti: nomorBukti, // Inject nobukti into each detail
@@ -146,10 +151,10 @@ export class PenerimaanemklheaderService {
 
       const { data: filteredItems } = await this.findAll(
         {
-          search,
-          filters,
-          pagination: { page, limit: 0 },
-          sort: { sortBy, sortDirection },
+          search: data.search,
+          filters: data.filters,
+          pagination: { page: data.page, limit: 0 },
+          sort: { sortBy: data.sortBy, sortDirection: data.sortDirection },
           isLookUp: false, // Set based on your requirement (e.g., lookup flag)
         },
         trx,
@@ -164,8 +169,8 @@ export class PenerimaanemklheaderService {
         itemIndex = 0;
       }
 
-      const pageNumber = Math.floor(itemIndex / limit) + 1;
-      const endIndex = pageNumber * limit;
+      const pageNumber = Math.floor(itemIndex / data.limit) + 1;
+      const endIndex = pageNumber * data.limit;
 
       // Ambil data hingga halaman yang mencakup item baru
       const limitedItems = filteredItems.slice(0, endIndex);
@@ -184,7 +189,7 @@ export class PenerimaanemklheaderService {
           nobuktitrans: newItem.id,
           aksi: 'ADD',
           datajson: JSON.stringify(newItem),
-          modifiedby: newItem.modifiedby,
+          modifiedby: newItem.modifiedby ?? null,
         },
         trx,
       );

@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as dotenv from 'dotenv';
 import { ZodFilter } from './common/utils/zod-filter.exception';
@@ -8,16 +8,17 @@ import * as express from 'express';
 import * as path from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 dotenv.config(); // Memuat file .env
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const uploadDir = path.join(process.cwd(), 'uploads', 'compress');
   if (!existsSync(uploadDir)) {
     mkdirSync(uploadDir, { recursive: true });
   }
-
   app.enableCors({
     origin: [
       'http://localhost:3001',
