@@ -135,11 +135,11 @@ export class PenerimaanheaderService {
         details: result,
       };
       await this.jurnalumumheaderService.create(dataJurnalumum, trx);
-      //
+      //c
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
-
+      console.log(details, 'details');
       if (details.length > 0) {
         // Inject nobukti into each detail item
         const detailsWithNobukti = details.map((detail: any) => ({

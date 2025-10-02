@@ -28,6 +28,7 @@ import * as path from 'path';
 import { Workbook, Column } from 'exceljs';
 import { StatuspendukungService } from '../statuspendukung/statuspendukung.service';
 import { PengeluaranemklheaderService } from '../pengeluaranemklheader/pengeluaranemklheader.service';
+import { PenerimaanemklheaderService } from '../penerimaanemklheader/penerimaanemklheader.service';
 
 @Injectable()
 export class PengeluaranheaderService {
@@ -41,6 +42,7 @@ export class PengeluaranheaderService {
     private readonly statuspendukungService: StatuspendukungService,
     @Inject(forwardRef(() => PengeluaranemklheaderService)) // ← Index 7: Gunakan forwardRef di sini!
     private readonly pengeluaranemklheaderService: PengeluaranemklheaderService,
+    private readonly penerimaanemklheaderService: PenerimaanemklheaderService,
   ) {}
   private readonly tableName = 'pengeluaranheader';
   async create(data: any, trx: any) {
@@ -63,7 +65,6 @@ export class PengeluaranheaderService {
         updated_at,
         ...insertData
       } = data;
-      console.log(insertData, 'inidia');
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
@@ -77,7 +78,9 @@ export class PengeluaranheaderService {
       insertData.created_at = created_at || this.utilsService.getTime();
       insertData.updated_at = updated_at || this.utilsService.getTime();
 
-      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+      let nominalValue = 0;
+      let positiveNominal = '';
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
       const parameterCabang = await trx('parameter')
         .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
         .where('grp', 'CABANG')
@@ -89,7 +92,6 @@ export class PengeluaranheaderService {
         .leftJoin('parameter as p', 'p.id', 'b.formatpengeluaran')
         .where('b.id', insertData.bank_id)
         .first();
-      console.log(formatpengeluaran.formatpengeluaran, 'formatpengeluaran');
       const parameter = await trx('parameter')
         .select(
           'grp',
@@ -99,7 +101,6 @@ export class PengeluaranheaderService {
         )
         .where('id', formatpengeluaran.formatpengeluaran)
         .first();
-      console.log(parameter, 'parameter');
       if (!formatpengeluaran) {
         throw new Error(`Bank dengan id ${insertData.bank_id} tidak ditemukan`);
       }
@@ -109,7 +110,6 @@ export class PengeluaranheaderService {
           `Parameter dengan id ${formatpengeluaran.formatpengeluaran} tidak ditemukan`,
         );
       }
-
       const cabangId = parameterCabang.cabang_id;
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
@@ -134,48 +134,48 @@ export class PengeluaranheaderService {
         .first();
 
       let pengeluaranemklheader_nobukti = '';
+      let penerimaanemklheader_nobukti = '';
 
-      // Kode utama yang diperbaiki
-
-      // Kode utama yang diperbaiki
       if (details.length > 0) {
-        // Filter hanya detail yang coadebet-nya sama dengan coaproses
+        // Filter detail yang coadebet sama dengan coaproses
         const filteredDetails = details.filter(
           (detail: any) => detail.coadebet === datapengeluaranemkl.coaproses,
         );
 
-        if (filteredDetails.length > 0) {
-          // Cek apakah SEMUA nominal negatif (harus < 0, dan valid) menggunakan parser US
-          const allNegative = filteredDetails.every((detail: any) => {
+        // Pisahkan detail berdasarkan nominal positif/negatif
+        const negativeDetails = filteredDetails.filter((detail: any) => {
+          const nominalValue = parseNumberWithSeparators(detail.nominal);
+          return !isNaN(nominalValue) && nominalValue < 0;
+        });
+
+        const positiveDetails = filteredDetails.filter((detail: any) => {
+          const nominalValue = parseNumberWithSeparators(detail.nominal);
+          return !isNaN(nominalValue) && nominalValue > 0;
+        });
+
+        // Cek jika ada positiveDetails yang memiliki transaksilain_nobukti, tolak proses
+        const hasTransaksiLain = positiveDetails.some(
+          (detail: any) =>
+            detail.transaksibiaya_nobukti &&
+            detail.transaksibiaya_nobukti.trim() !== '',
+        );
+
+        if (hasTransaksiLain) {
+          throw new Error(
+            'Tidak diperbolehkan ada nominal positif dengan transaksibiaya_nobukti.',
+          );
+        }
+
+        // Proses insert untuk negativeDetails ke pengeluaranemklheader
+        if (negativeDetails.length > 0) {
+          const detailPengeluaranEmkl = negativeDetails.map((detail: any) => {
             const nominalValue = parseNumberWithSeparators(detail.nominal);
-            // Harus valid (bukan NaN) DAN negatif (< 0)
-            return !isNaN(nominalValue) && nominalValue < 0;
-          });
-
-          if (!allNegative) {
-            throw new Error(
-              'Semua nominal pada detail pengeluaran harus bernilai negatif (minus) dan valid. Ditemukan nominal yang tidak negatif atau tidak valid.',
-            );
-          }
-
-          // Jika semua negatif, lanjut mapping dengan ubah nominal menjadi positif dan format ulang
-          const detailPengeluaranEmkl = filteredDetails.map((detail: any) => {
-            const nominalValue = parseNumberWithSeparators(detail.nominal); // Konversi ke number dengan format US
-            const positiveNominal = Math.abs(nominalValue)
-              .toFixed(0)
-              .toString();
-
-            // Debug log (diperbaiki: tampilkan formatted untuk nominalValue seperti yang diinginkan)
-            console.log(
-              `${formatIndonesianNegative(nominalValue)} nominalValue`,
-            ); // -100.000
-            console.log(`${detail.nominal} detail.nominal`); // -100,000.00
-            console.log(`${positiveNominal} positiveNominal`); // 100.000
+            positiveNominal = Math.abs(nominalValue).toFixed(0).toString();
 
             return {
               id: 0,
               keterangan: detail.keterangan ?? null,
-              nominal: positiveNominal ?? null, // Ubah nominal menjadi positif dengan format Indonesia
+              nominal: positiveNominal ?? null,
               modifiedby: insertData.modifiedby ?? null,
             };
           });
@@ -196,13 +196,53 @@ export class PengeluaranheaderService {
             details: detailPengeluaranEmkl,
           };
 
-          const jurnalHeaderInserted =
+          const pengeluaranemklheaderInserted =
             await this.pengeluaranemklheaderService.create(
               payloadPengeluaranEmklHeader,
               trx,
             );
-          console.log(jurnalHeaderInserted, 'jurnalHeaderInserted');
-          pengeluaranemklheader_nobukti = jurnalHeaderInserted.newItem.nobukti;
+          pengeluaranemklheader_nobukti =
+            pengeluaranemklheaderInserted.newItem.nobukti;
+        }
+
+        // Proses insert untuk positiveDetails ke penerimaanemklheader
+        if (positiveDetails.length > 0) {
+          const detailPenerimaanEmkl = positiveDetails.map((detail: any) => {
+            const nominalValue = parseNumberWithSeparators(detail.nominal);
+            positiveNominal = nominalValue.toFixed(0).toString();
+
+            return {
+              id: 0,
+              keterangan: detail.keterangan ?? null,
+              nominal: positiveNominal ?? null,
+              modifiedby: insertData.modifiedby ?? null,
+              pengeluaranemkl_nobukti: nomorBukti ?? null,
+            };
+          });
+
+          const payloadPenerimaanEmklHeader = {
+            tglbukti: insertData.tglbukti ?? null,
+            coaproses: datapengeluaranemkl.coaproses ?? null,
+            tgljatuhtempo: insertData.tgljatuhtempo ?? null,
+            keterangan: insertData.keterangan ?? null,
+            karyawan_id: insertData.karyawan_id ?? null,
+            jenisposting: insertData.jenisposting ?? null,
+            bank_id: insertData.bank_id ?? null,
+            nowarkat: insertData.nowarkat ?? null,
+            penerimaan_nobukti: null,
+            created_at: this.utilsService.getTime(),
+            updated_at: this.utilsService.getTime(),
+            modifiedby: insertData.modifiedby,
+            details: detailPenerimaanEmkl,
+          };
+
+          const penerimaanemklheaderInserted =
+            await this.penerimaanemklheaderService.create(
+              payloadPenerimaanEmklHeader,
+              trx,
+            );
+          penerimaanemklheader_nobukti =
+            penerimaanemklheaderInserted.newItem.nobukti;
         }
       }
 
@@ -213,7 +253,8 @@ export class PengeluaranheaderService {
             nobukti: nomorBukti,
             tglinvoiceemkl: formatDateToSQL(tglinvoiceemkl),
             modifiedby: data.modifiedby || null,
-            pengeluaranemklheader_nobukti: pengeluaranemklheader_nobukti,
+            transaksilain_nobukti: pengeluaranemklheader_nobukti,
+            transaksibiaya_nobukti: penerimaanemklheader_nobukti,
           }),
         );
         await this.pengeluarandetailService.create(
@@ -224,7 +265,6 @@ export class PengeluaranheaderService {
       }
 
       const newItem = insertedItems[0];
-
       const processDetails = (details) => {
         return details.flatMap((detail) => [
           {
@@ -233,7 +273,7 @@ export class PengeluaranheaderService {
             nobukti: nomorBukti,
             tglbukti: formatDateToSQL(insertData.tglbukti),
             keterangan: detail.keterangan,
-            nominaldebet: detail.nominal,
+            nominaldebet: positiveNominal ? positiveNominal : detail.nominal,
             nominalkredit: '',
             modifiedby: insertData.modifiedby,
           },
@@ -244,14 +284,13 @@ export class PengeluaranheaderService {
             tglbukti: formatDateToSQL(insertData.tglbukti),
             keterangan: detail.keterangan,
             nominaldebet: '',
-            nominalkredit: detail.nominal,
+            nominalkredit: positiveNominal ? positiveNominal : detail.nominal,
             modifiedby: insertData.modifiedby,
           },
         ]);
       };
 
       const result = processDetails(details);
-
       const jurnalPayload = {
         nobukti: nomorBukti,
         tglbukti: insertData.tglbukti,
@@ -263,6 +302,7 @@ export class PengeluaranheaderService {
         modifiedby: insertData.modifiedby,
         details: result,
       };
+
       const jurnalHeaderInserted = await this.JurnalumumheaderService.create(
         jurnalPayload,
         trx,
@@ -711,7 +751,6 @@ export class PengeluaranheaderService {
             details: jurnalDetails,
           };
 
-          console.log('Updating existing jurnal with ID:', existingJurnal.id);
           await this.JurnalumumheaderService.update(
             existingJurnal.id,
             jurnalUpdatePayload,
@@ -731,7 +770,6 @@ export class PengeluaranheaderService {
             details: jurnalDetails,
           };
 
-          console.log('Creating new jurnal for nobukti:', nobukti);
           await this.JurnalumumheaderService.create(jurnalCreatePayload, trx);
         }
       }

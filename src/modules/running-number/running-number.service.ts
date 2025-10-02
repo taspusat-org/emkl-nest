@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { dbMssql } from 'src/common/utils/db';
+import { formatDateToSQL } from 'src/utils/utils.service';
 
 @Injectable()
 export class RunningNumberService {
@@ -72,10 +73,16 @@ export class RunningNumberService {
     jenisbiaya?: string | null,
     marketing?: string | null,
   ): Promise<string> {
-    const date = new Date(tgl);
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-
+    const date = formatDateToSQL(tgl);
+    if (!date) {
+      throw new Error('Tanggal tidak valid!');
+    }
+    const dateParts = date.split('-');
+    if (dateParts.length < 2 || !dateParts[0] || !dateParts[1]) {
+      throw new Error('Format tanggal tidak valid!');
+    }
+    const year = parseInt(dateParts[0], 10); // ambil tahun, jadi 2025
+    const month = parseInt(dateParts[1], 10); // ambil bulan, jadi 10
     const parameter = await trx('parameter')
       .select('id', 'text', 'type')
       .where('grp', group)
@@ -147,8 +154,23 @@ export class RunningNumberService {
       marketingData = datamarketing.kode;
     }
 
+    // New logic to handle digits for '9'
+    // Hitung digit '9' yang ada di format, misal '9999' berarti 4 digit
+    const digitMatch = format.match(/9+/);
+    let digitCount = 0;
+    if (digitMatch) {
+      digitCount = digitMatch[0].length;
+    }
+
+    // Buat string angka dengan padding sesuai digitCount
+    let nextNumberString = nextNumber.toString();
+    if (digitCount > 0) {
+      nextNumberString = nextNumberString.padStart(digitCount, '0');
+    }
+
+    // Update placeholders dengan angka yang sudah dipadding
     const placeholders = {
-      '9999': nextNumber,
+      '9999': nextNumberString, // angka sudah dipadding
       R: this.numberToRoman(month), // Bulan dalam format Roman
       M: marketingData, // Kode Marketing
       T: tujuanData, // Kode Tujuan
@@ -159,16 +181,10 @@ export class RunningNumberService {
 
     let runningNumber = this.formatNumber(format, placeholders);
 
-    // New logic to handle digits for '9'
-    const digitCount = (format.match(/9/g) || []).length;
-    let nextNumberString = nextNumber.toString();
-    if (digitCount === 4) {
-      nextNumberString = nextNumberString.padStart(4, '0');
-    }
+    // Hapus bagian replace angka global yang ada di bawah ini:
+    // runningNumber = runningNumber.replace(/(\d+)/, nextNumberString);
 
-    // Ensure the correct running number format
-    runningNumber = runningNumber.replace(/(\d+)/, nextNumberString);
-
+    // Loop cek keunikan nomor
     let isUnique = false;
     while (!isUnique) {
       const existingNobukti = await trx(table)
@@ -179,19 +195,14 @@ export class RunningNumberService {
         isUnique = true;
       } else {
         nextNumber++;
-        const newPlaceholders = {
-          '9999': nextNumber,
-          R: this.numberToRoman(month),
-          M: marketingData,
-          T: tujuanData,
-          y: year.toString().slice(-2),
-          Y: year,
-          C: cabangData || '',
-        };
-        runningNumber = this.formatNumber(format, newPlaceholders);
+        // Update nextNumberString dengan padding
+        nextNumberString = nextNumber.toString().padStart(digitCount, '0');
+        placeholders['9999'] = nextNumberString;
+
+        runningNumber = this.formatNumber(format, placeholders);
       }
     }
-
+    console.log(runningNumber, 'runningNumber');
     return runningNumber;
   }
 
@@ -210,7 +221,6 @@ export class RunningNumberService {
     // Gunakan word boundaries untuk menghindari penggantian di dalam kata literal seperti "BST"
     for (const [placeholder, value] of Object.entries(placeholders)) {
       if (!format.includes(`#${placeholder}#`)) {
-        // Hanya menggantikan jika tidak ada tanda '#', misalnya 'T', 'M', dll
         // Gunakan \b untuk word boundaries agar hanya ganti jika standalone
         const escapedPlaceholder = placeholder.replace(
           /[.*+?^${}()|[\]\\]/g,
@@ -221,8 +231,9 @@ export class RunningNumberService {
       }
     }
     // Menghapus semua tanda '#' yang tersisa jika ada, misalnya dalam #BST
-    formatted = formatted.replace(/#/g, '');
 
+    formatted = formatted.replace(/#/g, '');
+    console.log(formatted, 'formatted');
     return formatted;
   }
 

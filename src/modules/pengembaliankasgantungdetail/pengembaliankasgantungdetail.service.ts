@@ -230,6 +230,11 @@ export class PengembaliankasgantungdetailService {
   }
 
   async findAll({ search, filters, sort }: FindAllParams, trx: any) {
+    if (!filters?.nobukti) {
+      return {
+        data: [],
+      };
+    }
     const query = trx(`${this.tableName} as p`).select(
       'p.id',
       'p.pengembaliankasgantung_id',

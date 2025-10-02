@@ -105,14 +105,22 @@ import { TradoModule } from './modules/trado/trado.module';
 import { GandenganModule } from './modules/gandengan/gandengan.module';
 import { PrinterModule } from './modules/printer/printer.module';
 import { StatusjobModule } from './modules/statusjob/statusjob.module';
-
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard } from '@nestjs/throttler';
 @Module({
   imports: [
     CacheModule.register(),
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60000,
+          limit: 10,
+        },
+      ],
+    }),
     AuthModule,
     MailModule,
     AcosModule,
@@ -217,13 +225,13 @@ export class AppModule implements NestModule {
     consumer
       .apply(AuthMiddleware)
       .exclude(
-        'auth/{*splat}',
-        'menu/*',
-        'offdays/*',
-        'redis/*path',
-        'uploads/*',
-        'offdays/*',
-        'sse/*',
+        // 'offdays',
+        'auth/*', // Exclude all routes under the 'auth' path
+        'menu/*', // Exclude all routes under the 'menu' path
+        // 'offdays/*', // Exclude all routes under the 'offdays' path
+        'redis/*', // Exclude all routes under the 'redis' path
+        'uploads/*', // Exclude all routes under the 'uploads' path
+        'sse/*', // Exclude all routes under the 'sse' path
       )
       .forRoutes('*');
   }

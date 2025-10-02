@@ -12,6 +12,7 @@ import { LocksModule } from '../locks/locks.module';
 import { JurnalumumheaderModule } from '../jurnalumumheader/jurnalumumheader.module';
 import { StatuspendukungModule } from '../statuspendukung/statuspendukung.module';
 import { PengeluaranemklheaderModule } from '../pengeluaranemklheader/pengeluaranemklheader.module';
+import { PenerimaanemklheaderModule } from '../penerimaanemklheader/penerimaanemklheader.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { PengeluaranemklheaderModule } from '../pengeluaranemklheader/pengeluara
     GlobalModule,
     LocksModule,
     StatuspendukungModule,
+    PenerimaanemklheaderModule,
     forwardRef(() => PengeluaranemklheaderModule),
   ],
   controllers: [PengeluaranheaderController],

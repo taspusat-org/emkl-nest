@@ -136,27 +136,31 @@ export class OffdaysService {
 
     return response;
   }
-  async findAll({ search, filters, pagination, sort }: FindAllParams) {
+  async findAll(
+    { search, filters, pagination, sort }: FindAllParams,
+    trx: any,
+  ) {
     try {
+      console.log(filters, 'filters');
+      console.log(pagination, 'pagination');
+      console.log(sort, 'sort');
+      console.log(search, 'search');
       let { page, limit } = pagination ?? {};
 
       page = page ?? 1;
       limit = limit ?? 0;
 
       const offset = (page - 1) * limit;
-      const query = dbMssql(`${this.tableName} as u`)
+      const query = trx(`${this.tableName} as u`)
         .select([
           'u.id as id',
-          dbMssql.raw("FORMAT(u.tgl, 'dd-MM-yyyy') AS tgl"),
+          trx.raw("FORMAT(u.tgl, 'dd-MM-yyyy') AS tgl"),
           'u.keterangan',
           'u.statusaktif',
           'u.modifiedby',
-          dbMssql.raw(
-            "FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') AS created_at",
-          ),
-          dbMssql.raw(
-            "FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') AS updated_at",
-          ),
+          'u.cabang_id',
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') AS created_at"),
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') AS updated_at"),
           'p.memo',
           'p.text',
         ])
@@ -165,50 +169,53 @@ export class OffdaysService {
         query.limit(limit).offset(offset);
       }
 
-      if (search) {
-        query.where((builder) => {
-          builder
+      // if (search) {
+      //   query.where((builder) => {
+      //     builder
 
-            .orWhere('u.tgl', 'like', `%${search}%`)
-            .orWhere('u.keterangan', 'like', `%${search}%`)
-            .orWhere('u.email', 'like', `%${search}%`)
+      //       .orWhere('u.tgl', 'like', `%${search}%`)
+      //       .orWhere('u.keterangan', 'like', `%${search}%`)
+      //       .orWhere('u.email', 'like', `%${search}%`)
 
-            .orWhere('p.memo', 'like', `%${search}%`)
-            .orWhere('p.text', 'like', `%${search}%`);
-        });
-      }
+      //       .orWhere('p.memo', 'like', `%${search}%`)
+      //       .orWhere('p.text', 'like', `%${search}%`);
+      //   });
+      // }
 
-      if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          if (value) {
-            if (key === 'tgk') {
-              query.andWhereRaw('u.tgk LIKE ?', [`%${value}%`]); // Sort by the actual date
-            } else if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw(
-                `FORMAT(${key}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`,
-                [`%${value}%`],
-              );
-            } else {
-              query.andWhere(key, 'like', `%${value}%`);
-            }
-          }
-        }
-      }
-      if (sort?.sortBy && sort?.sortDirection) {
-        // Sorting based on the actual column (not the formatted string)
-        if (sort.sortBy === 'tgl') {
-          query.orderBy('u.tgl', sort.sortDirection); // Sort by actual 'tgl' column
-        } else {
-          query.orderBy(sort.sortBy, sort.sortDirection);
-        }
-      }
+      // if (filters) {
+      //   for (const [key, value] of Object.entries(filters)) {
+      //     if (value) {
+      //       if (key === 'tgl') {
+      //         query.andWhereRaw('u.tgl LIKE ?', [`%${value}%`]); // Sort by the actual date
+      //       } else if (key === 'cabang_id') {
+      //         query.andWhereRaw('u.cabang_id = ?', [value]);
+      //       } else if (key === 'created_at' || key === 'updated_at') {
+      //         query.andWhereRaw(
+      //           `FORMAT(${key}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`,
+      //           [`%${value}%`],
+      //         );
+      //       } else {
+      //         query.andWhere(key, 'like', `%${value}%`);
+      //       }
+      //     }
+      //   }
+      // }
+      // if (sort?.sortBy && sort?.sortDirection) {
+      //   // Sorting based on the actual column (not the formatted string)
+      //   if (sort.sortBy === 'tgl' || sort.sortBy === 'cabang_id') {
+      //     query.orderBy('u.tgl', sort.sortDirection); // Sort by actual 'tgl' column
+      //   } else {
+      //     query.orderBy(sort.sortBy, sort.sortDirection);
+      //   }
+      // }
 
-      const result = await dbMssql(this.tableName).count('id as total').first();
+      const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
 
       const totalPages = Math.ceil(total / limit);
 
       const data = await query;
+      console.log(data, 'data');
       return {
         data: data,
         total,
@@ -220,6 +227,7 @@ export class OffdaysService {
         },
       };
     } catch (error) {
+      console.log(error, 'error');
       console.error('Error fetching data:', error);
       throw new Error('Failed to fetch data');
     }

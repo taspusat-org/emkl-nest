@@ -29,6 +29,7 @@ import { dbMssql } from 'src/common/utils/db';
 import { Response } from 'express';
 import * as fs from 'fs';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('offdays')
 export class OffdaysController {
@@ -56,38 +57,53 @@ export class OffdaysController {
   }
 
   @Get()
-  @UseGuards(AuthGuard)
+  @Throttle({
+    default: {
+      ttl: 60000,
+      limit: 10,
+    },
+  })
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Req() req, @Query() query: FindAllDto) {
-    const {
-      search,
-      page,
-      limit,
-      sortBy,
-      sortDirection,
-      isLookUp,
-      ...filters
-    }: { [key: string]: any } = query;
-    filters.cabang_id = req.user.cabang_id;
-    const sortParams = {
-      sortBy: sortBy || 'keterangan',
-      sortDirection: sortDirection || 'asc',
-    };
+    const trx = await dbMssql.transaction();
+    try {
+      const {
+        search,
+        page,
+        limit,
+        sortBy,
+        sortDirection,
+        isLookUp,
+        ...filters
+      }: { [key: string]: any } = query;
+      filters.cabang_id = 26;
+      const sortParams = {
+        sortBy: sortBy || 'keterangan',
+        sortDirection: sortDirection || 'asc',
+      };
 
-    const pagination = {
-      page: page || 1,
-      limit: limit === 0 || !limit ? undefined : limit,
-    };
+      const pagination = {
+        page: page || 1,
+        limit: limit === 0 || !limit ? undefined : limit,
+      };
 
-    const params: FindAllParams = {
-      search,
-      filters,
-      isLookUp: isLookUp === 'true',
+      const params: FindAllParams = {
+        search,
+        filters,
+        isLookUp: isLookUp === 'true',
 
-      pagination,
-      sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
-    };
-    return this.offdaysService.findAll(params);
+        pagination,
+        sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
+      };
+      const result = await this.offdaysService.findAll(params, trx);
+      trx.commit();
+      return result;
+    } catch (error) {
+      console.log(error, 'error');
+      console.error('Error fetching data:', error);
+      trx.rollback();
+      throw new Error('Failed to fetch data');
+    }
   }
   @Get('tes-money')
   async findAllTes() {
