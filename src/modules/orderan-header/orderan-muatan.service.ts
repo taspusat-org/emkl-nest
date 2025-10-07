@@ -1,122 +1,100 @@
-import {
-  HttpException,
-  HttpStatus,
-  Inject,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
-import * as fs from 'fs';
-import * as path from 'path';
-import { Column, Workbook } from 'exceljs';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { UpdateOrderanHeaderDto } from './dto/update-orderan-header.dto';
+import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { LocksService } from '../locks/locks.service';
-import { formatDateToSQL, tandatanya, UtilsService } from 'src/utils/utils.service';
-import { GlobalService } from '../global/global.service';
-import { RedisService } from 'src/common/redis/redis.service';
-import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
-import { RunningNumberService } from '../running-number/running-number.service';
-import { dbMssql } from 'src/common/utils/db';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { StatuspendukungService } from '../statuspendukung/statuspendukung.service';
 
 @Injectable()
-export class BookingOrderanMuatanService {
-  private readonly tableName: string = 'bookingorderanmuatan';
+export class OrderanMuatanService {
+  private readonly tableName: string = 'orderanmuatan';
+  private readonly bookingMuatanTableName: string = 'bookingorderanmuatan';
 
   constructor(
-    @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
+    // @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
-    private readonly locksService: LocksService,
-    private readonly globalService: GlobalService,
     private readonly logTrailService: LogtrailService,
     private readonly statuspendukungService: StatuspendukungService,
   ) {}
-
-  async create(createData: any, trx: any) {
+  
+  async create(data: any, trx: any) {
     try {
       const {
-        id,
-        jenisOrderan,
-        tglDari,
-        tglSampai,
-        container_nama,
-        shipper_nama,
-        tujuankapal_nama,
-        marketing_nama,
-        schedule_nama,
-        pelayarancontainer_nama,
-        jenismuatan_nama,
-        sandarkapal_nama,
-        tradoluar,
-        tradoluar_nama,
-        lokasistuffing_nama,
-        emkllain_nama,
-        daftarbl_nama,
-        pisahbl,
-        pisahbl_nama,
-        jobptd,
-        jobptd_nama,
-        transit,
-        transit_nama,
-        stuffingdepo,
-        stuffingdepo_nama,
-        opendoor,
-        opendoor_nama,
-        batalmuat,
-        batalmuat_nama,
-        soc,
-        soc_nama,
-        pengurusandoorekspedisilain,
-        pengurusandoorekspedisilain_nama,
-        kapal,
-        kapal_nama,
-        voyberangkat,
-        tglberangkat,
-        hargatrucking,
-        hargatrucking_nama,
-        estmuat,
-        ...insertData
-      } = createData;
+        booking_id,
+        ...orderanData
+      } = data;
 
-      Object.keys(insertData).forEach((key) => {
-        if (typeof insertData[key] === 'string') {
-          insertData[key] = insertData[key].toUpperCase();
-        }
-      });
-
-      insertData.updated_at = this.utilsService.getTime();
-      insertData.created_at = this.utilsService.getTime();
-
+      const getBooking = await trx
+        .from(trx.raw(`${this.bookingMuatanTableName} WITH (READUNCOMMITTED)`))
+        .select([
+          'container_id',
+          'shipper_id',
+          'tujuankapal_id',
+          'marketing_id',
+          'keterangan',
+          'schedule_id',
+          'pelayarancontainer_id',
+          'jenismuatan_id',
+          'sandarkapal_id',
+          'nopolisi',
+          'nosp',
+          'nocontainer',
+          'noseal',
+          'lokasistuffing',
+          'nominalstuffing',
+          'emkllain_id',
+          'asalmuatan',
+          'daftarbl_id',
+          'comodity',
+          'gandengan'
+        ])
+        .where('id', booking_id)
+        .first();
+      
+      const mergedData = {
+        ...orderanData,
+        ...getBooking
+      };
+      
       const insertedData = await trx(this.tableName)
-        .insert(insertData)
+        .insert(mergedData)
         .returning('*');
-
       const newItem = insertedData[0];
 
-      const dataPendukungMuatan = {
-        'TRADO LUAR': tradoluar,
-        'PISAH BL': pisahbl,
-        'JOB PTD': jobptd,
-        'TRANSIT': transit,
-        'STUFFING DEPO': stuffingdepo,
-        'OPEN DOOR': opendoor,
-        'BATAL MUAT': batalmuat,
-        'SOC': soc,
-        'PENGURUSAN DOOR EKSPEDISI LAIN': pengurusandoorekspedisilain,
-      };
+      // get status pendukung dari booking orderan muatan
+      const getStatusPendukungBookingData = await trx('statuspendukung').select('statuspendukung').where('transaksi_id', booking_id)  
+      const values = getStatusPendukungBookingData.map(v => v.statuspendukung); //jadikan hasil query ke bentuk array
+      const keys = [ 
+        'TRADO LUAR',
+        'PISAH BL',
+        'JOB PTD',
+        'TRANSIT',
+        'STUFFING DEPO',
+        'OPEN DOOR',
+        'BATAL MUAT',
+        'SOC',
+        'PENGURUSAN DOOR EKSPEDISI LAIN',
+        'APPROVAL TRANSAKSI'
+      ];
 
-      const test = await this.statuspendukungService.create(
+      const dataPendukungOrderanMuatan = keys.reduce((obj, key, i) => {
+        obj[key] = values[i] ?? null; // isi sesuai urutan, kalau data habis → null
+        return obj;
+      }, {});
+
+      const insertStatusPendukungOrderanMuatan = await this.statuspendukungService.create(
         this.tableName,
         newItem.id,
         newItem.modifiedby,
         trx,
-        dataPendukungMuatan,
+        dataPendukungOrderanMuatan,
       );
 
       await this.logTrailService.create(
         {
-          namatable2: this.tableName,
-          postingdari: 'ADD BOOKING ORDERAN MUATAN',
+          namatable: this.tableName,
+          postingdari: 'ADD ORDERAN MUATAN',
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -127,12 +105,17 @@ export class BookingOrderanMuatanService {
       );
 
       return {
-        newItem,
-      };
+        newItem
+      }        
     } catch (error) {
-      throw new Error(
-        `Error creating booking orderan muatan: ${error.message}`,
-      );
+      // throw new Error(
+      //   `Error creating orderan muatan in service: ${error.message}`,
+      // );
+      console.error('Error process approval creating orderan muatan in service:', error.message);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error process approval creating orderan muatan in service');
     }
   }
 
@@ -141,37 +124,10 @@ export class BookingOrderanMuatanService {
     trx: any,
   ) {
     try {
-      console.log('MASUKK KE MUATAN??');
-
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = 0;
-
-      const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
-
-      await trx.schema.createTable(tempUrl, (t) => {
-        t.integer('id').nullable();
-        t.string('orderan_nobukti').nullable();
-        t.text('link').nullable();
-      });
-      const url = 'orderan-header';
-
-      await trx(tempUrl).insert(
-        trx
-          .select(
-            'u.id',
-            'u.orderan_nobukti',
-            trx.raw(`
-                    STRING_AGG(
-                      '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'orderan_nobukti=' + u.orderan_nobukti + '">' +
-                      '<HighlightWrapper value="' + u.orderan_nobukti + '" />' +
-                      '</a>', ','
-                    ) AS link
-                  `),
-          )
-          .from('bookingorderanheader as u')
-          .groupBy('u.id', 'u.orderan_nobukti'),
-      );
+      console.log('MASUKK KE ORDERAN MUATAN SERVICE??');
 
       const dataTempStatusPendukung = await this.tempStatusPendukung(
         trx,
@@ -182,7 +138,7 @@ export class BookingOrderanMuatanService {
         .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
         .select([
           'u.id as id',
-          'u.bookingorderan_id',
+          'u.orderan_id',
           'u.nobukti',
           'u.container_id',
           'u.shipper_id',
@@ -214,8 +170,6 @@ export class BookingOrderanMuatanService {
           'header.jenisorder_id',
           'jenisorderan.nama as jenisorder_nama',
           'header.statusformat',
-          'header.orderan_nobukti as orderan_nobukti',
-          'tempUrl.link',
 
           'container.nama as container_nama',
           'shipper.nama as shipper_nama',
@@ -261,11 +215,10 @@ export class BookingOrderanMuatanService {
           'pivot.approval_memo as approval_memo',
         ])
         .leftJoin(
-          'bookingorderanheader as header',
+          'orderanheader as header',
           'u.nobukti',
           'header.nobukti',
         )
-        .leftJoin(trx.raw(`${tempUrl} as tempUrl`), 'header.orderan_nobukti', 'tempUrl.orderan_nobukti')
         .leftJoin('jenisorderan', 'header.jenisorder_id', 'jenisorderan.id')
         .leftJoin('container', 'u.container_id', 'container.id')
         .leftJoin('shipper', 'u.shipper_id', 'shipper.id')
@@ -481,7 +434,7 @@ export class BookingOrderanMuatanService {
         },
       };
     } catch (error) {
-      console.error('Error to findAll Booking Orderan Muatan', error);
+      console.error('Error to findAll Orderan Muatan', error);
       throw new Error(error);
     }
   }
@@ -606,14 +559,12 @@ export class BookingOrderanMuatanService {
           .innerJoin('parameter as c', 'b.statusdatapendukung', 'c.id')
           .innerJoin('parameter as d', 'b.statuspendukung', 'd.id'),
       );
-      // console.log('tempData', await trx(tempData).select('*'));
 
       // Generate dynamic columns for PIVOT
       const columnsResult = await trx
         .select('judul')
         .from(tempData)
         .groupBy('judul');
-      // console.log('columnsResult', columnsResult);
 
       let columns = '';
       columnsResult.forEach((row, index) => {
@@ -623,7 +574,6 @@ export class BookingOrderanMuatanService {
           columns += `, [${row.judul}]`;
         }
       });
-      // console.log('columns',columns);
 
       if (!columns) {
         throw new Error('No columns generated for PIVOT');
@@ -735,7 +685,6 @@ export class BookingOrderanMuatanService {
           ])
           .from(trx.raw(pivotSubqueryRaw)),
       );
-      // console.log('hasil', await trx(tempHasil).select('*'));
 
       return tempHasil;
     } catch (error) {
@@ -744,110 +693,32 @@ export class BookingOrderanMuatanService {
     }
   }
 
-  async update(id: number, data: any, trx: any) {
-    try {
-      const getIdOrderanMuatan = await trx
-        .from(trx.raw(`${this.tableName} WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('bookingorderan_id', id)
-        .first();
-      const existingData = await trx(this.tableName)
-        .where('id', getIdOrderanMuatan.id)
-        .first();
-      const {
-        container_nama,
-        shipper_nama,
-        tujuankapal_nama,
-        marketing_nama,
-        schedule_nama,
-        pelayarancontainer_nama,
-        jenismuatan_nama,
-        sandarkapal_nama,
-        tradoluar,
-        tradoluar_nama,
-        lokasistuffing_nama,
-        emkllain_nama,
-        daftarbl_nama,
-        pisahbl,
-        pisahbl_nama,
-        jobptd,
-        jobptd_nama,
-        transit,
-        transit_nama,
-        stuffingdepo,
-        stuffingdepo_nama,
-        opendoor,
-        opendoor_nama,
-        batalmuat,
-        batalmuat_nama,
-        soc,
-        soc_nama,
-        pengurusandoorekspedisilain,
-        pengurusandoorekspedisilain_nama,
-        ...bookingOrderanData
-      } = data;
-
-      Object.keys(bookingOrderanData).forEach((key) => {
-        if (typeof bookingOrderanData[key] === 'string') {
-          bookingOrderanData[key] = bookingOrderanData[key].toUpperCase();
-        }
-      });
-
-      const hasChanges = this.utilsService.hasChanges(
-        bookingOrderanData,
-        existingData,
-      );
-      if (hasChanges) {
-        bookingOrderanData.updated_at = this.utilsService.getTime();
-        await trx(this.tableName)
-          .where('id', getIdOrderanMuatan.id)
-          .update(bookingOrderanData);
-      }
-
-      await this.logTrailService.create(
-        {
-          namatabel: this.tableName,
-          postingdari: 'EDIT BOOKING ORDERAN MUATAN',
-          idtrans: getIdOrderanMuatan.id,
-          nobuktitrans: getIdOrderanMuatan.id,
-          aksi: 'EDIT',
-          datajson: JSON.stringify(data),
-          modifiedby: data.modifiedby,
-        },
-        trx,
-      );
-
-      return {
-        id: getIdOrderanMuatan.id,
-      };
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error; // If it's already a HttpException, rethrow it
-      }
-
-      console.error('Error updating booking orderan header:', error);
-      throw new Error('Failed to update booking orderan header');
-    }
+  findOne(id: number) {
+    return `This action returns a #${id} orderanHeader`;
   }
 
-  async delete(id: number, trx: any, modifiedby: string) {
+  update(id: number, updateOrderanHeaderDto: UpdateOrderanHeaderDto) {
+    return `This action updates a #${id} orderanHeader`;
+  }
+
+  async delete(nobukti: string, trx: any) {
     try {
       const deletedData = await this.utilsService.lockAndDestroy(
-        id,
+        nobukti,
         this.tableName,
-        'id',
+        'nobukti',
         trx,
       );
 
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE BOOKING ORDERAN MUATAN',
-          idtransss: id,
-          nobuktitrans: id,
+          postingdari: 'DELETE ORDERAN MUATAN',
+          idtrans: deletedData.id,
+          nobuktitrans: deletedData.id,
           aksi: 'DELETE',
           datajson: JSON.stringify(deletedData),
-          modifiedby: modifiedby,
+          modifiedby: deletedData.modifiedby,
         },
         trx,
       );
@@ -855,133 +726,25 @@ export class BookingOrderanMuatanService {
       const statusPendukung = await trx
         .from(trx.raw(`statuspendukung WITH (READUNCOMMITTED)`))
         .where('transaksi_id', deletedData.id);
+
       if (statusPendukung.length > 0) {
         await this.statuspendukungService.remove(
           deletedData.id,
-          modifiedby,
+          deletedData.modifiedby,
           trx,
         );
       }
 
       return {
-        status: 200,
-        message: 'Data deleted successfully',
-        id: deletedData.id,
-        headerId: deletedData.bookingorderan_id,
+        deletedData
       };
+
     } catch (error) {
-      console.error('Error deleting data booking orderan muatan: ', error);
+      console.error('Error process approval Error delete orderan muatan in service in service:', error.message);
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException(
-        'Failed to delete data booking orderan muatan',
-      );
-    }
-  }
-
-  async findOne(id: string, trx: any) {
-    try {
-      const query = trx
-        .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
-        .select([
-          'u.id as id',
-          'u.bookingorderan_id',
-          'u.nobukti',
-          'u.container_id',
-          'u.shipper_id',
-          'u.tujuankapal_id',
-          'u.marketing_id',
-          'u.keterangan',
-          'u.schedule_id',
-          'u.pelayarancontainer_id',
-          'u.jenismuatan_id',
-          'u.sandarkapal_id',
-          'u.nopolisi',
-          'u.nosp',
-          'u.nocontainer',
-          'u.noseal',
-          'u.lokasistuffing',
-          'u.nominalstuffing',
-          'u.emkllain_id',
-          'u.asalmuatan',
-          'u.daftarbl_id',
-          'u.comodity',
-          'u.gandengan',
-          'u.modifiedby',
-          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-
-          'header.id as header_id',
-          'header.nobukti as header_nobukti',
-          trx.raw("FORMAT(header.tglbukti, 'dd-MM-yyyy') as tglbukti"),
-          'header.jenisorder_id',
-          'jenisorderan.nama as jenisorder_nama',
-          'header.statusformat',
-
-          'container.nama as container_nama',
-          'shipper.nama as shipper_nama',
-          'tujuankapal.nama as tujuankapal_nama',
-          'marketing.nama as marketing_nama',
-          'schedulekapal.voyberangkat as schedule_nama',
-          'pelayaran.nama as pelayarancontainer_nama',
-          'jenismuatan.nama as jenismuatan_nama',
-          'sandarkapal.nama as sandarkapal_nama',
-          'hargatrucking.keterangan as lokasistuffing_nama',
-          'emkl.nama as emkllain_nama',
-          'daftarbl.nama as daftarbl_nama',
-        ])
-        .leftJoin(
-          'bookingorderanheader as header',
-          'u.nobukti',
-          'header.nobukti',
-        )
-        .leftJoin('jenisorderan', 'header.jenisorder_id', 'jenisorderan.id')
-        .leftJoin('container', 'u.container_id', 'container.id')
-        .leftJoin('shipper', 'u.shipper_id', 'shipper.id')
-        .leftJoin('tujuankapal', 'u.tujuankapal_id', 'tujuankapal.id')
-        .leftJoin('marketing', 'u.marketing_id', 'marketing.id')
-        .leftJoin('schedulekapal', 'u.schedule_id', 'schedulekapal.id')
-        .leftJoin('pelayaran', 'u.pelayarancontainer_id', 'pelayaran.id')
-        .leftJoin('jenismuatan', 'u.jenismuatan_id', 'jenismuatan.id')
-        .leftJoin('sandarkapal', 'u.sandarkapal_id', 'sandarkapal.id')
-        .leftJoin('hargatrucking', 'u.lokasistuffing', 'hargatrucking.id')
-        .leftJoin('emkl', 'u.emkllain_id', 'emkl.id')
-        .leftJoin('daftarbl', 'u.daftarbl_id', 'daftarbl.id')
-        .where('u.id', id);
-
-      const data = await query;
-      console.log('data', data);
-
-      return {
-        data: data,
-      };
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      throw new Error('Failed to fetch data');
-    }
-  }
-
-  async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
-    try {
-      if (aksi === 'EDIT') {
-        const forceEdit = await this.locksService.forceEdit(
-          this.tableName,
-          value,
-          editedby,
-          trx,
-        );
-
-        return forceEdit;
-      } else if (aksi === 'DELETE') {
-        return {
-          status: 'success',
-          message: 'Data aman untuk dihapus.',
-        };
-      }
-    } catch (error) {
-      console.error('Error di checkValidasi:', error);
-      throw new InternalServerErrorException('Failed to check validation');
+      throw new InternalServerErrorException('Error process approval delete orderan muatan in service in service');
     }
   }
 }

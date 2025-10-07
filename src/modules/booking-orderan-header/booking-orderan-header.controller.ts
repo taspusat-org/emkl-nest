@@ -34,12 +34,14 @@ import {
   FindAllSchema,
 } from 'src/common/interfaces/all.interface';
 import { BookingOrderanMuatanService } from './bookingorderanmuatan.service';
+import { OrderanHeaderService } from '../orderan-header/orderan-header.service';
 
 @Controller('bookingorderanheader')
 export class BookingOrderanHeaderController {
   constructor(
     private readonly bookingOrderanHeaderService: BookingOrderanHeaderService,
     private readonly bookingOrderanMuatanService: BookingOrderanMuatanService,
+    private readonly orderanHeaderService: OrderanHeaderService,
   ) {}
 
   @UseGuards(AuthGuard)
@@ -244,6 +246,33 @@ export class BookingOrderanHeaderController {
       }
 
       throw new InternalServerErrorException('Failed to delete data');
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('approvalBooking')
+  async approval(@Body() body: any, @Req() req) {    
+    const trx = await dbMssql.transaction();
+    try {
+      let validator
+      body.modifiedby = req.user?.user?.username || 'unknown';
+
+      if (body.mode === 'APPROVAL') {
+        validator = await this.orderanHeaderService.approval(body, trx);
+      } else {
+        validator = await this.orderanHeaderService.nonApproval(body, trx);
+      }
+      console.log('validator', validator);
+      
+      await trx.commit();
+      return validator;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error processing approval in booking orderan header controller:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to process approval in booking orderan header controller');
     }
   }
 
