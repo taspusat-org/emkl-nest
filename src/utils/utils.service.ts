@@ -112,6 +112,7 @@ export class UtilsService {
 
       // Create tempData table
       await trx.schema.createTable(tempData, (t) => {
+        t.bigInteger('id').nullable();
         t.string('nobukti').nullable();
         t.text('keterangan').nullable();
         t.string('judul').nullable();
@@ -119,6 +120,8 @@ export class UtilsService {
 
       // Create tempHasil table
       await trx.schema.createTable(tempHasil, (t) => {
+        t.bigInteger('id').nullable();
+        t.string('nobukti').nullable();
         fieldTempHasil
           .forEach((col) => {
             t.text(col).nullable();
@@ -143,10 +146,13 @@ export class UtilsService {
           .where('b.subgrp', tablename),
       );
 
+      const hasNobukti = await trx.schema.hasColumn(tablename, 'nobukti');
       await trx(tempData).insert(
         trx
           .select(
-            'a.nobukti',
+            'a.id',
+            // 'a.nobukti',
+            trx.raw(hasNobukti ? "COALESCE(a.nobukti, '') as nobukti" : "'' as nobukti"),
             trx.raw(
               `CONCAT(
                 '{"statusdatapendukung":"',
@@ -200,9 +206,17 @@ export class UtilsService {
       let columns = '';
       columnsResult.forEach((row, index) => {
         if (index === 0) {
-          columns = `[${row.judul}]`;
+          if (row.judul === 'TOP' || row.judul === 'OPEN') {
+            columns = `[${row.judul}_FIELD]`;
+          } else {
+            columns = `[${row.judul}]`;
+          }
         } else {
-          columns += `, [${row.judul}]`;
+          if (row.judul === 'TOP' || row.judul === 'OPEN') {
+            columns += `, [${row.judul}_FIELD]`;
+          } else {
+            columns += `, [${row.judul}]`;
+          }
         }
       });
 
@@ -211,9 +225,9 @@ export class UtilsService {
       }
       const pivotSubqueryRaw = `
         (
-          SELECT nobukti, ${columns}
+          SELECT id, nobukti, ${columns}
           FROM (
-            SELECT nobukti, judul, keterangan
+            SELECT id, nobukti, judul, keterangan 
             FROM ${tempData}
           ) AS SourceTable
           PIVOT (
@@ -224,18 +238,23 @@ export class UtilsService {
       `;
 
       const jsonColumns = uniqueJudul.flatMap((judul: any) => {
-        const alias = judul.toLowerCase().replace(/\s+/g, '');
+        const alias = (judul === 'TOP' || judul === 'OPEN') ? `${judul.toLowerCase().replace(/\s+/g, '')}_FIELD` : judul.toLowerCase().replace(/\s+/g, '');
+        const fixJudul = (judul === 'TOP' || judul === 'OPEN') ? `${judul}_FIELD` : judul;
         
         return [ 
-          trx.raw(`JSON_VALUE(A.[${judul}], '$.statuspendukung_id') as ${alias}`),
-          trx.raw(`JSON_VALUE(A.[${judul}], '$.statuspendukung') as ${alias}_nama`),
-          trx.raw(`JSON_QUERY(A.[${judul}], '$.statuspendukung_memo') as ${alias}_memo`)
+          trx.raw(`JSON_VALUE(A.[${fixJudul}], '$.statuspendukung_id') as ${alias}`),
+          trx.raw(`JSON_VALUE(A.[${fixJudul}], '$.statuspendukung') as ${alias}_nama`),
+          trx.raw(`JSON_QUERY(A.[${fixJudul}], '$.statuspendukung_memo') as ${alias}_memo`)
+          // trx.raw(`JSON_VALUE(A.[${judul}], '$.statuspendukung') as ${alias}_nama`),
+          // trx.raw(`JSON_QUERY(A.[${judul}], '$.statuspendukung_memo') as ${alias}_memo`)
         ];
       }); 
+      // console.log('get', await trx(tempData).select('*'));
 
       await trx(tempHasil).insert(
         trx
         .select([
+          'A.id',
           'A.nobukti',
           ...jsonColumns
         ])
