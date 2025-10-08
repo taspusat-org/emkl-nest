@@ -92,6 +92,164 @@ export class UtilsService {
     }
   }
 
+  async tempPivotStatusPendukung(trx: any, tablename: string, fieldTempHasil:any) {
+    try {
+      const tempStatusPendukung = `##temp_${Math.random().toString(36).substring(2, 15)}`;
+      const tempData = `##temp_data${Math.random().toString(36).substring(2, 15)}`;
+      const tempHasil = `##temp_hasil${Math.random().toString(36).substring(2, 15)}`;      
+
+      // Create tempStatusPendukung table
+      await trx.schema.createTable(tempStatusPendukung, (t) => {
+        t.bigInteger('id').nullable();
+        t.bigInteger('statusdatapendukung').nullable();
+        t.bigInteger('transaksi_id').nullable();
+        t.string('statuspendukung').nullable();
+        t.text('keterangan').nullable();
+        t.string('modifiedby').nullable();
+        t.string('updated_at').nullable();
+        t.string('created_at').nullable();
+      });
+
+      // Create tempData table
+      await trx.schema.createTable(tempData, (t) => {
+        t.string('nobukti').nullable();
+        t.text('keterangan').nullable();
+        t.string('judul').nullable();
+      });
+
+      // Create tempHasil table
+      await trx.schema.createTable(tempHasil, (t) => {
+        fieldTempHasil
+          .forEach((col) => {
+            t.text(col).nullable();
+          });
+      });
+
+      // Insert into tempStatusPendukung
+      await trx(tempStatusPendukung).insert(
+        trx
+          .select(
+            'a.id',
+            'a.statusdatapendukung',
+            'a.transaksi_id',
+            'a.statuspendukung',
+            'a.keterangan',
+            'a.modifiedby',
+            'a.updated_at',
+            'a.created_at',
+          )
+          .from('statuspendukung as a')
+          .innerJoin('parameter as b', 'a.statusdatapendukung', 'b.id')
+          .where('b.subgrp', tablename),
+      );
+
+      await trx(tempData).insert(
+        trx
+          .select(
+            'a.nobukti',
+            trx.raw(
+              `CONCAT(
+                '{"statusdatapendukung":"',
+                CASE 
+                  WHEN ISJSON(CAST(c.memo AS NVARCHAR(MAX))) = 1 
+                    THEN JSON_VALUE(CAST(c.memo AS NVARCHAR(MAX)), '$.MEMO') 
+                  ELSE '' 
+                END,
+                '","transaksi_id":',
+                TRIM(STR(ISNULL(b.transaksi_id, 0))),
+                ',"statuspendukung":"',
+                CASE 
+                  WHEN ISJSON(CAST(d.memo AS NVARCHAR(MAX))) = 1 
+                    THEN JSON_VALUE(CAST(d.memo AS NVARCHAR(MAX)), '$.MEMO') 
+                  ELSE '' 
+                END,
+                '","keterangan":"',
+                TRIM(ISNULL(b.keterangan, '')),
+                '","updated_at":"',
+                FORMAT(CAST(b.updated_at AS DATETIME), 'yyyy-MM-dd HH:mm:ss'),
+                '","statuspendukung_id":"',
+                TRIM(STR(ISNULL(d.id, 0))),
+                '","statuspendukung_memo":',
+               TRIM(CAST(d.memo AS NVARCHAR(MAX))),
+                '}'
+              ) AS keterangan`,
+            ),
+            trx.raw(
+              `CASE 
+                WHEN ISJSON(CAST(c.memo AS NVARCHAR(MAX))) = 1 
+                  THEN JSON_VALUE(CAST(c.memo AS NVARCHAR(MAX)), '$.MEMO') 
+                ELSE '' 
+              END AS judul`,
+            ),
+          )
+          .from(`${tablename} as a`)
+          .innerJoin(`${tempStatusPendukung} as b`, 'a.id', 'b.transaksi_id')
+          .innerJoin('parameter as c', 'b.statusdatapendukung', 'c.id')
+          .innerJoin('parameter as d', 'b.statuspendukung', 'd.id'),
+      );
+
+      const getTempData = await trx(tempData).select('*')
+      const uniqueJudul = [...new Set(getTempData.map((d: any) => d.judul))];
+
+      // Generate dynamic columns for PIVOT
+      const columnsResult = await trx
+        .select('judul')
+        .from(tempData)
+        .groupBy('judul');
+
+      let columns = '';
+      columnsResult.forEach((row, index) => {
+        if (index === 0) {
+          columns = `[${row.judul}]`;
+        } else {
+          columns += `, [${row.judul}]`;
+        }
+      });
+
+      if (!columns) {
+        throw new Error('No columns generated for PIVOT');
+      }
+      const pivotSubqueryRaw = `
+        (
+          SELECT nobukti, ${columns}
+          FROM (
+            SELECT nobukti, judul, keterangan
+            FROM ${tempData}
+          ) AS SourceTable
+          PIVOT (
+            MAX(keterangan)
+            FOR judul IN (${columns})
+          ) AS PivotTable
+        ) AS A
+      `;
+
+      const jsonColumns = uniqueJudul.flatMap((judul: any) => {
+        const alias = judul.toLowerCase().replace(/\s+/g, '');
+        
+        return [ 
+          trx.raw(`JSON_VALUE(A.[${judul}], '$.statuspendukung_id') as ${alias}`),
+          trx.raw(`JSON_VALUE(A.[${judul}], '$.statuspendukung') as ${alias}_nama`),
+          trx.raw(`JSON_QUERY(A.[${judul}], '$.statuspendukung_memo') as ${alias}_memo`)
+        ];
+      }); 
+
+      await trx(tempHasil).insert(
+        trx
+        .select([
+          'A.nobukti',
+          ...jsonColumns
+        ])
+        .from(trx.raw(pivotSubqueryRaw)),
+      )
+      console.log('hasil', await trx(tempHasil).select('*'));
+
+      return tempHasil;
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
+  }
+
   getTime() {
     return DateTime.now()
       .setZone('Asia/Jakarta') // Use the timezone you need
