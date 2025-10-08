@@ -181,9 +181,21 @@ export class UtilsService {
               ) AS keterangan`,
             ),
             trx.raw(
+              // `CASE 
+              //   WHEN ISJSON(CAST(c.memo AS NVARCHAR(MAX))) = 1 
+              //     THEN JSON_VALUE(CAST(c.memo AS NVARCHAR(MAX)), '$.MEMO') 
+              //   ELSE '' 
+              // END AS judul`, 
               `CASE 
                 WHEN ISJSON(CAST(c.memo AS NVARCHAR(MAX))) = 1 
-                  THEN JSON_VALUE(CAST(c.memo AS NVARCHAR(MAX)), '$.MEMO') 
+                  THEN 
+                    CASE 
+                      WHEN JSON_VALUE(CAST(c.memo AS NVARCHAR(MAX)), '$.MEMO') = 'TOP' 
+                        THEN CONCAT(JSON_VALUE(CAST(c.memo AS NVARCHAR(MAX)), '$.MEMO'), '_FIELD')
+                      WHEN JSON_VALUE(CAST(c.memo AS NVARCHAR(MAX)), '$.MEMO') = 'OPEN' 
+                        THEN CONCAT(JSON_VALUE(CAST(c.memo AS NVARCHAR(MAX)), '$.MEMO'), '_FIELD')
+                      ELSE JSON_VALUE(CAST(c.memo AS NVARCHAR(MAX)), '$.MEMO') 
+                    END 
                 ELSE '' 
               END AS judul`,
             ),
@@ -249,7 +261,6 @@ export class UtilsService {
           // trx.raw(`JSON_QUERY(A.[${judul}], '$.statuspendukung_memo') as ${alias}_memo`)
         ];
       }); 
-      // console.log('get', await trx(tempData).select('*'));
 
       await trx(tempHasil).insert(
         trx
@@ -260,7 +271,7 @@ export class UtilsService {
         ])
         .from(trx.raw(pivotSubqueryRaw)),
       )
-      console.log('hasil', await trx(tempHasil).select('*'));
+      // console.log('hasil', await trx(tempHasil).select('*'));
 
       return tempHasil;
     } catch (error) {

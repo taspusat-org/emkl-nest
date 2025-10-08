@@ -129,9 +129,44 @@ export class OrderanMuatanService {
       limit = 0;
       console.log('MASUKK KE ORDERAN MUATAN SERVICE??');
 
-      const dataTempStatusPendukung = await this.tempStatusPendukung(
+      const fieldTempHasil = [
+        'tradoluar',
+        'tradoluar_nama',
+        'tradoluar_memo',
+        'pisahbl',
+        'pisahbl_nama',
+        'pisahbl_memo',
+        'jobptd',
+        'jobptd_nama',
+        'jobptd_memo',
+        'transit',
+        'transit_nama',
+        'transit_memo',
+        'stuffingdepo',
+        'stuffingdepo_nama',
+        'stuffingdepo_memo',
+        'opendoor',
+        'opendoor_nama',
+        'opendoor_memo',
+        'batalmuat',
+        'batalmuat_nama',
+        'batalmuat_memo',
+        'soc',
+        'soc_nama',
+        'soc_memo',
+        'pengurusandoor',
+        'pengurusandoor_nama',
+        'pengurusandoor_memo',
+        'approval',
+        'approval_nama',
+        'approval_memo'
+      ]
+
+      // const dataTempStatusPendukung = await this.tempStatusPendukung(
+      const dataTempStatusPendukung = await this.utilsService.tempPivotStatusPendukung(
         trx,
         this.tableName,
+        fieldTempHasil
       );
 
       const query = trx
@@ -232,7 +267,7 @@ export class OrderanMuatanService {
         .leftJoin('hargatrucking', 'u.lokasistuffing', 'hargatrucking.id')
         .leftJoin('emkl', 'u.emkllain_id', 'emkl.id')
         .leftJoin('daftarbl', 'u.daftarbl_id', 'daftarbl.id')
-        .innerJoin(
+        .leftJoin(
           `${dataTempStatusPendukung} as pivot`,
           'u.nobukti',
           'pivot.nobukti',
@@ -247,6 +282,7 @@ export class OrderanMuatanService {
           tglSampaiFormatted,
         ]);
       }
+      // console.log(query.toQuery());
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
@@ -272,7 +308,6 @@ export class OrderanMuatanService {
             .orWhereRaw("FORMAT(header.tglbukti, 'dd-MM-yyyy') LIKE ?", [
               `%${sanitizedValue}%`,
             ])
-            .orWhere('header.orderan_nobukti', 'like', `%${sanitizedValue}%`)
             .orWhere('container.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('shipper.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('tujuankapal.nama', 'like', `%${sanitizedValue}%`)
@@ -315,8 +350,6 @@ export class OrderanMuatanService {
                 key,
                 `%${sanitizedValue}%`,
               ]);
-            } else if (key === 'orderan_nobukti') {
-              query.andWhere('header.orderan_nobukti', 'like', `%${sanitizedValue}%`);
             } else if (key === 'jenisorder_text') {
               query.andWhere(
                 'jenisorderan.nama',

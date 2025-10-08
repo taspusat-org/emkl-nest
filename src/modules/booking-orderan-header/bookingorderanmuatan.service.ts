@@ -173,9 +173,44 @@ export class BookingOrderanMuatanService {
           .groupBy('u.id', 'u.orderan_nobukti'),
       );
 
-      const dataTempStatusPendukung = await this.tempStatusPendukung(
+      const fieldTempHasil = [
+        // 'nobukti',
+        'tradoluar',
+        'tradoluar_nama',
+        'tradoluar_memo',
+        'pisahbl',
+        'pisahbl_nama',
+        'pisahbl_memo',
+        'jobptd',
+        'jobptd_nama',
+        'jobptd_memo',
+        'transit',
+        'transit_nama',
+        'transit_memo',
+        'stuffingdepo',
+        'stuffingdepo_nama',
+        'stuffingdepo_memo',
+        'opendoor',
+        'opendoor_nama',
+        'opendoor_memo',
+        'batalmuat',
+        'batalmuat_nama',
+        'batalmuat_memo',
+        'soc',
+        'soc_nama',
+        'soc_memo',
+        'pengurusandoor',
+        'pengurusandoor_nama',
+        'pengurusandoor_memo',
+        'approval',
+        'approval_nama',
+        'approval_memo'
+      ]
+
+      const dataTempStatusPendukung = await this.utilsService.tempPivotStatusPendukung(
         trx,
         this.tableName,
+        fieldTempHasil
       );
 
       const query = trx
