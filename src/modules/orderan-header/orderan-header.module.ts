@@ -1,21 +1,21 @@
-import { JwtModule } from '@nestjs/jwt';
 import { Module } from '@nestjs/common';
+import { OrderanHeaderService } from './orderan-header.service';
+import { OrderanHeaderController } from './orderan-header.controller';
 import { AuthModule } from '../auth/auth.module';
+import { JwtModule } from '@nestjs/jwt';
+import { RedisModule } from 'src/common/redis/redis.module';
 import { LocksModule } from '../locks/locks.module';
 import { UtilsModule } from 'src/utils/utils.module';
 import { GlobalModule } from '../global/global.module';
-import { RedisModule } from 'src/common/redis/redis.module';
 import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 import { RunningNumberModule } from '../running-number/running-number.module';
-import { BookingOrderanHeaderService } from './booking-orderan-header.service';
-import { BookingOrderanHeaderController } from './booking-orderan-header.controller';
-import { BookingOrderanMuatanService } from './bookingorderanmuatan.service';
 import { StatuspendukungModule } from '../statuspendukung/statuspendukung.module';
-import { OrderanHeaderModule } from '../orderan-header/orderan-header.module';
+import { StatusjobModule } from '../statusjob/statusjob.module';
+import { OrderanMuatanService } from './orderan-muatan.service';
 
 @Module({
-  controllers: [BookingOrderanHeaderController],
-  providers: [BookingOrderanHeaderService, BookingOrderanMuatanService],
+  controllers: [OrderanHeaderController],
+  providers: [OrderanHeaderService, OrderanMuatanService],
   imports: [
     JwtModule,
     AuthModule,
@@ -26,7 +26,10 @@ import { OrderanHeaderModule } from '../orderan-header/orderan-header.module';
     LogtrailModule,
     RunningNumberModule,
     StatuspendukungModule,
-    OrderanHeaderModule,
+    StatusjobModule,
   ],
+  exports: [
+    OrderanHeaderService
+  ]
 })
-export class BookingOrderanHeaderModule {}
+export class OrderanHeaderModule {}

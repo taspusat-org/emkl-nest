@@ -360,6 +360,9 @@ export class ParameterService {
         dbMssql.raw(
           `JSON_VALUE(${memoExpr}, '$."KETERANGAN WAJIB ISI"') AS keterangan_wajib_isi`,
         ),
+        dbMssql.raw(
+          `JSON_VALUE(${memoExpr}, '$."TANGGAL WAJIB ISI"') AS tanggal_wajib_isi`,
+        ),
         dbMssql.raw(`JSON_VALUE(${memoExpr}, '$."ICON"') AS icon`),
         'type',
         dbMssql.raw('[default] AS [default]'),

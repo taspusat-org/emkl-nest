@@ -107,6 +107,8 @@ import { PrinterModule } from './modules/printer/printer.module';
 import { StatusjobModule } from './modules/statusjob/statusjob.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { OrderanHeaderModule } from './modules/orderan-header/orderan-header.module';
+
 @Module({
   imports: [
     CacheModule.register(),
@@ -216,6 +218,7 @@ import { ThrottlerGuard } from '@nestjs/throttler';
     GandenganModule,
     PrinterModule,
     StatusjobModule,
+    OrderanHeaderModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],
