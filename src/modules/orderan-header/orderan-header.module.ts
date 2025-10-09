@@ -28,8 +28,6 @@ import { OrderanMuatanService } from './orderan-muatan.service';
     StatuspendukungModule,
     StatusjobModule,
   ],
-  exports: [
-    OrderanHeaderService
-  ]
+  exports: [OrderanHeaderService],
 })
 export class OrderanHeaderModule {}

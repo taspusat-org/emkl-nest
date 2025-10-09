@@ -10,7 +10,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Column, Workbook } from 'exceljs';
 import { LocksService } from '../locks/locks.service';
-import { formatDateToSQL, tandatanya, UtilsService } from 'src/utils/utils.service';
+import {
+  formatDateToSQL,
+  tandatanya,
+  UtilsService,
+} from 'src/utils/utils.service';
 import { GlobalService } from '../global/global.service';
 import { RedisService } from 'src/common/redis/redis.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
@@ -97,11 +101,11 @@ export class BookingOrderanMuatanService {
         'TRADO LUAR': tradoluar,
         'PISAH BL': pisahbl,
         'JOB PTD': jobptd,
-        'TRANSIT': transit,
+        TRANSIT: transit,
         'STUFFING DEPO': stuffingdepo,
         'OPEN DOOR': opendoor,
         'BATAL MUAT': batalmuat,
-        'SOC': soc,
+        SOC: soc,
         'PENGURUSAN DOOR EKSPEDISI LAIN': pengurusandoorekspedisilain,
       };
 
@@ -300,7 +304,11 @@ export class BookingOrderanMuatanService {
           'u.nobukti',
           'header.nobukti',
         )
-        .leftJoin(trx.raw(`${tempUrl} as tempUrl`), 'header.orderan_nobukti', 'tempUrl.orderan_nobukti')
+        .leftJoin(
+          trx.raw(`${tempUrl} as tempUrl`),
+          'header.orderan_nobukti',
+          'tempUrl.orderan_nobukti',
+        )
         .leftJoin('jenisorderan', 'header.jenisorder_id', 'jenisorderan.id')
         .leftJoin('container', 'u.container_id', 'container.id')
         .leftJoin('shipper', 'u.shipper_id', 'shipper.id')
@@ -398,7 +406,11 @@ export class BookingOrderanMuatanService {
                 `%${sanitizedValue}%`,
               ]);
             } else if (key === 'orderan_nobukti') {
-              query.andWhere('header.orderan_nobukti', 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                'header.orderan_nobukti',
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'jenisorder_text') {
               query.andWhere(
                 'jenisorderan.nama',

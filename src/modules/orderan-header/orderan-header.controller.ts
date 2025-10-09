@@ -28,7 +28,7 @@ import { OrderanMuatanService } from './orderan-muatan.service';
 export class OrderanHeaderController {
   constructor(
     private readonly orderanHeaderService: OrderanHeaderService,
-    private readonly orderanMuatanService: OrderanMuatanService
+    private readonly orderanMuatanService: OrderanMuatanService,
   ) {}
 
   @Post()
@@ -52,7 +52,6 @@ export class OrderanHeaderController {
     } = query;
     let service: any;
     console.log('CON OR MU', query);
-    
 
     const sortParams = {
       sortBy: sortBy || 'nobukti',
@@ -132,7 +131,10 @@ export class OrderanHeaderController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateOrderanHeaderDto: UpdateOrderanHeaderDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateOrderanHeaderDto: UpdateOrderanHeaderDto,
+  ) {
     return this.orderanHeaderService.update(+id, updateOrderanHeaderDto);
   }
 

@@ -251,10 +251,10 @@ export class BookingOrderanHeaderController {
 
   @UseGuards(AuthGuard)
   @Post('approvalBooking')
-  async approval(@Body() body: any, @Req() req) {    
+  async approval(@Body() body: any, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
-      let validator
+      let validator;
       body.modifiedby = req.user?.user?.username || 'unknown';
 
       if (body.mode === 'APPROVAL') {
@@ -263,16 +263,21 @@ export class BookingOrderanHeaderController {
         validator = await this.orderanHeaderService.nonApproval(body, trx);
       }
       console.log('validator', validator);
-      
+
       await trx.commit();
       return validator;
     } catch (error) {
       await trx.rollback();
-      console.error('Error processing approval in booking orderan header controller:', error);
+      console.error(
+        'Error processing approval in booking orderan header controller:',
+        error,
+      );
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to process approval in booking orderan header controller');
+      throw new InternalServerErrorException(
+        'Failed to process approval in booking orderan header controller',
+      );
     }
   }
 

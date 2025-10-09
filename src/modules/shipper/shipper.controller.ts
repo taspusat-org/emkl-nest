@@ -199,4 +199,27 @@ export class ShipperController {
       res.status(500).send('Failed to export file');
     }
   }
+
+  @UseGuards(AuthGuard)
+  @Get('/column')
+  async getShipperColumns() {
+    const trx = await dbMssql.transaction();
+    try {
+      const columns = await this.shipperService.findShipperColumns(trx);
+      return {
+        status: 'success',
+        total: columns.length,
+        data: columns,
+      };
+    } catch (error) {
+      console.error('Error in getShipperColumns controller:', error);
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'Failed to get shipper columns',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }

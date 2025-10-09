@@ -41,7 +41,7 @@ export class PenerimaanemklheaderService {
   async create(data: any, trx: any) {
     try {
       let penerimaanNoBukti = data.penerimaan_nobukti;
-      let hutangNoBukti = '';
+      const hutangNoBukti = '';
       let grp = '';
       let subgrp = '';
       let postingdari = '';
