@@ -1,4 +1,9 @@
-import { HttpStatus, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  HttpStatus,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateStatusjobDto } from './dto/create-statusjob.dto';
 import { UpdateStatusjobDto } from './dto/update-statusjob.dto';
 import { UtilsService } from 'src/utils/utils.service';
@@ -13,12 +18,13 @@ export class StatusjobService {
     private readonly logTrailService: LogtrailService,
   ) {}
   async create(data: any, trx: any) {
-    try {      
-      let result
+    try {
+      let result;
       const getDataRequest = await trx('parameter')
         .select('id', 'grp', 'subgrp', 'text')
-        .where('grp', 'STATUS JOB').first();
- 
+        .where('grp', 'STATUS JOB')
+        .first();
+
       const check = await trx
         .from(trx.raw(`${this.tableName} WITH (READUNCOMMITTED)`))
         .select('*')
@@ -34,19 +40,20 @@ export class StatusjobService {
         keterangan: data.keterangan,
         modifiedby: data.modifiedby,
         updated_at: this.utilsService.getTime(),
-        created_at: this.utilsService.getTime(), 
+        created_at: this.utilsService.getTime(),
       };
       // console.log(payload, 'hasil cek', check, check?.id);
 
       if (check) {
         // console.log('masuk payload', payload);
-        result = await trx(this.tableName).where('id', check.id).update(payload).returning('*');
-      } else {
         result = await trx(this.tableName)
-          .insert(payload)
+          .where('id', check.id)
+          .update(payload)
           .returning('*');
+      } else {
+        result = await trx(this.tableName).insert(payload).returning('*');
       }
-      
+
       // console.log('result', result);
 
       await this.logTrailService.create(
@@ -61,7 +68,7 @@ export class StatusjobService {
         },
         trx,
       );
-      return { 
+      return {
         status: HttpStatus.OK,
         message: 'Proses status job berhasil dijalankan.',
       };

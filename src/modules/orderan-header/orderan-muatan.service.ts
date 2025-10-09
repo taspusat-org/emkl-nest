@@ -1,4 +1,9 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { UpdateOrderanHeaderDto } from './dto/update-orderan-header.dto';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { LocksService } from '../locks/locks.service';
@@ -17,13 +22,10 @@ export class OrderanMuatanService {
     private readonly logTrailService: LogtrailService,
     private readonly statuspendukungService: StatuspendukungService,
   ) {}
-  
+
   async create(data: any, trx: any) {
     try {
-      const {
-        booking_id,
-        ...orderanData
-      } = data;
+      const { booking_id, ...orderanData } = data;
 
       const getBooking = await trx
         .from(trx.raw(`${this.bookingMuatanTableName} WITH (READUNCOMMITTED)`))
@@ -47,25 +49,29 @@ export class OrderanMuatanService {
           'asalmuatan',
           'daftarbl_id',
           'comodity',
-          'gandengan'
+          'gandengan',
         ])
         .where('id', booking_id)
         .first();
-      
+
       const mergedData = {
         ...orderanData,
-        ...getBooking
+        ...getBooking,
       };
-      
+
       const insertedData = await trx(this.tableName)
         .insert(mergedData)
         .returning('*');
       const newItem = insertedData[0];
 
       // get status pendukung dari booking orderan muatan
-      const getStatusPendukungBookingData = await trx('statuspendukung').select('statuspendukung').where('transaksi_id', booking_id)  
-      const values = getStatusPendukungBookingData.map(v => v.statuspendukung); //jadikan hasil query ke bentuk array
-      const keys = [ 
+      const getStatusPendukungBookingData = await trx('statuspendukung')
+        .select('statuspendukung')
+        .where('transaksi_id', booking_id);
+      const values = getStatusPendukungBookingData.map(
+        (v) => v.statuspendukung,
+      ); //jadikan hasil query ke bentuk array
+      const keys = [
         'TRADO LUAR',
         'PISAH BL',
         'JOB PTD',
@@ -75,7 +81,7 @@ export class OrderanMuatanService {
         'BATAL MUAT',
         'SOC',
         'PENGURUSAN DOOR EKSPEDISI LAIN',
-        'APPROVAL TRANSAKSI'
+        'APPROVAL TRANSAKSI',
       ];
 
       const dataPendukungOrderanMuatan = keys.reduce((obj, key, i) => {
@@ -83,13 +89,14 @@ export class OrderanMuatanService {
         return obj;
       }, {});
 
-      const insertStatusPendukungOrderanMuatan = await this.statuspendukungService.create(
-        this.tableName,
-        newItem.id,
-        newItem.modifiedby,
-        trx,
-        dataPendukungOrderanMuatan,
-      );
+      const insertStatusPendukungOrderanMuatan =
+        await this.statuspendukungService.create(
+          this.tableName,
+          newItem.id,
+          newItem.modifiedby,
+          trx,
+          dataPendukungOrderanMuatan,
+        );
 
       await this.logTrailService.create(
         {
@@ -105,17 +112,22 @@ export class OrderanMuatanService {
       );
 
       return {
-        newItem
-      }        
+        newItem,
+      };
     } catch (error) {
       // throw new Error(
       //   `Error creating orderan muatan in service: ${error.message}`,
       // );
-      console.error('Error process approval creating orderan muatan in service:', error.message);
+      console.error(
+        'Error process approval creating orderan muatan in service:',
+        error.message,
+      );
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Error process approval creating orderan muatan in service');
+      throw new InternalServerErrorException(
+        'Error process approval creating orderan muatan in service',
+      );
     }
   }
 
@@ -249,11 +261,7 @@ export class OrderanMuatanService {
           'pivot.approval_nama as approval_nama',
           'pivot.approval_memo as approval_memo',
         ])
-        .leftJoin(
-          'orderanheader as header',
-          'u.nobukti',
-          'header.nobukti',
-        )
+        .leftJoin('orderanheader as header', 'u.nobukti', 'header.nobukti')
         .leftJoin('jenisorderan', 'header.jenisorder_id', 'jenisorderan.id')
         .leftJoin('container', 'u.container_id', 'container.id')
         .leftJoin('shipper', 'u.shipper_id', 'shipper.id')
@@ -769,15 +777,19 @@ export class OrderanMuatanService {
       }
 
       return {
-        deletedData
+        deletedData,
       };
-
     } catch (error) {
-      console.error('Error process approval Error delete orderan muatan in service in service:', error.message);
+      console.error(
+        'Error process approval Error delete orderan muatan in service in service:',
+        error.message,
+      );
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Error process approval delete orderan muatan in service in service');
+      throw new InternalServerErrorException(
+        'Error process approval delete orderan muatan in service in service',
+      );
     }
   }
 }

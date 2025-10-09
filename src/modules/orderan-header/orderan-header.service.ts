@@ -1,4 +1,10 @@
-import { HttpStatus, Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  HttpStatus,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateOrderanHeaderDto } from './dto/create-orderan-header.dto';
 import { UpdateOrderanHeaderDto } from './dto/update-orderan-header.dto';
 import { RedisService } from 'src/common/redis/redis.service';
@@ -46,11 +52,11 @@ export class OrderanHeaderService {
 
   async approval(data: any, trx: any) {
     try {
-      data.tanggal = formatDateToSQL(data.tanggal)
+      data.tanggal = formatDateToSQL(data.tanggal);
       data.created_at = this.utilsService.getTime();
       data.updated_at = this.utilsService.getTime();
-      let formatNoBuktiOrderan
-      let serviceCreate
+      let formatNoBuktiOrderan;
+      let serviceCreate;
       const {
         mode,
         bookingheader_id,
@@ -66,7 +72,7 @@ export class OrderanHeaderService {
         .from(trx.raw(`jenisorderan WITH (READUNCOMMITTED)`))
         .select('id')
         .where('nama', 'MUATAN')
-        .first();    
+        .first();
       const getJenisOrderanBongkaran = await trx
         .from(trx.raw(`jenisorderan WITH (READUNCOMMITTED)`))
         .select('id')
@@ -106,21 +112,20 @@ export class OrderanHeaderService {
             .where('grp', 'NOMOR ORDERAN MUATAN')
             .first();
           break;
-      }    
+      }
 
-      const nomorBukti =
-        await this.runningNumberService.generateRunningNumber(
-          trx,
-          formatNoBuktiOrderan.grp,
-          formatNoBuktiOrderan.subgrp, 
-          this.tableName,
-          data.tanggal,
-          null,
-          tujuankapal_id,
-          null,
-          marketing_id,
-        );
-        
+      const nomorBukti = await this.runningNumberService.generateRunningNumber(
+        trx,
+        formatNoBuktiOrderan.grp,
+        formatNoBuktiOrderan.subgrp,
+        this.tableName,
+        data.tanggal,
+        null,
+        tujuankapal_id,
+        null,
+        marketing_id,
+      );
+
       const headerData = {
         nobukti: nomorBukti,
         tglbukti: tanggal,
@@ -148,9 +153,11 @@ export class OrderanHeaderService {
         .insert(headerData)
         .returning('*');
       const newItem = insertedData[0];
-      
+
       if (newItem) {
-        await trx('bookingorderanheader').where('id', bookingheader_id).update('orderan_nobukti', newItem.nobukti)
+        await trx('bookingorderanheader')
+          .where('id', bookingheader_id)
+          .update('orderan_nobukti', newItem.nobukti);
       }
 
       await this.logTrailService.create(
@@ -173,9 +180,15 @@ export class OrderanHeaderService {
         modifiedby: headerData.modifiedby,
         created_at: approvalData.created_at,
         updated_at: approvalData.updated_at,
-      }
-      const storeStatusJob = await this.statusJobService.create(statusJobData, trx)
-      const approvalStatusPendukung = await this.globalService.approval(approvalData, trx)
+      };
+      const storeStatusJob = await this.statusJobService.create(
+        statusJobData,
+        trx,
+      );
+      const approvalStatusPendukung = await this.globalService.approval(
+        approvalData,
+        trx,
+      );
 
       // INSERT TO ORDERAN
       const orderanData = {
@@ -185,45 +198,48 @@ export class OrderanHeaderService {
         modifiedby: newItem.modifiedby,
         updated_at: data.created_at,
         created_at: data.updated_at,
-      }
-      const insertOrderan = await serviceCreate.create(orderanData, trx) 
-      
-      if (newItem && insertOrderan && storeStatusJob.status === approvalStatusPendukung.status) {
+      };
+      const insertOrderan = await serviceCreate.create(orderanData, trx);
+
+      if (
+        newItem &&
+        insertOrderan &&
+        storeStatusJob.status === approvalStatusPendukung.status
+      ) {
         return {
           status: HttpStatus.OK,
-          message: 'Proses Approval Booking Orderan Berhasil'
-        }
+          message: 'Proses Approval Booking Orderan Berhasil',
+        };
       } else {
         return {
           status: HttpStatus.BAD_REQUEST,
-          message: 'Proses Approval Booking Orderan Gagal'
-        }
+          message: 'Proses Approval Booking Orderan Gagal',
+        };
       }
-      
     } catch (error) {
-      console.error('Error processing approval in orderan header controller:', error);
+      console.error(
+        'Error processing approval in orderan header controller:',
+        error,
+      );
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to process approval in orderan header controller');
+      throw new InternalServerErrorException(
+        'Failed to process approval in orderan header controller',
+      );
     }
   }
 
   async nonApproval(data: any, trx: any) {
     try {
-      let serviceDelete
-      const {
-        mode,
-        jenisorder_id,
-        orderan_nobukti,
-        ...nonApprovalData
-      } = data
+      let serviceDelete;
+      const { mode, jenisorder_id, orderan_nobukti, ...nonApprovalData } = data;
 
       const getJenisOrderanMuatan = await trx
         .from(trx.raw(`jenisorderan WITH (READUNCOMMITTED)`))
         .select('id')
         .where('nama', 'MUATAN')
-        .first();    
+        .first();
       const getJenisOrderanBongkaran = await trx
         .from(trx.raw(`jenisorderan WITH (READUNCOMMITTED)`))
         .select('id')
@@ -238,7 +254,7 @@ export class OrderanHeaderService {
         .from(trx.raw(`jenisorderan WITH (READUNCOMMITTED)`))
         .select('id')
         .where('nama', 'EKSPORT')
-        .first();    
+        .first();
 
       switch (jenisorder_id) {
         case getJenisOrderanMuatan?.id:
@@ -249,7 +265,7 @@ export class OrderanHeaderService {
         //   break;
         // case 'EXPORT':
         //   service = this.hitungmodalexportService;
-        //   break; 
+        //   break;
         default:
           serviceDelete = this.orderanMuatanService;
           break;
@@ -261,40 +277,56 @@ export class OrderanHeaderService {
         modifiedby: nonApprovalData.modifiedby,
         created_at: nonApprovalData.created_at,
         updated_at: nonApprovalData.updated_at,
-      }
+      };
 
-      const storeStatusJob = await this.statusJobService.create(statusJobData, trx)
-      const approvalStatusPendukung = await this.globalService.nonApproval(nonApprovalData, trx)
-      const deletedOrderan = await serviceDelete.delete(orderan_nobukti, trx)
+      const storeStatusJob = await this.statusJobService.create(
+        statusJobData,
+        trx,
+      );
+      const approvalStatusPendukung = await this.globalService.nonApproval(
+        nonApprovalData,
+        trx,
+      );
+      const deletedOrderan = await serviceDelete.delete(orderan_nobukti, trx);
       const deletedOrderanHeader = await this.utilsService.lockAndDestroy(
         orderan_nobukti,
         this.tableName,
         'nobukti',
         trx,
       );
-      
+
       if (deletedOrderan && deletedOrderanHeader) {
-        await trx('bookingorderanheader').where('orderan_nobukti', orderan_nobukti).update('orderan_nobukti', null)
+        await trx('bookingorderanheader')
+          .where('orderan_nobukti', orderan_nobukti)
+          .update('orderan_nobukti', null);
       }
 
-      if (deletedOrderanHeader && deletedOrderan && storeStatusJob.status === approvalStatusPendukung.status) {
+      if (
+        deletedOrderanHeader &&
+        deletedOrderan &&
+        storeStatusJob.status === approvalStatusPendukung.status
+      ) {
         return {
           status: HttpStatus.OK,
-          message: 'Proses Non Approval Booking Orderan Berhasil'
-        }
+          message: 'Proses Non Approval Booking Orderan Berhasil',
+        };
       } else {
         return {
           status: HttpStatus.BAD_REQUEST,
-          message: 'Proses NonApproval Booking Orderan Gagal'
-        }
+          message: 'Proses NonApproval Booking Orderan Gagal',
+        };
       }
-      
     } catch (error) {
-      console.error('Error processing non approval in orderan header controller:', error);
+      console.error(
+        'Error processing non approval in orderan header controller:',
+        error,
+      );
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to process approval in orderan header controller');
+      throw new InternalServerErrorException(
+        'Failed to process approval in orderan header controller',
+      );
     }
   }
 }

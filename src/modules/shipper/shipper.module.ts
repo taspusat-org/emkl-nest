@@ -6,9 +6,17 @@ import { RedisModule } from 'src/common/redis/redis.module';
 import { AuthModule } from '../auth/auth.module';
 import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 import { RelasiModule } from '../relasi/relasi.module';
+import { StatuspendukungModule } from '../statuspendukung/statuspendukung.module';
 
 @Module({
-  imports: [UtilsModule, RedisModule, AuthModule, LogtrailModule, RelasiModule],
+  imports: [
+    UtilsModule,
+    RedisModule,
+    AuthModule,
+    LogtrailModule,
+    RelasiModule,
+    StatuspendukungModule,
+  ],
   controllers: [ShipperController],
   providers: [ShipperService],
 })

@@ -78,7 +78,7 @@ export class PengeluaranheaderService {
       insertData.created_at = created_at || this.utilsService.getTime();
       insertData.updated_at = updated_at || this.utilsService.getTime();
 
-      let nominalValue = 0;
+      const nominalValue = 0;
       let positiveNominal = '';
       const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
       const parameterCabang = await trx('parameter')
