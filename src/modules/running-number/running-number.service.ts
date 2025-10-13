@@ -62,6 +62,29 @@ export class RunningNumberService {
     return dbMssql(table).insert(data);
   }
 
+  // Fungsi untuk mengekstrak prefix dari format
+  extractPrefixFromFormat(format: string): string {
+    // Ekstrak bagian sebelum #9999# atau placeholder angka lainnya
+    // Misal: "PPL #9999#/R/Y" -> "PPL"
+    // Misal: "PUT #9999#/R/Y" -> "PUT"
+
+    // Coba ekstrak text sebelum #
+    let match = format.match(/^([A-Z]+)\s*#/);
+    if (match) {
+      return match[1].trim();
+    }
+
+    // Jika tidak ada #, coba ekstrak text sebelum angka
+    match = format.match(/^([A-Z]+)\s*\d/);
+    if (match) {
+      return match[1].trim();
+    }
+
+    // Jika tidak ada angka, ambil semua huruf kapital di awal
+    match = format.match(/^([A-Z]+)/);
+    return match ? match[1].trim() : '';
+  }
+
   async generateRunningNumber(
     trx: any,
     group: string,
@@ -81,8 +104,9 @@ export class RunningNumberService {
     if (dateParts.length < 2 || !dateParts[0] || !dateParts[1]) {
       throw new Error('Format tanggal tidak valid!');
     }
-    const year = parseInt(dateParts[0], 10); // ambil tahun, jadi 2025
-    const month = parseInt(dateParts[1], 10); // ambil bulan, jadi 10
+    const year = parseInt(dateParts[0], 10);
+    const month = parseInt(dateParts[1], 10);
+
     const parameter = await trx('parameter')
       .select('id', 'text', 'type')
       .where('grp', group)
@@ -101,6 +125,9 @@ export class RunningNumberService {
     const format = parameter.text;
     const type = typeformat.text || '';
 
+    // Ekstrak prefix dari format (misal: "PPL", "EPL", "PEL")
+    const formatPrefix = this.extractPrefixFromFormat(format);
+
     const lastRowData = await this.getLastNumber(
       trx,
       table,
@@ -110,22 +137,40 @@ export class RunningNumberService {
       parameter.id,
     );
 
-    const usedNumbers = lastRowData
+    console.log(lastRowData, 'lastRowData');
+    console.log(format, 'format');
+    console.log(formatPrefix, 'formatPrefix');
+
+    // Filter hanya nobukti yang memiliki prefix yang sama
+    const filteredRows = formatPrefix
+      ? lastRowData.filter((row) => row.nobukti.startsWith(formatPrefix))
+      : [];
+
+    console.log(filteredRows, 'filteredRows with matching prefix');
+
+    const usedNumbers = filteredRows
       .map((row) => {
         const match = row.nobukti.match(/(\d+)(?=\/)/);
         return match ? parseInt(match[0], 10) : null;
       })
       .filter((num) => num !== null);
 
-    let nextNumber = 1;
-    usedNumbers.sort((a, b) => a - b);
+    console.log(usedNumbers, 'usedNumbers from filtered rows');
 
-    for (let i = 0; i < usedNumbers.length; i++) {
-      if (usedNumbers[i] !== nextNumber) {
-        break;
+    let nextNumber = 1;
+
+    if (usedNumbers.length > 0) {
+      usedNumbers.sort((a, b) => a - b);
+
+      for (let i = 0; i < usedNumbers.length; i++) {
+        if (usedNumbers[i] !== nextNumber) {
+          break;
+        }
+        nextNumber++;
       }
-      nextNumber++;
     }
+
+    console.log(nextNumber, 'nextNumber');
 
     let cabangData = '';
     if (cabang) {
@@ -154,8 +199,7 @@ export class RunningNumberService {
       marketingData = datamarketing.kode;
     }
 
-    // New logic to handle digits for '9'
-    // Hitung digit '9' yang ada di format, misal '9999' berarti 4 digit
+    // Hitung digit '9' yang ada di format
     const digitMatch = format.match(/9+/);
     let digitCount = 0;
     if (digitMatch) {
@@ -170,19 +214,16 @@ export class RunningNumberService {
 
     // Update placeholders dengan angka yang sudah dipadding
     const placeholders = {
-      '9999': nextNumberString, // angka sudah dipadding
-      R: this.numberToRoman(month), // Bulan dalam format Roman
-      M: marketingData, // Kode Marketing
-      T: tujuanData, // Kode Tujuan
-      y: year.toString().slice(-2), // Tahun 2 digit
-      Y: year, // Tahun 4 digit
-      C: cabangData || '', // Cabang
+      '9999': nextNumberString,
+      R: this.numberToRoman(month),
+      M: marketingData,
+      T: tujuanData,
+      y: year.toString().slice(-2),
+      Y: year,
+      C: cabangData || '',
     };
 
     let runningNumber = this.formatNumber(format, placeholders);
-
-    // Hapus bagian replace angka global yang ada di bawah ini:
-    // runningNumber = runningNumber.replace(/(\d+)/, nextNumberString);
 
     // Loop cek keunikan nomor
     let isUnique = false;
@@ -195,43 +236,39 @@ export class RunningNumberService {
         isUnique = true;
       } else {
         nextNumber++;
-        // Update nextNumberString dengan padding
         nextNumberString = nextNumber.toString().padStart(digitCount, '0');
         placeholders['9999'] = nextNumberString;
-
         runningNumber = this.formatNumber(format, placeholders);
       }
     }
-    console.log(runningNumber, 'runningNumber');
+
     return runningNumber;
   }
 
   formatNumber(format: string, placeholders: { [key: string]: any }): string {
     let formatted = format;
+
     // Mengganti placeholder yang diapit dengan '#', seperti #9999#, #R#, #Y#
     for (const [placeholder, value] of Object.entries(placeholders)) {
       const regex = new RegExp(`#${placeholder}#`, 'g');
       if (regex.test(formatted)) {
-        // Gantikan hanya placeholder yang diapit dengan tanda '#'
         formatted = formatted.replace(regex, value.toString());
       }
     }
 
     // Mengganti placeholder tanpa tanda '#', misalnya 'T', 'M', dll
-    // Gunakan word boundaries untuk menghindari penggantian di dalam kata literal seperti "BST"
     for (const [placeholder, value] of Object.entries(placeholders)) {
       if (!format.includes(`#${placeholder}#`)) {
-        // Gunakan \b untuk word boundaries agar hanya ganti jika standalone
         const escapedPlaceholder = placeholder.replace(
           /[.*+?^${}()|[\]\\]/g,
           '\\$&',
-        ); // Escape special chars jika ada
+        );
         const regex = new RegExp(`\\b${escapedPlaceholder}\\b`, 'g');
         formatted = formatted.replace(regex, value.toString());
       }
     }
-    // Menghapus semua tanda '#' yang tersisa jika ada, misalnya dalam #BST
 
+    // Menghapus semua tanda '#' yang tersisa
     formatted = formatted.replace(/#/g, '');
     console.log(formatted, 'formatted');
     return formatted;
