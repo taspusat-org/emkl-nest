@@ -92,11 +92,15 @@ export class UtilsService {
     }
   }
 
-  async tempPivotStatusPendukung(trx: any, tablename: string, fieldTempHasil:any) {
+  async tempPivotStatusPendukung(
+    trx: any,
+    tablename: string,
+    fieldTempHasil: any,
+  ) {
     try {
       const tempStatusPendukung = `##temp_${Math.random().toString(36).substring(2, 15)}`;
       const tempData = `##temp_data${Math.random().toString(36).substring(2, 15)}`;
-      const tempHasil = `##temp_hasil${Math.random().toString(36).substring(2, 15)}`;      
+      const tempHasil = `##temp_hasil${Math.random().toString(36).substring(2, 15)}`;
 
       // Create tempStatusPendukung table
       await trx.schema.createTable(tempStatusPendukung, (t) => {
@@ -122,10 +126,9 @@ export class UtilsService {
       await trx.schema.createTable(tempHasil, (t) => {
         t.bigInteger('id').nullable();
         t.string('nobukti').nullable();
-        fieldTempHasil
-          .forEach((col) => {
-            t.text(col).nullable();
-          });
+        fieldTempHasil.forEach((col) => {
+          t.text(col).nullable();
+        });
       });
 
       // Insert into tempStatusPendukung
@@ -152,7 +155,11 @@ export class UtilsService {
           .select(
             'a.id',
             // 'a.nobukti',
-            trx.raw(hasNobukti ? "COALESCE(a.nobukti, '') as nobukti" : "'' as nobukti"),
+            trx.raw(
+              hasNobukti
+                ? "COALESCE(a.nobukti, '') as nobukti"
+                : "'' as nobukti",
+            ),
             trx.raw(
               `CONCAT(
                 '{"statusdatapendukung":"',
@@ -206,7 +213,7 @@ export class UtilsService {
           .innerJoin('parameter as d', 'b.statuspendukung', 'd.id'),
       );
 
-      const getTempData = await trx(tempData).select('*')
+      const getTempData = await trx(tempData).select('*');
       const uniqueJudul = [...new Set(getTempData.map((d: any) => d.judul))];
 
       // Generate dynamic columns for PIVOT
@@ -250,13 +257,23 @@ export class UtilsService {
       `;
 
       const jsonColumns = uniqueJudul.flatMap((judul: any) => {
-        const alias = (judul === 'TOP' || judul === 'OPEN') ? `${judul.toLowerCase().replace(/\s+/g, '')}_FIELD` : judul.toLowerCase().replace(/\s+/g, '');
-        const fixJudul = (judul === 'TOP' || judul === 'OPEN') ? `${judul}_FIELD` : judul;
-        
-        return [ 
-          trx.raw(`JSON_VALUE(A.[${fixJudul}], '$.statuspendukung_id') as ${alias}`),
-          trx.raw(`JSON_VALUE(A.[${fixJudul}], '$.statuspendukung') as ${alias}_nama`),
-          trx.raw(`JSON_QUERY(A.[${fixJudul}], '$.statuspendukung_memo') as ${alias}_memo`)
+        const alias =
+          judul === 'TOP' || judul === 'OPEN'
+            ? `${judul.toLowerCase().replace(/\s+/g, '')}_FIELD`
+            : judul.toLowerCase().replace(/\s+/g, '');
+        const fixJudul =
+          judul === 'TOP' || judul === 'OPEN' ? `${judul}_FIELD` : judul;
+
+        return [
+          trx.raw(
+            `JSON_VALUE(A.[${fixJudul}], '$.statuspendukung_id') as ${alias}`,
+          ),
+          trx.raw(
+            `JSON_VALUE(A.[${fixJudul}], '$.statuspendukung') as ${alias}_nama`,
+          ),
+          trx.raw(
+            `JSON_QUERY(A.[${fixJudul}], '$.statuspendukung_memo') as ${alias}_memo`,
+          ),
           // trx.raw(`JSON_VALUE(A.[${judul}], '$.statuspendukung') as ${alias}_nama`),
           // trx.raw(`JSON_QUERY(A.[${judul}], '$.statuspendukung_memo') as ${alias}_memo`)
         ];

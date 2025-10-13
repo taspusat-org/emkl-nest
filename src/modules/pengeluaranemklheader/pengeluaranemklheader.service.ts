@@ -42,8 +42,8 @@ export class PengeluaranemklheaderService {
     try {
       // Convert string fields to uppercase
 
-      let pengeluaranNoBukti = data.pengeluaran_nobukti;
-      let hutangNoBukti = '';
+      const pengeluaranNoBukti = data.pengeluaran_nobukti;
+      const hutangNoBukti = '';
       let grp = '';
       let subgrp = '';
       let coakredit = '';
