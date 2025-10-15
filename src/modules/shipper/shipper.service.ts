@@ -215,7 +215,7 @@ export class ShipperService {
           jsonColumns,
         );
 
-      console.log(await trx(dataTempStatusPendukung).select('*'), 'TES');
+      // console.log(await trx(dataTempStatusPendukung).select('*'), 'TES');
       const query = trx
         .from(trx.raw(`${this.tableName} as s WITH (READUNCOMMITTED)`))
         .select([

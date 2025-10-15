@@ -1,3 +1,4 @@
+
 import { Injectable } from '@nestjs/common';
 import { dbMssql } from 'src/common/utils/db';
 import { formatDateToSQL } from 'src/utils/utils.service';
@@ -199,11 +200,11 @@ export class RunningNumberService {
       marketingData = datamarketing.kode;
     }
 
-    // Hitung digit '9' yang ada di format
-    const digitMatch = format.match(/9+/);
+    // Hitung digit '9' yang ada di format (bisa #9#, #99#, #999#, #9999#, atau 9# tanpa # di awal)
+    const digitMatch = format.match(/#?(9+)#/);
     let digitCount = 0;
     if (digitMatch) {
-      digitCount = digitMatch[0].length;
+      digitCount = digitMatch[1].length; // Ambil panjang dari '9' yang ditemukan
     }
 
     // Buat string angka dengan padding sesuai digitCount
@@ -214,16 +215,15 @@ export class RunningNumberService {
 
     // Update placeholders dengan angka yang sudah dipadding
     const placeholders = {
-      '9999': nextNumberString,
       R: this.numberToRoman(month),
       M: marketingData,
       T: tujuanData,
       y: year.toString().slice(-2),
-      Y: year,
+      Y: year.toString(),
       C: cabangData || '',
     };
 
-    let runningNumber = this.formatNumber(format, placeholders);
+    let runningNumber = this.formatNumber(format, placeholders, nextNumberString);
 
     // Loop cek keunikan nomor
     let isUnique = false;
@@ -237,26 +237,33 @@ export class RunningNumberService {
       } else {
         nextNumber++;
         nextNumberString = nextNumber.toString().padStart(digitCount, '0');
-        placeholders['9999'] = nextNumberString;
-        runningNumber = this.formatNumber(format, placeholders);
+        runningNumber = this.formatNumber(format, placeholders, nextNumberString);
       }
     }
 
     return runningNumber;
   }
 
-  formatNumber(format: string, placeholders: { [key: string]: any }): string {
+  formatNumber(
+    format: string,
+    placeholders: { [key: string]: any },
+    nextNumberString: string,
+  ): string {
     let formatted = format;
 
-    // Mengganti placeholder yang diapit dengan '#', seperti #9999#, #R#, #Y#
+    // Step 1: Replace semua pola 9 (baik #9#, #99#, #999#, #9999#, atau 9# tanpa # di awal)
+    // Pattern: #9+# atau ^9+# (9 di awal tanpa # sebelumnya)
+    formatted = formatted.replace(/#(9+)#/g, nextNumberString);
+    formatted = formatted.replace(/^(9+)#/g, nextNumberString);
+
+    // Step 2: Replace placeholder yang diapit dengan '#', seperti #R#, #Y#, #M#, #T#, #C#, #y#
     for (const [placeholder, value] of Object.entries(placeholders)) {
       const regex = new RegExp(`#${placeholder}#`, 'g');
-      if (regex.test(formatted)) {
-        formatted = formatted.replace(regex, value.toString());
-      }
+      formatted = formatted.replace(regex, value.toString());
     }
 
-    // Mengganti placeholder tanpa tanda '#', misalnya 'T', 'M', dll
+    // Step 3: Replace placeholder tanpa tanda '#' (untuk backward compatibility)
+    // Hanya jika belum ada di format dengan #
     for (const [placeholder, value] of Object.entries(placeholders)) {
       if (!format.includes(`#${placeholder}#`)) {
         const escapedPlaceholder = placeholder.replace(
@@ -268,7 +275,7 @@ export class RunningNumberService {
       }
     }
 
-    // Menghapus semua tanda '#' yang tersisa
+    // Step 4: Menghapus semua tanda '#' yang tersisa
     formatted = formatted.replace(/#/g, '');
     console.log(formatted, 'formatted');
     return formatted;

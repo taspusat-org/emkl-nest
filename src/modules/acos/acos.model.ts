@@ -48,6 +48,15 @@ export class AcosModel {
         .whereNotNull('text')
         .andWhere('subgrp', '!=', '')
         .andWhere('text', '!=', '');
+
+      const parameterDataStatusJob = await dbMssql('parameter')
+        .select('grp', 'subgrp', 'text')
+        .where('grp', 'DATA STATUS JOB')
+        .whereNotNull('subgrp')
+        .whereNotNull('text')
+        .andWhere('subgrp', '!=', '')
+        .andWhere('text', '!=', '');
+
       for (const param of parameterEntries) {
         if (param.subgrp && param.text) {
           const classValue = param.subgrp.trim();
@@ -77,6 +86,25 @@ export class AcosModel {
           // Generate 2 entries for each parameter (YA)
           for (const suffix of suffixes) {
             const methodValue = `${baseMethodValue} -> ${grpValue} -> ${suffix}`;
+            acosEntries.push({
+              class: classValue,
+              method: methodValue,
+              nama: `${classValue}->${methodValue}`,
+              modifiedby: username,
+            });
+          }
+        }
+      }
+
+      for (const param of parameterDataStatusJob) {
+        if (param.subgrp && param.text) {
+          const classValue = param.subgrp.trim();
+          const baseMethodValue = param.text.trim();
+          const suffixes = ['YA', 'TIDAK'];
+
+          // Generate 2 entries for each parameter (YA and TIDAK)
+          for (const suffix of suffixes) {
+            const methodValue = `${baseMethodValue} -> ${suffix}`;
             acosEntries.push({
               class: classValue,
               method: methodValue,

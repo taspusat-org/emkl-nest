@@ -45,9 +45,9 @@ const baseFields = {
     .min(1, { message: 'MARKETING WAJIB DIISI' }),
   marketing_nama: z.string().nullable().optional(),
 
-  keterangan: z
-    .string({ message: 'KETERANGAN WAJIB DIISI' })
-    .min(1, { message: 'KETERANGAN WAJIB DIISI' }),
+  // keterangan: z
+  //   .string({ message: 'KETERANGAN WAJIB DIISI' })
+  //   .min(1, { message: 'KETERANGAN WAJIB DIISI' }),
 
   schedule_id: z.number().nullable().optional(),
   schedule_nama: z.string().nullable().optional(),
@@ -55,19 +55,19 @@ const baseFields = {
   pelayarancontainer_id: z.number().nullable().optional(),
   pelayarancontainer_nama: z.string().nullable().optional(),
 
-  jenismuatan_id: z
-    .number({
-      required_error: 'JENIS MUATAN WAJIB DIISI'
-    })
-    .min(1, { message: 'JENIS MUATAN WAJIB DIISI' }),
-  jenismuatan_nama: z.string().nullable().optional(),
+  // jenismuatan_id: z
+  //   .number({
+  //     required_error: 'JENIS MUATAN WAJIB DIISI'
+  //   })
+  //   .min(1, { message: 'JENIS MUATAN WAJIB DIISI' }),
+  // jenismuatan_nama: z.string().nullable().optional(),
 
-  sandarkapal_id: z
-    .number({
-      required_error: 'SANDAR KAPAL WAJIB DIISI'
-    })
-    .min(1, { message: 'SANDAR KAPAL WAJIB DIISI' }),
-  sandarkapal_nama: z.string().nullable().optional(),
+  // sandarkapal_id: z
+  //   .number({
+  //     required_error: 'SANDAR KAPAL WAJIB DIISI'
+  //   })
+  //   .min(1, { message: 'SANDAR KAPAL WAJIB DIISI' }),
+  // sandarkapal_nama: z.string().nullable().optional(),
 
   tradoluar: z.number().nullable().optional(),
   tradoluar_nama: z.string().nullable().optional(),
