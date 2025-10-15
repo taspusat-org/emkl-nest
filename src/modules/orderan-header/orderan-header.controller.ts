@@ -23,6 +23,8 @@ import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { FindAllSchema } from 'src/common/interfaces/all.interface';
 import { dbMssql } from 'src/common/utils/db';
 import { OrderanMuatanService } from './orderan-muatan.service';
+import { AuthGuard } from '../auth/auth.guard';
+import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 
 @Controller('orderanheader')
 export class OrderanHeaderController {
@@ -32,6 +34,7 @@ export class OrderanHeaderController {
   ) {}
 
   @Post()
+  //@ORDERANMUATAN
   create(@Body() createOrderanHeaderDto: CreateOrderanHeaderDto) {
     return this.orderanHeaderService.create(createOrderanHeaderDto);
   }
@@ -115,31 +118,159 @@ export class OrderanHeaderController {
     } catch (error) {
       trx.rollback();
       console.error(
-        'Error fetching all booking orderan header ini controller:',
+        'Error fetching all orderan header ini controller:',
         error,
         error.message,
       );
       throw new InternalServerErrorException(
-        'Failed to fetch booking orderan header',
+        'Failed to fetch orderan header',
       );
     }
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.orderanHeaderService.findOne(+id);
-  }
-
+  @UseGuards(AuthGuard)
   @Put(':id')
-  update(
+  //@ORDERANMUATAN
+  async update(
     @Param('id') id: string,
-    @Body() updateOrderanHeaderDto: UpdateOrderanHeaderDto,
+    @Body(
+      new InjectMethodPipe('update'),
+      // new ZodValidationPipe(CreateOrderanHeaderSchema),
+    )
+    data: any,
+    @Req() req,
   ) {
-    return this.orderanHeaderService.update(+id, updateOrderanHeaderDto);
+    const trx = await dbMssql.transaction();
+    try {
+      data.modifiedby = req.user?.user?.username || 'unknown';
+      const result = await this.orderanHeaderService.update(
+        +id,
+        data,
+        trx,
+      );
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error(
+        'Error while updating orderan header in controller:',
+        error,
+      );
+
+      if (error instanceof HttpException) {
+        // Ensure any other errors get caught and returned
+        throw error; // If it's already a HttpException, rethrow it
+      }
+
+      throw new HttpException( // Generic error handling, if something unexpected happens
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'Failed to update orderan header',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
+  @UseGuards(AuthGuard)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.orderanHeaderService.remove(+id);
+  //@ORDERANMUATAN
+  async delete(@Param('id') id: string, @Body() data: any, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.orderanHeaderService.delete(
+        +id,
+        trx,
+        req.user?.user?.username,
+        data,
+      );
+
+      if (result.status === 404) {
+        throw new NotFoundException(result.message);
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error deleting orderan header in controller: ', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new HttpException( // Generic error handling, if something unexpected happens
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'Failed to deleting orderan header in controller',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('check-validation')
+  @UseGuards(AuthGuard)
+  async checkValidasi(
+    @Body() body: { aksi: string; value: any; jenisOrderan: any },
+    @Req() req,
+  ) {
+    let serviceCheckValidation: any;
+    const { aksi, value, jenisOrderan } = body;
+    const trx = await dbMssql.transaction();
+    const editedby = req.user?.user?.username;
+
+    const getJenisOrderanMuatan = await trx('parameter')
+      .select('id')
+      .where('grp', 'JENIS ORDERAN')
+      .where('subgrp', 'MUATAN')
+      .first();
+    const getJenisOrderanBongkaran = await trx('parameter')
+      .select('id')
+      .where('grp', 'JENIS ORDERAN')
+      .where('subgrp', 'BONGKARAN')
+      .first();
+    const getJenisOrderanImport = await trx('parameter')
+      .select('id')
+      .where('grp', 'JENIS ORDERAN')
+      .where('subgrp', 'IMPORT')
+      .first();
+    const getJenisOrderanExport = await trx('parameter')
+      .select('id')
+      .where('grp', 'JENIS ORDERAN')
+      .where('subgrp', 'EXPORT')
+      .first();
+
+    switch (jenisOrderan) {
+      case getJenisOrderanMuatan?.id:
+        serviceCheckValidation = this.orderanMuatanService;
+        break;
+      // case 'IMPORT':
+      //   service = this.hitungmodalimportService;
+      //   break;
+      // case 'EXPORT':
+      //   service = this.hitungmodalexportService;
+      //   break;
+      default:
+        // Default to MUATAN as per the original logic
+        serviceCheckValidation = this.orderanMuatanService;
+        break;
+    }
+
+    try {
+      const forceEdit = await serviceCheckValidation.checkValidasi(
+        aksi,
+        value,
+        editedby,
+        trx,
+      );
+      trx.commit();
+      return forceEdit;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error checking validation:', error);
+      throw new InternalServerErrorException('Failed to check validation');
+    }
   }
 }

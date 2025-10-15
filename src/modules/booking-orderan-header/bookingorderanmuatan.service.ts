@@ -322,7 +322,7 @@ export class BookingOrderanMuatanService {
         .leftJoin('hargatrucking', 'u.lokasistuffing', 'hargatrucking.id')
         .leftJoin('emkl', 'u.emkllain_id', 'emkl.id')
         .leftJoin('daftarbl', 'u.daftarbl_id', 'daftarbl.id')
-        .innerJoin(
+        .leftJoin(
           `${dataTempStatusPendukung} as pivot`,
           'u.nobukti',
           'pivot.nobukti',

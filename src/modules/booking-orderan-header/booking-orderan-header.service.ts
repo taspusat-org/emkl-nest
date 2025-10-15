@@ -49,13 +49,6 @@ export class BookingOrderanHeaderService {
         jenisorder_nama,
         party,
         details,
-        // marketing_id,
-        // marketing_nama,
-        // container_id,
-        // container_nama,
-        // asalmuatan,
-        // tujuankapal_id,
-        // tujuankapal_nama,
         ...bookingOrderanData
       } = createData;
 
@@ -130,6 +123,7 @@ export class BookingOrderanHeaderService {
         default:
           // Default to MUATAN as per the original logic
           serviceCreate = this.bookingOrderanMuatanService;
+          serviceFindAll = this.bookingOrderanMuatanService;
           break;
       }
 
@@ -569,7 +563,7 @@ export class BookingOrderanHeaderService {
         statusformat: 0,
         modifiedby: data.modifiedby,
         updated_at: '',
-        created_at: '',
+        // created_at: '',
       };
       const getJenisOrderanMuatan = await trx
         .from(trx.raw(`parameter WITH (READUNCOMMITTED)`))
