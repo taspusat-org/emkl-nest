@@ -55,7 +55,6 @@ export class OrderanHeaderController {
       ...filters
     } = query;
     let service: any;
-    console.log('notIn', notIn);
 
     const sortParams = {
       sortBy: sortBy || 'nobukti',
