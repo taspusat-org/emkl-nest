@@ -142,7 +142,6 @@ export class OrderanMuatanService {
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = 0;
-      console.log('MASUKK KE ORDERAN MUATAN SERVICE??');
 
       if (isLookUp) {
         const totalData = await trx(this.tableName)
@@ -311,7 +310,6 @@ export class OrderanMuatanService {
           tglSampaiFormatted,
         ]);
       }
-      // console.log(query.toQuery());
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
