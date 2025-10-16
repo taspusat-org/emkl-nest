@@ -1,10 +1,10 @@
-import { 
-  Inject, 
-  HttpStatus, 
-  Injectable, 
+import {
+  Inject,
+  HttpStatus,
+  Injectable,
   HttpException,
   NotFoundException,
-  InternalServerErrorException, 
+  InternalServerErrorException,
 } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -27,7 +27,7 @@ export class StatusjobService {
     private readonly logTrailService: LogtrailService,
   ) {}
   async create(data: any, trx: any) {
-    try {      
+    try {
       const {
         sortBy,
         sortDirection,
@@ -42,15 +42,15 @@ export class StatusjobService {
         ...insertData
       } = data;
 
-      let result
-      const grp = data?.grp ? data.grp : 'DATA STATUS JOB'      
+      let result;
+      const grp = data?.grp ? data.grp : 'DATA STATUS JOB';
       const getDataRequest = await trx('parameter')
         .select('id', 'grp', 'subgrp', 'text')
-        .where('grp', grp) 
+        .where('grp', grp)
         .where('text', statusjob_nama)
         .first();
-      console.log('create',data, grp, 'getDataRequest', getDataRequest);
- 
+      console.log('create', data, grp, 'getDataRequest', getDataRequest);
+
       if (details && details.length > 0) {
         for (const [index, item] of details.entries()) {
           const payload = {
@@ -61,7 +61,7 @@ export class StatusjobService {
             jenisorderan_id: data.jenisorder_id,
             modifiedby: data.modifiedby,
             updated_at: this.utilsService.getTime(),
-            created_at: this.utilsService.getTime(), 
+            created_at: this.utilsService.getTime(),
           };
 
           Object.keys(payload).forEach((key) => {
@@ -77,9 +77,7 @@ export class StatusjobService {
             }
           });
 
-          result = await trx(this.tableName)
-            .insert(payload)
-            .returning('*');
+          result = await trx(this.tableName).insert(payload).returning('*');
 
           await this.logTrailService.create(
             {
@@ -103,12 +101,10 @@ export class StatusjobService {
           jenisorderan_id: data.jenisorder_id,
           modifiedby: data.modifiedby,
           updated_at: this.utilsService.getTime(),
-          created_at: this.utilsService.getTime(), 
+          created_at: this.utilsService.getTime(),
         };
 
-        result = await trx(this.tableName)
-          .insert(payload)
-          .returning('*');
+        result = await trx(this.tableName).insert(payload).returning('*');
 
         await this.logTrailService.create(
           {
@@ -146,11 +142,11 @@ export class StatusjobService {
         JSON.stringify(allData),
       );
 
-      return { 
+      return {
         status: HttpStatus.OK,
         message: 'Proses create status job berhasil dijalankan.',
         pageNumber,
-        dataIndex
+        dataIndex,
       };
     } catch (error) {
       console.error('Error processing status job :', error.message);
@@ -195,9 +191,9 @@ export class StatusjobService {
       //     .from(`${this.tableName} as a`)
       // );
       // console.log('await trx(tempStatusJob).select(*)', await trx(tempStatusJob).select('*'));
-    
+
       // await trx(tempGroupBy).insert(
-      //   trx 
+      //   trx
       //   .select(
       //     "u.tglstatus as tglstatus"
       //   )
@@ -214,17 +210,15 @@ export class StatusjobService {
       //   .innerJoin(`${tempStatusJob} as temp`, 'u.tglstatus', 'temp.tglstatus');
 
       const query = trx(`${this.tableName} as u`)
-        .select([
-          trx.raw("FORMAT(u.tglstatus, 'dd-MM-yyyy') as tglstatus")
-        ])
+        .select([trx.raw("FORMAT(u.tglstatus, 'dd-MM-yyyy') as tglstatus")])
         .groupBy('u.tglstatus');
 
       if (filters?.jenisOrderan) {
-        query.where('u.jenisorderan_id', filters?.jenisOrderan)
+        query.where('u.jenisorderan_id', filters?.jenisOrderan);
       }
 
       if (filters?.jenisStatusJob) {
-        query.where('u.statusjob', filters?.jenisStatusJob)
+        query.where('u.statusjob', filters?.jenisStatusJob);
       }
 
       if (filters?.tglDari && filters?.tglSampai) {
@@ -236,16 +230,13 @@ export class StatusjobService {
           tglSampaiFormatted,
         ]);
       }
-      console.log(query.toQuery());
-      
 
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
-          builder
-            .orWhereRaw("FORMAT(u.tglstatus, 'dd-MM-yyyy') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ])
+          builder.orWhereRaw("FORMAT(u.tglstatus, 'dd-MM-yyyy') LIKE ?", [
+            `%${sanitizedValue}%`,
+          ]);
         });
       }
 
@@ -254,7 +245,7 @@ export class StatusjobService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
           if (
-            key === 'tglDari' || 
+            key === 'tglDari' ||
             key === 'tglSampai' ||
             key === 'jenisOrderan' ||
             key === 'jenisStatusJob'
@@ -291,7 +282,7 @@ export class StatusjobService {
       //     //     (k) => !['tglDari', 'tglSampai'].includes(k) && filters![k],
       //     //   );
       //     //   console.log('searchFields', searchFields);
-            
+
       //     //   searchFields.forEach((field) => {
       //     //     qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
       //     //   });
@@ -329,7 +320,7 @@ export class StatusjobService {
       }
 
       if (sort?.sortBy && sort?.sortDirection) {
-          query.orderBy(sort.sortBy, sort.sortDirection);
+        query.orderBy(sort.sortBy, sort.sortDirection);
       }
 
       const result = await trx(this.tableName).count('id as total').first();
@@ -359,15 +350,25 @@ export class StatusjobService {
   async findOne(
     trx: any,
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
-    tglstatus: any
+    tglstatus: any,
   ) {
     try {
-      const { jenisOrderan, jenisStatusJob, ...filtersWithoutTanggal } = filters ?? {};
-      console.log('filters', filtersWithoutTanggal, 'tglstatus', tglstatus.tglstatus, 'jenisOrderan', jenisOrderan, 'jenisStatusJob', jenisStatusJob);
+      const { jenisOrderan, jenisStatusJob, ...filtersWithoutTanggal } =
+        filters ?? {};
+      console.log(
+        'filters',
+        filtersWithoutTanggal,
+        'tglstatus',
+        tglstatus.tglstatus,
+        'jenisOrderan',
+        jenisOrderan,
+        'jenisStatusJob',
+        jenisStatusJob,
+      );
 
       const cleanTglstatus = tglstatus.tglstatus.replace(/"/g, '');
-      const formatTglStatus = formatDateToSQL(cleanTglstatus)
-      let joinTable
+      const formatTglStatus = formatDateToSQL(cleanTglstatus);
+      let joinTable;
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = 0;
@@ -376,7 +377,7 @@ export class StatusjobService {
         .from(trx.raw(`jenisorderan WITH (READUNCOMMITTED)`))
         .select('id')
         .where('nama', 'MUATAN')
-        .first();    
+        .first();
       const getJenisOrderanBongkaran = await trx
         .from(trx.raw(`jenisorderan WITH (READUNCOMMITTED)`))
         .select('id')
@@ -406,8 +407,8 @@ export class StatusjobService {
         default:
           joinTable = 'orderanmuatan';
           break;
-      } 
-      
+      }
+
       const query = trx(`${this.tableName} as u`)
         .select([
           'u.id',
@@ -429,7 +430,7 @@ export class StatusjobService {
           'c.lokasistuffing as lokasistuffing',
           'f.keterangan as lokasistuffing_nama',
           'b.nama as jenisorder_nama',
-          'parameter.text as statusjob_nama'
+          'parameter.text as statusjob_nama',
         ])
         .leftJoin('jenisorderan as b', 'u.jenisorderan_id', 'b.id')
         .leftJoin(`${joinTable} as c`, 'u.job', 'c.id')
@@ -438,28 +439,30 @@ export class StatusjobService {
         .leftJoin('hargatrucking as f', 'c.lokasistuffing', 'f.id')
         .leftJoin('parameter', 'u.statusjob', 'parameter.id')
         .where('u.tglstatus', formatTglStatus);
-        
-        if (filters?.jenisOrderan) {
-          // query.where('u.jenisorderan_id', filters?.jenisOrderan);
-          query.where('u.jenisorderan_id', Number(filters?.jenisOrderan));
-        }
 
-        if (filters?.jenisStatusJob) {
-          query.where('u.statusjob', Number(filters?.jenisStatusJob));
-        }
-      
+      if (filters?.jenisOrderan) {
+        // query.where('u.jenisorderan_id', filters?.jenisOrderan);
+        query.where('u.jenisorderan_id', Number(filters?.jenisOrderan));
+      }
+
+      if (filters?.jenisStatusJob) {
+        query.where('u.statusjob', Number(filters?.jenisStatusJob));
+      }
+
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
           builder
             .orWhere('c.nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(d.tglbukti, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`])
+            .orWhereRaw("FORMAT(d.tglbukti, 'dd-MM-yyyy') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
             .orWhere('c.nocontainer', 'like', `%${sanitizedValue}%`)
             .orWhere('c.noseal', 'like', `%${sanitizedValue}%`)
             .orWhere('e.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('c.nosp', 'like', `%${sanitizedValue}%`)
             .orWhere('f.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
+            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`);
         });
       }
 
@@ -468,12 +471,14 @@ export class StatusjobService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
           if (key === 'jenisOrderan' || key === 'jenisStatusJob') {
-            continue; 
+            continue;
           }
 
           if (value) {
             if (key === 'tglorder') {
-              query.andWhereRaw("FORMAT(d.tglbukti, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(d.tglbukti, 'dd-MM-yyyy') LIKE ?", [
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'job_text') {
               query.andWhere('c.nobukti', 'like', `%${sanitizedValue}%`);
             } else if (key === 'nocontainer') {
@@ -559,11 +564,11 @@ export class StatusjobService {
       } = data;
 
       let result;
-      const formatTglStatus = formatDateToSQL(tglstatus)
+      const formatTglStatus = formatDateToSQL(tglstatus);
       const existingData = await trx(this.tableName)
         .where('tglstatus', formatTglStatus)
         .where('jenisorderan_id', updatedData.jenisorder_id)
-        .where('statusjob', updatedData.statusjob);      
+        .where('statusjob', updatedData.statusjob);
 
       if (existingData.length < 1) {
         throw new HttpException(
@@ -585,8 +590,8 @@ export class StatusjobService {
             jenisorderan_id: updatedData.jenisorder_id,
             modifiedby: updatedData.modifiedby,
             updated_at: this.utilsService.getTime(),
-            created_at: this.utilsService.getTime(), 
-          };          
+            created_at: this.utilsService.getTime(),
+          };
 
           Object.keys(payload).forEach((key) => {
             if (typeof payload[key] === 'string') {
@@ -601,7 +606,10 @@ export class StatusjobService {
             }
           });
 
-          result = await trx(this.tableName).where('id', item.id).update(payload).returning('*');
+          result = await trx(this.tableName)
+            .where('id', item.id)
+            .update(payload)
+            .returning('*');
 
           await this.logTrailService.create(
             {
@@ -616,7 +624,6 @@ export class StatusjobService {
             trx,
           );
         }
-        
       } else {
         const payload = {
           statusjob: updatedData.statusjob,
@@ -626,10 +633,13 @@ export class StatusjobService {
           jenisorderan_id: updatedData.jenisorder_id,
           modifiedby: updatedData.modifiedby,
           updated_at: this.utilsService.getTime(),
-          created_at: this.utilsService.getTime(), 
+          created_at: this.utilsService.getTime(),
         };
-        
-        result = await trx(this.tableName).where('id', data.id).update(payload).returning('*');
+
+        result = await trx(this.tableName)
+          .where('id', data.id)
+          .update(payload)
+          .returning('*');
         await this.logTrailService.create(
           {
             namatabel: this.tableName,
@@ -658,14 +668,13 @@ export class StatusjobService {
       // let dataIndex = allData.findIndex((item) => item.tglstatus === result[0].tglstatus);
       let dataIndex = allData.findIndex((item) => {
         const tglStatusResult = new Date(result[0].tglstatus).toDateString();
-        const [d, m, y] = item.tglstatus.split("-");
+        const [d, m, y] = item.tglstatus.split('-');
         const tglStatusAllData = new Date(`${y}-${m}-${d}`).toDateString();
         return tglStatusResult === tglStatusAllData;
       });
       if (dataIndex === -1) {
         dataIndex = 0;
       }
-
 
       const itemsPerPage = limit || 30;
       const pageNumber = Math.floor(dataIndex / itemsPerPage) + 1;
@@ -693,14 +702,21 @@ export class StatusjobService {
 
   async delete(id: any, data: any, trx: any) {
     try {
-      let deletedData
+      let deletedData;
       const grp = data?.grp ? data.grp : 'DATA STATUS JOB';
       const getDataRequest = await trx('parameter')
         .select('id', 'grp', 'subgrp', 'text')
-        .where('grp', grp) 
-        .where('text', data.text) 
+        .where('grp', grp)
+        .where('text', data.text)
         .first();
-      console.log('MASUK DELETE', id, data, grp, getDataRequest, getDataRequest.id);
+      console.log(
+        'MASUK DELETE',
+        id,
+        data,
+        grp,
+        getDataRequest,
+        getDataRequest.id,
+      );
 
       const getIdStatusJob = await trx(this.tableName)
         .select('*')
@@ -709,7 +725,7 @@ export class StatusjobService {
         .where('jenisorderan_id', data.jenisorder_id)
         .modify((query) => {
           if (data?.tglstatus) {
-            const formatTglStatus = formatDateToSQL(data.tglstatus)
+            const formatTglStatus = formatDateToSQL(data.tglstatus);
             query.where('tglstatus', formatTglStatus);
           } else {
             query.where('job', id).first();
@@ -737,7 +753,6 @@ export class StatusjobService {
             },
             trx,
           );
-
         }
       } else {
         deletedData = await this.utilsService.lockAndDestroy(
@@ -747,7 +762,7 @@ export class StatusjobService {
           trx,
         );
         console.log('deletedData', deletedData);
-        
+
         await this.logTrailService.create(
           {
             namatabel: this.tableName,
@@ -777,26 +792,23 @@ export class StatusjobService {
   }
 
   async checkValidasi(
-    aksi: string, 
-    value: any, 
+    aksi: string,
+    value: any,
     jenisOrderan: any,
     jenisStatusJob: any,
-    editedby: any, 
-    trx: any
+    editedby: any,
+    trx: any,
   ) {
     try {
-      const formatTglStatus = formatDateToSQL(value)
+      const formatTglStatus = formatDateToSQL(value);
       const getIdStatusJob = await trx(`${this.tableName} as u`)
-        .select([
-          'u.id'
-        ])
+        .select(['u.id'])
         .where('tglstatus', formatTglStatus)
         .where('statusjob', jenisStatusJob)
-        .where('jenisorderan_id', jenisOrderan)
+        .where('jenisorderan_id', jenisOrderan);
 
-        console.log('aksi', aksi, 'getIdStatusJob', getIdStatusJob);
-        
-        
+      console.log('aksi', aksi, 'getIdStatusJob', getIdStatusJob);
+
       if (aksi === 'EDIT') {
         for (const item of getIdStatusJob) {
           const forceEdit = await this.locksService.forceEdit(
@@ -808,7 +820,6 @@ export class StatusjobService {
 
           return forceEdit;
         }
-        
       } else if (aksi === 'DELETE') {
         for (const item of getIdStatusJob) {
           // const forceEdit = await this.locksService.forceEdit(
@@ -877,7 +888,7 @@ export class StatusjobService {
           shipper: h.shipper_nama,
           nosp: h.nosp,
           lokasistuffing: h.lokasistuffing_nama,
-          keterangan: h.keterangan
+          keterangan: h.keterangan,
         },
       ];
 

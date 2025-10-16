@@ -11,7 +11,8 @@ import sharp, { FormatEnum } from 'sharp';
 import multer from 'multer';
 import path from 'path';
 import * as fs from 'fs';
-
+// import { v4, v7 } from 'uuid';
+import { uuidv7 } from 'uuidv7';
 const mimeToSharpFormat: { [key: string]: keyof FormatEnum } = {
   'image/jpeg': 'jpeg',
   'image/png': 'png',
@@ -839,4 +840,8 @@ export function formatIndonesianNegative(num: number): string {
   const absNum = Math.abs(num);
   const formattedAbs = formatIndonesianNumber(absNum);
   return num < 0 ? `-${formattedAbs}` : formattedAbs;
+}
+export function generateUUID(prefix?: string): string {
+  const uuid = uuidv7();
+  return prefix ? `${uuid}-${prefix}` : uuid;
 }

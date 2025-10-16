@@ -67,7 +67,9 @@ export class PengeluaranemklheaderService {
         modifiedby: data.modifiedby ?? null,
         created_at: this.utilsService.getTime(),
         updated_at: this.utilsService.getTime(),
+        pengeluaranemkl_id: data.pengeluaranemkl_id ?? null,
       };
+      console.log(insertData, 'insertData33333');
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
@@ -100,6 +102,7 @@ export class PengeluaranemklheaderService {
         postingdari = parameter.memo_nama;
         coakredit = datacoakredit.coa;
         insertData.statusformat = pengeluaranemklformat.format;
+        insertData.pengeluaranemkl_id = pengeluaranemklformat.id;
       }
 
       if (!data.coaproses) {
@@ -374,8 +377,6 @@ export class PengeluaranemklheaderService {
           'b.nama as bank_nama',
           'u.nowarkat',
           'u.hutang_nobukti',
-          'pe.nama as statusformat_nama',
-          'pe.statuspenarikan as statuspenarikan',
           'u.statusformat',
           'u.info',
           'u.modifiedby',
@@ -384,37 +385,12 @@ export class PengeluaranemklheaderService {
           'u.jenisseal_id',
           'j.nama as jenisseal_text',
           'tempUrl.link',
-          'ph.relasi_id as relasi_id',
-          'pd.dpp as dpp',
-          'pd.coadebet as coadebet',
-          'pdcoadebet.keterangancoa as coadebet_text',
-          'pd.tglinvoiceemkl as tglinvoiceemkl',
-          'pd.noinvoiceemkl as noinvoiceemkl',
-          'pd.nofakturpajakemkl as nofakturpajakemkl',
-          'pd.perioderefund as perioderefund',
-          'pd.transaksibiaya_nobukti as transaksibiaya_nobukti',
-          'pd.transaksilain_nobukti as transaksilain_nobukti',
-          'tempDetail.total_nominal as total_nominal', // Total nominal from tempDetail
         ])
-        .distinct('u.pengeluaran_nobukti') // Add DISTINCT on pengeluaran_nobukti to eliminate duplicates
         .leftJoin('karyawan as k', 'u.karyawan_id', 'k.id')
         .leftJoin('parameter as p', 'u.jenisposting', 'p.id')
         .leftJoin('bank as b', 'u.bank_id', 'b.id')
         .leftJoin('jenisseal as j', 'u.jenisseal_id', 'j.id')
-        .leftJoin(
-          'pengeluaranheader as ph',
-          'u.pengeluaran_nobukti',
-          'ph.nobukti',
-        )
-        .leftJoin('pengeluarandetail as pd', 'ph.nobukti', 'pd.nobukti')
-        .leftJoin('akunpusat as pdcoadebet', 'pd.coadebet', 'pdcoadebet.coa')
-        .leftJoin('pengeluaranemkl as pe', 'u.statusformat', 'pe.format')
-        .innerJoin(trx.raw(`${tempUrl} as tempUrl`), 'u.id', 'tempUrl.id')
-        .innerJoin(
-          trx.raw(`${tempDetail} as tempDetail`),
-          'u.id',
-          'tempDetail.pengeluaranemklheader_id',
-        );
+        .innerJoin(trx.raw(`${tempUrl} as tempUrl`), 'u.id', 'tempUrl.id');
 
       // Apply filters
       if (filters?.ispenarikan === 'true') {
@@ -511,7 +487,6 @@ export class PengeluaranemklheaderService {
       throw new Error('Failed to fetch data');
     }
   }
-
   async findOne(id: string, trx: any) {
     try {
       const query = trx(`${this.tableName} as u`)
@@ -1089,7 +1064,7 @@ export class PengeluaranemklheaderService {
   async getPengembalianPinjaman(id: any, dari: any, sampai: any, trx: any) {
     try {
       // Sumber data
-      const tempPribadi = await this.createTempPengembalianKasGantung(
+      const tempPribadi = await this.createTempPengembalianPinjaman(
         id,
         dari,
         sampai,
@@ -1231,7 +1206,7 @@ export class PengeluaranemklheaderService {
       throw new Error('Failed to create tempPengembalianKasGantung');
     }
   }
-  async createTempPengembalianKasGantung(
+  async createTempPengembalianPinjaman(
     id: any,
     dari: any,
     sampai: any,
@@ -1301,6 +1276,370 @@ export class PengeluaranemklheaderService {
       throw new Error('Failed to create tempPengembalian');
     }
   }
+
+  async getPengeluaran(dari: any, sampai: any, trx: any) {
+    try {
+      const tglDariFormatted = formatDateToSQL(dari);
+      const tglSampaiFormatted = formatDateToSQL(sampai);
+      const temp = '##temp_' + Math.random().toString(36).substring(2, 8);
+
+      // Membuat tabel sementara
+      await trx.schema.createTable(temp, (t) => {
+        t.string('nobukti');
+        t.date('tglbukti');
+        t.bigInteger('sisa').nullable();
+        t.bigInteger('sudah_dibayar').nullable();
+        t.bigInteger('jumlahpinjaman').nullable();
+        t.text('keterangan').nullable();
+        t.string('transaksilain_nobukti').nullable();
+        t.string('transaksibiaya_nobukti').nullable();
+        t.bigInteger('dpp').nullable();
+        t.string('coadebet').nullable();
+        t.string('coadebet_text').nullable();
+      });
+
+      // Menyisipkan data ke dalam tabel sementara
+      await trx(temp).insert(
+        trx
+          .select(
+            'ped.nobukti',
+            trx.raw('CAST(pgh.tglbukti AS DATE) AS tglbukti'),
+            trx.raw(`
+              CASE 
+                WHEN pe.nilaiprosespenerimaan = 172 THEN
+                  -1 * (
+                    COALESCE(
+                      (SELECT SUM(ped_inner.nominal) FROM pengeluaranemkldetail AS ped_inner WHERE ped_inner.nobukti = ped.nobukti),
+                      0
+                    ) - 
+                    COALESCE(
+                      (SELECT SUM(pd.nominal) FROM penerimaanemkldetail AS pd WHERE pd.pengeluaranemkl_nobukti = ped.nobukti),
+                      0
+                    )
+                  )
+                ELSE
+                  COALESCE(
+                    (SELECT SUM(ped_inner.nominal) FROM pengeluaranemkldetail AS ped_inner WHERE ped_inner.nobukti = ped.nobukti),
+                    0
+                  ) - 
+                  COALESCE(
+                    (SELECT SUM(pd.nominal) FROM penerimaanemkldetail AS pd WHERE pd.pengeluaranemkl_nobukti = ped.nobukti),
+                    0
+                  )
+              END AS sisa
+            `),
+            trx.raw(`
+              CASE 
+                WHEN pe.nilaiprosespenerimaan = 172 THEN
+                  -1 * COALESCE(
+                    (SELECT SUM(pd.nominal) FROM penerimaanemkldetail AS pd WHERE pd.pengeluaranemkl_nobukti = ped.nobukti),
+                    0
+                  )
+                ELSE
+                  COALESCE(
+                    (SELECT SUM(pd.nominal) FROM penerimaanemkldetail AS pd WHERE pd.pengeluaranemkl_nobukti = ped.nobukti),
+                    0
+                  )
+              END AS sudah_dibayar
+            `),
+            trx.raw(`
+              CASE 
+                WHEN pe.nilaiprosespenerimaan = 172 THEN
+                  -1 * COALESCE(
+                    (SELECT SUM(ped_inner.nominal) FROM pengeluaranemkldetail AS ped_inner WHERE ped_inner.nobukti = pgh.nobukti),
+                    0
+                  )
+                ELSE
+                  COALESCE(
+                    (SELECT SUM(ped_inner.nominal) FROM pengeluaranemkldetail AS ped_inner WHERE ped_inner.nobukti = pgh.nobukti),
+                    0
+                  )
+              END AS jumlahpinjaman
+            `),
+            trx.raw('MAX(ped.keterangan) AS keterangan'),
+            'pged.transaksilain_nobukti as transaksilain_nobukti',
+            'pged.transaksibiaya_nobukti as transaksibiaya_nobukti',
+            'pged.dpp as dpp',
+            'pged.coadebet as coadebet',
+            'ap.keterangancoa as coadebet_text',
+          )
+          .from('pengeluaranemkldetail as ped')
+          .leftJoin(
+            'pengeluaranemklheader as pgh',
+            'pgh.id',
+            'ped.pengeluaranemklheader_id',
+          )
+          .leftJoin('pengeluaranemkl as pe', 'pe.id', 'pgh.pengeluaranemkl_id')
+          .leftJoin(
+            'pengeluarandetail as pged',
+            'pgh.pengeluaran_nobukti',
+            'pged.nobukti',
+          )
+          .leftJoin('akunpusat as ap', 'ap.coa', 'pged.coadebet')
+          .whereBetween('pgh.tglbukti', [tglDariFormatted, tglSampaiFormatted])
+          .groupBy(
+            'ped.nobukti',
+            'pgh.tglbukti',
+            'pgh.nobukti',
+            'pged.nobukti',
+            'pged.transaksilain_nobukti',
+            'pged.transaksibiaya_nobukti',
+            'pged.dpp',
+            'pged.coadebet',
+            'ap.keterangancoa',
+            'pe.nilaiprosespenerimaan', // Tambahkan ke GROUP BY
+          )
+          .orderBy('pgh.tglbukti', 'asc')
+          .orderBy('ped.nobukti', 'asc'),
+      );
+
+      // Mengambil data dari tabel sementara
+      const result = trx
+        .select(
+          trx.raw(`row_number() OVER (ORDER BY ??) as id`, [`${temp}.nobukti`]),
+          trx.raw(`FORMAT(${temp}.tglbukti, 'dd-MM-yyyy') as tglbukti`),
+          `${temp}.nobukti`,
+          `${temp}.sisa`,
+          `${temp}.sudah_dibayar`,
+          `${temp}.jumlahpinjaman`,
+          `${temp}.keterangan as keterangan`,
+          `${temp}.transaksilain_nobukti as transaksilain_nobukti`,
+          `${temp}.transaksibiaya_nobukti as transaksibiaya_nobukti`,
+          `${temp}.coadebet_text as coadebet_text`,
+          `${temp}.dpp as dpp`,
+          `${temp}.coadebet as coadebet`,
+        )
+        .from(trx.raw(`${temp} with (readuncommitted)`))
+        .where(function () {
+          this.whereRaw(`${temp}.sisa != 0`).orWhereRaw(`${temp}.sisa is null`);
+        });
+
+      return result;
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
+  }
+
+  async getPengembalianHutangLain(id: any, dari: any, sampai: any, trx: any) {
+    try {
+      // Sumber data
+      const tempPribadi = await this.createTempHutangLain(
+        id,
+        dari,
+        sampai,
+        trx,
+      );
+      const tempAll = await this.createTempPengembalianHutangLain(
+        id,
+        dari,
+        sampai,
+        trx,
+      );
+
+      // Temp final
+      const temp = '##tempGet' + Math.random().toString(36).substring(2, 8);
+
+      await trx.schema.createTable(temp, (t) => {
+        t.bigInteger('penerimaanemklheader_id').nullable();
+        t.string('nobukti');
+        t.date('tglbukti').nullable();
+        t.string('keterangan').nullable();
+        t.bigInteger('sisa').nullable();
+        t.bigInteger('bayar').nullable();
+        // kolom baru:
+        t.bigInteger('sudah_dibayar').nullable();
+        t.bigInteger('jumlahpinjaman').nullable();
+      });
+
+      // Baris yang terkait dengan penerimaan (ada bayar)
+      const pengembalian = trx(`${tempPribadi} as tp`).select(
+        'tp.penerimaanemklheader_id',
+        'tp.nobukti',
+        'tp.tglbukti',
+        'tp.keterangan',
+        'tp.sisa',
+        'tp.bayar',
+        // kolom baru dihitung seperti di getPengeluaranEmkl:
+        trx.raw(`(
+          SELECT COALESCE(SUM(pgd2.nominal), 0)
+          FROM penerimaanemkldetail pgd2
+          WHERE pgd2.pengeluaranemkl_nobukti = tp.nobukti
+        ) AS sudah_dibayar`),
+        trx.raw(`(
+          SELECT COALESCE(SUM(kd2.nominal), 0)
+          FROM pengeluaranemkldetail kd2
+          WHERE kd2.nobukti = tp.nobukti
+        ) AS jumlahpinjaman`),
+      );
+
+      await trx(temp).insert(pengembalian);
+
+      // Baris pinjaman lain (belum dibayar oleh penerimaan ini) -> bayar = 0
+      const pinjaman = trx(`${tempAll} as ta`)
+        .select(
+          trx.raw('NULL as penerimaanemklheader_id'),
+          'ta.nobukti',
+          'ta.tglbukti',
+          'ta.keterangan',
+          'ta.sisa',
+          trx.raw('0 as bayar'),
+          // kolom baru:
+          trx.raw(`(
+            SELECT COALESCE(SUM(pgd2.nominal), 0)
+            FROM penerimaanemkldetail pgd2
+            WHERE pgd2.pengeluaranemkl_nobukti = ta.nobukti
+          ) AS sudah_dibayar`),
+          trx.raw(`(
+            SELECT COALESCE(SUM(kd2.nominal), 0)
+            FROM pengeluaranemkldetail kd2
+            WHERE kd2.nobukti = ta.nobukti
+          ) AS jumlahpinjaman`),
+        )
+        .where(function () {
+          this.whereRaw(`ta.sisa != 0`).orWhereRaw(`ta.sisa is null`);
+        });
+
+      await trx(temp).insert(pinjaman);
+
+      // Hasil akhir
+      const data = await trx
+        .select(
+          trx.raw(`row_number() OVER (ORDER BY ??) as id`, [`${temp}.nobukti`]),
+          `${temp}.penerimaanemklheader_id`,
+          `${temp}.nobukti`,
+          trx.raw(`FORMAT(${temp}.tglbukti, 'dd-MM-yyyy') as tglbukti`),
+          `${temp}.keterangan as keterangan`,
+          `${temp}.sisa`,
+          `${temp}.bayar as nominal`,
+          // expose kolom baru:
+          `${temp}.sudah_dibayar`,
+          `${temp}.jumlahpinjaman`,
+        )
+        .from(trx.raw(`${temp} with (readuncommitted)`))
+        .where(function () {
+          this.whereRaw(`${temp}.sisa != 0`).orWhereRaw(`${temp}.sisa is null`);
+        });
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
+  }
+
+  async createTempPengembalianHutangLain(
+    id: any,
+    dari: any,
+    sampai: any,
+    trx: any,
+  ) {
+    try {
+      const tglDariFormatted = formatDateToSQL(dari);
+      const tglSampaiFormatted = formatDateToSQL(sampai);
+      const temp = '##temp_' + Math.random().toString(36).substring(2, 8);
+
+      // Create temp table for 'pengembalian'
+      await trx.schema.createTable(temp, (t) => {
+        t.string('nobukti');
+        t.date('tglbukti');
+        t.bigInteger('sisa').nullable();
+        t.text('keterangan').nullable();
+      });
+
+      // Insert data into temp table for 'pengembalian'
+      await trx(temp).insert(
+        trx
+          .select(
+            'kd.nobukti',
+            trx.raw('CAST(kg.tglbukti AS DATE) AS tglbukti'),
+            trx.raw(`
+              (SELECT (sum(kd.nominal) - COALESCE(SUM(pgd.nominal), 0)) 
+               FROM penerimaanemkldetail as pgd 
+               WHERE pgd.pengeluaranemkl_nobukti = kd.nobukti) AS sisa, 
+              MAX(kd.keterangan)
+            `),
+          )
+          .from('pengeluaranemkldetail as kd')
+          .leftJoin('pengeluaranemklheader as kg', 'kg.nobukti', 'kd.nobukti')
+          .whereRaw(
+            'kg.nobukti not in (select pengeluaranemkl_nobukti from penerimaanemkldetail where penerimaanemklheader_id=?)',
+            [id],
+          )
+          .where('kg.pengeluaranemkl_id', 2)
+          .whereBetween('kg.tglbukti', [tglDariFormatted, tglSampaiFormatted])
+          .groupBy('kd.nobukti', 'kg.tglbukti'),
+      );
+      return temp;
+    } catch (error) {
+      console.error('Error creating tempPengembalianKasGantung:', error);
+      throw new Error('Failed to create tempPengembalianKasGantung');
+    }
+  }
+  async createTempHutangLain(id: any, dari: any, sampai: any, trx: any) {
+    try {
+      const tglDariFormatted = formatDateToSQL(dari);
+      const tglSampaiFormatted = formatDateToSQL(sampai);
+      const temp = '##temp_' + Math.random().toString(36).substring(2, 8);
+
+      // Create temp table for 'pengembalian2'
+      await trx.schema.createTable(temp, (t) => {
+        t.bigInteger('penerimaanemklheader_id').nullable();
+        t.string('nobukti');
+        t.date('tglbukti');
+        t.bigInteger('bayar').nullable();
+        t.string('keterangan').nullable();
+        t.bigInteger('sisa').nullable();
+      });
+      await trx(temp).insert(
+        trx
+          .select(
+            'pgd.penerimaanemklheader_id as penerimaanemklheader_id',
+            'kd.nobukti',
+            trx.raw('CAST(kg.tglbukti AS DATE) AS tglbukti'),
+            trx.raw(`
+              pgd.nominal as bayar,
+              pgd.keterangan as keterangan,
+              (SELECT (sum(kd.nominal) - COALESCE(SUM(pgd.nominal), 0)) 
+               FROM penerimaanemkldetail as pgd 
+               WHERE pgd.pengeluaranemkl_nobukti = kd.nobukti) AS sisa
+            `),
+          )
+          .from('pengeluaranemkldetail as kd')
+          .leftJoin(
+            'pengeluaranemklheader as kg',
+            'kg.id',
+            'kd.pengeluaranemklheader_id',
+          )
+          .leftJoin(
+            'penerimaanemkldetail as pgd',
+            'pgd.pengeluaranemkl_nobukti',
+            'kd.nobukti',
+          )
+          .leftJoin(
+            'penerimaanemklheader as pgh',
+            'pgh.id',
+            'pgd.penerimaanemklheader_id',
+          )
+          .where('kg.pengeluaranemkl_id', 2)
+          .whereBetween('kg.tglbukti', [tglDariFormatted, tglSampaiFormatted])
+          .where('pgd.penerimaanemklheader_id', id)
+          .groupBy(
+            'pgd.penerimaanemklheader_id',
+            'kd.nobukti',
+            'kg.tglbukti',
+            'pgd.nominal',
+            'pgd.keterangan',
+          ),
+      );
+
+      return temp;
+    } catch (error) {
+      console.error('Error creating tempPengembalian:', error);
+      throw new Error('Failed to create tempPengembalian');
+    }
+  }
+
   async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
     try {
       if (aksi === 'EDIT') {

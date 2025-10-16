@@ -47,39 +47,34 @@ export class PengeluaranheaderService {
   private readonly tableName = 'pengeluaranheader';
   async create(data: any, trx: any) {
     try {
-      const {
-        sortBy,
-        sortDirection,
-        filters,
-        search,
-        page,
-        limit,
-        relasi_text,
-        bank_text,
-        alatbayar_text,
-        daftarbank_text,
-        coakredit_text,
-        details,
-        modifiedby,
-        created_at,
-        updated_at,
-        ...insertData
-      } = data;
+      let nominalValue = 0;
+      let positiveNominal = '';
+      const insertData = {
+        nobukti: data.nobukti ?? null,
+        tglbukti: formatDateToSQL(String(data?.tglbukti)),
+        relasi_id: data.relasi_id ?? null,
+        keterangan: data.keterangan ?? null,
+        bank_id: data.bank_id ?? null,
+        postingdari: data.postingdari ?? null,
+        coakredit: data.coakredit ?? null,
+        dibayarke: data.dibayarke ?? null,
+        alatbayar_id: data.alatbayar_id ?? null,
+        nowarkat: data.nowarkat ?? null,
+        tgljatuhtempo: formatDateToSQL(String(data?.tgljatuhtempo)),
+        gantungorderan_nobukti: data.gantungorderan_nobukti ?? null,
+        daftarbank_id: data.daftarbank_id ?? null,
+        statusformat: data.statusformat ?? null,
+        modifiedby: data.modifiedby ?? null,
+        created_at: this.utilsService.getTime(),
+        updated_at: this.utilsService.getTime(),
+      };
+
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-      insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
-      insertData.tgljatuhtempo = formatDateToSQL(
-        String(insertData?.tgljatuhtempo),
-      ); // Fungsi untuk format
-      insertData.modifiedby = modifiedby;
-      insertData.created_at = created_at || this.utilsService.getTime();
-      insertData.updated_at = updated_at || this.utilsService.getTime();
 
-      const nominalValue = 0;
-      let positiveNominal = '';
       const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
       const parameterCabang = await trx('parameter')
         .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
@@ -97,7 +92,6 @@ export class PengeluaranheaderService {
           'grp',
           'subgrp',
           trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
-          // trx.raw(`JSON_VALUE(${memoExpr}, '$.COA') AS coa_nama`),
         )
         .where('id', formatpengeluaran.formatpengeluaran)
         .first();
@@ -116,7 +110,7 @@ export class PengeluaranheaderService {
         parameter.grp,
         parameter.subgrp,
         this.tableName,
-        insertData.tglbukti,
+        String(insertData.tglbukti) ?? null,
         cabangId,
       );
       insertData.nobukti = nomorBukti;
@@ -129,132 +123,239 @@ export class PengeluaranheaderService {
         .insert(insertData)
         .returning('*');
 
-      const datapengeluaranemkl = await trx('pengeluaranemkl')
-        .whereNot('coaproses', null)
+      const dataPositif = await trx('parameter')
+        .where('text', 'POSITIF')
+        .andWhere('grp', 'NILAI PROSES')
+        .first();
+      const dataNegatif = await trx('parameter')
+        .where('text', 'NEGATIF')
+        .andWhere('grp', 'NILAI PROSES')
         .first();
 
-      let pengeluaranemklheader_nobukti = '';
-      let penerimaanemklheader_nobukti = '';
+      let nobukti_transaksilain = null;
+      let penerimaanemklheader_nobukti = null;
 
-      if (details.length > 0) {
-        // Filter detail yang coadebet sama dengan coaproses
-        const filteredDetails = details.filter(
-          (detail: any) => detail.coadebet === datapengeluaranemkl.coaproses,
-        );
-
-        // Pisahkan detail berdasarkan nominal positif/negatif
-        const negativeDetails = filteredDetails.filter((detail: any) => {
-          const nominalValue = parseNumberWithSeparators(detail.nominal);
-          return !isNaN(nominalValue) && nominalValue < 0;
-        });
-
-        const positiveDetails = filteredDetails.filter((detail: any) => {
-          const nominalValue = parseNumberWithSeparators(detail.nominal);
-          return !isNaN(nominalValue) && nominalValue > 0;
-        });
-
-        // Cek jika ada positiveDetails yang memiliki transaksilain_nobukti, tolak proses
-        const hasTransaksiLain = positiveDetails.some(
+      if (data.details.length > 0) {
+        // Pisahkan details berdasarkan ada/tidaknya transaksilain_nobukti
+        const detailsForPenerimaan = data.details.filter(
           (detail: any) =>
-            detail.transaksibiaya_nobukti &&
-            detail.transaksibiaya_nobukti.trim() !== '',
+            detail.transaksilain_nobukti &&
+            detail.transaksilain_nobukti.trim() !== '',
         );
 
-        if (hasTransaksiLain) {
-          throw new Error(
-            'Tidak diperbolehkan ada nominal positif dengan transaksibiaya_nobukti.',
-          );
+        const detailsForPengeluaran = data.details.filter(
+          (detail: any) =>
+            !detail.transaksilain_nobukti ||
+            detail.transaksilain_nobukti.trim() === '',
+        );
+
+        // ============ PROSES PENERIMAAN (yang ada transaksilain_nobukti) ============
+        if (detailsForPenerimaan.length > 0) {
+          // Filter hanya detail yang coadebet-nya ada di coaproses datapengeluaranemkl
+          const validDetailsForPenerimaan: any[] = [];
+
+          for (const detail of detailsForPenerimaan) {
+            // Cari data pengeluaranemkl berdasarkan coadebet detail
+            const datapengeluaranemkl = await trx('pengeluaranemkl')
+              .where('coaproses', detail.coadebet)
+              .first();
+
+            // Hanya proses jika coadebet ada di coaproses
+            if (datapengeluaranemkl) {
+              // Validasi nilaiprosespenerimaan
+              const statusPenerimaan =
+                datapengeluaranemkl.nilaiprosespenerimaan;
+              const nominalValue = parseNumberWithSeparators(detail.nominal);
+
+              // Cek apakah nominal positif atau negatif
+              const isPositif = !isNaN(nominalValue) && nominalValue > 0;
+              const isNegatif = !isNaN(nominalValue) && nominalValue < 0;
+
+              // Validasi: jika positif, status harus 171; jika negatif, status harus 172
+              if (
+                isPositif &&
+                Number(statusPenerimaan) !== Number(dataPositif.id)
+              ) {
+                throw new Error(
+                  `Error pada detail penerimaan dengan coadebet ${detail.coadebet}: Nominal positif harus memiliki nilaiprosespenerimaan 171 (POSITIF), tetapi mendapat ${statusPenerimaan}`,
+                );
+              }
+
+              if (
+                isNegatif &&
+                Number(statusPenerimaan) !== Number(dataNegatif.id)
+              ) {
+                throw new Error(
+                  `Error pada detail penerimaan dengan coadebet ${detail.coadebet}: Nominal negatif harus memiliki nilaiprosespenerimaan 172 (NEGATIF), tetapi mendapat ${statusPenerimaan}`,
+                );
+              }
+
+              // Jika validasi lolos, masukkan ke array valid
+              validDetailsForPenerimaan.push(detail);
+            }
+          }
+
+          // Proses insert hanya jika ada detail yang valid
+          if (validDetailsForPenerimaan.length > 0) {
+            const detailPenerimaanEmkl = validDetailsForPenerimaan.map(
+              (detail: any) => {
+                const nominalValue = parseNumberWithSeparators(detail.nominal);
+                const absoluteNominal = Math.abs(nominalValue)
+                  .toFixed(0)
+                  .toString();
+
+                return {
+                  id: 0,
+                  keterangan: detail.keterangan ?? null,
+                  nominal: absoluteNominal ?? null,
+                  modifiedby: insertData.modifiedby ?? null,
+                  pengeluaranemkl_nobukti: detail.transaksilain_nobukti ?? null,
+                };
+              },
+            );
+            const firstValidDetail = validDetailsForPenerimaan[0];
+            const datapenerimaanemkl = await trx('penerimaanemkl')
+              .where('coaproses', firstValidDetail.coadebet)
+              .first();
+
+            const payloadPenerimaanEmklHeader = {
+              tglbukti: insertData.tglbukti ?? null,
+              tgljatuhtempo: insertData.tgljatuhtempo ?? null,
+              keterangan: insertData.keterangan ?? null,
+              karyawan_id: data.karyawan_id ?? null,
+              format: datapenerimaanemkl.format ?? null,
+              coaproses: datapenerimaanemkl.coaproses ?? null,
+              jenisposting: data.jenisposting ?? null,
+              bank_id: insertData.bank_id ?? null,
+              nowarkat: insertData.nowarkat ?? null,
+              penerimaan_nobukti: null,
+              pengeluaran_nobukti: nomorBukti ?? null,
+              created_at: this.utilsService.getTime(),
+              updated_at: this.utilsService.getTime(),
+              modifiedby: insertData.modifiedby,
+              details: detailPenerimaanEmkl,
+            };
+
+            const penerimaanemklheaderInserted =
+              await this.penerimaanemklheaderService.create(
+                payloadPenerimaanEmklHeader,
+                trx,
+              );
+            penerimaanemklheader_nobukti =
+              penerimaanemklheaderInserted.newItem.nobukti;
+          }
         }
 
-        // Proses insert untuk negativeDetails ke pengeluaranemklheader
-        if (negativeDetails.length > 0) {
-          const detailPengeluaranEmkl = negativeDetails.map((detail: any) => {
-            const nominalValue = parseNumberWithSeparators(detail.nominal);
-            positiveNominal = Math.abs(nominalValue).toFixed(0).toString();
+        // ============ PROSES PENGELUARAN (yang tidak ada transaksilain_nobukti) ============
+        if (detailsForPengeluaran.length > 0) {
+          // Filter hanya detail yang coadebet-nya ada di coaproses datapengeluaranemkl
+          const validDetailsForPengeluaran: any[] = [];
 
-            return {
-              id: 0,
-              keterangan: detail.keterangan ?? null,
-              nominal: positiveNominal ?? null,
-              modifiedby: insertData.modifiedby ?? null,
-            };
-          });
+          for (const detail of detailsForPengeluaran) {
+            // Cari data pengeluaranemkl berdasarkan coadebet detail
+            const datapengeluaranemkl = await trx('pengeluaranemkl')
+              .where('coaproses', detail.coadebet)
+              .first();
 
-          const payloadPengeluaranEmklHeader = {
-            tglbukti: insertData.tglbukti ?? null,
-            coaproses: datapengeluaranemkl.coaproses ?? null,
-            tgljatuhtempo: insertData.tgljatuhtempo ?? null,
-            keterangan: insertData.keterangan ?? null,
-            karyawan_id: insertData.karyawan_id ?? null,
-            jenisposting: insertData.jenisposting ?? null,
-            bank_id: insertData.bank_id ?? null,
-            nowarkat: insertData.nowarkat ?? null,
-            pengeluaran_nobukti: nomorBukti ?? null,
-            created_at: this.utilsService.getTime(),
-            updated_at: this.utilsService.getTime(),
-            modifiedby: insertData.modifiedby,
-            details: detailPengeluaranEmkl,
-          };
+            // Hanya proses jika coadebet ada di coaproses
+            if (datapengeluaranemkl) {
+              // Validasi nilaiprosespengeluaran
+              const statusPengeluaran =
+                datapengeluaranemkl.nilaiprosespengeluaran;
+              const nominalValue = parseNumberWithSeparators(detail.nominal);
 
-          const pengeluaranemklheaderInserted =
-            await this.pengeluaranemklheaderService.create(
-              payloadPengeluaranEmklHeader,
-              trx,
+              // Cek apakah nominal positif atau negatif
+              const isPositif = !isNaN(nominalValue) && nominalValue > 0;
+              const isNegatif = !isNaN(nominalValue) && nominalValue < 0;
+              // Validasi: jika positif, status harus 171; jika negatif, status harus 172
+              if (
+                isPositif &&
+                Number(statusPengeluaran) !== Number(dataPositif.id)
+              ) {
+                throw new Error(
+                  `Error pada detail pengeluaran dengan coadebet ${detail.coadebet}: Nominal positif harus memiliki nilaiprosespengeluaran 171 (POSITIF), tetapi mendapat ${statusPengeluaran}`,
+                );
+              }
+
+              if (
+                isNegatif &&
+                Number(statusPengeluaran) !== Number(dataNegatif.id)
+              ) {
+                throw new Error(
+                  `Error pada detail pengeluaran dengan coadebet ${detail.coadebet}: Nominal negatif harus memiliki nilaiprosespengeluaran 172 (NEGATIF), tetapi mendapat ${statusPengeluaran}`,
+                );
+              }
+
+              // Jika validasi lolos, masukkan ke array valid
+              validDetailsForPengeluaran.push(detail);
+            }
+          }
+
+          // Proses insert hanya jika ada detail yang valid
+          if (validDetailsForPengeluaran.length > 0) {
+            const detailPengeluaranEmkl = validDetailsForPengeluaran.map(
+              (detail: any) => {
+                const nominalValue = parseNumberWithSeparators(detail.nominal);
+                const absoluteNominal = Math.abs(nominalValue)
+                  .toFixed(0)
+                  .toString();
+
+                return {
+                  id: 0,
+                  keterangan: detail.keterangan ?? null,
+                  nominal: absoluteNominal ?? null,
+                  modifiedby: insertData.modifiedby ?? null,
+                };
+              },
             );
-          pengeluaranemklheader_nobukti =
-            pengeluaranemklheaderInserted.newItem.nobukti;
-        }
 
-        // Proses insert untuk positiveDetails ke penerimaanemklheader
-        if (positiveDetails.length > 0) {
-          const detailPenerimaanEmkl = positiveDetails.map((detail: any) => {
-            const nominalValue = parseNumberWithSeparators(detail.nominal);
-            positiveNominal = nominalValue.toFixed(0).toString();
-
-            return {
-              id: 0,
-              keterangan: detail.keterangan ?? null,
-              nominal: positiveNominal ?? null,
-              modifiedby: insertData.modifiedby ?? null,
-              pengeluaranemkl_nobukti: nomorBukti ?? null,
+            // Ambil data pengeluaranemkl pertama dari detail yang valid
+            const firstValidDetail = validDetailsForPengeluaran[0];
+            const datapengeluaranemklForInsert = await trx('pengeluaranemkl')
+              .where('coaproses', firstValidDetail.coadebet)
+              .first();
+            const payloadPengeluaranEmklHeader = {
+              tglbukti: insertData.tglbukti ?? null,
+              coaproses: datapengeluaranemklForInsert.coaproses ?? null,
+              tgljatuhtempo: insertData.tgljatuhtempo ?? null,
+              keterangan: insertData.keterangan ?? null,
+              karyawan_id: data.karyawan_id ?? null,
+              jenisposting: data.jenisposting ?? null,
+              bank_id: insertData.bank_id ?? null,
+              nowarkat: insertData.nowarkat ?? null,
+              pengeluaran_nobukti: nomorBukti ?? null,
+              created_at: this.utilsService.getTime(),
+              updated_at: this.utilsService.getTime(),
+              modifiedby: insertData.modifiedby,
+              details: detailPengeluaranEmkl,
             };
-          });
-
-          const payloadPenerimaanEmklHeader = {
-            tglbukti: insertData.tglbukti ?? null,
-            coaproses: datapengeluaranemkl.coaproses ?? null,
-            tgljatuhtempo: insertData.tgljatuhtempo ?? null,
-            keterangan: insertData.keterangan ?? null,
-            karyawan_id: insertData.karyawan_id ?? null,
-            jenisposting: insertData.jenisposting ?? null,
-            bank_id: insertData.bank_id ?? null,
-            nowarkat: insertData.nowarkat ?? null,
-            penerimaan_nobukti: null,
-            created_at: this.utilsService.getTime(),
-            updated_at: this.utilsService.getTime(),
-            modifiedby: insertData.modifiedby,
-            details: detailPenerimaanEmkl,
-          };
-
-          const penerimaanemklheaderInserted =
-            await this.penerimaanemklheaderService.create(
-              payloadPenerimaanEmklHeader,
-              trx,
-            );
-          penerimaanemklheader_nobukti =
-            penerimaanemklheaderInserted.newItem.nobukti;
+            const pengeluaranemklheaderInserted =
+              await this.pengeluaranemklheaderService.create(
+                payloadPengeluaranEmklHeader,
+                trx,
+              );
+            nobukti_transaksilain =
+              pengeluaranemklheaderInserted.newItem.nobukti;
+          }
         }
       }
 
-      if (details.length >= 0) {
-        const detailsWithNobukti = details.map(
-          ({ coadebet_text, tglinvoiceemkl, ...detail }: any) => ({
+      if (data.details.length >= 0) {
+        const detailsWithNobukti = data.details.map(
+          ({
+            coadebet_text,
+            tglinvoiceemkl,
+            transaksibiaya_nobukti,
+            transaksilain_nobukti,
+            ...detail
+          }: any) => ({
             ...detail,
             nobukti: nomorBukti,
             tglinvoiceemkl: formatDateToSQL(tglinvoiceemkl),
             modifiedby: data.modifiedby || null,
-            transaksilain_nobukti: pengeluaranemklheader_nobukti,
-            transaksibiaya_nobukti: penerimaanemklheader_nobukti,
+            transaksilain_nobukti:
+              nobukti_transaksilain || penerimaanemklheader_nobukti,
+            transaksibiaya_nobukti: transaksilain_nobukti,
           }),
         );
         await this.pengeluarandetailService.create(
@@ -289,8 +390,7 @@ export class PengeluaranheaderService {
           },
         ]);
       };
-
-      const result = processDetails(details);
+      const result = processDetails(data.details);
       const jurnalPayload = {
         nobukti: nomorBukti,
         tglbukti: insertData.tglbukti,
@@ -310,16 +410,15 @@ export class PengeluaranheaderService {
 
       const { data: filteredItems } = await this.findAll(
         {
-          search,
-          filters,
-          pagination: { page, limit: 0 },
-          sort: { sortBy, sortDirection },
-          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+          search: data.search,
+          filters: data.filters,
+          pagination: { page: data.page, limit: 0 },
+          sort: { sortBy: data.sortBy, sortDirection: data.sortDirection },
+          isLookUp: false,
         },
         trx,
       );
 
-      // Cari index item baru di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex(
         (item) => Number(item.id) === Number(newItem.id),
       );
@@ -328,13 +427,11 @@ export class PengeluaranheaderService {
         itemIndex = 0;
       }
 
-      const pageNumber = Math.floor(itemIndex / limit) + 1;
-      const endIndex = pageNumber * limit;
+      const pageNumber = Math.floor(itemIndex / data.limit) + 1;
+      const endIndex = pageNumber * data.limit;
 
-      // Ambil data hingga halaman yang mencakup item baru
       const limitedItems = filteredItems.slice(0, endIndex);
 
-      // Simpan ke Redis
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
@@ -343,7 +440,7 @@ export class PengeluaranheaderService {
       await this.statuspendukungService.create(
         this.tableName,
         newItem.id,
-        data.modifiedby,
+        insertData.modifiedby,
         trx,
       );
 
@@ -402,7 +499,7 @@ export class PengeluaranheaderService {
         t.string('nobukti').nullable();
         t.text('link').nullable();
       });
-      const url = 'jurnal-umum';
+      const url = 'jurnalumumheader';
 
       await trx(tempUrl).insert(
         trx
@@ -499,53 +596,68 @@ export class PengeluaranheaderService {
       const searchFields = Object.keys(filters || {}).filter(
         (k) => !excludeSearchKeys.includes(k) && filters![k],
       );
-      if (search) {
-        const sanitized = String(search).replace(/\[/g, '[[]').trim();
-
-        query.where((qb) => {
-          searchFields.forEach((field) => {
-            qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+      switch (true) {
+        case !!search:
+          const sanitized = String(search).replace(/\[/g, '[[]').trim();
+          query.where((qb) => {
+            const searchFields = Object.keys(filters || {}).filter(
+              (k) => !['tglDari', 'tglSampai'].includes(k) && filters![k],
+            );
+            searchFields.forEach((field) => {
+              qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+            });
           });
-        });
-      }
-
-      if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          const sanitizedValue = String(value).replace(/\[/g, '[[]');
-
-          if (key === 'tglDari' || key === 'tglSampai') {
-            continue;
+          break;
+        case !!filters:
+          if (filters?.tglDari && filters?.tglSampai) {
+            const tglDariFormatted = formatDateToSQL(String(filters?.tglDari));
+            const tglSampaiFormatted = formatDateToSQL(
+              String(filters?.tglSampai),
+            );
+            query.whereBetween('u.tglbukti', [
+              tglDariFormatted,
+              tglSampaiFormatted,
+            ]);
           }
 
-          if (value) {
-            if (
-              key === 'created_at' ||
-              key === 'updated_at' ||
-              key === 'editing_at' ||
-              key === 'tglbukti' ||
-              key === 'tgljatuhtempo'
-            ) {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-                key,
-                `%${sanitizedValue}%`,
-              ]);
-            } else if (key === 'relasi_text') {
-              query.andWhere('r.nama', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'bank_text') {
-              query.andWhere('b.nama', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'bank_id') {
-              query.andWhere('u.bank_id', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'coakredit_text') {
-              query.andWhere('a.keterangancoa', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'alatbayar_text') {
-              query.andWhere('c.nama', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'daftarbank_text') {
-              query.andWhere('d.nama', 'like', `%${sanitizedValue}%`);
-            } else {
-              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+          for (const [key, value] of Object.entries(filters)) {
+            const sanitizedValue = String(value).replace(/\[/g, '[[]');
+            if (key === 'tglDari' || key === 'tglSampai') continue;
+
+            if (value) {
+              if (
+                key === 'created_at' ||
+                key === 'updated_at' ||
+                key === 'editing_at' ||
+                key === 'tglbukti' ||
+                key === 'tgljatuhtempo'
+              ) {
+                query.andWhereRaw(
+                  "FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?",
+                  [key, `%${sanitizedValue}%`],
+                );
+              } else if (key === 'relasi_text') {
+                query.andWhere('r.nama', 'like', `%${sanitizedValue}%`);
+              } else if (key === 'bank_text') {
+                query.andWhere('b.nama', 'like', `%${sanitizedValue}%`);
+              } else if (key === 'bank_id') {
+                query.andWhere('u.bank_id', 'like', `%${sanitizedValue}%`);
+              } else if (key === 'coakredit_text') {
+                query.andWhere(
+                  'a.keterangancoa',
+                  'like',
+                  `%${sanitizedValue}%`,
+                );
+              } else if (key === 'alatbayar_text') {
+                query.andWhere('c.nama', 'like', `%${sanitizedValue}%`);
+              } else if (key === 'daftarbank_text') {
+                query.andWhere('d.nama', 'like', `%${sanitizedValue}%`);
+              } else {
+                query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+              }
             }
           }
-        }
+          break;
       }
 
       const result = await trx(this.tableName).count('id as total').first();

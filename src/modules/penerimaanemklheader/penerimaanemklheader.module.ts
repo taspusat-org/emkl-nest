@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { PenerimaanemklheaderService } from './penerimaanemklheader.service';
 import { PenerimaanemklheaderController } from './penerimaanemklheader.controller';
 import { HutangheaderModule } from '../hutangheader/hutangheader.module';
@@ -22,7 +22,7 @@ import { PenerimaanheaderModule } from '../penerimaanheader/penerimaanheader.mod
     RunningNumberModule,
     GlobalModule,
     LocksModule,
-    PenerimaanheaderModule,
+    forwardRef(() => PenerimaanheaderModule),
     HutangheaderModule,
   ],
   controllers: [PenerimaanemklheaderController],

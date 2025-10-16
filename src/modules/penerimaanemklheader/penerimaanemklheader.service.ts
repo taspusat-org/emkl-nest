@@ -1,4 +1,5 @@
 import {
+  forwardRef,
   HttpException,
   HttpStatus,
   Inject,
@@ -34,6 +35,7 @@ export class PenerimaanemklheaderService {
     private readonly locksService: LocksService,
     private readonly globalService: GlobalService,
     private readonly penerimaanemkldetailService: PenerimaanemkldetailService,
+    @Inject(forwardRef(() => PenerimaanheaderService)) // ← Index 7: Gunakan forwardRef di sini!
     private readonly penerimaanheaderService: PenerimaanheaderService,
     private readonly hutangheaderService: HutangheaderService,
   ) {}
@@ -57,24 +59,30 @@ export class PenerimaanemklheaderService {
         nowarkat: data.nowarkat ?? null,
         penerimaan_nobukti:
           penerimaanNoBukti ?? data.penerimaan_nobukti ?? null,
+        pengeluaran_nobukti: data.pengeluaran_nobukti ?? null,
         hutang_nobukti: hutangNoBukti ?? data.hutang_nobukti ?? null,
         statusformat: data.format ?? null,
         info: data.info ?? null,
         modifiedby: data.modifiedby ?? null,
+        penerimaanemkl_id: data.penerimaanemkl_id ?? null,
         created_at: this.utilsService.getTime(),
         updated_at: this.utilsService.getTime(),
       };
-
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-      console.log(data, 'data');
       const parameter = await trx('parameter')
         .select('grp', 'subgrp')
         .where('id', data.format)
         .first();
+      if (data.coaproses) {
+        const penerimaanemklformat = await trx('penerimaanemkl')
+          .where('coaproses', data.coaproses)
+          .first();
+        insertData.penerimaanemkl_id = penerimaanemklformat.id;
+      }
       grp = parameter.grp;
       subgrp = parameter.subgrp;
       postingdari = parameter.memo_nama;
@@ -119,6 +127,7 @@ export class PenerimaanemklheaderService {
         }
         insertData.penerimaan_nobukti = penerimaanNoBukti;
       }
+      console.log(insertData, 'insertData33333');
 
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
@@ -134,11 +143,11 @@ export class PenerimaanemklheaderService {
           return {
             ...rest,
             nobukti: nomorBukti, // Inject nobukti into each detail
-            pengeluaranemkl_nobukti: nobukti,
+            pengeluaranemkl_nobukti: nobukti ?? detail.pengeluaranemkl_nobukti,
             modifiedby: insertData.modifiedby,
           };
         });
-
+        console.log(detailsWithNobukti, 'detailsWithNobukti');
         // Pass the updated details with nobukti to the detail creation  service
         await this.penerimaanemkldetailService.create(
           detailsWithNobukti,
@@ -794,6 +803,150 @@ export class PenerimaanemklheaderService {
     await workbook.xlsx.writeFile(tempFilePath);
 
     return tempFilePath;
+  }
+
+  async getPenerimaan(dari: any, sampai: any, trx: any) {
+    try {
+      const tglDariFormatted = formatDateToSQL(dari);
+      const tglSampaiFormatted = formatDateToSQL(sampai);
+      const temp = '##temp_' + Math.random().toString(36).substring(2, 8);
+
+      // Membuat tabel sementara
+      await trx.schema.createTable(temp, (t) => {
+        t.string('nobukti');
+        t.date('tglbukti');
+        t.bigInteger('sisa').nullable();
+        t.bigInteger('sudah_dibayar').nullable();
+        t.bigInteger('jumlahpinjaman').nullable();
+        t.text('keterangan').nullable();
+        t.string('transaksilain_nobukti').nullable();
+        t.string('transaksibiaya_nobukti').nullable();
+        t.bigInteger('dpp').nullable();
+        t.string('coadebet').nullable();
+        t.string('coadebet_text').nullable();
+      });
+
+      // Menyisipkan data ke dalam tabel sementara
+      await trx(temp).insert(
+        trx
+          .select(
+            'ped.nobukti',
+            trx.raw('CAST(pgh.tglbukti AS DATE) AS tglbukti'),
+            trx.raw(`
+              CASE 
+                WHEN pe.nilaiprosespengeluaran = 172 THEN
+                  -1 * (
+                    COALESCE(
+                      (SELECT SUM(ped_inner.nominal) FROM penerimaanemkldetail AS ped_inner WHERE ped_inner.nobukti = ped.nobukti),
+                      0
+                    ) - 
+                    COALESCE(
+                      (SELECT SUM(pd.nominal) FROM pengeluaranemkldetail AS pd WHERE pd.penerimaanemkl_nobukti = ped.nobukti),
+                      0
+                    )
+                  )
+                ELSE
+                  COALESCE(
+                    (SELECT SUM(ped_inner.nominal) FROM penerimaanemkldetail AS ped_inner WHERE ped_inner.nobukti = ped.nobukti),
+                    0
+                  ) - 
+                  COALESCE(
+                    (SELECT SUM(pd.nominal) FROM pengeluaranemkldetail AS pd WHERE pd.penerimaanemkl_nobukti = ped.nobukti),
+                    0
+                  )
+              END AS sisa
+            `),
+            trx.raw(`
+              CASE 
+                WHEN pe.nilaiprosespengeluaran = 172 THEN
+                  -1 * COALESCE(
+                    (SELECT SUM(pd.nominal) FROM pengeluaranemkldetail AS pd WHERE pd.penerimaanemkl_nobukti = ped.nobukti),
+                    0
+                  )
+                ELSE
+                  COALESCE(
+                    (SELECT SUM(pd.nominal) FROM pengeluaranemkldetail AS pd WHERE pd.penerimaanemkl_nobukti = ped.nobukti),
+                    0
+                  )
+              END AS sudah_dibayar
+            `),
+            trx.raw(`
+              CASE 
+                WHEN pe.nilaiprosespengeluaran = 172 THEN
+                  -1 * COALESCE(
+                    (SELECT SUM(ped_inner.nominal) FROM penerimaanemkldetail AS ped_inner WHERE ped_inner.nobukti = pgh.nobukti),
+                    0
+                  )
+                ELSE
+                  COALESCE(
+                    (SELECT SUM(ped_inner.nominal) FROM penerimaanemkldetail AS ped_inner WHERE ped_inner.nobukti = pgh.nobukti),
+                    0
+                  )
+              END AS jumlahpinjaman
+            `),
+            trx.raw('MAX(ped.keterangan) AS keterangan'),
+            'pged.transaksilain_nobukti as transaksilain_nobukti',
+            'pged.transaksibiaya_nobukti as transaksibiaya_nobukti',
+            'pged.dpp as dpp',
+            'pged.coadebet as coadebet',
+            'ap.keterangancoa as coadebet_text',
+          )
+          .from('penerimaanemkldetail as ped')
+          .leftJoin(
+            'penerimaanemklheader as pgh',
+            'pgh.id',
+            'ped.pengeluaranemklheader_id',
+          )
+          .leftJoin('penerimaanemkl as pe', 'pe.id', 'pgh.penerimaanemkl_id')
+          .leftJoin(
+            'penerimaandetail as pged',
+            'pgh.penerimaan_nobukti',
+            'pged.nobukti',
+          )
+          .leftJoin('akunpusat as ap', 'ap.coa', 'pged.coadebet')
+          .whereBetween('pgh.tglbukti', [tglDariFormatted, tglSampaiFormatted])
+          .groupBy(
+            'ped.nobukti',
+            'pgh.tglbukti',
+            'pgh.nobukti',
+            'pged.nobukti',
+            'pged.transaksilain_nobukti',
+            'pged.transaksibiaya_nobukti',
+            'pged.dpp',
+            'pged.coadebet',
+            'ap.keterangancoa',
+            'pe.nilaiprosespengeluaran', // Tambahkan ke GROUP BY
+          )
+          .orderBy('pgh.tglbukti', 'asc')
+          .orderBy('ped.nobukti', 'asc'),
+      );
+
+      // Mengambil data dari tabel sementara
+      const result = trx
+        .select(
+          trx.raw(`row_number() OVER (ORDER BY ??) as id`, [`${temp}.nobukti`]),
+          trx.raw(`FORMAT(${temp}.tglbukti, 'dd-MM-yyyy') as tglbukti`),
+          `${temp}.nobukti`,
+          `${temp}.sisa`,
+          `${temp}.sudah_dibayar`,
+          `${temp}.jumlahpinjaman`,
+          `${temp}.keterangan as keterangan`,
+          `${temp}.transaksilain_nobukti as transaksilain_nobukti`,
+          `${temp}.transaksibiaya_nobukti as transaksibiaya_nobukti`,
+          `${temp}.coadebet_text as coadebet_text`,
+          `${temp}.dpp as dpp`,
+          `${temp}.coadebet as coadebet`,
+        )
+        .from(trx.raw(`${temp} with (readuncommitted)`))
+        .where(function () {
+          this.whereRaw(`${temp}.sisa != 0`).orWhereRaw(`${temp}.sisa is null`);
+        });
+
+      return result;
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw new Error('Failed to fetch data');
+    }
   }
 
   async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {

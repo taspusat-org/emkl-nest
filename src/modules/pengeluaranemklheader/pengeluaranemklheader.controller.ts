@@ -242,6 +242,28 @@ export class PengeluaranemklheaderController {
       throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
+  @Get('list-pengeluaran')
+  //@PENGELUARAN-EMKL-HEADER
+  @UsePipes(new ZodValidationPipe(FindAllSchema))
+  async findAllPengeluaran(@Query() query: { dari: string; sampai: string }) {
+    const { dari, sampai } = query;
+    const trx = await dbMssql.transaction();
+
+    try {
+      const result = await this.pengeluaranemklheaderService.getPengeluaran(
+        dari,
+        sampai,
+        trx,
+      );
+      trx.commit();
+
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error in findAll:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
+    }
+  }
   @Get('pengembalian')
   //@PENGELUARAN-EMKL-HEADER
   @UsePipes(new ZodValidationPipe(FindAllSchema))

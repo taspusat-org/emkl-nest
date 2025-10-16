@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { PenerimaanheaderService } from './penerimaanheader.service';
 import { PenerimaanheaderController } from './penerimaanheader.controller';
 import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
@@ -10,6 +10,8 @@ import { LocksModule } from '../locks/locks.module';
 import { RedisModule } from 'src/common/redis/redis.module';
 import { AuthModule } from '../auth/auth.module';
 import { JurnalumumheaderModule } from '../jurnalumumheader/jurnalumumheader.module';
+import { PenerimaanemklheaderModule } from '../penerimaanemklheader/penerimaanemklheader.module';
+import { PengeluaranemklheaderModule } from '../pengeluaranemklheader/pengeluaranemklheader.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { JurnalumumheaderModule } from '../jurnalumumheader/jurnalumumheader.mod
     GlobalModule,
     LocksModule,
     JurnalumumheaderModule,
+    forwardRef(() => PengeluaranemklheaderModule),
+    forwardRef(() => PenerimaanemklheaderModule),
   ],
   controllers: [PenerimaanheaderController],
   providers: [PenerimaanheaderService],

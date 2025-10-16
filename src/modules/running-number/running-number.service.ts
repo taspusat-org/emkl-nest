@@ -1,4 +1,3 @@
-
 import { Injectable } from '@nestjs/common';
 import { dbMssql } from 'src/common/utils/db';
 import { formatDateToSQL } from 'src/utils/utils.service';
@@ -223,7 +222,11 @@ export class RunningNumberService {
       C: cabangData || '',
     };
 
-    let runningNumber = this.formatNumber(format, placeholders, nextNumberString);
+    let runningNumber = this.formatNumber(
+      format,
+      placeholders,
+      nextNumberString,
+    );
 
     // Loop cek keunikan nomor
     let isUnique = false;
@@ -237,7 +240,11 @@ export class RunningNumberService {
       } else {
         nextNumber++;
         nextNumberString = nextNumber.toString().padStart(digitCount, '0');
-        runningNumber = this.formatNumber(format, placeholders, nextNumberString);
+        runningNumber = this.formatNumber(
+          format,
+          placeholders,
+          nextNumberString,
+        );
       }
     }
 
@@ -277,6 +284,7 @@ export class RunningNumberService {
 
     // Step 4: Menghapus semua tanda '#' yang tersisa
     formatted = formatted.replace(/#/g, '');
+
     console.log(formatted, 'formatted');
     return formatted;
   }
