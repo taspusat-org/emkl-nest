@@ -22,7 +22,6 @@ export class ParameterService {
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
-
   async create(data: any, trx: any) {
     try {
       const {
@@ -34,18 +33,24 @@ export class ParameterService {
         limit,
         ...insertData
       } = data;
+
+      // Uppercase string values
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
+
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
 
       const newItem = insertedItems[0];
 
-      // Siapkan query dasar dengan alias "m" untuk tabel utama
+      // Hapus semua cache yang terkait dengan parameter
+      await this.clearParameterCache();
+
+      // Query untuk mencari posisi item baru
       const query = trx(this.tableName)
         .select(
           'id',
@@ -66,9 +71,9 @@ export class ParameterService {
           ),
         )
         .orderBy(sortBy ? `${sortBy}` : 'id', sortDirection || 'desc')
-        .where('id', '<=', newItem.id); // Filter berdasarkan ID yang lebih kecil atau sama dengan newItem.id
+        .where('id', '<=', newItem.id);
 
-      // Perbaikan bagian filters
+      // Apply search filter
       if (search) {
         query.where((builder) => {
           builder
@@ -80,11 +85,11 @@ export class ParameterService {
             .orWhere('type', 'like', `%${search}%`)
             .orWhere('default', 'like', `%${search}%`)
             .orWhere('modifiedby', 'like', `%${search}%`)
-
             .orWhere('info', 'like', `%${search}%`);
         });
       }
 
+      // Apply column filters
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
           if (value) {
@@ -100,10 +105,9 @@ export class ParameterService {
         }
       }
 
-      // Ambil hasil query yang terfilter
       const filteredItems = await query;
 
-      // Cari index item baru di hasil yang sudah difilter
+      // Find index of new item
       const itemIndex = filteredItems.findIndex(
         (item) => item.id === newItem.id,
       );
@@ -113,15 +117,8 @@ export class ParameterService {
       }
 
       const pageNumber = Math.floor(itemIndex / limit) + 1;
-      const endIndex = pageNumber * limit;
 
-      // Ambil data hingga halaman yang mencakup item baru
-      const limitedItems = filteredItems.slice(0, endIndex);
-      // Simpan ke Redis
-      await this.redisService.set(
-        `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
-      );
+      // Log trail
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
@@ -134,6 +131,7 @@ export class ParameterService {
         },
         trx,
       );
+
       return {
         newItem,
         pageNumber,
@@ -143,19 +141,42 @@ export class ParameterService {
       throw new Error(`Error creating parameter: ${error.message}`);
     }
   }
-  async findAll({
-    search,
-    filters,
-    pagination,
-    sort,
-    isLookUp,
-    exclude,
-  }: FindAllParams) {
+
+  async findAll(
+    { search, filters, pagination, sort, isLookUp, exclude }: FindAllParams,
+    notIn?: any,
+  ) {
     try {
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
 
+      // Generate unique cache key based on query parameters
+      const cacheKey = this.generateCacheKey({
+        search,
+        filters,
+        page,
+        limit,
+        sort,
+        isLookUp,
+        exclude,
+      });
+      // Check if data exists in cache
+      const cachedData = await this.redisService.get(cacheKey);
+      if (cachedData) {
+        const parsedCache = JSON.parse(cachedData);
+        if (
+          parsedCache.data &&
+          Array.isArray(parsedCache.data) &&
+          parsedCache.data.length > 0
+        ) {
+          return parsedCache;
+        }
+        // Jika data kosong, hapus cache yang tidak valid
+        await this.redisService.del(cacheKey);
+      }
+
+      // Handle lookup mode
       if (isLookUp) {
         const acoCountResult = await dbMssql(this.tableName)
           .count('id as total')
@@ -170,7 +191,7 @@ export class ParameterService {
         }
       }
 
-      // Jika tidak ada di cache, lakukan query ke database
+      // Query database
       const offset = (page - 1) * limit;
       const query = dbMssql(this.tableName).select(
         'id',
@@ -191,12 +212,14 @@ export class ParameterService {
         query.limit(limit).offset(offset);
       }
 
+      // Apply search
       if (search) {
         query.where((builder) => {
           builder.orWhere('text', 'like', `%${search}%`);
         });
       }
 
+      // Apply filters
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
           if (value) {
@@ -212,32 +235,44 @@ export class ParameterService {
         }
       }
 
-      if (exclude) {
-        if (filters) {
-          for (const [key, value] of Object.entries(filters)) {
-            if (value != null) {
-              if (key === 'kelompok') {
-                query.andWhere(key, '!=', value);
-              } else {
-                query.andWhere(key, '!=', value);
-              }
-            }
+      // Apply exclude filters
+      if (exclude && filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          if (value != null) {
+            query.andWhere(key, '!=', value);
           }
         }
       }
 
-      const result = await dbMssql(this.tableName).count('id as total').first();
-      const total = result?.total as number;
-      const totalPages = Math.ceil(total / limit);
+      // Apply notIn filter - Dinamis untuk semua key
+      if (notIn) {
+        // Jika notIn adalah string JSON, parse dulu
+        const notInObj = typeof notIn === 'string' ? JSON.parse(notIn) : notIn;
 
+        if (notInObj && typeof notInObj === 'object') {
+          // Loop semua key di notIn object
+          for (const [key, values] of Object.entries(notInObj)) {
+            if (Array.isArray(values) && values.length > 0) {
+              query.whereNotIn(key, values);
+            }
+          }
+        }
+      }
+      // Apply sorting
       if (sort?.sortBy && sort?.sortDirection) {
         query.orderBy(sort.sortBy, sort.sortDirection);
       }
 
+      // Get total count
+      const result = await dbMssql(this.tableName).count('id as total').first();
+      const total = result?.total as number;
+      const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+
+      // Execute query
       const parameters = await query;
       const responseType = Number(total) > 500 ? 'json' : 'local';
 
-      // Format objek hasil query yang akan disimpan di Redis
+      // Prepare response
       const responseObject = {
         data: parameters,
         type: responseType,
@@ -250,10 +285,57 @@ export class ParameterService {
         },
       };
 
+      // Save to cache with expiration (e.g., 1 hour = 3600 seconds)
+      await this.redisService.set(cacheKey, JSON.stringify(responseObject));
+
       return responseObject;
     } catch (error) {
       console.error('Error fetching parameters:', error);
       throw new Error('Failed to fetch parameters');
+    }
+  }
+
+  /**
+   * Generate unique cache key based on query parameters
+   */
+  private generateCacheKey(params: any): string {
+    const {
+      search = '',
+      filters = {},
+      page = 1,
+      limit = 0,
+      sort = {},
+      isLookUp = false,
+      exclude = false,
+    } = params;
+
+    // Create a stable string representation of parameters
+    const filterStr = JSON.stringify(filters);
+    const sortStr = JSON.stringify(sort);
+
+    return `${this.tableName}:list:${search}:${filterStr}:${sortStr}:${page}:${limit}:${isLookUp}:${exclude}`;
+  }
+
+  /**
+   * Clear all parameter cache
+   */
+  private async clearParameterCache(): Promise<void> {
+    try {
+      // Delete all keys matching the pattern
+      const pattern = `${this.tableName}:list:*`;
+      const deletedCount = await this.redisService.delPattern(pattern);
+
+      if (deletedCount > 0) {
+        console.log(
+          `Cleared ${deletedCount} cache entries for ${this.tableName}`,
+        );
+      }
+
+      // Also clear the old allItems cache if exists
+      await this.redisService.del(`${this.tableName}-allItems`);
+    } catch (error) {
+      console.error('Error clearing cache:', error);
+      // Don't throw error, just log it
     }
   }
   async findAllApproval({

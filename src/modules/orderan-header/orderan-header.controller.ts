@@ -51,10 +51,11 @@ export class OrderanHeaderController {
       sortDirection,
       isLookUp,
       jenisOrderan,
+      notIn,
       ...filters
     } = query;
     let service: any;
-    console.log('CON OR MU', query);
+    console.log('notIn', notIn);
 
     const sortParams = {
       sortBy: sortBy || 'nobukti',
@@ -112,7 +113,7 @@ export class OrderanHeaderController {
           service = this.orderanMuatanService;
           break;
       }
-      const result = await service.findAll(params, trx);
+      const result = await service.findAll(params, trx, notIn);
       trx.commit();
       return result;
     } catch (error) {
@@ -122,9 +123,7 @@ export class OrderanHeaderController {
         error,
         error.message,
       );
-      throw new InternalServerErrorException(
-        'Failed to fetch orderan header',
-      );
+      throw new InternalServerErrorException('Failed to fetch orderan header');
     }
   }
 
@@ -143,11 +142,7 @@ export class OrderanHeaderController {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      const result = await this.orderanHeaderService.update(
-        +id,
-        data,
-        trx,
-      );
+      const result = await this.orderanHeaderService.update(+id, data, trx);
 
       await trx.commit();
       return result;

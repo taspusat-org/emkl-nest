@@ -223,7 +223,7 @@ export class JurnalumumdetailService {
       t.string('nobukti').nullable();
       t.text('link').nullable();
     });
-    const url = 'jurnal-umum';
+    const url = 'jurnalumumheader';
 
     await trx(tempUrl).insert(
       trx

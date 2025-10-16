@@ -136,6 +136,7 @@ export class OrderanMuatanService {
   async findAll(
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
     trx: any,
+    notIn?: any,
   ) {
     try {
       let { page, limit } = pagination ?? {};
@@ -190,15 +191,16 @@ export class OrderanMuatanService {
         'pengurusandoor_memo',
         'approval',
         'approval_nama',
-        'approval_memo'
-      ]
+        'approval_memo',
+      ];
 
       // const dataTempStatusPendukung = await this.tempStatusPendukung(
-      const dataTempStatusPendukung = await this.utilsService.tempPivotStatusPendukung(
-        trx,
-        this.tableName,
-        fieldTempHasil
-      );
+      const dataTempStatusPendukung =
+        await this.utilsService.tempPivotStatusPendukung(
+          trx,
+          this.tableName,
+          fieldTempHasil,
+        );
 
       const query = trx
         .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
@@ -354,6 +356,19 @@ export class OrderanMuatanService {
         });
       }
 
+      if (notIn) {
+        // Jika notIn adalah string JSON, parse dulu
+        const notInObj = typeof notIn === 'string' ? JSON.parse(notIn) : notIn;
+
+        if (notInObj && typeof notInObj === 'object') {
+          // Loop semua key di notIn object
+          for (const [key, values] of Object.entries(notInObj)) {
+            if (Array.isArray(values) && values.length > 0) {
+              query.whereNotIn(`u.${key}`, values);
+            }
+          }
+        }
+      }
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
@@ -759,7 +774,7 @@ export class OrderanMuatanService {
 
   async update(nobukti: string, data: any, trx: any) {
     try {
-      let updatedData
+      let updatedData;
       const {
         container_nama,
         shipper_nama,
@@ -799,17 +814,32 @@ export class OrderanMuatanService {
         }
       });
 
-      const existingData = await trx(this.tableName).where('nobukti', nobukti).first();
-      const hasChanges = this.utilsService.hasChanges(orderanData, existingData);
-      const getIdBookingHeader = await trx('bookingorderanheader').select('id').where('orderan_nobukti', nobukti).first();
-      const existingDataBooking = await trx(this.bookingMuatanTableName).where('bookingorderan_id', getIdBookingHeader.id);
-      const hasChangesBooking = this.utilsService.hasChanges(orderanData, existingDataBooking);
+      const existingData = await trx(this.tableName)
+        .where('nobukti', nobukti)
+        .first();
+      const hasChanges = this.utilsService.hasChanges(
+        orderanData,
+        existingData,
+      );
+      const getIdBookingHeader = await trx('bookingorderanheader')
+        .select('id')
+        .where('orderan_nobukti', nobukti)
+        .first();
+      const existingDataBooking = await trx(this.bookingMuatanTableName).where(
+        'bookingorderan_id',
+        getIdBookingHeader.id,
+      );
+      const hasChangesBooking = this.utilsService.hasChanges(
+        orderanData,
+        existingDataBooking,
+      );
 
       if (hasChanges) {
         orderanData.updated_at = this.utilsService.getTime();
         updatedData = await trx(this.tableName)
           .where('nobukti', nobukti)
-          .update(orderanData).returning('*');
+          .update(orderanData)
+          .returning('*');
 
         await this.logTrailService.create(
           {
@@ -829,7 +859,8 @@ export class OrderanMuatanService {
         orderanData.updated_at = this.utilsService.getTime();
         const updatedBooking = await trx(this.bookingMuatanTableName)
           .where('bookingorderan_id', getIdBookingHeader.id)
-          .update(orderanData).returning('*');
+          .update(orderanData)
+          .returning('*');
 
         await this.logTrailService.create(
           {

@@ -151,7 +151,28 @@ export class PenerimaanemklheaderController {
       throw new Error(`Error deleting penerimaanemklheader: ${error.message}`);
     }
   }
+  @Get('list-penerimaan')
+  //@PENERIMAAN-EMKL-HEADER
+  @UsePipes(new ZodValidationPipe(FindAllSchema))
+  async findAllPenerimaan(@Query() query: { dari: string; sampai: string }) {
+    const { dari, sampai } = query;
+    const trx = await dbMssql.transaction();
 
+    try {
+      const result = await this.penerimaanemklheaderService.getPenerimaan(
+        dari,
+        sampai,
+        trx,
+      );
+      trx.commit();
+
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error in findAll:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
+    }
+  }
   @UseGuards(AuthGuard)
   @Get(':id')
   //@PENERIMAAN-EMKL-HEADER

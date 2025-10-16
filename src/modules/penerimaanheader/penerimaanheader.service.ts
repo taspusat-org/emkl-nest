@@ -3,11 +3,13 @@ import {
   Injectable,
   NotFoundException,
   InternalServerErrorException,
+  forwardRef,
 } from '@nestjs/common';
 import { CreatePenerimaanheaderDto } from './dto/create-penerimaanheader.dto';
 import { UpdatePenerimaanheaderDto } from './dto/update-penerimaanheader.dto';
 import {
   formatDateToSQL,
+  parseNumberWithSeparators,
   tandatanya,
   UtilsService,
 } from 'src/utils/utils.service';
@@ -23,6 +25,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { JurnalumumheaderService } from '../jurnalumumheader/jurnalumumheader.service';
 import { dbMssql } from 'src/common/utils/db';
+import { PenerimaanemklheaderService } from '../penerimaanemklheader/penerimaanemklheader.service';
+import { PengeluaranemklheaderService } from '../pengeluaranemklheader/pengeluaranemklheader.service';
 @Injectable()
 export class PenerimaanheaderService {
   constructor(
@@ -34,34 +38,38 @@ export class PenerimaanheaderService {
     private readonly globalService: GlobalService,
     private readonly locksService: LocksService,
     private readonly jurnalumumheaderService: JurnalumumheaderService,
+    @Inject(forwardRef(() => PenerimaanemklheaderService)) // ← Index 7: Gunakan forwardRef di sini!
+    private readonly penerimaanemklheaderService: PenerimaanemklheaderService,
+    @Inject(forwardRef(() => PengeluaranemklheaderService)) // ← Index 7: Gunakan forwardRef di sini!
+    private readonly pengeluaranemklheaderService: PengeluaranemklheaderService,
   ) {}
   private readonly tableName = 'penerimaanheader';
   async create(data: any, trx: any) {
     try {
-      const {
-        sortBy,
-        sortDirection,
-        filters,
-        search,
-        page,
-        limit,
-        pengembaliankasgantung_nobukti,
-        relasi_nama,
-        alatbayar_nama,
-        penerimaan_nobukti,
-        bank_nama,
-        details,
-        ...insertData
-      } = data;
-
+      let positiveNominal = '';
+      const insertData = {
+        nobukti: data.nobukti ?? null,
+        tglbukti: formatDateToSQL(String(data?.tglbukti)),
+        relasi_id: data.relasi_id ?? null,
+        keterangan: data.keterangan ?? null,
+        bank_id: data.bank_id ?? null,
+        postingdari: data.postingdari ?? null,
+        coakasmasuk: data.coakasmasuk ?? null,
+        diterimadari: data.diterimadari ?? null,
+        alatbayar_id: data.alatbayar_id ?? null,
+        nowarkat: data.nowarkat ?? null,
+        tgllunas: formatDateToSQL(String(data?.tgllunas)),
+        noresi: data.noresi ?? null,
+        statusformat: data.statusformat ?? null,
+        modifiedby: data.modifiedby ?? null,
+        created_at: this.utilsService.getTime(),
+        updated_at: this.utilsService.getTime(),
+      };
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
-
-      insertData.tglbukti = formatDateToSQL(String(insertData?.tglbukti)); // Fungsi untuk format
-      insertData.tgllunas = formatDateToSQL(String(insertData?.tgllunas)); // Fungsi untuk format
       const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
       const parameterCabang = await trx('parameter')
         .select(trx.raw(`JSON_VALUE(${memoExpr}, '$.CABANG_ID') AS cabang_id`))
@@ -92,13 +100,226 @@ export class PenerimaanheaderService {
         grp,
         subgrp,
         this.tableName,
-        insertData.tglbukti,
+        String(insertData.tglbukti),
         cabangId,
       );
       insertData.nobukti = nomorBukti;
       insertData.statusformat = formatpenerimaan.formatpenerimaan;
       insertData.postingdari = parameter.memo_nama;
       //INSERT JURNAL UMUM HEADER
+      const dataPositif = await trx('parameter')
+        .where('text', 'POSITIF')
+        .andWhere('grp', 'NILAI PROSES')
+        .first();
+      const dataNegatif = await trx('parameter')
+        .where('text', 'NEGATIF')
+        .andWhere('grp', 'NILAI PROSES')
+        .first();
+
+      let nobukti_transaksilain = null;
+      let penerimaanemklheader_nobukti = null;
+      if (data.details.length > 0) {
+        // Pisahkan details berdasarkan ada/tidaknya transaksilain_nobukti
+        const detailsForPenerimaan = data.details.filter(
+          (detail: any) =>
+            !detail.transaksilain_nobukti ||
+            detail.transaksilain_nobukti.trim() === '',
+        );
+
+        const detailsForPengeluaran = data.details.filter(
+          (detail: any) =>
+            detail.transaksilain_nobukti &&
+            detail.transaksilain_nobukti.trim() !== '',
+        );
+
+        // ============ PROSES PENERIMAAN (yang ada transaksilain_nobukti) ============
+        if (detailsForPenerimaan.length > 0) {
+          // Filter hanya detail yang coa-nya ada di coaproses datapengeluaranemkl
+          const validDetailsForPenerimaan: any[] = [];
+
+          for (const detail of detailsForPenerimaan) {
+            // Cari data pengeluaranemkl berdasarkan coa detail
+            const datapenerimaanemkl = await trx('pengeluaranemkl')
+              .where('coaproses', detail.coa)
+              .first();
+
+            // Hanya proses jika coa ada di coaproses
+            if (datapenerimaanemkl) {
+              // Validasi nilaiprosespenerimaan
+              const statusPenerimaan = datapenerimaanemkl.nilaiprosespenerimaan;
+              const nominalValue = parseNumberWithSeparators(detail.nominal);
+
+              // Cek apakah nominal positif atau negatif
+              const isPositif = !isNaN(nominalValue) && nominalValue > 0;
+              const isNegatif = !isNaN(nominalValue) && nominalValue < 0;
+              if (
+                isPositif &&
+                Number(statusPenerimaan) !== Number(dataPositif.id)
+              ) {
+                throw new Error(
+                  `Error pada detail penerimaan dengan coa ${detail.coa}: Nominal positif harus memiliki nilaiprosespenerimaan 171 (POSITIF), tetapi mendapat ${statusPenerimaan}`,
+                );
+              }
+
+              if (
+                isNegatif &&
+                Number(statusPenerimaan) !== Number(dataNegatif.id)
+              ) {
+                throw new Error(
+                  `Error pada detail penerimaan dengan coa ${detail.coa}: Nominal negatif harus memiliki nilaiprosespenerimaan 172 (NEGATIF), tetapi mendapat ${statusPenerimaan}`,
+                );
+              }
+
+              // Jika validasi lolos, masukkan ke array valid
+              validDetailsForPenerimaan.push(detail);
+            }
+          }
+
+          // Proses insert hanya jika ada detail yang valid
+          if (validDetailsForPenerimaan.length > 0) {
+            const detailPenerimaanEmkl = validDetailsForPenerimaan.map(
+              (detail: any) => {
+                const nominalValue = parseNumberWithSeparators(detail.nominal);
+                const absoluteNominal = Math.abs(nominalValue)
+                  .toFixed(0)
+                  .toString();
+
+                return {
+                  id: 0,
+                  keterangan: detail.keterangan ?? null,
+                  nominal: absoluteNominal ?? null,
+                  modifiedby: insertData.modifiedby ?? null,
+                  pengeluaranemkl_nobukti: detail.transaksilain_nobukti ?? null,
+                };
+              },
+            );
+            const firstValidDetail = validDetailsForPenerimaan[0];
+            const datapengeluaranemkl = await trx('pengeluaranemkl')
+              .where('coaproses', firstValidDetail.coa)
+              .first();
+
+            const payloadPenerimaanEmklHeader = {
+              tglbukti: insertData.tglbukti ?? null,
+              tgllunas: insertData.tgllunas ?? null,
+              keterangan: insertData.keterangan ?? null,
+              karyawan_id: data.karyawan_id ?? null,
+              format: datapengeluaranemkl.format ?? null,
+              coaproses: datapengeluaranemkl.coaproses ?? null,
+              jenisposting: data.jenisposting ?? null,
+              bank_id: insertData.bank_id ?? null,
+              nowarkat: insertData.nowarkat ?? null,
+              penerimaan_nobukti: null,
+              pengeluaran_nobukti: nomorBukti ?? null,
+              created_at: this.utilsService.getTime(),
+              updated_at: this.utilsService.getTime(),
+              modifiedby: insertData.modifiedby,
+              details: detailPenerimaanEmkl,
+            };
+
+            const penerimaanemklheaderInserted =
+              await this.penerimaanemklheaderService.create(
+                payloadPenerimaanEmklHeader,
+                trx,
+              );
+            penerimaanemklheader_nobukti =
+              penerimaanemklheaderInserted.newItem.nobukti;
+          }
+        }
+
+        // ============ PROSES PENGELUARAN (yang tidak ada transaksilain_nobukti) ============
+        if (detailsForPengeluaran.length > 0) {
+          // Filter hanya detail yang coa-nya ada di coaproses datapengeluaranemkl
+          const validDetailsForPengeluaran: any[] = [];
+
+          for (const detail of detailsForPengeluaran) {
+            // Cari data pengeluaranemkl berdasarkan coa detail
+            const datapenerimaanemkl = await trx('pengeluaranemkl')
+              .where('coaproses', detail.coa)
+              .first();
+
+            // Hanya proses jika coa ada di coaproses
+            if (datapenerimaanemkl) {
+              // Validasi nilaiprosespengeluaran
+              const statusPengeluaran =
+                datapenerimaanemkl.nilaiprosespengeluaran;
+              const nominalValue = parseNumberWithSeparators(detail.nominal);
+
+              // Cek apakah nominal positif atau negatif
+              const isPositif = !isNaN(nominalValue) && nominalValue > 0;
+              const isNegatif = !isNaN(nominalValue) && nominalValue < 0;
+              // Validasi: jika positif, status harus 171; jika negatif, status harus 172
+              if (
+                isPositif &&
+                Number(statusPengeluaran) !== Number(dataPositif.id)
+              ) {
+                throw new Error(
+                  `Error pada detail pengeluaran dengan coa ${detail.coa}: Nominal positif harus memiliki nilaiprosespengeluaran 171 (POSITIF), tetapi mendapat ${statusPengeluaran}`,
+                );
+              }
+
+              if (
+                isNegatif &&
+                Number(statusPengeluaran) !== Number(dataNegatif.id)
+              ) {
+                throw new Error(
+                  `Error pada detail pengeluaran dengan coa ${detail.coa}: Nominal negatif harus memiliki nilaiprosespengeluaran 172 (NEGATIF), tetapi mendapat ${statusPengeluaran}`,
+                );
+              }
+
+              // Jika validasi lolos, masukkan ke array valid
+              validDetailsForPengeluaran.push(detail);
+            }
+          }
+
+          // Proses insert hanya jika ada detail yang valid
+          if (validDetailsForPengeluaran.length > 0) {
+            const detailPengeluaranEmkl = validDetailsForPengeluaran.map(
+              (detail: any) => {
+                const nominalValue = parseNumberWithSeparators(detail.nominal);
+                const absoluteNominal = Math.abs(nominalValue)
+                  .toFixed(0)
+                  .toString();
+
+                return {
+                  id: 0,
+                  keterangan: detail.keterangan ?? null,
+                  nominal: absoluteNominal ?? null,
+                  modifiedby: insertData.modifiedby ?? null,
+                };
+              },
+            );
+
+            // Ambil data pengeluaranemkl pertama dari detail yang valid
+            const firstValidDetail = validDetailsForPengeluaran[0];
+            const datapengeluaranemklForInsert = await trx('pengeluaranemkl')
+              .where('coaproses', firstValidDetail.coa)
+              .first();
+            const payloadPengeluaranEmklHeader = {
+              tglbukti: insertData.tglbukti ?? null,
+              coaproses: datapengeluaranemklForInsert.coaproses ?? null,
+              tgllunas: insertData.tgllunas ?? null,
+              keterangan: insertData.keterangan ?? null,
+              karyawan_id: data.karyawan_id ?? null,
+              jenisposting: data.jenisposting ?? null,
+              bank_id: insertData.bank_id ?? null,
+              nowarkat: insertData.nowarkat ?? null,
+              pengeluaran_nobukti: nomorBukti ?? null,
+              created_at: this.utilsService.getTime(),
+              updated_at: this.utilsService.getTime(),
+              modifiedby: insertData.modifiedby,
+              details: detailPengeluaranEmkl,
+            };
+            const pengeluaranemklheaderInserted =
+              await this.pengeluaranemklheaderService.create(
+                payloadPengeluaranEmklHeader,
+                trx,
+              );
+            nobukti_transaksilain =
+              pengeluaranemklheaderInserted.newItem.nobukti;
+          }
+        }
+      }
+
       const processDetails = (details) => {
         // Proses setiap detail dan langsung buat pasangannya
         return details.flatMap((detail) => [
@@ -124,7 +345,7 @@ export class PenerimaanheaderService {
           },
         ]);
       };
-      const result = processDetails(details);
+      const result = processDetails(data.details);
       const dataJurnalumum = {
         nobukti: nomorBukti,
         tglbukti: formatDateToSQL(insertData.tglbukti),
@@ -139,10 +360,10 @@ export class PenerimaanheaderService {
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
-      console.log(details, 'details');
-      if (details.length > 0) {
+
+      if (data.details.length > 0) {
         // Inject nobukti into each detail item
-        const detailsWithNobukti = details.map((detail: any) => ({
+        const detailsWithNobukti = data.details.map((detail: any) => ({
           ...detail,
           nobukti: nomorBukti, // Inject nobukti into each detail
           pengembaliankasgantung_nobukti: detail.pengembaliankasgantung_nobukti,
@@ -161,10 +382,10 @@ export class PenerimaanheaderService {
 
       const { data: filteredItems } = await this.findAll(
         {
-          search,
-          filters,
-          pagination: { page, limit: 0 },
-          sort: { sortBy, sortDirection },
+          search: data.search,
+          filters: data.filters,
+          pagination: { page: data.page, limit: 0 },
+          sort: { sortBy: data.sortBy, sortDirection: data.sortDirection },
           isLookUp: false, // Set based on your requirement (e.g., lookup flag)
         },
         trx,
@@ -187,8 +408,8 @@ export class PenerimaanheaderService {
         itemIndex = 0;
       }
 
-      const pageNumber = Math.floor(itemIndex / limit) + 1;
-      const endIndex = pageNumber * limit;
+      const pageNumber = Math.floor(itemIndex / data.limit) + 1;
+      const endIndex = pageNumber * data.limit;
 
       // Ambil data hingga halaman yang mencakup item baru
       const limitedItems = filteredItems.slice(0, endIndex);
@@ -254,7 +475,7 @@ export class PenerimaanheaderService {
         t.string('nobukti').nullable();
         t.text('link').nullable();
       });
-      const url = 'jurnal-umum';
+      const url = 'jurnalumumheader';
 
       await trx(tempUrl).insert(
         trx
@@ -825,6 +1046,7 @@ export class PenerimaanheaderService {
 
     return tempFilePath;
   }
+
   async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
     try {
       if (aksi === 'EDIT') {

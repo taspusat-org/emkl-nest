@@ -102,18 +102,11 @@ export class AkunpusatService {
   }
 
   async findAll(
-    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+    { search, filters = {}, pagination = {}, sort, isLookUp }: FindAllParams,
     trx: any,
   ) {
     try {
-      // Use default empty object if filters is undefined
-      filters = filters ?? {};
-
-      let { page, limit } = pagination ?? {};
-
-      page = page ?? 1;
-      limit = limit ?? 0;
-
+      const { page = 1, limit = 0 } = pagination;
       const excludedFields = [
         'created_at',
         'updated_at',
@@ -124,101 +117,140 @@ export class AkunpusatService {
         'parent_nama',
         'memo',
         'info',
-        // Add more fields that you want to exclude here
       ];
 
+      // Fungsi helper untuk membuat base query dengan semua filter
+      const buildBaseQuery = (selectColumns = false) => {
+        let query = selectColumns
+          ? trx(`${this.tableName} as u`)
+              .select([
+                'u.id as id',
+                'u.type_id',
+                'u.level',
+                'u.coa',
+                'u.keterangancoa',
+                'u.statusaktif',
+                'p.text as statusaktif_nama',
+                'p.memo',
+                'u.parent',
+                'u.cabang_id',
+                'c.nama as cabang_nama',
+                't.nama as type_nama',
+                'u.info',
+                'u.modifiedby',
+                'u.created_at',
+                'u.updated_at',
+              ])
+              .leftJoin('cabang as c', 'u.cabang_id', 'c.id')
+              .leftJoin('typeakuntansi as t', 'u.type_id', 't.id')
+              .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
+          : trx(`${this.tableName} as u`)
+              .leftJoin('cabang as c', 'u.cabang_id', 'c.id')
+              .leftJoin('typeakuntansi as t', 'u.type_id', 't.id')
+              .leftJoin('parameter as p', 'u.statusaktif', 'p.id');
+
+        return query;
+      };
+
+      // Fungsi helper untuk menerapkan semua filter (synchronous, returns query)
+      const applyFilters = (query, tempParent?: string) => {
+        // Apply isLookUp filter if needed
+        if (isLookUp && tempParent) {
+          query = query
+            .leftOuterJoin(trx.raw(`${tempParent} as b`), 'u.coa', 'b.coa')
+            .whereRaw(`ISNULL(b.coa, '') = ''`);
+        }
+
+        // Apply search filtering
+        if (search) {
+          const sanitizedValue = String(search).replace(/\[/g, '[[]');
+          const searchableFields = ['coa', 'keterangancoa'];
+          query.where((builder) => {
+            searchableFields.forEach((field) =>
+              builder.orWhere(`u.${field}`, 'like', `%${sanitizedValue}%`),
+            );
+          });
+        }
+
+        // Apply other filters
+        Object.entries(filters).forEach(([key, value]) => {
+          if (excludedFields.includes(key) || !value) return;
+          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+          if (key === 'created_at' || key === 'updated_at') {
+            query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              key,
+              `%${sanitizedValue}%`,
+            ]);
+          } else {
+            query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+          }
+        });
+
+        return query;
+      };
+
+      let tempParent: string | undefined;
+
+      // If isLookUp is true, apply the specific logic for lookups
       if (isLookUp) {
         const acoCountResult = await trx(this.tableName)
           .count('id as total')
           .first();
-
         const acoCount = acoCountResult?.total || 0;
 
         if (Number(acoCount) > 500) {
           return { data: { type: 'json' } };
-        } else {
-          limit = 0;
         }
+
+        // Create temporary table for LookUp query
+        tempParent = `##temp_${Math.random().toString(36).substring(2, 15)}`;
+        await trx.schema.createTable(tempParent, (t) =>
+          t.string('coa').nullable(),
+        );
+        await trx(tempParent).insert(
+          trx
+            .select('u.parent')
+            .from(this.tableName + ' as u')
+            .groupBy('u.parent'),
+        );
       }
 
-      const query = trx(`${this.tableName} as u`)
-        .select([
-          'u.id as id',
-          'u.type_id as type_id', // type_id (integer)
-          'u.level as level', // level (integer)
-          'u.coa as coa', // coa (nvarchar(100))
-          'u.keterangancoa', // keterangancoa (nvarchar(max))
-          'u.statusaktif as statusaktif', // statusaktif (group status aktif)
-          'p.text as statusaktif_nama',
-          'p.memo',
-          'u.parent as parent',
-          'u.cabang_id as cabang_id',
-          'c.nama as cabang_nama',
-          't.nama as type_nama',
-          'u.info as info', // info (nvarchar(max))
-          'u.modifiedby as modifiedby', // modifiedby (varchar(200))
-          'u.created_at as created_at', // created_at (datetime)
-          'u.updated_at as updated_at', // updated_at (datetime)
-        ])
-        .leftJoin('cabang as c', 'u.cabang_id', 'c.id')
-        .leftJoin('typeakuntansi as t', 'u.type_id', 't.id')
-        .leftJoin('parameter as p', 'u.statusaktif', 'p.id');
+      // Build query untuk count dengan filter yang sama
+      let countQuery = buildBaseQuery(false).count('u.id as total');
+      countQuery = applyFilters(countQuery, tempParent);
 
+      // Get total records SETELAH filter diterapkan
+      const countResult = await countQuery.first();
+      const total = countResult?.total || 0;
+
+      // Build query untuk fetch data dengan filter yang sama
+      let dataQuery = buildBaseQuery(true);
+      dataQuery = applyFilters(dataQuery, tempParent);
+
+      // Apply sorting
+      if (sort?.sortBy && sort?.sortDirection) {
+        dataQuery.orderBy(sort.sortBy, sort.sortDirection);
+      }
+
+      // Apply pagination
       if (limit > 0) {
         const offset = (page - 1) * limit;
-        query.limit(limit).offset(offset);
+        dataQuery.limit(limit).offset(offset);
       }
 
-      if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        // Tentukan dua field yang ingin dicari
-        const searchableFields = ['coa', 'keterangancoa']; // Misalnya hanya 'name' dan 'email'
+      // Fetch the data
+      const data = await dataQuery;
 
-        query.where((builder) => {
-          searchableFields.forEach((field) => {
-            builder.orWhere(`u.${field}`, 'like', `%${sanitizedValue}%`);
-          });
-        });
-      }
-
-      if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          const sanitizedValue = String(value).replace(/\[/g, '[[]');
-          // Skip filtering on excluded fields
-          if (excludedFields.includes(key)) continue;
-
-          if (value) {
-            if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-                key,
-                `%${sanitizedValue}%`,
-              ]);
-            } else {
-              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
-            }
-          }
-        }
-      }
-
-      const result = await trx(this.tableName).count('id as total').first();
-      const total = result?.total as number;
-      const totalPages = Math.ceil(total / limit);
-
-      if (sort?.sortBy && sort?.sortDirection) {
-        query.orderBy(sort.sortBy, sort.sortDirection);
-      }
-
-      const data = await query;
-
-      const responseType = Number(total) > 500 ? 'json' : 'local';
+      // Calculate total pages
+      const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
 
       return {
-        data: data,
-        type: responseType,
+        data,
+        type: total > 500 ? 'json' : 'local',
         total,
         pagination: {
           currentPage: page,
-          totalPages: totalPages,
+          totalPages,
           totalItems: total,
           itemsPerPage: limit,
         },
@@ -228,6 +260,7 @@ export class AkunpusatService {
       throw new Error('Failed to fetch data');
     }
   }
+
   async update(data: any, trx: any) {
     try {
       const existingData = await trx(this.tableName)

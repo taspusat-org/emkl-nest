@@ -7,7 +7,7 @@ import {
 
 import { dbMssql } from 'src/common/utils/db';
 import { RedisService } from 'src/common/redis/redis.service';
-import { UtilsService } from 'src/utils/utils.service';
+import { generateUUID, UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { LocksService } from '../locks/locks.service';
 import { GlobalService } from '../global/global.service';
@@ -15,6 +15,7 @@ import { FindAllParams } from 'src/common/interfaces/all.interface';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Workbook, Column } from 'exceljs';
+import { v7 } from 'uuid';
 
 @Injectable()
 export class ContainerService {
@@ -44,8 +45,12 @@ export class ContainerService {
         updated_at,
         info,
       } = createContainerDto;
-
+      const kodecabang = await trx('cabang')
+        .select('nama')
+        .where('id', 1)
+        .first();
       const insertData = {
+        uuid: generateUUID(kodecabang.nama),
         nama: nama ? nama.toUpperCase() : null,
         keterangan: keterangan ? keterangan.toUpperCase() : null,
         statusaktif: statusaktif,
