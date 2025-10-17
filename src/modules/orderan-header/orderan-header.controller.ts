@@ -52,6 +52,7 @@ export class OrderanHeaderController {
       isLookUp,
       jenisOrderan,
       notIn,
+      exactMatch,
       ...filters
     } = query;
     let service: any;
@@ -72,6 +73,7 @@ export class OrderanHeaderController {
       pagination,
       isLookUp: isLookUp === 'true',
       sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
+      exactMatch,
     };
 
     const trx = await dbMssql.transaction();

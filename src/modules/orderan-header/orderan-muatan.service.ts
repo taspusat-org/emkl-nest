@@ -134,7 +134,7 @@ export class OrderanMuatanService {
   }
 
   async findAll(
-    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+    { search, filters, pagination, sort, isLookUp, exactMatch }: FindAllParams,
     trx: any,
     notIn?: any,
   ) {
@@ -310,8 +310,14 @@ export class OrderanMuatanService {
           tglSampaiFormatted,
         ]);
       }
+      console.log('exactMatch', exactMatch);
 
+      if (exactMatch) {
+        console.log('MASUK SINI1', exactMatch);
+        query.where('u.nobukti', '=', exactMatch);
+      }
       if (search) {
+        console.log('MASUK SINI2');
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
           builder
@@ -367,6 +373,7 @@ export class OrderanMuatanService {
           }
         }
       }
+
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
@@ -380,6 +387,8 @@ export class OrderanMuatanService {
           }
 
           if (value) {
+            console.log('MASUK SINI4');
+
             if (key === 'created_at' || key === 'updated_at') {
               query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
                 key,
