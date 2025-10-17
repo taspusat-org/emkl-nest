@@ -70,7 +70,7 @@ export class StatusjobController {
       );
     }
   }
-  
+
   @Get()
   //@STATUS-JOB
   @UsePipes(new ZodValidationPipe(FindAllSchema))
@@ -125,24 +125,17 @@ export class StatusjobController {
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
-    try {      
+    try {
       data.modifiedby = req.user?.user?.username || 'unknown';
       console.log('con update', tglstatus);
-      
-      const result = await this.statusjobService.update(
-        tglstatus,
-        data,
-        trx,
-      );
+
+      const result = await this.statusjobService.update(tglstatus, data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error(
-        'Error while updating status job in controller:',
-        error,
-      );
+      console.error('Error while updating status job in controller:', error);
 
       if (error instanceof HttpException) {
         // Ensure any other errors get caught and returned
@@ -186,16 +179,18 @@ export class StatusjobController {
         throw error;
       }
 
-      throw new InternalServerErrorException('Failed to delete data status job');
+      throw new InternalServerErrorException(
+        'Failed to delete data status job',
+      );
     }
   }
 
   // @UseGuards(AuthGuard)
   @Get('/detail/:tglstatus')
   @UsePipes(new ZodValidationPipe(FindAllSchema))
-  async findOne(@Param() tglstatus: string, @Query() query: FindAllDto) {        
+  async findOne(@Param() tglstatus: string, @Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
-      query;      
+      query;
 
     const sortParams = {
       sortBy: sortBy || 'id',
@@ -217,7 +212,11 @@ export class StatusjobController {
     const trx = await dbMssql.transaction();
 
     try {
-      const result = await this.statusjobService.findOne(trx, params, tglstatus);
+      const result = await this.statusjobService.findOne(
+        trx,
+        params,
+        tglstatus,
+      );
       trx.commit();
 
       return result;
@@ -231,7 +230,8 @@ export class StatusjobController {
   @Post('check-validation')
   @UseGuards(AuthGuard)
   async checkValidasi(
-    @Body() body: { aksi: string; value: any; jenisOrderan: any, jenisStatusJob: any },
+    @Body()
+    body: { aksi: string; value: any; jenisOrderan: any; jenisStatusJob: any },
     @Req() req,
   ) {
     const { aksi, value, jenisOrderan, jenisStatusJob } = body;
@@ -257,10 +257,22 @@ export class StatusjobController {
   }
 
   @Get('/export/:id')
-  async exportToExcel(@Param('id') tglstatus: string, @Query() query: any, @Res() res: Response) {
+  async exportToExcel(
+    @Param('id') tglstatus: string,
+    @Query() query: any,
+    @Res() res: Response,
+  ) {
     try {
       const trx = await dbMssql.transaction();
-      const { search, page, limit, sortBy, sortDirection, isLookUp, ...filterss } =  query;
+      const {
+        search,
+        page,
+        limit,
+        sortBy,
+        sortDirection,
+        isLookUp,
+        ...filterss
+      } = query;
 
       const filters = {
         jenisOrderan: query.jenisOrderan || '',
@@ -284,8 +296,10 @@ export class StatusjobController {
         isLookUp: isLookUp === 'true',
         sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
       };
-      
-      const { data } = await this.statusjobService.findOne(trx, params, { tglstatus });
+
+      const { data } = await this.statusjobService.findOne(trx, params, {
+        tglstatus,
+      });
       if (!Array.isArray(data)) {
         return res
           .status(HttpStatus.BAD_REQUEST)
@@ -293,10 +307,7 @@ export class StatusjobController {
       }
 
       // Buat Excel file
-      const tempFilePath = await this.statusjobService.exportToExcel(
-        data,
-        trx,
-      );
+      const tempFilePath = await this.statusjobService.exportToExcel(data, trx);
 
       // Stream file ke response
       res.setHeader(
@@ -318,15 +329,10 @@ export class StatusjobController {
         });
       });
     } catch (error) {
-      console.error(
-        'Error exporting to Excel:',
-        error,
-        error.message,
-      );
+      console.error('Error exporting to Excel:', error, error.message);
       return res
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
         .send('Failed to export file');
     }
-
   }
 }

@@ -3,6 +3,7 @@ export interface FindAllParams {
   filters?: Record<string, string | number>;
   isLookUp?: boolean;
   exclude?: any;
+  exactMatch?: any;
   karyawanId?: number; // Opsional
   pagination?: {
     page?: number; // Opsional
@@ -50,6 +51,7 @@ export const FindAllSchema = z
     sortBy: z.string().optional(),
     isLookUp: z.string().optional(),
     exclude: z.string().optional(),
+    exactMatch: z.string().optional(),
     sortDirection: z.enum(['asc', 'desc']).default('asc'),
   })
   .superRefine((val) => {
