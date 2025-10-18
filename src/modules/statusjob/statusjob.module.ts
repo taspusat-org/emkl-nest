@@ -7,12 +7,7 @@ import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 import { LocksModule } from '../locks/locks.module';
 
 @Module({
-  imports: [
-    AuthModule,
-    LocksModule,
-    UtilsModule, 
-    LogtrailModule,
-  ],
+  imports: [AuthModule, LocksModule, UtilsModule, LogtrailModule],
   controllers: [StatusjobController],
   providers: [StatusjobService],
   exports: [StatusjobService],

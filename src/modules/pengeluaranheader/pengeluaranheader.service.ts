@@ -47,8 +47,8 @@ export class PengeluaranheaderService {
   private readonly tableName = 'pengeluaranheader';
   async create(data: any, trx: any) {
     try {
-      let nominalValue = 0;
-      let positiveNominal = '';
+      const nominalValue = 0;
+      const positiveNominal = '';
       const insertData = {
         nobukti: data.nobukti ?? null,
         tglbukti: formatDateToSQL(String(data?.tglbukti)),
@@ -758,6 +758,7 @@ export class PengeluaranheaderService {
   async update(id: any, data: any, trx: any) {
     try {
       data.tglbukti = formatDateToSQL(String(data?.tglbukti));
+      data.tgljatuhtempo = formatDateToSQL(String(data?.tgljatuhtempo));
 
       const {
         sortBy,

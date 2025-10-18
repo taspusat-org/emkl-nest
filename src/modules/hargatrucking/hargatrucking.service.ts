@@ -212,6 +212,8 @@ export class HargatruckingService {
             query.andWhere('p4.nama', 'like', `%${val}%`);
           } else if (key === 'nominal') {
             query.andWhere('b.nominal', 'like', `%${val}%`);
+          } else {
+            query.andWhere(`b.${key}`, 'like', `%${val}%`);
           }
         }
       }

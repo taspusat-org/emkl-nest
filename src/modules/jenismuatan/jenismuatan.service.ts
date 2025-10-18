@@ -168,7 +168,7 @@ export class JenisMuatanService {
                 [key, `%${sanitizedValue}%`],
               );
             } else if (key === 'text' || key === 'memo') {
-              query.andWhere(`par.${key}`, '=', sanitizedValue);
+              query.andWhere(`par.${key}`, '=', Number(sanitizedValue));
             } else {
               query.andWhere(
                 `jenismuatan.${key}`,

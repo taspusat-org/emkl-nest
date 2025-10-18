@@ -189,11 +189,11 @@ export class UtilsService {
               ) AS keterangan`,
             ),
             trx.raw(
-              // `CASE 
-              //   WHEN ISJSON(CAST(c.memo AS NVARCHAR(MAX))) = 1 
-              //     THEN JSON_VALUE(CAST(c.memo AS NVARCHAR(MAX)), '$.MEMO') 
-              //   ELSE '' 
-              // END AS judul`, 
+              // `CASE
+              //   WHEN ISJSON(CAST(c.memo AS NVARCHAR(MAX))) = 1
+              //     THEN JSON_VALUE(CAST(c.memo AS NVARCHAR(MAX)), '$.MEMO')
+              //   ELSE ''
+              // END AS judul`,
               `CASE 
                 WHEN ISJSON(CAST(c.memo AS NVARCHAR(MAX))) = 1 
                   THEN 
@@ -278,17 +278,13 @@ export class UtilsService {
           // trx.raw(`JSON_VALUE(A.[${judul}], '$.statuspendukung') as ${alias}_nama`),
           // trx.raw(`JSON_QUERY(A.[${judul}], '$.statuspendukung_memo') as ${alias}_memo`)
         ];
-      }); 
+      });
 
       await trx(tempHasil).insert(
         trx
-        .select([
-          'A.id',
-          'A.nobukti',
-          ...jsonColumns
-        ])
-        .from(trx.raw(pivotSubqueryRaw)),
-      )
+          .select(['A.id', 'A.nobukti', ...jsonColumns])
+          .from(trx.raw(pivotSubqueryRaw)),
+      );
       // console.log('hasil', await trx(tempHasil).select('*'));
 
       return tempHasil;

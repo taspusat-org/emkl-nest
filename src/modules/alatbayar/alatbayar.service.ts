@@ -141,8 +141,11 @@ export class AlatbayarService {
           trx.raw("FORMAT(ab.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(ab.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           'p1.text as statuslangsungcair_text',
+          'p1.memo as statuslangsungcair_memo',
           'p2.text as statusdefault_text',
+          'p2.memo as statusdefault_memo',
           'p3.text as statusbank_text',
+          'p3.memo as statusbank_memo',
           'p.text',
           'p.memo',
         ])
