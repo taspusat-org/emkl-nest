@@ -165,7 +165,11 @@ export class BankService {
           'p.memo',
           'p.text',
           'p2.text as textbank',
+          'p2.memo as statusbank_memo',
+
           'p3.text as textdefault',
+          'p3.memo as statusdefault_memo',
+
           'p4.text as formatpenerimaantext',
           'p5.text as formatpengeluarantext',
           'p6.text as formatpenerimaangantungtext',
@@ -238,24 +242,26 @@ export class BankService {
       if (search) {
         const val = String(search).replace(/\[/g, '[[]');
 
-        query.where((builder) =>
-          builder
-            .orWhere('b.nama', 'like', `%${val}%`)
-            .orWhere('b.keterangan', 'like', `%${val}%`)
-            .orWhere('a.keterangancoa', 'like', `%${val}%`)
-            .orWhere('a2.keterangancoa', 'like', `%${val}%`)
-            .orWhere('p.memo', 'like', `%${val}%`)
-            .orWhere('p.text', 'like', `%${val}%`)
-            .orWhere('p2.text', 'like', `%${val}%`)
-            .orWhere('p3.text', 'like', `%${val}%`)
-            .orWhere('p4.text', 'like', `%${val}%`)
-            .orWhere('p5.text', 'like', `%${val}%`)
-            .orWhere('p6.text', 'like', `%${val}%`)
-            .orWhere('p7.text', 'like', `%${val}%`)
-            .orWhere('p8.text', 'like', `%${val}%`)
-            .orWhere('p9.text', 'like', `%${val}%`)
-            .orWhere('p10.text', 'like', `%${val}%`),
-        );
+        if (val) {
+          query.where((builder) =>
+            builder
+              .orWhere('b.nama', 'like', `%${val}%`)
+              .orWhere('b.keterangan', 'like', `%${val}%`)
+              .orWhere('a.keterangancoa', 'like', `%${val}%`)
+              .orWhere('a2.keterangancoa', 'like', `%${val}%`)
+              .orWhere('p.memo', 'like', `%${val}%`)
+              .orWhere('p.text', 'like', `%${val}%`)
+              .orWhere('p2.text', 'like', `%${val}%`)
+              .orWhere('p3.text', 'like', `%${val}%`)
+              .orWhere('p4.text', 'like', `%${val}%`)
+              .orWhere('p5.text', 'like', `%${val}%`)
+              .orWhere('p6.text', 'like', `%${val}%`)
+              .orWhere('p7.text', 'like', `%${val}%`)
+              .orWhere('p8.text', 'like', `%${val}%`)
+              .orWhere('p9.text', 'like', `%${val}%`)
+              .orWhere('p10.text', 'like', `%${val}%`),
+          );
+        }
       }
 
       // filter berdasarkan key yang valid
@@ -281,19 +287,19 @@ export class BankService {
           } else if (key === 'textdefault') {
             query.andWhere(`b.statusdefault`, 'like', `%${val}%`);
           } else if (key === 'formatpenerimaantext') {
-            query.andWhere(`b.formatpenerimaan`, 'like', `%${val}%`);
+            query.andWhere(`p4.text`, 'like', `%${val}%`);
           } else if (key === 'formatpengeluarantext') {
-            query.andWhere(`b.formatpengeluaran`, 'like', `%${val}%`);
+            query.andWhere(`p5.text`, 'like', `%${val}%`);
           } else if (key === 'formatpenerimaangantungtext') {
-            query.andWhere(`b.formatpenerimaangantung`, 'like', `%${val}%`);
+            query.andWhere(`p6.text`, 'like', `%${val}%`);
           } else if (key === 'formatpengeluarangantungtext') {
-            query.andWhere(`b.formatpengeluarangantung`, 'like', `%${val}%`);
+            query.andWhere(`p7.text`, 'like', `%${val}%`);
           } else if (key === 'formatpencairantext') {
-            query.andWhere(`b.formatpencairan`, 'like', `%${val}%`);
+            query.andWhere(`p8.text`, 'like', `%${val}%`);
           } else if (key === 'formatrekappenerimaantext') {
-            query.andWhere(`b.formatrekappenerimaan`, 'like', `%${val}%`);
+            query.andWhere(`p9.text`, 'like', `%${val}%`);
           } else if (key === 'formatrekappengeluarantext') {
-            query.andWhere(`b.formatrekappengeluaran`, 'like', `%${val}%`);
+            query.andWhere(`p10.text`, 'like', `%${val}%`);
           } else if (key === 'keterangancoa') {
             query.andWhere(`a.keterangancoa`, 'like', `%${val}%`);
           } else if (key === 'keterangancoagantung') {

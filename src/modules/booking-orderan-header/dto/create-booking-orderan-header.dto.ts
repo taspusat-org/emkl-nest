@@ -19,28 +19,28 @@ const baseFields = {
 
   container_id: z
     .number({
-      required_error: 'CONTAINER WAJIB DIISI'
+      required_error: 'CONTAINER WAJIB DIISI',
     })
     .min(1, { message: 'CONTAINER WAJIB DIISI' }),
   container_nama: z.string().nullable().optional(),
 
   shipper_id: z
     .number({
-      required_error: 'SHIPPER WAJIB DIISI'
+      required_error: 'SHIPPER WAJIB DIISI',
     })
     .min(1, { message: 'SHIPPER WAJIB DIISI' }),
   shipper_nama: z.string().nullable().optional(),
 
   tujuankapal_id: z
     .number({
-      required_error: 'TUJUAN KAPAL WAJIB DIISI'
+      required_error: 'TUJUAN KAPAL WAJIB DIISI',
     })
     .min(1, { message: 'TUJUAN KAPAL WAJIB DIISI' }),
   tujuankapal_nama: z.string().nullable().optional(),
 
   marketing_id: z
     .number({
-      required_error: 'MARKETING WAJIB DIISI'
+      required_error: 'MARKETING WAJIB DIISI',
     })
     .min(1, { message: 'MARKETING WAJIB DIISI' }),
   marketing_nama: z.string().nullable().optional(),

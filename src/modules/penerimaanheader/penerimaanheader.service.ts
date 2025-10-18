@@ -46,7 +46,7 @@ export class PenerimaanheaderService {
   private readonly tableName = 'penerimaanheader';
   async create(data: any, trx: any) {
     try {
-      let positiveNominal = '';
+      const positiveNominal = '';
       const insertData = {
         nobukti: data.nobukti ?? null,
         tglbukti: formatDateToSQL(String(data?.tglbukti)),

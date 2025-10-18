@@ -138,7 +138,10 @@ export class OrderanHeaderService {
 
       if (hasChanges) {
         headerData.updated_at = this.utilsService.getTime();
-        const test = await trx(this.tableName).where('id', id).update(headerData).returning('*');
+        const test = await trx(this.tableName)
+          .where('id', id)
+          .update(headerData)
+          .returning('*');
       }
 
       const updateOrderan = await serviceUpdate.update(
@@ -209,8 +212,8 @@ export class OrderanHeaderService {
   async delete(id: number, trx: any, modifiedby: string, data: any) {
     try {
       let deleteService;
-      let nobukti
-      let idBookingHeader
+      let nobukti;
+      let idBookingHeader;
       const getJenisOrderanMuatan = await trx
         .from(trx.raw(`jenisorderan WITH (READUNCOMMITTED)`))
         .select('id')
@@ -231,12 +234,17 @@ export class OrderanHeaderService {
         .select('id')
         .where('nama', 'EKSPORT')
         .first();
-        
+
       switch (data.jenisOrderan) {
         case getJenisOrderanMuatan?.id:
           deleteService = this.orderanMuatanService;
-          nobukti = await trx('orderanmuatan').select('nobukti').where('id', id).first();
-          idBookingHeader = await trx('bookingorderanheader').select('id').where('orderan_nobukti', nobukti.nobukti)
+          nobukti = await trx('orderanmuatan')
+            .select('nobukti')
+            .where('id', id)
+            .first();
+          idBookingHeader = await trx('bookingorderanheader')
+            .select('id')
+            .where('orderan_nobukti', nobukti.nobukti);
           break;
         // case 'IMPORT':
         //   service = this.hitungmodalimportService;
@@ -246,13 +254,17 @@ export class OrderanHeaderService {
         //   break;
         default:
           deleteService = this.orderanMuatanService;
-          nobukti = await trx('orderanmuatan').select('nobukti').where('id', id).first();
-          idBookingHeader = await trx('bookingorderanheader').select('id').where('orderan_nobukti', nobukti.nobukti)
+          nobukti = await trx('orderanmuatan')
+            .select('nobukti')
+            .where('id', id)
+            .first();
+          idBookingHeader = await trx('bookingorderanheader')
+            .select('id')
+            .where('orderan_nobukti', nobukti.nobukti);
           break;
       }
       console.log('nobukti', nobukti, nobukti.nobukti);
-      throw new Error('test')
-      
+      throw new Error('test');
 
       const result = await deleteService.delete(data.nobukti, trx);
       const deletedData = await this.utilsService.lockAndDestroy(
@@ -261,7 +273,7 @@ export class OrderanHeaderService {
         'id',
         trx,
       );
-      
+
       if (deletedData) {
         await trx('bookingorderanheader')
           .where('orderan_nobukti', data.nobukti)
@@ -585,7 +597,11 @@ export class OrderanHeaderService {
         trx,
       );
 
-      if (deletedOrderanHeader && deletedOrderan && storeStatusJob.status === approvalStatusPendukung.status) {
+      if (
+        deletedOrderanHeader &&
+        deletedOrderan &&
+        storeStatusJob.status === approvalStatusPendukung.status
+      ) {
         return {
           status: HttpStatus.OK,
           message: 'Proses Non Approval Booking Orderan Berhasil',
