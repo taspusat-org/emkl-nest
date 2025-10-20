@@ -563,26 +563,28 @@ export class PenerimaanheaderService {
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
-          if (key === 'tglDari' || key === 'tglSampai') continue;
           if (value) {
-            if (
-              key === 'created_at' ||
-              key === 'updated_at' ||
-              key === 'tgllunas' ||
-              key === 'tglbukti'
-            ) {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-                key,
-                `%${sanitizedValue}%`,
-              ]);
-            } else if (key === 'relasi_nama') {
-              query.andWhere(`r.nama`, 'like', `%${sanitizedValue}%`);
-            } else if (key === 'bank_nama') {
-              query.andWhere(`b.nama`, 'like', `%${sanitizedValue}%`);
-            } else if (key === 'alatbayar_nama') {
-              query.andWhere(`ab.nama`, 'like', `%${sanitizedValue}%`);
-            } else {
-              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+            if (key === 'tglDari' || key === 'tglSampai') continue;
+            if (value) {
+              if (
+                key === 'created_at' ||
+                key === 'updated_at' ||
+                key === 'tgllunas' ||
+                key === 'tglbukti'
+              ) {
+                query.andWhereRaw(
+                  "FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?",
+                  [key, `%${sanitizedValue}%`],
+                );
+              } else if (key === 'relasi_nama') {
+                query.andWhere(`r.nama`, 'like', `%${sanitizedValue}%`);
+              } else if (key === 'bank_nama') {
+                query.andWhere(`b.nama`, 'like', `%${sanitizedValue}%`);
+              } else if (key === 'alatbayar_nama') {
+                query.andWhere(`ab.nama`, 'like', `%${sanitizedValue}%`);
+              } else {
+                query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+              }
             }
           }
         }
