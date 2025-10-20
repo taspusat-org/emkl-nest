@@ -121,7 +121,7 @@ export class AkunpusatService {
 
       // Fungsi helper untuk membuat base query dengan semua filter
       const buildBaseQuery = (selectColumns = false) => {
-        let query = selectColumns
+        const query = selectColumns
           ? trx(`${this.tableName} as u`)
               .select([
                 'u.id as id',

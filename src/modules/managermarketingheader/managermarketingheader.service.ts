@@ -177,7 +177,9 @@ export class ManagermarketingheaderService {
           'p.memo',
           'p.text',
           'p2.text as statusmentor_text',
+          'p2.memo as statusmentor_memo',
           'p3.text as statusleader_text',
+          'p3.memo as statusleader_memo',
         ])
         .leftJoin(
           trx.raw('parameter as p WITH (READUNCOMMITTED)'),

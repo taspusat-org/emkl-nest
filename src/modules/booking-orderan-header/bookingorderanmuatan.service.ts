@@ -208,14 +208,15 @@ export class BookingOrderanMuatanService {
         'pengurusandoor_memo',
         'approval',
         'approval_nama',
-        'approval_memo'
-      ]
+        'approval_memo',
+      ];
 
-      const dataTempStatusPendukung = await this.utilsService.tempPivotStatusPendukung(
-        trx,
-        this.tableName,
-        fieldTempHasil
-      );
+      const dataTempStatusPendukung =
+        await this.utilsService.tempPivotStatusPendukung(
+          trx,
+          this.tableName,
+          fieldTempHasil,
+        );
 
       const query = trx
         .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
