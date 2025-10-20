@@ -309,6 +309,9 @@ export class SupplierService {
           query.orderBy('coahut.keterangancoa', sort.sortDirection);
         } else if (sort?.sortBy == 'coagiro') {
           query.orderBy('coagiro.keterangancoa', sort.sortDirection);
+        } else if (sort?.sortBy == 'statusaktif') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), p.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }

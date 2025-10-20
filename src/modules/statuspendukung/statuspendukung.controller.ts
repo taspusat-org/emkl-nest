@@ -31,6 +31,6 @@ export class StatuspendukungController {
     @Param('id') id: string,
     @Body() updateStatuspendukungDto: UpdateStatuspendukungDto,
   ) {
-    return this.statuspendukungService.update(+id, updateStatuspendukungDto);
+    // return this.statuspendukungService.update(+id, updateStatuspendukungDto);
   }
 }

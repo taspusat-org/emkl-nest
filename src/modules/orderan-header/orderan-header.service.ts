@@ -212,8 +212,11 @@ export class OrderanHeaderService {
   async delete(id: number, trx: any, modifiedby: string, data: any) {
     try {
       let deleteService;
-      let nobukti;
-      let idBookingHeader;
+      let nobukti
+      let idBookingHeader
+      let idBooking
+      let tableNameBooking
+      let getParameterStatusJobTglBooking
       const getJenisOrderanMuatan = await trx
         .from(trx.raw(`jenisorderan WITH (READUNCOMMITTED)`))
         .select('id')
@@ -238,13 +241,10 @@ export class OrderanHeaderService {
       switch (data.jenisOrderan) {
         case getJenisOrderanMuatan?.id:
           deleteService = this.orderanMuatanService;
-          nobukti = await trx('orderanmuatan')
-            .select('nobukti')
-            .where('id', id)
-            .first();
-          idBookingHeader = await trx('bookingorderanheader')
-            .select('id')
-            .where('orderan_nobukti', nobukti.nobukti);
+          nobukti = await trx('orderanmuatan').select('nobukti').where('id', id).first();
+          idBookingHeader = await trx('bookingorderanheader').select('id').where('orderan_nobukti', nobukti.nobukti).first();
+          idBooking = await trx('bookingorderanmuatan').select('id').where('bookingorderan_id', idBookingHeader.id).first();
+          tableNameBooking = 'BOOKINGORDERANMUATAN';
           break;
         // case 'IMPORT':
         //   service = this.hitungmodalimportService;
@@ -254,20 +254,15 @@ export class OrderanHeaderService {
         //   break;
         default:
           deleteService = this.orderanMuatanService;
-          nobukti = await trx('orderanmuatan')
-            .select('nobukti')
-            .where('id', id)
-            .first();
-          idBookingHeader = await trx('bookingorderanheader')
-            .select('id')
-            .where('orderan_nobukti', nobukti.nobukti);
+          nobukti = await trx('orderanmuatan').select('nobukti').where('id', id).first();
+          idBookingHeader = await trx('bookingorderanheader').select('id').where('orderan_nobukti', nobukti.nobukti).first();
+          idBooking = await trx('bookingorderanmuatan').select('id').where('bookingorderan_id', idBookingHeader.id).first();
+          tableNameBooking = 'BOOKINGORDERANMUATAN';
           break;
       }
-      console.log('nobukti', nobukti, nobukti.nobukti);
-      throw new Error('test');
 
-      const result = await deleteService.delete(data.nobukti, trx);
-      const deletedData = await this.utilsService.lockAndDestroy(
+      const result = await deleteService.delete(nobukti.nobukti, trx);  // DELETE DATA ORDERAN
+      const deletedData = await this.utilsService.lockAndDestroy( // DELETE DATA ORDERAN HEADER
         result.headerId,
         this.tableName,
         'id',
@@ -275,41 +270,72 @@ export class OrderanHeaderService {
       );
 
       if (deletedData) {
+        // UPDATE orderan_nobukti di bookingheader jadi null
         await trx('bookingorderanheader')
-          .where('orderan_nobukti', data.nobukti)
+          .where('orderan_nobukti', nobukti.nobukti)
           .update('orderan_nobukti', null);
+
+        // UPDATE DATA STATUS PENDUKUNG BOOKING ORDERAN JADI NILAI TIDAK/ NONAPPROVAL
+        const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
+        const getDataPendukungApprovalBooking = await trx('parameter')
+          .select(
+            'id',
+            trx.raw( `JSON_VALUE(${memoExpr}, '$."NILAI TIDAK"') AS nilai_tidak`),
+          )
+          .where('grp', 'DATA PENDUKUNG')
+          .where('subgrp', tableNameBooking)
+          .where('text', 'APPROVAL TRANSAKSI')
+          .first();
+        
+        await trx('statuspendukung')
+          .where('statusdatapendukung', getDataPendukungApprovalBooking.id)
+          .where('transaksi_id', idBooking.id)
+          .update('statuspendukung', getDataPendukungApprovalBooking.nilai_tidak)
+          .update('updated_at', this.utilsService.getTime());        
+        
+        // DELETE DATA STATUS JOB TGL BOOKING PAS PERTAMA KALI APPROVAL BOOKING
+        getParameterStatusJobTglBooking = await trx('parameter')
+          .select('id')
+          .where('grp', 'STATUS JOB')
+          .where('text', 'TGL BOOKING')
+          .first();
+
+        const getDataStatusJob = await trx('statusjob').where('statusjob', getParameterStatusJobTglBooking.id).where('job', idBooking.id).first();
+        if (getDataStatusJob) {
+          await this.utilsService.lockAndDestroy(
+            getDataStatusJob.id,
+            'statusjob',
+            'id',
+            trx,
+          );
+        }         
+      }
+
+      // DELETE DATA STATUS JOB YG ORDERANNYA ADA DI STATUS JOB
+      const getDataStatusJobOrderan = await trx('statusjob').where('job', result.id).whereNot('id', getParameterStatusJobTglBooking.id);
+      if (getDataStatusJobOrderan && getDataStatusJobOrderan.length > 0) {
+        for (const [index, item] of getDataStatusJobOrderan.entries()) {
+          await this.utilsService.lockAndDestroy(
+            item.id,
+            'statusjob',
+            'id',
+            trx,
+          );
+        }
       }
 
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
           postingdari: 'DELETE ORDERAN HEADER',
-          idtransss: id,
-          nobuktitrans: id,
+          idtransss: deletedData.id,
+          nobuktitrans: deletedData.id,
           aksi: 'DELETE',
           datajson: JSON.stringify(deletedData),
           modifiedby: modifiedby,
         },
         trx,
       );
-
-      // const getIdApprovalTransaksiBooking
-      // const nonApprovalBooking = {
-      //   tableName: 'BOOKINGORDERANMUATAN',
-      //   id: 199,
-      //   transaksi_id: [ '105' ],
-      //   value: '12',
-      //   text: 'APPROVAL TRANSAKSI',
-      //   modifiedby: 'admin',
-      //   created_at: '2025-10-15 08:30:12',
-      //   updated_at: '2025-10-15 08:30:12'
-      // }
-
-      // const getStatusJob = await trx('statusjob').where('job', result.id)
-      // const statusJobData = {
-      //   jenisorder_id: data?.jenisOrderan ? data.jenisOrderan : getJenisOrderanMuatan.id,
-      //   text: 'TGL BOOKING',
-      // };
 
       return {
         status: 200,

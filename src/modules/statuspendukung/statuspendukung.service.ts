@@ -87,8 +87,78 @@ export class StatuspendukungService {
     return `This action returns a #${id} statuspendukung`;
   }
 
-  update(id: number, updateStatuspendukungDto: UpdateStatuspendukungDto) {
-    return `This action updates a #${id} statuspendukung`;
+  async update(
+    tablename: string,
+    id: any,
+    modifiedby: any,
+    trx: any,
+    statuspendukung: any = 0,
+  ) {
+    let payload
+    const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+
+    try {
+      const getDataRequest = await trx('parameter')
+        .select(
+          'id',
+          'grp',
+          'subgrp',
+          'text',
+          'kelompok',
+          trx.raw(`JSON_VALUE(${memoExpr}, '$.MEMO') AS memo_nama`),
+          trx.raw(`JSON_VALUE(${memoExpr}, '$."NILAI YA"') AS nilai_ya`),
+          trx.raw(`JSON_VALUE(${memoExpr}, '$."NILAI TIDAK"') AS nilai_tidak`),
+        )
+        .where('grp', 'DATA PENDUKUNG')
+        .andWhere('subgrp', tablename);
+
+      if (getDataRequest && getDataRequest.length > 0) {
+        for (const [index, item] of getDataRequest.entries()) {
+          const value = statuspendukung?.[item.text] ?? item.nilai_tidak;
+          const getExistingData = await trx(this.tableName).where('statusdatapendukung', item.id).where('transaksi_id', id).first();          
+          
+          payload =  {
+            statusdatapendukung: item.id,
+            transaksi_id: id,
+            statuspendukung: value,
+            keterangan: null,
+            modifiedby: modifiedby,
+            updated_at: this.utilsService.getTime(),
+            created_at: this.utilsService.getTime(),
+          };
+          // console.log('payload', payload);
+          
+          const hasChanges = this.utilsService.hasChanges(payload, getExistingData);
+          // console.log('hasChanges', hasChanges);
+          
+          if (hasChanges) {
+            const updatedData = await trx(this.tableName)
+              .where('statusdatapendukung', item.id)
+              .where('transaksi_id', id)
+              .update(payload).returning('*');  
+              // console.log('updatedData', updatedData);
+              
+            await this.logTrailService.create(
+              {
+                namatabel: this.tableName,
+                postingdari: `ADD STATUS PENDUKUNG`,
+                idtrans: updatedData[0].id,
+                nobuktitrans: updatedData[0].id,
+                aksi: 'ADD',
+                datajson: JSON.stringify(updatedData[0]),
+                modifiedby: updatedData[0]?.modifiedby,
+              },
+              trx,
+            );
+          }
+        }
+
+        return { success: true };
+      }
+      return { success: true };
+    } catch (error) {
+      throw new Error(error);
+    }
   }
 
   async remove(id: number, modifiedby: string, trx: any) {
