@@ -250,17 +250,17 @@ export class PenerimaanemklheaderService {
         trx
           .select(
             'u.id',
-            'u.penerimaan_nobukti',
+            'u.pengeluaran_nobukti',
             trx.raw(`
               STRING_AGG(
-                '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'penerimaan_nobukti=' + u.penerimaan_nobukti + '">' +
-                '<HighlightWrapper value="' + u.penerimaan_nobukti + '" />' +
+                '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'pengeluaran_nobukti=' + u.pengeluaran_nobukti + '">' +
+                '<HighlightWrapper value="' + u.pengeluaran_nobukti + '" />' +
                 '</a>', ','
               ) AS link
             `),
           )
           .from(this.tableName + ' as u')
-          .groupBy('u.id', 'u.penerimaan_nobukti'),
+          .groupBy('u.id', 'u.pengeluaran_nobukti'),
       );
       const query = trx(`${this.tableName} as u`)
         .select([

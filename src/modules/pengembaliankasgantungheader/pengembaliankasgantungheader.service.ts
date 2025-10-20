@@ -498,6 +498,10 @@ export class PengembaliankasgantungheaderService {
                 key,
                 `%${sanitizedValue}%`,
               ]);
+            } else if (key === 'relasi_nama') {
+              query.andWhere('r.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'bank_nama') {
+              query.andWhere('b.nama', 'like', `%${sanitizedValue}%`);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
