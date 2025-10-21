@@ -255,7 +255,7 @@ export class MarketingprosesfeeService {
           'p.nama as marketing_nama',
           'q.nama as jenisprosesfee_nama',
           'statuspotong.text as statuspotongbiayakantor_nama',
-          // 'statuspotong.memo as statuspotongbiayakantor_memo',
+          'statuspotong.memo as statuspotongbiayakantor_memo',
           'statusaktif.text as statusaktif_nama',
           'statusaktif.memo as memo',
         )
@@ -276,7 +276,7 @@ export class MarketingprosesfeeService {
           builder
             .orWhere('p.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('q.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('statuspotong.text', 'like', `%${sanitizedValue}%`);
+            // .orWhere('statuspotong.text', 'like', `%${sanitizedValue}%`);
           // .orWhere('statusaktif.text', 'like', `%${sanitizedValue}%`)
         });
       }
@@ -288,11 +288,7 @@ export class MarketingprosesfeeService {
             if (key === 'statusaktif_nama') {
               query.andWhere(`statusaktif.id`, '=', sanitizedValue);
             } else if (key === 'statuspotongbiayakantor_nama') {
-              query.andWhere(
-                'statuspotong.text',
-                'like',
-                `%${sanitizedValue}%`,
-              );
+              query.andWhere(`statuspotong.id`, '=', sanitizedValue);
             } else if (key === 'marketing_nama') {
               query.andWhere('p.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'jenisprosesfee_nama') {
@@ -307,6 +303,14 @@ export class MarketingprosesfeeService {
       if (sort?.sortBy && sort?.sortDirection) {
         if (sort.sortBy === 'marketing_nama') {
           query.orderBy('p.nama', sort.sortDirection);
+        } else if (sort.sortBy === 'jenisprosesfee_nama') {
+          query.orderBy('q.nama', sort.sortDirection);
+        } else if (sort?.sortBy === 'statuspotongbiayakantor_nama') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), statuspotong.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusaktif') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), statusaktif.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }

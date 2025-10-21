@@ -281,11 +281,7 @@ export class MarketingmanagerService {
             if (key === 'statusaktif_nama') {
               query.andWhere(`statusaktif.id`, '=', sanitizedValue);
             } else if (key === 'statusapproval_nama') {
-              query.andWhere(
-                'statusapproval.id',
-                'like',
-                `%${sanitizedValue}%`,
-              );
+              query.andWhere(`statusapproval.id`, '=', sanitizedValue);
             } else if (key === 'marketing_nama') {
               query.andWhere('p.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'managermarketing_nama') {
@@ -302,8 +298,16 @@ export class MarketingmanagerService {
       }
 
       if (sort?.sortBy && sort?.sortDirection) {
-        if (sort?.sortBy === 'managermarketing') {
+        if (sort?.sortBy === 'marketing_nama') {
+          query.orderBy('p.nama', sort.sortDirection);
+        } else if (sort?.sortBy === 'managermarketing') {
           query.orderBy('q.nama', sort.sortDirection);
+        } else if (sort?.sortBy === 'statusapproval') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), statusapproval.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusaktif') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), statusaktif.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }
