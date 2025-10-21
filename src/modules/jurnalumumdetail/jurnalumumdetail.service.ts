@@ -294,6 +294,7 @@ export class JurnalumumdetailService {
         (k) => !excludeSearchKeys.includes(k) && filters![k],
       );
       if (search) {
+        console.log(search, 'search');
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
         query.where((qb) => {
@@ -303,6 +304,7 @@ export class JurnalumumdetailService {
         });
       }
       if (filters) {
+        console.log(filters, 'filters');
         for (const [key, value] of Object.entries(filters)) {
           if (key === 'pengeluaran_nobukti') {
             continue;
@@ -316,7 +318,9 @@ export class JurnalumumdetailService {
               break;
 
             case 'tglbukti':
-              query.andWhere('p.tglbukti', 'like', sanitizedValue);
+              query.andWhereRaw("FORMAT(p.tglbukti, 'dd-MM-yyyy') LIKE ?", [
+                `%${sanitizedValue}%`,
+              ]);
               break;
 
             case 'nominaldebet':
