@@ -323,26 +323,26 @@ export class PengeluaranEmklService {
             } else if (key === 'nilaiprosespenerimaan_text') {
               query.andWhere(
                 'nilaiprosespenerimaan.id',
-                'like',
-                `%${sanitizedValue}%`,
+                '=',
+                sanitizedValue,
               );
             } else if (key === 'nilaiprosespengeluaran_text') {
               query.andWhere(
                 'nilaiprosespengeluaran.id',
-                'like',
-                `%${sanitizedValue}%`,
+                '=',
+                sanitizedValue,
               );
             } else if (key === 'nilaiproseshutang_text') {
               query.andWhere(
                 'nilaiproseshutang.id',
-                'like',
-                `%${sanitizedValue}%`,
+                '=',
+                sanitizedValue,
               );
             } else if (key === 'statuspenarikan_text') {
               query.andWhere(
                 'statuspenarikan.id',
-                'like',
-                `%${sanitizedValue}%`,
+                '=',
+                sanitizedValue,
               );
             } else if (key === 'format_text') {
               query.andWhere('p.text', 'like', `%${sanitizedValue}%`);
@@ -377,6 +377,21 @@ export class PengeluaranEmklService {
           query.orderBy('coaproses.keterangancoa', sort.sortDirection);
         } else if (sort?.sortBy === 'format_text') {
           query.orderBy('q.text', sort.sortDirection);
+        } else if (sort?.sortBy === 'nilaiprosespenerimaan') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), nilaiprosespenerimaan.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'nilaiprosespengeluaran') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), nilaiprosespengeluaran.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'nilaiproseshutang') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), nilaiproseshutang.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statuspenarikan') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), statuspenarikan.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusaktif') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), q.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }

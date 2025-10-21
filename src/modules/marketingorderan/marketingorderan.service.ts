@@ -289,7 +289,14 @@ export class MarketingorderanService {
       }
 
       if (sort?.sortBy && sort?.sortDirection) {
-        query.orderBy(sort.sortBy, sort.sortDirection);
+        if (sort?.sortBy === 'marketing_nama') {
+          query.orderBy('r.nama', sort.sortDirection);
+        } else if (sort?.sortBy === 'statusaktif') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), q.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+        } else {
+          query.orderBy(sort.sortBy, sort.sortDirection);
+        }
       }
 
       const result = await query;

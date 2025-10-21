@@ -309,10 +309,14 @@ export class MarketingService {
           'statusaktif.memo as memo',
           'cabang.nama as cabang_nama',
           'statustarget.text as statustarget_nama',
+          'statustarget.memo as statustarget_memo',
           'statusbagifee.text as statusbagifee_nama',
+          'statusbagifee.memo as statusbagifee_memo',
           'statusfeemanager.text as statusfeemanager_nama',
+          'statusfeemanager.memo as statusfeemanager_memo',
           `tmg.marketinggroup_nama as marketinggroup_nama`,
           'statusprafee.text as statusprafee_nama',
+          'statusprafee.memo as statusprafee_memo',
           'karyawan.namakaryawan as karyawan_nama',
         ])
         .leftJoin('parameter as statusaktif', 'u.statusaktif', 'statusaktif.id')
@@ -351,21 +355,20 @@ export class MarketingService {
             .orWhere('u.nama', 'like', `%${sanitizedValue}%`)
             .orWhere('u.kode', 'like', `%${sanitizedValue}%`)
             .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            // .orWhere('statusaktif.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.email', 'like', `%${sanitizedValue}%`)
             .orWhere('karyawan.namakaryawan', 'like', `%${sanitizedValue}%`)
             .orWhereRaw("FORMAT(u.tglmasuk, 'dd-MM-yyyy') LIKE ?", [
               `%${sanitizedValue}%`,
             ])
             .orWhere('cabang.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('statustarget.text', 'like', `%${sanitizedValue}%`)
-            .orWhere('statusbagifee.text', 'like', `%${sanitizedValue}%`)
-            .orWhere('statusfeemanager.text', 'like', `%${sanitizedValue}%`)
             .orWhere('tmg.marketinggroup_nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('statusprafee.text', 'like', `%${sanitizedValue}%`)
             .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.created_at', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.updated_at', 'like', `%${sanitizedValue}%`);
+            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ])
+            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+              `%${sanitizedValue}%`,
+            ]);
         });
       }
 
@@ -394,21 +397,13 @@ export class MarketingService {
                 `%${sanitizedValue}%`,
               ]);
             } else if (key === 'statustarget_nama') {
-              query.andWhereRaw('statustarget.text LIKE ?', [
-                `%${sanitizedValue}%`,
-              ]);
+              query.andWhere(`statustarget.id`, '=', sanitizedValue);
             } else if (key === 'statusbagifee_nama') {
-              query.andWhereRaw('statusbagifee.text LIKE ?', [
-                `%${sanitizedValue}%`,
-              ]);
+              query.andWhere(`statusbagifee.id`, '=', sanitizedValue);
             } else if (key === 'statusfeemanager_nama') {
-              query.andWhereRaw('statusfeemanager.text LIKE ?', [
-                `%${sanitizedValue}%`,
-              ]);
+              query.andWhere(`statusfeemanager.id`, '=', sanitizedValue);
             } else if (key === 'statusprafee_nama') {
-              query.andWhereRaw('statusprafee.text LIKE ?', [
-                `%${sanitizedValue}%`,
-              ]);
+              query.andWhere(`statusprafee.id`, '=', sanitizedValue);
             } else if (key === 'statusaktif_nama') {
               query.andWhere('statusaktif.id', '=', sanitizedValue);
             } else {
@@ -432,9 +427,24 @@ export class MarketingService {
         if (sort?.sortBy === 'marketinggroup') {
           query.orderBy('tmg.marketinggroup_nama', sort.sortDirection);
         } else if (sort?.sortBy === 'karyawan') {
-          // query.orderBy('karyawan.nama', sort.sortDirection)
+          query.orderBy('karyawan.namakaryawan', sort.sortDirection)
         } else if (sort?.sortBy === 'cabang') {
-          // query.orderBy('cabang.nama', sort.sortDirection)
+          query.orderBy('cabang.nama', sort.sortDirection)
+        } else if (sort?.sortBy === 'statusaktif') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), statusaktif.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statustarget') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), statustarget.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusbagifee') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), statusbagifee.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusfeemanager') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), statusfeemanager.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusprafee') {
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), statusprafee.memo)';
+          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }

@@ -381,7 +381,8 @@ export class OrderanMuatanService {
           if (
             key === 'tglDari' ||
             key === 'tglSampai' ||
-            key === 'jenisOrderan'
+            key === 'jenisOrderan' || 
+            key === 'notIn'
           ) {
             continue; // Lewati filter jika key adalah 'tglDari' atau 'tglSampai'
           }
@@ -492,6 +493,24 @@ export class OrderanMuatanService {
           query.orderBy('emkl.nama', sort.sortDirection);
         } else if (sort?.sortBy === 'daftarbl_text') {
           query.orderBy('daftarbl.nama', sort.sortDirection);
+        } else if (sort?.sortBy === 'statustradoluar') {
+          query.orderByRaw(`JSON_VALUE([pivot].tradoluar_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statuspisahbl') {
+          query.orderByRaw(`JSON_VALUE([pivot].pisahbl_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusjobptd') {
+          query.orderByRaw(`JSON_VALUE([pivot].jobptd_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statustransit') {
+          query.orderByRaw(`JSON_VALUE([pivot].transit_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusstuffingdepo') {
+          query.orderByRaw(`JSON_VALUE([pivot].stuffingdepo_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusopendoor') {
+          query.orderByRaw(`JSON_VALUE([pivot].opendoor_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusbatalmuat') {
+          query.orderByRaw(`JSON_VALUE([pivot].batalmuat_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statussoc') {
+          query.orderByRaw(`JSON_VALUE([pivot].soc_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statuspengurusandoor') {
+          query.orderByRaw(`JSON_VALUE([pivot].pengurusandoor_memo, '$.MEMO') ${sort.sortDirection}`);
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }
@@ -821,25 +840,27 @@ export class OrderanMuatanService {
         }
       });
 
-      const existingData = await trx(this.tableName)
-        .where('nobukti', nobukti)
-        .first();
-      const hasChanges = this.utilsService.hasChanges(
-        orderanData,
-        existingData,
-      );
-      const getIdBookingHeader = await trx('bookingorderanheader')
-        .select('id')
-        .where('orderan_nobukti', nobukti)
-        .first();
-      const existingDataBooking = await trx(this.bookingMuatanTableName).where(
-        'bookingorderan_id',
-        getIdBookingHeader.id,
-      );
-      const hasChangesBooking = this.utilsService.hasChanges(
-        orderanData,
-        existingDataBooking,
-      );
+      const existingData = await trx(this.tableName).where('nobukti', nobukti).first();
+      if (!existingData) {
+        throw new Error(`Orderan dengan nobukti ${nobukti} tidak ditemukan`);
+      }
+      const hasChanges = this.utilsService.hasChanges(orderanData, existingData);
+      const getIdBookingHeader = await trx('bookingorderanheader').select('id').where('orderan_nobukti', nobukti).first();
+      const existingDataBooking = await trx(this.bookingMuatanTableName).where('bookingorderan_id', getIdBookingHeader.id);
+      const hasChangesBooking = this.utilsService.hasChanges(orderanData, existingDataBooking);
+      const getApprovalNilaiYa = await trx('parameter').where('grp', 'STATUS APPROVAL').where('text', 'APPROVAL').first();
+      const dataPendukungMuatan = {
+        'TRADO LUAR': tradoluar,
+        'PISAH BL': pisahbl,
+        'JOB PTD': jobptd,
+        'TRANSIT': transit,
+        'STUFFING DEPO': stuffingdepo,
+        'OPEN DOOR': opendoor,
+        'BATAL MUAT': batalmuat,
+        'SOC': soc,
+        'PENGURUSAN DOOR EKSPEDISI LAIN': pengurusandoorekspedisilain,
+        'APPROVAL TRANSAKSI': getApprovalNilaiYa.id
+      };
 
       if (hasChanges) {
         orderanData.updated_at = this.utilsService.getTime();
@@ -859,6 +880,15 @@ export class OrderanMuatanService {
             modifiedby: data.modifiedby,
           },
           trx,
+        );
+
+        // UPDATE DATA PENDUKUNG ORDERAN MUATAN
+        await this.statuspendukungService.update(
+          this.tableName,
+          updatedData[0].id,
+          updatedData[0].modifiedby,
+          trx,
+          dataPendukungMuatan,
         );
       }
 
@@ -881,40 +911,16 @@ export class OrderanMuatanService {
           },
           trx,
         );
+
+        // UPDATE DATA PENDUKUNG BOOKING ORDERAN MUATAN
+        await this.statuspendukungService.update(
+          this.bookingMuatanTableName,
+          updatedBooking[0].id,
+          updatedBooking[0].modifiedby,
+          trx,
+          dataPendukungMuatan,
+        );
       }
-
-      // const getStatusPendukungBookingData = await trx('statuspendukung')
-      //   .select('statuspendukung')
-      //   .where('transaksi_id', booking_id);
-      // const values = getStatusPendukungBookingData.map(
-      //   (v) => v.statuspendukung,
-      // ); //jadikan hasil query ke bentuk array
-      // const keys = [
-      //   'TRADO LUAR',
-      //   'PISAH BL',
-      //   'JOB PTD',
-      //   'TRANSIT',
-      //   'STUFFING DEPO',
-      //   'OPEN DOOR',
-      //   'BATAL MUAT',
-      //   'SOC',
-      //   'PENGURUSAN DOOR EKSPEDISI LAIN',
-      //   'APPROVAL TRANSAKSI',
-      // ];
-
-      // const dataPendukungOrderanMuatan = keys.reduce((obj, key, i) => {
-      //   obj[key] = values[i] ?? null; // isi sesuai urutan, kalau data habis → null
-      //   return obj;
-      // }, {});
-
-      // const insertStatusPendukungOrderanMuatan =
-      //   await this.statuspendukungService.create(
-      //     this.tableName,
-      //     newItem.id,
-      //     newItem.modifiedby,
-      //     trx,
-      //     dataPendukungOrderanMuatan,
-      //   );
 
       return {
         id: updatedData[0].id,
