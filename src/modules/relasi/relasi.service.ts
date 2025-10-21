@@ -162,15 +162,16 @@ export class RelasiService {
               'statustitip',
               'titipcabang_id',
               'statusaktif',
+              'statusaktif_text',
             ].includes(key)
           ) {
             query.andWhere(`r.${key}`, Number(val));
           } else if (['statusrelasi_text'].includes(key)) {
             query.andWhere(`statusrelasi.text`, `${val}`);
           } else if (['statustitip_text'].includes(key)) {
-            query.andWhere(`statustitip.text`, `${val}`);
+            query.andWhere(`statustitip`, `${val}`);
           } else if (['statusaktif_text'].includes(key)) {
-            query.andWhere(`statusaktif.text`, `${val}`);
+            query.andWhere(`statusaktif`, `${val}`);
           } else if (['titipcabang'].includes(key)) {
             query.andWhere(`cabang.nama`, `${val}`);
           } else if (key === 'coagiro_ket') {
