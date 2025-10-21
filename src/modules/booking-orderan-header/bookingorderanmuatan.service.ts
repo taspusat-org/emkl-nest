@@ -101,15 +101,15 @@ export class BookingOrderanMuatanService {
         'TRADO LUAR': tradoluar,
         'PISAH BL': pisahbl,
         'JOB PTD': jobptd,
-        TRANSIT: transit,
+        'TRANSIT': transit,
         'STUFFING DEPO': stuffingdepo,
         'OPEN DOOR': opendoor,
         'BATAL MUAT': batalmuat,
-        SOC: soc,
+        'SOC': soc,
         'PENGURUSAN DOOR EKSPEDISI LAIN': pengurusandoorekspedisilain,
       };
 
-      const test = await this.statuspendukungService.create(
+      const createDataStatusPendukung = await this.statuspendukungService.create(
         this.tableName,
         newItem.id,
         newItem.modifiedby,
@@ -505,6 +505,26 @@ export class BookingOrderanMuatanService {
           query.orderBy('emkl.nama', sort.sortDirection);
         } else if (sort?.sortBy === 'daftarbl_text') {
           query.orderBy('daftarbl.nama', sort.sortDirection);
+        } else if (sort?.sortBy === 'statustradoluar') {
+          query.orderByRaw(`JSON_VALUE([pivot].tradoluar_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statuspisahbl') {
+          query.orderByRaw(`JSON_VALUE([pivot].pisahbl_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusjobptd') {
+          query.orderByRaw(`JSON_VALUE([pivot].jobptd_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statustransit') {
+          query.orderByRaw(`JSON_VALUE([pivot].transit_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusstuffingdepo') {
+          query.orderByRaw(`JSON_VALUE([pivot].stuffingdepo_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusopendoor') {
+          query.orderByRaw(`JSON_VALUE([pivot].opendoor_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusbatalmuat') {
+          query.orderByRaw(`JSON_VALUE([pivot].batalmuat_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statussoc') {
+          query.orderByRaw(`JSON_VALUE([pivot].soc_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statuspengurusandoor') {
+          query.orderByRaw(`JSON_VALUE([pivot].pengurusandoor_memo, '$.MEMO') ${sort.sortDirection}`);
+        } else if (sort?.sortBy === 'statusapproval') {
+          query.orderByRaw(`JSON_VALUE([pivot].approval_memo, '$.MEMO') ${sort.sortDirection}`);
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }
@@ -852,6 +872,35 @@ export class BookingOrderanMuatanService {
           .update(bookingOrderanData);
       }
 
+      // EDIT DATA PENDUKUNG BOOKING ORDERAN MUATAN
+      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
+      const getDataPendukungApproval = await trx('parameter')
+        .select(trx.raw(`JSON_VALUE(${memoExpr}, '$."NILAI TIDAK"') AS nilai_tidak`))
+        .where('grp', 'DATA PENDUKUNG')
+        .where('subgrp', this.tableName)
+        .where('text', 'APPROVAL TRANSAKSI')
+        .first();
+      const dataPendukungMuatan = {
+        'TRADO LUAR': tradoluar,
+        'PISAH BL': pisahbl,
+        'JOB PTD': jobptd,
+        'TRANSIT': transit,
+        'STUFFING DEPO': stuffingdepo,
+        'OPEN DOOR': opendoor,
+        'BATAL MUAT': batalmuat,
+        'SOC': soc,
+        'PENGURUSAN DOOR EKSPEDISI LAIN': pengurusandoorekspedisilain,
+        'APPROVAL TRANSAKSI': getDataPendukungApproval.nilai_tidak
+      };
+
+      const updateStatusPendukung = await this.statuspendukungService.update(
+        this.tableName,
+        getIdOrderanMuatan.id,
+        bookingOrderanData.modifiedby,
+        trx,
+        dataPendukungMuatan,
+      );
+
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
@@ -1013,23 +1062,46 @@ export class BookingOrderanMuatanService {
   async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
     try {
       if (aksi === 'EDIT') {
-        const forceEdit = await this.locksService.forceEdit(
-          this.tableName,
-          value,
-          editedby,
+        const getIdHeader = await trx(this.tableName).select('bookingorderan_id').where('id', value).first();
+        const cekOrderanNoBukti = await trx('bookingorderanheader').select('orderan_nobukti').where('id', getIdHeader.bookingorderan_id).first();
+        
+        if (cekOrderanNoBukti?.orderan_nobukti && cekOrderanNoBukti?.orderan_nobukti !== null) {
+          const validasi = await this.globalService.checkUsed(
+            'orderanheader',
+            'nobukti',
+            cekOrderanNoBukti.orderan_nobukti,
+            trx,
+          );
+          return validasi
+        } else {
+          const forceEdit = await this.locksService.forceEdit(
+            this.tableName,
+            value,
+            editedby,
+            trx,
+          );
+          return forceEdit;
+        }
+      } else if (aksi === 'DELETE') {
+        const getIdHeader = await trx(this.tableName).select('bookingorderan_id').where('id', value).first();
+        const cekOrderanNoBukti = await trx('bookingorderanheader').select('orderan_nobukti').where('id', getIdHeader.bookingorderan_id).first();
+        
+        const validasi = await this.globalService.checkUsed(
+          'orderanheader',
+          'nobukti',
+          cekOrderanNoBukti.orderan_nobukti,
           trx,
         );
-
-        return forceEdit;
-      } else if (aksi === 'DELETE') {
-        return {
-          status: 'success',
-          message: 'Data aman untuk dihapus.',
-        };
+        return validasi;
       }
     } catch (error) {
       console.error('Error di checkValidasi:', error);
-      throw new InternalServerErrorException('Failed to check validation');
+      if (error instanceof HttpException) {
+        throw error; // If it's already a HttpException, rethrow it
+      }
+
+      console.error('Error di checkValidasi booking orderan muatan:', error);
+      throw new Error('Error di checkValidasi booking orderan muatan');
     }
   }
 }
