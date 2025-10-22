@@ -381,8 +381,7 @@ export class OrderanMuatanService {
           if (
             key === 'tglDari' ||
             key === 'tglSampai' ||
-            key === 'jenisOrderan' || 
-            key === 'notIn'
+            key === 'jenisOrderan'
           ) {
             continue; // Lewati filter jika key adalah 'tglDari' atau 'tglSampai'
           }
