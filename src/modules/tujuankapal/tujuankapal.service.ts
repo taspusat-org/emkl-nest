@@ -155,19 +155,26 @@ export class TujuankapalService {
         const offset = (page - 1) * limit;
         query.limit(limit).offset(offset);
       }
-
+      const excludeSearchKeys = ['statusaktif'];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+        const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
-        query.where((builder) => {
-          builder
-            .orWhere('u.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.kode', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('c.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.memo', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.memo', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.text', 'like', `%${sanitizedValue}%`);
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (field === 'namacabang') {
+              qb.orWhere('c.nama', 'like', `%${sanitized}%`);
+            } else if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitized}%`,
+              ]);
+            } else {
+              qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+            }
+          });
         });
       }
 

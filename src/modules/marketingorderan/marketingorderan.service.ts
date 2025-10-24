@@ -293,7 +293,9 @@ export class MarketingorderanService {
           query.orderBy('r.nama', sort.sortDirection);
         } else if (sort?.sortBy === 'statusaktif') {
           const memoExpr = 'TRY_CONVERT(nvarchar(max), q.memo)';
-          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }

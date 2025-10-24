@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CreatePengeluarandetailDto } from './dto/create-pengeluarandetail.dto';
 import { UpdatePengeluarandetailDto } from './dto/update-pengeluarandetail.dto';
-import { UtilsService } from 'src/utils/utils.service';
+import { UtilsService, tandatanya } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 
@@ -248,11 +248,35 @@ export class PengeluarandetailService {
         data: [],
       };
     }
+    const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
+
+    await trx.schema.createTable(tempUrl, (t) => {
+      t.integer('id').nullable();
+      t.string('nobukti').nullable();
+      t.text('link').nullable();
+    });
+    const url = 'pengeluaran';
+    await trx(tempUrl).insert(
+      trx
+        .select(
+          'u.id',
+          'u.nobukti',
+          trx.raw(`
+                STRING_AGG(
+                  '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'nobukti=' + u.nobukti + '">' +
+                  '<HighlightWrapper value="' + u.nobukti + '" />' +
+                  '</a>', ','
+                ) AS link
+              `),
+        )
+        .from(this.tableName + ' as u')
+        .groupBy('u.id', 'u.nobukti'),
+    );
     try {
       if (!filters?.nobukti) {
         return {
           status: true,
-          message: 'Pengeluaran Detail failed to fetch',
+          message: 'Jurnal umum Detail failed to fetch',
           data: [],
         };
       }
@@ -279,7 +303,9 @@ export class PengeluarandetailService {
           'p.modifiedby',
           trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+          'tempUrl.link',
         )
+        .innerJoin(trx.raw(`${tempUrl} as tempUrl`), 'p.id', 'tempUrl.id')
         .leftJoin(
           trx.raw('akunpusat as q WITH (READUNCOMMITTED)'),
           'p.coadebet',
@@ -289,15 +315,32 @@ export class PengeluarandetailService {
       if (filters?.nobukti) {
         query.where('p.nobukti', filters?.nobukti);
       }
+      const excludeSearchKeys = ['pengeluaran_id', 'coadebet'];
+
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('p.nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.noinvoiceemkl', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.nofakturpajakemkl', 'like', `%${sanitizedValue}%`)
-            .orWhere('q.keterangancoa', 'like', `%${sanitizedValue}%`);
+        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (
+              ['created_at', 'updated_at', 'tglinvoiceemkl'].includes(field)
+            ) {
+              qb.orWhereRaw("FORMAT(p.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'coadebet_text') {
+              qb.orWhere('q.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'nominal' || field === 'dpp') {
+              qb.orWhere(`p.${field}`, 'like', `%${Number(sanitizedValue)}%`);
+            } else {
+              qb.orWhere(`p.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
         });
       }
 

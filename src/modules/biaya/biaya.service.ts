@@ -165,19 +165,40 @@ export class BiayaService {
           'p4.id',
         );
 
-      if (search) {
-        const val = String(search).replace(/\[/g, '[[]');
+      const excludeSearchKeys = [
+        'coa',
+        'coahut',
+        'jenisorderan_id',
+        'statusaktif',
+      ];
 
-        query.where((builder) =>
-          builder
-            .orWhere('b.nama', 'like', `%${val}%`)
-            .orWhere('b.keterangan', 'like', `%${val}%`)
-            .orWhere('p2.keterangancoa', 'like', `%${val}%`) // coa_text
-            .orWhere('p3.keterangancoa', 'like', `%${val}%`) // coahut_text
-            .orWhere('p4.nama', 'like', `%${val}%`) // jenisorderan_text
-            .orWhere('p.memo', 'like', `%${val}%`)
-            .orWhere('p.text', 'like', `%${val}%`),
-        );
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(b.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'memo' || field === 'text') {
+              qb.orWhere(`p.${field}`, 'like', `%${sanitizedValue}%`);
+            } else if (field === 'coa_text') {
+              qb.orWhere('p2.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'coahut_text') {
+              qb.orWhere('p3.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'jenisorderan_text') {
+              qb.orWhere('p4.nama', 'like', `%${sanitizedValue}%`);
+            } else {
+              qb.orWhere(`b.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
+        });
       }
 
       // filter berdasarkan key yang valid

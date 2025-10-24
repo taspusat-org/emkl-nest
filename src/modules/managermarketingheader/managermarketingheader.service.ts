@@ -201,18 +201,25 @@ export class ManagermarketingheaderService {
         const offset = (page - 1) * limit;
         query.limit(limit).offset(offset);
       }
+
+      const excludeSearchKeys = ['statusmentor', 'statusleader', 'statusaktif'];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
 
-        query.where((builder) => {
-          builder
-            .orWhere('u.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.minimalprofit', 'like', `%${sanitizedValue}%`)
-            .orWhere('p2.text', 'like', `%${sanitizedValue}%`)
-            .orWhere('p3.text', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.memo', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.text', 'like', `%${sanitizedValue}%`);
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else {
+              qb.orWhere(`u.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
         });
       }
 

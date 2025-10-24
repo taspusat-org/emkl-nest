@@ -147,14 +147,24 @@ export class JenisMuatanService {
         query.limit(limit).offset(offset);
       }
 
+      const excludeSearchKeys = ['statusaktif'];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('jenismuatan.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('jenismuatan.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('par.memo', 'like', `%${sanitizedValue}%`)
-            .orWhere('par.text', 'like', `%${sanitizedValue}%`);
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw(
+                "FORMAT(jenismuatan.??, 'dd-MM-yyyy HH:mm:ss') like ?",
+                [field, `%${sanitizedValue}%`],
+              );
+            } else {
+              qb.orWhere(`jenismuatan.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
         });
       }
 

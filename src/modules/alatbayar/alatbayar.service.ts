@@ -170,29 +170,37 @@ export class AlatbayarService {
           'p.id',
         );
 
-      // full-text search pada kolom teks
+      const excludeSearchKeys = [
+        'statuslangsungcair',
+        'statusdefault',
+        'statusbank',
+        'statusaktif',
+      ];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
       if (search) {
-        const val = String(search).replace(/\[/g, '[[]');
-        query.where((builder) =>
-          builder
-            .orWhere('ab.nama', 'like', `%${val}%`)
-            .orWhere('ab.keterangan', 'like', `%${val}%`)
-            .orWhere('p1.text', 'like', `%${val}%`)
-            .orWhere('p2.text', 'like', `%${val}%`)
-            .orWhere('p3.text', 'like', `%${val}%`)
-            .orWhere('p.text', 'like', `%${val}%`)
-            .orWhere('ab.info', 'like', `%${val}%`)
-            .orWhere('ab.modifiedby', 'like', `%${val}%`),
-        );
+        const sanitized = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(ab.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitized}%`,
+              ]);
+            } else {
+              qb.orWhere(`ab.${field}`, 'like', `%${sanitized}%`);
+            }
+          });
+        });
       }
 
-      // filter per kolom
       if (filters) {
         for (const [key, rawValue] of Object.entries(filters)) {
           if (rawValue == null || rawValue === '') continue;
           const val = String(rawValue).replace(/\[/g, '[[]');
 
-          // tanggal / timestamp
           if (['created_at', 'updated_at'].includes(key)) {
             query.andWhereRaw("FORMAT(ab.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
               key,

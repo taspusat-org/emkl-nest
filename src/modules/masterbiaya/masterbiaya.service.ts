@@ -192,20 +192,53 @@ export class MasterbiayaService {
           'p7.id',
         );
 
-      if (search) {
-        const val = String(search).replace(/\[/g, '[[]');
+      const excludeSearchKeys = [
+        'tujuankapal_id',
+        'sandarkapal_id',
+        'pelayaran_id',
+        'container_id',
+        'biayaemkl_id',
+        'jenisorder_id',
+        'statusaktif',
+      ];
 
-        query.where((builder) =>
-          builder
-            .orWhere('p2.nama', 'like', `%${val}%`) // tujuan kapal
-            .orWhere('p3.nama', 'like', `%${val}%`) // sandar kapal
-            .orWhere('p4.nama', 'like', `%${val}%`) // pelayaran
-            .orWhere('p5.nama', 'like', `%${val}%`) // container
-            .orWhere('p6.nama', 'like', `%${val}%`) // biaya emkl
-            .orWhere('p7.nama', 'like', `%${val}%`) // jenis orderan
-            .orWhere('p.memo', 'like', `%${val}%`)
-            .orWhere('p.text', 'like', `%${val}%`),
-        );
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(b.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'tglberlaku') {
+              qb.orWhereRaw("FORMAT(b.tglberlaku, 'dd-MM-yyyy') like ?", [
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'memo' || field === 'text') {
+              qb.orWhere(`p.${field}`, 'like', `%${sanitizedValue}%`);
+            } else if (field === 'tujuankapal_text') {
+              qb.orWhere('p2.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'sandarkapal_text') {
+              qb.orWhere('p3.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'pelayaran_text') {
+              qb.orWhere('p4.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'container_text') {
+              qb.orWhere('p5.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'biayaemkl_text') {
+              qb.orWhere('p6.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'jenisorderan_text') {
+              qb.orWhere('p7.nama', 'like', `%${sanitizedValue}%`);
+            } else {
+              qb.orWhere(`b.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
+        });
       }
 
       if (filters) {

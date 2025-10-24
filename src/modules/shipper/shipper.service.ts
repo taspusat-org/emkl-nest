@@ -616,53 +616,74 @@ export class ShipperService {
         'national_id',
         'refdesc_po',
       ];
+      const excludeSearchKeys = [
+        'statusrelasi',
+        'relasi_id',
+        'coa',
+        'coapiutang',
+        'coahutang',
+        'coagiro',
+        'statusaktif',
+        'marketing_id',
+        'idshipperasal',
+        'parentshipper_id',
+        'idtipe',
+        'idinitial',
+      ];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
 
-      // --- SEARCH ---
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.limit(limit).offset(offset);
+      }
+
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('s.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.contactperson', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.alamat', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.kota', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.coa', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.telp', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.email', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.npwp', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.grup', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.namashippercetak', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.namashipperprospek', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.nik', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.namaparaf', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.initial', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.tipe', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.npwpnik', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.nitku', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.kodepajak', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.info', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.memo', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.text', 'like', `%${sanitizedValue}%`)
-            .orWhere('q.keterangancoa', 'like', `%${sanitizedValue}%`)
-            .orWhere('q2.keterangancoa', 'like', `%${sanitizedValue}%`)
-            .orWhere('q3.keterangancoa', 'like', `%${sanitizedValue}%`)
-            .orWhere('q4.keterangancoa', 'like', `%${sanitizedValue}%`)
-            .orWhere('s.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('s2.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('m.nama', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(s.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ])
-            .orWhereRaw("FORMAT(s.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ]);
+        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
 
-          pvtCols.forEach((col) => {
-            builder.orWhere(`pvt.${col}`, 'like', `%${sanitizedValue}%`);
-            builder.orWhere(`pvt.${col}_nama`, 'like', `%${sanitizedValue}%`);
-            builder.orWhere(`pvt.${col}_memo`, 'like', `%${sanitizedValue}%`);
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(s.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (
+              ['tgllahir', 'tglemailshipperjobminus'].includes(field)
+            ) {
+              qb.orWhereRaw("FORMAT(s.??, 'dd-MM-yyyy') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'memo' || field === 'text') {
+              qb.orWhere(`p.${field}`, 'like', `%${sanitizedValue}%`);
+            } else if (field === 'coa_text') {
+              qb.orWhere('q.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'coapiutang_text') {
+              qb.orWhere('q2.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'coahutang_text') {
+              qb.orWhere('q3.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'coagiro_text') {
+              qb.orWhere('q4.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'shipperasal_text') {
+              qb.orWhere('s1.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'parentshipper_text') {
+              qb.orWhere('s2.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'marketing_text') {
+              qb.orWhere('m.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field.endsWith('_nama') || field.endsWith('_memo')) {
+              const baseField = field.replace(/_nama$|_memo$/, '');
+              if (pvtCols.includes(baseField)) {
+                qb.orWhere(`pvt.${field}`, 'like', `%${sanitizedValue}%`);
+              }
+            } else if (pvtCols.includes(field)) {
+              qb.orWhere(`pvt.${field}`, 'like', `%${sanitizedValue}%`);
+              qb.orWhere(`pvt.${field}_nama`, 'like', `%${sanitizedValue}%`);
+              qb.orWhere(`pvt.${field}_memo`, 'like', `%${sanitizedValue}%`);
+            } else {
+              qb.orWhere(`s.${field}`, 'like', `%${sanitizedValue}%`);
+            }
           });
         });
       }

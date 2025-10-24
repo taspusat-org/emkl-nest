@@ -110,7 +110,7 @@ export class PengeluaranheaderService {
         parameter.grp,
         parameter.subgrp,
         this.tableName,
-        String(insertData.tglbukti) ?? null,
+        String(insertData.tglbukti ?? ''),
         cabangId,
       );
       insertData.nobukti = nomorBukti;
@@ -578,86 +578,85 @@ export class PengeluaranheaderService {
         );
 
       if (filters?.tglDari && filters?.tglSampai) {
-        // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
-        const tglDariFormatted = formatDateToSQL(String(filters?.tglDari)); // Fungsi untuk format
+        const tglDariFormatted = formatDateToSQL(String(filters?.tglDari));
         const tglSampaiFormatted = formatDateToSQL(String(filters?.tglSampai));
-
-        // Menggunakan whereBetween dengan tanggal yang sudah diformat
         query.whereBetween('u.tglbukti', [
           tglDariFormatted,
           tglSampaiFormatted,
         ]);
       }
-      const excludeSearchKeys = ['tglDari', 'tglSampai'];
+
+      const excludeSearchKeys = [
+        'tglDari',
+        'tglSampai',
+        'relasi_id',
+        'bank_id',
+        'alatbayar_id',
+        'daftarbank_id',
+      ];
+
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
       if (limit > 0) {
         const offset = (page - 1) * limit;
         query.limit(limit).offset(offset);
       }
-      const searchFields = Object.keys(filters || {}).filter(
-        (k) => !excludeSearchKeys.includes(k) && filters![k],
-      );
-      switch (true) {
-        case !!search:
-          const sanitized = String(search).replace(/\[/g, '[[]').trim();
-          query.where((qb) => {
-            const searchFields = Object.keys(filters || {}).filter(
-              (k) => !['tglDari', 'tglSampai'].includes(k) && filters![k],
-            );
-            searchFields.forEach((field) => {
-              qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
-            });
+
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (
+              [
+                'created_at',
+                'updated_at',
+                'tglbukti',
+                'tgljatuhtempo',
+              ].includes(field)
+            ) {
+              qb.orWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'relasi_text') {
+              qb.orWhere('r.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'bank_text') {
+              qb.orWhere('b.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'coakredit_text') {
+              qb.orWhere('a.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'alatbayar_text') {
+              qb.orWhere('c.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'daftarbank_text') {
+              qb.orWhere('d.nama', 'like', `%${sanitizedValue}%`);
+            } else {
+              qb.orWhere(`u.${field}`, 'like', `%${sanitizedValue}%`);
+            }
           });
-          break;
-        case !!filters:
-          if (filters?.tglDari && filters?.tglSampai) {
-            const tglDariFormatted = formatDateToSQL(String(filters?.tglDari));
-            const tglSampaiFormatted = formatDateToSQL(
-              String(filters?.tglSampai),
-            );
-            query.whereBetween('u.tglbukti', [
-              tglDariFormatted,
-              tglSampaiFormatted,
-            ]);
+        });
+      }
+
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          if (key === 'tglDari' || key === 'tglSampai') {
+            continue;
           }
 
-          for (const [key, value] of Object.entries(filters)) {
+          if (value) {
             const sanitizedValue = String(value).replace(/\[/g, '[[]');
-            if (key === 'tglDari' || key === 'tglSampai') continue;
 
-            if (value) {
-              if (
-                key === 'created_at' ||
-                key === 'updated_at' ||
-                key === 'editing_at' ||
-                key === 'tglbukti' ||
-                key === 'tgljatuhtempo'
-              ) {
-                query.andWhereRaw(
-                  "FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?",
-                  [key, `%${sanitizedValue}%`],
-                );
-              } else if (key === 'relasi_text') {
-                query.andWhere('r.nama', 'like', `%${sanitizedValue}%`);
-              } else if (key === 'bank_text') {
-                query.andWhere('b.nama', 'like', `%${sanitizedValue}%`);
-              } else if (key === 'bank_id') {
-                query.andWhere('u.bank_id', 'like', `%${sanitizedValue}%`);
-              } else if (key === 'coakredit_text') {
-                query.andWhere(
-                  'a.keterangancoa',
-                  'like',
-                  `%${sanitizedValue}%`,
-                );
-              } else if (key === 'alatbayar_text') {
-                query.andWhere('c.nama', 'like', `%${sanitizedValue}%`);
-              } else if (key === 'daftarbank_text') {
-                query.andWhere('d.nama', 'like', `%${sanitizedValue}%`);
-              } else {
-                query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
-              }
+            if (['created_at', 'updated_at', 'tglbukti'].includes(key)) {
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
+            } else {
+              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
           }
-          break;
+        }
       }
 
       const result = await trx(this.tableName).count('id as total').first();

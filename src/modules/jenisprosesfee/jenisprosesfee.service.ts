@@ -188,7 +188,9 @@ export class JenisprosesfeeService {
       if (sort?.sortBy && sort?.sortDirection) {
         if (sort?.sortBy === 'statusaktif') {
           const memoExpr = 'TRY_CONVERT(nvarchar(max), statusaktif.memo)';
-          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }

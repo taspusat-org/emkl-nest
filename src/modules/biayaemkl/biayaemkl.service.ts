@@ -165,22 +165,42 @@ export class BiayaemklService {
           'p3.id',
         );
 
-      if (search) {
-        const val = String(search).replace(/\[/g, '[[]');
+      const excludeSearchKeys = [
+        'biaya_id',
+        'coahut',
+        'jenisorderan_id',
+        'statusaktif',
+      ];
 
-        query.where((builder) =>
-          builder
-            .orWhere('b.nama', 'like', `%${val}%`)
-            .orWhere('b.keterangan', 'like', `%${val}%`)
-            .orWhere('p1.nama', 'like', `%${val}%`) // coa_text
-            .orWhere('p2.keterangancoa', 'like', `%${val}%`) // coahut_text
-            .orWhere('p3.nama', 'like', `%${val}%`) // jenisorderan_text
-            .orWhere('p.memo', 'like', `%${val}%`)
-            .orWhere('p.text', 'like', `%${val}%`),
-        );
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(b.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'memo' || field === 'text') {
+              qb.orWhere(`p.${field}`, 'like', `%${sanitizedValue}%`);
+            } else if (field === 'biaya_text') {
+              qb.orWhere('p1.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'coahut_text') {
+              qb.orWhere('p2.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'jenisorderan_text') {
+              qb.orWhere('p3.nama', 'like', `%${sanitizedValue}%`);
+            } else {
+              qb.orWhere(`b.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
+        });
       }
 
-      // filter berdasarkan key yang valid
       if (filters) {
         for (const [key, rawValue] of Object.entries(filters)) {
           if (key === 'tglDari' || key === 'tglSampai') continue;
