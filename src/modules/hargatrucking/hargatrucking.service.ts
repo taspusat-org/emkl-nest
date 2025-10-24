@@ -171,21 +171,39 @@ export class HargatruckingService {
           'p4.id',
         );
 
+      const excludeSearchKeys = [
+        'tujuankapal_id',
+        'statusaktif',
+        'emkl_id',
+        'container_id',
+        'jenisorderan_id',
+      ];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
       if (search) {
-        const val = String(search).replace(/\[/g, '[[]');
-        query.where((builder) =>
-          builder
-            .orWhere('b.keterangan', 'like', `%${val}%`)
-            .orWhere('p.memo', 'like', `%${val}%`)
-            .orWhere('p.text', 'like', `%${val}%`)
-            .orWhere('p1.nama', 'like', `%${val}%`)
-            .orWhere('p2.nama', 'like', `%${val}%`)
-            .orWhere('p3.nama', 'like', `%${val}%`)
-            .orWhere('p4.nama', 'like', `%${val}%`)
-            .orWhere('b.nominal', 'like', `%${val}%`)
-            .orWhere('b.created_at', 'like', `%${val}%`)
-            .orWhere('b.updated_at', 'like', `%${val}%`),
-        );
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(b.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'tujuankapal_text') {
+              qb.orWhere(`p1.nama`, 'like', `%${sanitizedValue}%`);
+            } else if (field === 'emkl_text') {
+              qb.orWhere(`p2.nama`, 'like', `%${sanitizedValue}%`);
+            } else if (field === 'container_text') {
+              qb.orWhere(`p3.nama`, 'like', `%${sanitizedValue}%`);
+            } else if (field === 'jenisorderan_text') {
+              qb.orWhere(`p4.nama`, 'like', `%${sanitizedValue}%`);
+            } else {
+              qb.orWhere(`b.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
+        });
       }
 
       if (filters) {
@@ -200,8 +218,6 @@ export class HargatruckingService {
             ]);
           } else if (key === 'memo') {
             query.andWhere('p.memo', 'like', `%${val}%`);
-          } else if (key === 'text') {
-            query.andWhere('p.text', 'like', `%${val}%`);
           } else if (key === 'tujuankapal_text') {
             query.andWhere('p1.nama', 'like', `%${val}%`);
           } else if (key === 'emkl_text') {

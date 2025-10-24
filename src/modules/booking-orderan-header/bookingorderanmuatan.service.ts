@@ -101,21 +101,22 @@ export class BookingOrderanMuatanService {
         'TRADO LUAR': tradoluar,
         'PISAH BL': pisahbl,
         'JOB PTD': jobptd,
-        'TRANSIT': transit,
+        TRANSIT: transit,
         'STUFFING DEPO': stuffingdepo,
         'OPEN DOOR': opendoor,
         'BATAL MUAT': batalmuat,
-        'SOC': soc,
+        SOC: soc,
         'PENGURUSAN DOOR EKSPEDISI LAIN': pengurusandoorekspedisilain,
       };
 
-      const createDataStatusPendukung = await this.statuspendukungService.create(
-        this.tableName,
-        newItem.id,
-        newItem.modifiedby,
-        trx,
-        dataPendukungMuatan,
-      );
+      const createDataStatusPendukung =
+        await this.statuspendukungService.create(
+          this.tableName,
+          newItem.id,
+          newItem.modifiedby,
+          trx,
+          dataPendukungMuatan,
+        );
 
       await this.logTrailService.create(
         {
@@ -506,25 +507,45 @@ export class BookingOrderanMuatanService {
         } else if (sort?.sortBy === 'daftarbl_text') {
           query.orderBy('daftarbl.nama', sort.sortDirection);
         } else if (sort?.sortBy === 'statustradoluar') {
-          query.orderByRaw(`JSON_VALUE([pivot].tradoluar_memo, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE([pivot].tradoluar_memo, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statuspisahbl') {
-          query.orderByRaw(`JSON_VALUE([pivot].pisahbl_memo, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE([pivot].pisahbl_memo, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statusjobptd') {
-          query.orderByRaw(`JSON_VALUE([pivot].jobptd_memo, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE([pivot].jobptd_memo, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statustransit') {
-          query.orderByRaw(`JSON_VALUE([pivot].transit_memo, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE([pivot].transit_memo, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statusstuffingdepo') {
-          query.orderByRaw(`JSON_VALUE([pivot].stuffingdepo_memo, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE([pivot].stuffingdepo_memo, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statusopendoor') {
-          query.orderByRaw(`JSON_VALUE([pivot].opendoor_memo, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE([pivot].opendoor_memo, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statusbatalmuat') {
-          query.orderByRaw(`JSON_VALUE([pivot].batalmuat_memo, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE([pivot].batalmuat_memo, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statussoc') {
-          query.orderByRaw(`JSON_VALUE([pivot].soc_memo, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE([pivot].soc_memo, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statuspengurusandoor') {
-          query.orderByRaw(`JSON_VALUE([pivot].pengurusandoor_memo, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE([pivot].pengurusandoor_memo, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statusapproval') {
-          query.orderByRaw(`JSON_VALUE([pivot].approval_memo, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE([pivot].approval_memo, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }
@@ -875,7 +896,9 @@ export class BookingOrderanMuatanService {
       // EDIT DATA PENDUKUNG BOOKING ORDERAN MUATAN
       const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
       const getDataPendukungApproval = await trx('parameter')
-        .select(trx.raw(`JSON_VALUE(${memoExpr}, '$."NILAI TIDAK"') AS nilai_tidak`))
+        .select(
+          trx.raw(`JSON_VALUE(${memoExpr}, '$."NILAI TIDAK"') AS nilai_tidak`),
+        )
         .where('grp', 'DATA PENDUKUNG')
         .where('subgrp', this.tableName)
         .where('text', 'APPROVAL TRANSAKSI')
@@ -884,13 +907,13 @@ export class BookingOrderanMuatanService {
         'TRADO LUAR': tradoluar,
         'PISAH BL': pisahbl,
         'JOB PTD': jobptd,
-        'TRANSIT': transit,
+        TRANSIT: transit,
         'STUFFING DEPO': stuffingdepo,
         'OPEN DOOR': opendoor,
         'BATAL MUAT': batalmuat,
-        'SOC': soc,
+        SOC: soc,
         'PENGURUSAN DOOR EKSPEDISI LAIN': pengurusandoorekspedisilain,
-        'APPROVAL TRANSAKSI': getDataPendukungApproval.nilai_tidak
+        'APPROVAL TRANSAKSI': getDataPendukungApproval.nilai_tidak,
       };
 
       const updateStatusPendukung = await this.statuspendukungService.update(
@@ -1062,17 +1085,26 @@ export class BookingOrderanMuatanService {
   async checkValidasi(aksi: string, value: any, editedby: any, trx: any) {
     try {
       if (aksi === 'EDIT') {
-        const getIdHeader = await trx(this.tableName).select('bookingorderan_id').where('id', value).first();
-        const cekOrderanNoBukti = await trx('bookingorderanheader').select('orderan_nobukti').where('id', getIdHeader.bookingorderan_id).first();
-        
-        if (cekOrderanNoBukti?.orderan_nobukti && cekOrderanNoBukti?.orderan_nobukti !== null) {
+        const getIdHeader = await trx(this.tableName)
+          .select('bookingorderan_id')
+          .where('id', value)
+          .first();
+        const cekOrderanNoBukti = await trx('bookingorderanheader')
+          .select('orderan_nobukti')
+          .where('id', getIdHeader.bookingorderan_id)
+          .first();
+
+        if (
+          cekOrderanNoBukti?.orderan_nobukti &&
+          cekOrderanNoBukti?.orderan_nobukti !== null
+        ) {
           const validasi = await this.globalService.checkUsed(
             'orderanheader',
             'nobukti',
             cekOrderanNoBukti.orderan_nobukti,
             trx,
           );
-          return validasi
+          return validasi;
         } else {
           const forceEdit = await this.locksService.forceEdit(
             this.tableName,
@@ -1083,9 +1115,15 @@ export class BookingOrderanMuatanService {
           return forceEdit;
         }
       } else if (aksi === 'DELETE') {
-        const getIdHeader = await trx(this.tableName).select('bookingorderan_id').where('id', value).first();
-        const cekOrderanNoBukti = await trx('bookingorderanheader').select('orderan_nobukti').where('id', getIdHeader.bookingorderan_id).first();
-        
+        const getIdHeader = await trx(this.tableName)
+          .select('bookingorderan_id')
+          .where('id', value)
+          .first();
+        const cekOrderanNoBukti = await trx('bookingorderanheader')
+          .select('orderan_nobukti')
+          .where('id', getIdHeader.bookingorderan_id)
+          .first();
+
         const validasi = await this.globalService.checkUsed(
           'orderanheader',
           'nobukti',

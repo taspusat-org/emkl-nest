@@ -427,24 +427,34 @@ export class MarketingService {
         if (sort?.sortBy === 'marketinggroup') {
           query.orderBy('tmg.marketinggroup_nama', sort.sortDirection);
         } else if (sort?.sortBy === 'karyawan') {
-          query.orderBy('karyawan.namakaryawan', sort.sortDirection)
+          query.orderBy('karyawan.namakaryawan', sort.sortDirection);
         } else if (sort?.sortBy === 'cabang') {
-          query.orderBy('cabang.nama', sort.sortDirection)
+          query.orderBy('cabang.nama', sort.sortDirection);
         } else if (sort?.sortBy === 'statusaktif') {
           const memoExpr = 'TRY_CONVERT(nvarchar(max), statusaktif.memo)';
-          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statustarget') {
           const memoExpr = 'TRY_CONVERT(nvarchar(max), statustarget.memo)';
-          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statusbagifee') {
           const memoExpr = 'TRY_CONVERT(nvarchar(max), statusbagifee.memo)';
-          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statusfeemanager') {
           const memoExpr = 'TRY_CONVERT(nvarchar(max), statusfeemanager.memo)';
-          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statusprafee') {
           const memoExpr = 'TRY_CONVERT(nvarchar(max), statusprafee.memo)';
-          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }

@@ -94,7 +94,7 @@ export class StatuspendukungService {
     trx: any,
     statuspendukung: any = 0,
   ) {
-    let payload
+    let payload;
     const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
 
     try {
@@ -115,9 +115,12 @@ export class StatuspendukungService {
       if (getDataRequest && getDataRequest.length > 0) {
         for (const [index, item] of getDataRequest.entries()) {
           const value = statuspendukung?.[item.text] ?? item.nilai_tidak;
-          const getExistingData = await trx(this.tableName).where('statusdatapendukung', item.id).where('transaksi_id', id).first();          
-          
-          payload =  {
+          const getExistingData = await trx(this.tableName)
+            .where('statusdatapendukung', item.id)
+            .where('transaksi_id', id)
+            .first();
+
+          payload = {
             statusdatapendukung: item.id,
             transaksi_id: id,
             statuspendukung: value,
@@ -127,17 +130,21 @@ export class StatuspendukungService {
             created_at: this.utilsService.getTime(),
           };
           // console.log('payload', payload);
-          
-          const hasChanges = this.utilsService.hasChanges(payload, getExistingData);
+
+          const hasChanges = this.utilsService.hasChanges(
+            payload,
+            getExistingData,
+          );
           // console.log('hasChanges', hasChanges);
-          
+
           if (hasChanges) {
             const updatedData = await trx(this.tableName)
               .where('statusdatapendukung', item.id)
               .where('transaksi_id', id)
-              .update(payload).returning('*');  
-              // console.log('updatedData', updatedData);
-              
+              .update(payload)
+              .returning('*');
+            // console.log('updatedData', updatedData);
+
             await this.logTrailService.create(
               {
                 namatabel: this.tableName,

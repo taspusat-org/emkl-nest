@@ -166,10 +166,8 @@ export class BankService {
           'p.text',
           'p2.text as textbank',
           'p2.memo as statusbank_memo',
-
           'p3.text as textdefault',
           'p3.memo as statusdefault_memo',
-
           'p4.text as formatpenerimaantext',
           'p5.text as formatpengeluarantext',
           'p6.text as formatpenerimaangantungtext',
@@ -239,29 +237,69 @@ export class BankService {
           'p10.id',
         );
 
-      if (search) {
-        const val = String(search).replace(/\[/g, '[[]');
+      const excludeSearchKeys = [
+        'statusbank',
+        'statusaktif',
+        'statusdefault',
+        'formatpenerimaan',
+        'formatpengeluaran',
+        'formatpenerimaangantung',
+        'formatpengeluarangantung',
+        'formatpencairan',
+        'formatrekappenerimaan',
+        'formatrekappengeluaran',
+        'coa',
+        'coagantung',
+      ];
 
-        if (val) {
-          query.where((builder) =>
-            builder
-              .orWhere('b.nama', 'like', `%${val}%`)
-              .orWhere('b.keterangan', 'like', `%${val}%`)
-              .orWhere('a.keterangancoa', 'like', `%${val}%`)
-              .orWhere('a2.keterangancoa', 'like', `%${val}%`)
-              .orWhere('p.memo', 'like', `%${val}%`)
-              .orWhere('p.text', 'like', `%${val}%`)
-              .orWhere('p2.text', 'like', `%${val}%`)
-              .orWhere('p3.text', 'like', `%${val}%`)
-              .orWhere('p4.text', 'like', `%${val}%`)
-              .orWhere('p5.text', 'like', `%${val}%`)
-              .orWhere('p6.text', 'like', `%${val}%`)
-              .orWhere('p7.text', 'like', `%${val}%`)
-              .orWhere('p8.text', 'like', `%${val}%`)
-              .orWhere('p9.text', 'like', `%${val}%`)
-              .orWhere('p10.text', 'like', `%${val}%`),
-          );
-        }
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(b.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'keterangancoa') {
+              qb.orWhere('a.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'keterangancoagantung') {
+              qb.orWhere('a2.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'memo' || field === 'text') {
+              qb.orWhere(`p.${field}`, 'like', `%${sanitizedValue}%`);
+            } else if (field === 'textbank' || field === 'statusbank_memo') {
+              const col = field === 'textbank' ? 'text' : 'memo';
+              qb.orWhere(`p2.${col}`, 'like', `%${sanitizedValue}%`);
+            } else if (
+              field === 'textdefault' ||
+              field === 'statusdefault_memo'
+            ) {
+              const col = field === 'textdefault' ? 'text' : 'memo';
+              qb.orWhere(`p3.${col}`, 'like', `%${sanitizedValue}%`);
+            } else if (field === 'formatpenerimaantext') {
+              qb.orWhere('p4.text', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'formatpengeluarantext') {
+              qb.orWhere('p5.text', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'formatpenerimaangantungtext') {
+              qb.orWhere('p6.text', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'formatpengeluarangantungtext') {
+              qb.orWhere('p7.text', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'formatpencairantext') {
+              qb.orWhere('p8.text', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'formatrekappenerimaantext') {
+              qb.orWhere('p9.text', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'formatrekappengeluarantext') {
+              qb.orWhere('p10.text', 'like', `%${sanitizedValue}%`);
+            } else {
+              qb.orWhere(`b.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
+        });
       }
 
       // filter berdasarkan key yang valid

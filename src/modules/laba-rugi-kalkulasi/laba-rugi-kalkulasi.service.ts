@@ -205,12 +205,16 @@ export class LabaRugiKalkulasiService {
             sort.sortBy,
             sort.sortBy,
           ]);
-        } else if (sort?.sortBy === 'statusfinalkomisi'){
+        } else if (sort?.sortBy === 'statusfinalkomisi') {
           const memoExpr = 'TRY_CONVERT(nvarchar(max), p.memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
-          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
-        } else if (sort?.sortBy === 'statusfinalbonus'){
+          query.orderByRaw(
+            `JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`,
+          );
+        } else if (sort?.sortBy === 'statusfinalbonus') {
           const memoExpr = 'TRY_CONVERT(nvarchar(max), q.memo)';
-          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }

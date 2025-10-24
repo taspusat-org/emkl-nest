@@ -275,8 +275,8 @@ export class MarketingprosesfeeService {
         query.where((builder) => {
           builder
             .orWhere('p.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('q.nama', 'like', `%${sanitizedValue}%`)
-            // .orWhere('statuspotong.text', 'like', `%${sanitizedValue}%`);
+            .orWhere('q.nama', 'like', `%${sanitizedValue}%`);
+          // .orWhere('statuspotong.text', 'like', `%${sanitizedValue}%`);
           // .orWhere('statusaktif.text', 'like', `%${sanitizedValue}%`)
         });
       }
@@ -307,10 +307,14 @@ export class MarketingprosesfeeService {
           query.orderBy('q.nama', sort.sortDirection);
         } else if (sort?.sortBy === 'statuspotongbiayakantor_nama') {
           const memoExpr = 'TRY_CONVERT(nvarchar(max), statuspotong.memo)';
-          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else if (sort?.sortBy === 'statusaktif') {
           const memoExpr = 'TRY_CONVERT(nvarchar(max), statusaktif.memo)';
-          query.orderByRaw(`JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`);
+          query.orderByRaw(
+            `JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`,
+          );
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }

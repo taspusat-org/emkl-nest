@@ -328,7 +328,7 @@ export class HutangheaderService {
           tglSampaiFormatted,
         ]);
       }
-      const excludeSearchKeys = ['tglDari', 'tglSampai'];
+      const excludeSearchKeys = ['tglDari', 'tglSampai', 'relasi_id', 'coa'];
       if (limit > 0) {
         const offset = (page - 1) * limit;
         query.limit(limit).offset(offset);
@@ -336,17 +336,28 @@ export class HutangheaderService {
       const searchFields = Object.keys(filters || {}).filter(
         (k) => !excludeSearchKeys.includes(k) && filters![k],
       );
-      if (search) {
-        const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
-        query.andWhere((qb) => {
+      if (search) {
+        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
           searchFields.forEach((field) => {
-            if (field === 'relasi_text') {
-              qb.orWhere('r.nama', 'like', `%${sanitized}%`);
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (['tglbukti', 'tgljatuhtempo'].includes(field)) {
+              qb.orWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'relasi_text') {
+              qb.orWhere('r.nama', 'like', `%${sanitizedValue}%`);
             } else if (field === 'coa_text') {
-              qb.orWhere('a.keterangancoa', 'like', `%${sanitized}%`);
+              qb.orWhere('a.keterangancoa', 'like', `%${sanitizedValue}%`);
             } else {
-              qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+              qb.orWhere(`u.${field}`, 'like', `%${sanitizedValue}%`);
             }
           });
         });

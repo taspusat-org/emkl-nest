@@ -153,14 +153,24 @@ export class DaftarBankService {
         query.limit(limit).offset(offset);
       }
 
+      const excludeSearchKeys = ['statusaktif'];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('daftarbank.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('daftarbank.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('par.memo', 'like', `%${sanitizedValue}%`)
-            .orWhere('par.text', 'like', `%${sanitizedValue}%`);
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw(
+                "FORMAT(daftarbank.??, 'dd-MM-yyyy HH:mm:ss') like ?",
+                [field, `%${sanitizedValue}%`],
+              );
+            } else {
+              qb.orWhere(`daftarbank.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
         });
       }
 

@@ -245,16 +245,33 @@ export class HutangdetailService {
         )
         .orderBy('p.created_at', 'desc');
 
+      const excludeSearchKeys = ['hutang_id', 'coa'];
+
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('p.nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.nominal', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.noinvoiceemkl', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.nofakturpajakemkl', 'like', `%${sanitizedValue}%`)
-            .orWhere('q.keterangancoa', 'like', `%${sanitizedValue}%`);
+        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(p.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'tglinvoiceemkl') {
+              qb.orWhereRaw(
+                "FORMAT(TRY_CONVERT(datetime, p.tglinvoiceemkl), 'dd-MM-yyyy') like ?",
+                [`%${sanitizedValue}%`],
+              );
+            } else if (field === 'coa_text') {
+              qb.orWhere('q.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else {
+              qb.orWhere(`p.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
         });
       }
 

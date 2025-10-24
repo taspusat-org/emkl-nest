@@ -155,21 +155,30 @@ export class JenisOrderanService {
         query.limit(limit).offset(offset);
       }
 
+      const excludeSearchKeys = ['statusformat', 'statusaktif'];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('jenisorderan.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('jenisorderan.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('format.text', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw(
-              "FORMAT(jenisorderan.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?",
-              [`%${sanitizedValue}%`],
-            )
-            .orWhereRaw(
-              "FORMAT(jenisorderan.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?",
-              [`%${sanitizedValue}%`],
-            );
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw(
+                "FORMAT(jenisorderan.??, 'dd-MM-yyyy HH:mm:ss') like ?",
+                [field, `%${sanitizedValue}%`],
+              );
+            } else if (field === 'format_nama') {
+              qb.orWhere(`format.text`, 'like', `%${sanitizedValue}%`);
+            } else {
+              qb.orWhere(
+                `jenisorderan.${field}`,
+                'like',
+                `%${sanitizedValue}%`,
+              );
+            }
+          });
         });
       }
 
@@ -184,7 +193,7 @@ export class JenisOrderanService {
               );
             } else if (key === 'text' || key === 'memo') {
               query.andWhere(`par.${key}`, '=', sanitizedValue);
-            } else if (key === 'format_text') {
+            } else if (key === 'format_nama') {
               query.andWhere(`format.text`, 'like', `%${sanitizedValue}%`);
             } else {
               query.andWhere(
