@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CreateHutangdetailDto } from './dto/create-hutangdetail.dto';
 import { UpdateHutangdetailDto } from './dto/update-hutangdetail.dto';
-import { UtilsService } from 'src/utils/utils.service';
+import { UtilsService, tandatanya } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 
@@ -206,6 +206,35 @@ export class HutangdetailService {
   }
 
   async findAll({ search, filters, sort }: FindAllParams, trx: any) {
+    if (!filters?.nobukti) {
+      return {
+        data: [],
+      };
+    }
+    const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
+
+    await trx.schema.createTable(tempUrl, (t) => {
+      t.integer('id').nullable();
+      t.string('nobukti').nullable();
+      t.text('link').nullable();
+    });
+    const url = 'hutang';
+    await trx(tempUrl).insert(
+      trx
+        .select(
+          'u.id',
+          'u.nobukti',
+          trx.raw(`
+                    STRING_AGG(
+                      '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'nobukti=' + u.nobukti + '">' +
+                      '<HighlightWrapper value="' + u.nobukti + '" />' +
+                      '</a>', ','
+                    ) AS link
+                  `),
+        )
+        .from(this.tableName + ' as u')
+        .groupBy('u.id', 'u.nobukti'),
+    );
     try {
       if (!filters?.nobukti) {
         return {
@@ -237,7 +266,9 @@ export class HutangdetailService {
           'p.modifiedby',
           trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+          'tempUrl.link',
         )
+        .innerJoin(trx.raw(`${tempUrl} as tempUrl`), 'p.id', 'tempUrl.id')
         .leftJoin(
           trx.raw('akunpusat as q WITH (READUNCOMMITTED)'),
           'p.coa',
