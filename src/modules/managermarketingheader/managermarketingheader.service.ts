@@ -39,9 +39,14 @@ export class ManagermarketingheaderService {
         text,
         statusmentor_text,
         statusleader_text,
+        created_at,
+        updated_at,
         details,
         ...insertData
       } = data;
+
+      insertData.created_at = created_at || this.utilsService.getTime();
+      insertData.updated_at = updated_at || this.utilsService.getTime();
 
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
