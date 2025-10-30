@@ -11,7 +11,10 @@ export class RunningNumberService {
     month: number,
     type: string,
     statusformat: string,
+    field? : string
   ) {
+    const fixField = field ? field : 'nobukti'
+    
     // Code for fetching the last number based on the date range
     if (type === 'RESET BULAN') {
       const startDate = new Date(year, month - 1, 1);
@@ -27,10 +30,10 @@ export class RunningNumberService {
       const endDateStr = formatDate(endDate);
 
       const rows = await trx(table)
-        .select('nobukti')
+        .select(`${fixField} as nobukti`)
         .where('tglbukti', '>=', startDateStr)
         .andWhere('tglbukti', '<', endDateStr)
-        .orderBy('nobukti', 'asc');
+        .orderBy(fixField, 'asc');
 
       return rows;
     }
@@ -44,14 +47,15 @@ export class RunningNumberService {
         .forUpdate()
         .where('tglbukti', '>=', startDate)
         .andWhere('tglbukti', '<', endDate)
-        .orderBy('nobukti', 'desc')
+        // .orderBy('nobukti', 'desc')
+        .orderBy(fixField, 'desc')
         .first();
     }
 
     return trx(table)
       .forUpdate()
-      .select('nobukti')
-      .orderBy('nobukti', 'desc')
+      .select(`${fixField} nobukti`)
+      .orderBy(fixField, 'desc')
       .first();
   }
 
@@ -95,6 +99,8 @@ export class RunningNumberService {
     tujuan?: string | null,
     jenisbiaya?: string | null,
     marketing?: string | null,
+    pelayaran?: string | null,
+    field?: string
   ): Promise<string> {
     const date = formatDateToSQL(tgl);
     if (!date) {
@@ -135,6 +141,7 @@ export class RunningNumberService {
       month,
       type,
       parameter.id,
+      field,
     );
 
     console.log(lastRowData, 'lastRowData');
@@ -173,12 +180,14 @@ export class RunningNumberService {
     console.log(nextNumber, 'nextNumber');
 
     let cabangData = '';
+    let namaCabang = ''
     if (cabang) {
       const datacabang = await trx('cabang')
-        .select('kodecabang')
+        .select('kodecabang', 'nama')
         .where('id', cabang)
         .first();
       cabangData = datacabang.kodecabang;
+      namaCabang = datacabang.nama
     }
 
     let tujuanData = '';
@@ -197,6 +206,15 @@ export class RunningNumberService {
         .where('id', marketing)
         .first();
       marketingData = datamarketing.kode;
+    }
+    
+    let namaPelayaran = ''
+    if (pelayaran) {
+      const dataPelayaran = await trx('pelayaran')
+        .select('nama')
+        .where('id', pelayaran)
+        .first();
+      namaPelayaran = dataPelayaran.nama
     }
 
     // Hitung digit '9' yang ada di format (bisa #9#, #99#, #999#, #9999#, atau 9# tanpa # di awal)
@@ -220,6 +238,8 @@ export class RunningNumberService {
       y: year.toString().slice(-2),
       Y: year.toString(),
       C: cabangData || '',
+      NC: namaCabang || '',
+      P: namaPelayaran || ''
     };
 
     let runningNumber = this.formatNumber(

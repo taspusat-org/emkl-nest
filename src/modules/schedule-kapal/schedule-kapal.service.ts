@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CreateScheduleKapalDto } from './dto/create-schedule-kapal.dto';
 // import { UpdateScheduleKapalDto } from './dto/update-schedule-kapal.dto';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
@@ -60,8 +60,15 @@ export class ScheduleKapalService {
         newData: newData,
       };
     } catch (error) {
-      throw new Error(
-        `Error creating schedule kapal in service be: ${error.message}`,
+      console.error(
+        'Error process approval creating schedule kapal in service:',
+        error.message,
+      );
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        'Error process approval creating schedule kapal in service',
       );
     }
   }
@@ -125,6 +132,24 @@ export class ScheduleKapalService {
         .leftJoin('asalkapal as e', 'u.asalkapal_id', 'e.id')
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id');
 
+      if (filters?.join) {
+        const tempOrderanMuatan = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
+        await trx.schema.createTable(tempOrderanMuatan, (t) => {
+          t.integer('schedule_id').nullable();
+        });
+
+        await trx(tempOrderanMuatan).insert(
+          trx
+            .select(
+              'a.schedule_id',
+            )
+            .from(`${filters.join} as a`)
+            .groupBy('a.schedule_id')
+        );
+
+        query.innerJoin(`${tempOrderanMuatan}`, 'u.id', `${tempOrderanMuatan}.schedule_id`)
+      }
+
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
         query.where((builder) => {
@@ -156,6 +181,11 @@ export class ScheduleKapalService {
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
+
+          if (key === 'join') {
+            continue; 
+          }
+
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
               query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [

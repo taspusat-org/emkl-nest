@@ -82,6 +82,7 @@ export class ScheduleDetailService {
               pelayaran_id: data.pelayaran_id,
               tglberangkat: data.tglberangkat,
               voyberangkat: data.voyberangkat,
+              tujuankapal_id: data.tujuankapal_id
             },
             pagination: { page: 1, limit: 0 }, // default pagination
           },
@@ -94,6 +95,7 @@ export class ScheduleDetailService {
             pelayaran_id: data.pelayaran_id,
             tglberangkat: data.tglberangkat,
             voyberangkat: data.voyberangkat,
+            tujuankapal_id: data.tujuankapal_id,
             modifiedby: data.modifiedby,
           };
           const insertScheduleKapal = await this.scheduleKapalService.create(

@@ -413,6 +413,12 @@ export class OrderanMuatanService {
               query.andWhere('tujuankapal.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'marketing_text') {
               query.andWhere('marketing.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'schedule_id') {
+              query.andWhere(
+                'schedulekapal.id',
+                '=',
+                sanitizedValue,
+              );
             } else if (key === 'schedule_text') {
               query.andWhere(
                 'schedulekapal.voyberangkat',
@@ -433,6 +439,8 @@ export class OrderanMuatanService {
               );
             } else if (key === 'emkllain_text') {
               query.andWhere('emkl.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'daftarbl_id') {
+              query.andWhere('daftarbl.id', '=', sanitizedValue);
             } else if (key === 'daftarbl_text') {
               query.andWhere('daftarbl.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'tradoluar_text') {
@@ -1043,6 +1051,31 @@ export class OrderanMuatanService {
     } catch (error) {
       console.error('Error di checkValidasi:', error);
       throw new InternalServerErrorException('Failed to check validation');
+    }
+  }
+
+  async processShipping(schedule_id: number, trx: any) {
+    try {
+      const query = trx
+        .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
+        .select([
+          'u.daftarbl_id',
+          trx.raw('MAX(u.emkllain_id) AS emkllain_id'),
+          trx.raw('MAX(u.pelayarancontainer_id) AS pelayarancontainer_id'),
+          trx.raw('MAX(u.tujuankapal_id) AS tujuankapal_id'),
+          trx.raw('MAX(u.id) AS orderan_id'),
+        ])
+        .where('u.schedule_id', schedule_id)
+        .groupBy('u.daftarbl_id')
+
+      const data = await query;
+
+      return {
+        data
+      };
+    } catch (error) {
+      console.error('Error to findAll Orderan Muatan', error);
+      throw new Error(error);
     }
   }
 }
