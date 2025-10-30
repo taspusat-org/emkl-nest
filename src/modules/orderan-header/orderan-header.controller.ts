@@ -269,4 +269,20 @@ export class OrderanHeaderController {
       throw new InternalServerErrorException('Failed to check validation');
     }
   }
+
+  @Get('processshippingmuatan/:schedule_id')
+  @UseGuards(AuthGuard)
+  async prosesShippingOrderanMuatan(@Param('schedule_id') schedule_id) {
+    console.log('schedule_id', schedule_id);
+    const trx = await dbMssql.transaction();
+    try {
+      const forceEdit = await this.orderanMuatanService.processShipping(schedule_id, trx);
+      trx.commit();
+      return forceEdit;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error checking validation:', error);
+      throw new InternalServerErrorException('Failed to check validation');
+    }
+  }
 }
