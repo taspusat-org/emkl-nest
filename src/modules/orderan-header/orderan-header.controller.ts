@@ -276,7 +276,10 @@ export class OrderanHeaderController {
     console.log('schedule_id', schedule_id);
     const trx = await dbMssql.transaction();
     try {
-      const forceEdit = await this.orderanMuatanService.processShipping(schedule_id, trx);
+      const forceEdit = await this.orderanMuatanService.processShipping(
+        schedule_id,
+        trx,
+      );
       trx.commit();
       return forceEdit;
     } catch (error) {

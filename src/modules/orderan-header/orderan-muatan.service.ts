@@ -414,11 +414,7 @@ export class OrderanMuatanService {
             } else if (key === 'marketing_text') {
               query.andWhere('marketing.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'schedule_id') {
-              query.andWhere(
-                'schedulekapal.id',
-                '=',
-                sanitizedValue,
-              );
+              query.andWhere('schedulekapal.id', '=', sanitizedValue);
             } else if (key === 'schedule_text') {
               query.andWhere(
                 'schedulekapal.voyberangkat',
@@ -1066,12 +1062,12 @@ export class OrderanMuatanService {
           trx.raw('MAX(u.id) AS orderan_id'),
         ])
         .where('u.schedule_id', schedule_id)
-        .groupBy('u.daftarbl_id')
+        .groupBy('u.daftarbl_id');
 
       const data = await query;
 
       return {
-        data
+        data,
       };
     } catch (error) {
       console.error('Error to findAll Orderan Muatan', error);

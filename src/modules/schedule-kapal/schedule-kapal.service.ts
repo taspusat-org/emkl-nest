@@ -1,4 +1,9 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateScheduleKapalDto } from './dto/create-schedule-kapal.dto';
 // import { UpdateScheduleKapalDto } from './dto/update-schedule-kapal.dto';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
@@ -140,14 +145,16 @@ export class ScheduleKapalService {
 
         await trx(tempOrderanMuatan).insert(
           trx
-            .select(
-              'a.schedule_id',
-            )
+            .select('a.schedule_id')
             .from(`${filters.join} as a`)
-            .groupBy('a.schedule_id')
+            .groupBy('a.schedule_id'),
         );
 
-        query.innerJoin(`${tempOrderanMuatan}`, 'u.id', `${tempOrderanMuatan}.schedule_id`)
+        query.innerJoin(
+          `${tempOrderanMuatan}`,
+          'u.id',
+          `${tempOrderanMuatan}.schedule_id`,
+        );
       }
 
       if (search) {
@@ -183,7 +190,7 @@ export class ScheduleKapalService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
           if (key === 'join') {
-            continue; 
+            continue;
           }
 
           if (value) {
