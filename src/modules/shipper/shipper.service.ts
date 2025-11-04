@@ -46,6 +46,10 @@ export class ShipperService {
       } = createShipperDto;
       insertData.updated_at = this.utilsService.getTime();
       insertData.created_at = this.utilsService.getTime();
+      insertData.tglemailshipperjobminus = formatDateToSQL(
+        String(insertData?.tglemailshipperjobminus),
+      );
+      insertData.tgllahir = formatDateToSQL(String(insertData?.tgllahir));
 
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
@@ -85,6 +89,13 @@ export class ShipperService {
         .where('id', newItem.id)
         .returning('*');
 
+      await this.statuspendukungService.create(
+        this.tableName,
+        newItem.id,
+        insertData.modifiedby,
+        trx,
+      );
+
       const { data, pagination } = await this.findAll(
         {
           search,
@@ -105,13 +116,6 @@ export class ShipperService {
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(data),
-      );
-
-      await this.statuspendukungService.create(
-        this.tableName,
-        newItem.id,
-        data.modifiedby,
-        trx,
       );
 
       await this.logTrailService.create(
@@ -557,7 +561,7 @@ export class ShipperService {
           's.marketing_id',
           'm.id',
         )
-        .innerJoin(`${dataTempStatusPendukung} as pvt`, 's.id', 'pvt.id');
+        .leftJoin(`${dataTempStatusPendukung} as pvt`, 's.id', 'pvt.id');
 
       const pvtCols = [
         'statustidakasuransi',
