@@ -181,6 +181,12 @@ export class AkunpusatService {
               key,
               `%${sanitizedValue}%`,
             ]);
+          } else if (key === 'type_nama') {
+            query.andWhere(`t.nama`, 'like', `%${sanitizedValue}%`);
+          } else if (key === 'statusaktif_nama') {
+            query.andWhere(`p.text`, 'like', `%${sanitizedValue}%`);
+          } else if (key === 'cabang_nama') {
+            query.andWhere(`c.nama`, 'like', `%${sanitizedValue}%`);
           } else {
             query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
           }

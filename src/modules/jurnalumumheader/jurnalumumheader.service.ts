@@ -329,7 +329,7 @@ export class JurnalumumheaderService {
         query.limit(limit).offset(offset);
       }
       const searchFields = Object.keys(filters || {}).filter(
-        (k) => !excludeSearchKeys.includes(k) && filters![k],
+        (k) => !excludeSearchKeys.includes(k),
       );
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();

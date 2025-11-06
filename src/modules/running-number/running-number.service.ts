@@ -11,11 +11,10 @@ export class RunningNumberService {
     month: number,
     type: string,
     statusformat: string,
-    field?: string,
+    field?: string | null,
   ) {
     const fixField = field ? field : 'nobukti';
 
-    // Code for fetching the last number based on the date range
     if (type === 'RESET BULAN') {
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 1);
@@ -38,27 +37,26 @@ export class RunningNumberService {
       return rows;
     }
 
-    // Reset Year logic
     if (type === 'RESET TAHUN') {
       const startDate = `${year}-01-01`;
       const endDate = `${year + 1}-01-01`;
 
-      return (
-        trx(table)
-          .forUpdate()
-          .where('tglbukti', '>=', startDate)
-          .andWhere('tglbukti', '<', endDate)
-          // .orderBy('nobukti', 'desc')
-          .orderBy(fixField, 'desc')
-          .first()
-      );
+      const rows = await trx(table)
+        .forUpdate()
+        .select(`${fixField} as nobukti`)
+        .where('tglbukti', '>=', startDate)
+        .andWhere('tglbukti', '<', endDate)
+        .orderBy(fixField, 'asc');
+
+      return rows;
     }
 
-    return trx(table)
+    const rows = await trx(table)
       .forUpdate()
-      .select(`${fixField} nobukti`)
-      .orderBy(fixField, 'desc')
-      .first();
+      .select(`${fixField} as nobukti`)
+      .orderBy(fixField, 'asc');
+
+    return rows;
   }
 
   async saveRunningNumber(
@@ -68,27 +66,77 @@ export class RunningNumberService {
     return dbMssql(table).insert(data);
   }
 
-  // Fungsi untuk mengekstrak prefix dari format
   extractPrefixFromFormat(format: string): string {
-    // Ekstrak bagian sebelum #9999# atau placeholder angka lainnya
-    // Misal: "PPL #9999#/R/Y" -> "PPL"
-    // Misal: "PUT #9999#/R/Y" -> "PUT"
-
-    // Coba ekstrak text sebelum #
     let match = format.match(/^([A-Z]+)\s*#/);
     if (match) {
       return match[1].trim();
     }
 
-    // Jika tidak ada #, coba ekstrak text sebelum angka
     match = format.match(/^([A-Z]+)\s*\d/);
     if (match) {
       return match[1].trim();
     }
 
-    // Jika tidak ada angka, ambil semua huruf kapital di awal
     match = format.match(/^([A-Z]+)/);
     return match ? match[1].trim() : '';
+  }
+
+  createPatternForMatching(
+    format: string,
+    placeholders: { [key: string]: any },
+  ): string {
+    let pattern = format;
+
+    // Replace pola angka dengan capture group
+    pattern = pattern.replace(/#(9+)#/g, '(\\d+)');
+    pattern = pattern.replace(/^(9+)#/g, '(\\d+)');
+
+    console.log('Pattern after number replacement:', pattern);
+
+    // Replace semua placeholder - support both #KEY# and #KEY
+    // Definisikan urutan eksplisit untuk menghindari konflik (terpanjang dulu)
+    const keysOrder = ['NC', 'R', 'T', 'P', 'M', 'Y', 'y', 'C'];
+
+    for (const key of keysOrder) {
+      if (placeholders[key] !== undefined) {
+        const value = placeholders[key];
+        const escapedValue = this.escapeRegex(value.toString());
+
+        // Coba replace format #KEY# dulu
+        const placeholderPatternFull = `#${key}#`;
+        if (pattern.includes(placeholderPatternFull)) {
+          pattern = pattern.split(placeholderPatternFull).join(escapedValue);
+          console.log(
+            `Replaced ${placeholderPatternFull} with "${value}", pattern now: ${pattern}`,
+          );
+          continue;
+        }
+
+        // Kalau tidak ada, coba format #KEY (tanpa # di akhir)
+        // PENTING: Pastikan setelah KEY bukan huruf (gunakan regex dengan lookahead)
+        const placeholderPatternShort = `#${key}`;
+        const regexShort = new RegExp(`#${key}(?![A-Z])`, 'g');
+        if (regexShort.test(pattern)) {
+          pattern = pattern.replace(regexShort, escapedValue);
+          console.log(
+            `Replaced ${placeholderPatternShort} with "${value}", pattern now: ${pattern}`,
+          );
+        }
+      }
+    }
+
+    console.log('Pattern before removing #:', pattern);
+
+    // Hapus semua tanda '#' yang tersisa
+    pattern = pattern.replace(/#/g, '');
+
+    console.log('Final pattern:', pattern);
+
+    return pattern;
+  }
+
+  escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   async generateRunningNumber(
@@ -102,7 +150,7 @@ export class RunningNumberService {
     jenisbiaya?: string | null,
     marketing?: string | null,
     pelayaran?: string | null,
-    field?: string,
+    field?: string | null,
   ): Promise<string> {
     const date = formatDateToSQL(tgl);
     if (!date) {
@@ -132,54 +180,6 @@ export class RunningNumberService {
 
     const format = parameter.text;
     const type = typeformat.text || '';
-
-    // Ekstrak prefix dari format (misal: "PPL", "EPL", "PEL")
-    const formatPrefix = this.extractPrefixFromFormat(format);
-
-    const lastRowData = await this.getLastNumber(
-      trx,
-      table,
-      year,
-      month,
-      type,
-      parameter.id,
-      field,
-    );
-
-    console.log(lastRowData, 'lastRowData');
-    console.log(format, 'format');
-    console.log(formatPrefix, 'formatPrefix');
-
-    // Filter hanya nobukti yang memiliki prefix yang sama
-    const filteredRows = formatPrefix
-      ? lastRowData.filter((row) => row.nobukti.startsWith(formatPrefix))
-      : [];
-
-    console.log(filteredRows, 'filteredRows with matching prefix');
-
-    const usedNumbers = filteredRows
-      .map((row) => {
-        const match = row.nobukti.match(/(\d+)(?=\/)/);
-        return match ? parseInt(match[0], 10) : null;
-      })
-      .filter((num) => num !== null);
-
-    console.log(usedNumbers, 'usedNumbers from filtered rows');
-
-    let nextNumber = 1;
-
-    if (usedNumbers.length > 0) {
-      usedNumbers.sort((a, b) => a - b);
-
-      for (let i = 0; i < usedNumbers.length; i++) {
-        if (usedNumbers[i] !== nextNumber) {
-          break;
-        }
-        nextNumber++;
-      }
-    }
-
-    console.log(nextNumber, 'nextNumber');
 
     let cabangData = '';
     let namaCabang = '';
@@ -219,20 +219,6 @@ export class RunningNumberService {
       namaPelayaran = dataPelayaran.nama;
     }
 
-    // Hitung digit '9' yang ada di format (bisa #9#, #99#, #999#, #9999#, atau 9# tanpa # di awal)
-    const digitMatch = format.match(/#?(9+)#/);
-    let digitCount = 0;
-    if (digitMatch) {
-      digitCount = digitMatch[1].length; // Ambil panjang dari '9' yang ditemukan
-    }
-
-    // Buat string angka dengan padding sesuai digitCount
-    let nextNumberString = nextNumber.toString();
-    if (digitCount > 0) {
-      nextNumberString = nextNumberString.padStart(digitCount, '0');
-    }
-
-    // Update placeholders dengan angka yang sudah dipadding
     const placeholders = {
       R: this.numberToRoman(month),
       M: marketingData,
@@ -244,6 +230,76 @@ export class RunningNumberService {
       P: namaPelayaran || '',
     };
 
+    console.log('Placeholders:', placeholders);
+
+    // Buat pattern untuk matching
+    const pattern = this.createPatternForMatching(format, placeholders);
+    console.log('Pattern for matching:', pattern);
+
+    const lastRowData = await this.getLastNumber(
+      trx,
+      table,
+      year,
+      month,
+      type,
+      parameter.id,
+      field,
+    );
+
+    console.log('lastRowData:', lastRowData);
+    console.log('format:', format);
+
+    // Filter nobukti berdasarkan pattern
+    const regex = new RegExp(`^${pattern}$`);
+    const filteredRows = lastRowData.filter((row) => {
+      const isMatch = regex.test(row.nobukti);
+      console.log(`Testing: ${row.nobukti} against pattern = ${isMatch}`);
+      return isMatch;
+    });
+
+    console.log('filteredRows:', filteredRows);
+
+    // Ekstrak angka dari nobukti yang match
+    const usedNumbers = filteredRows
+      .map((row) => {
+        const match = row.nobukti.match(regex);
+        if (match && match[1]) {
+          const num = parseInt(match[1], 10);
+          console.log(`Extracted number from ${row.nobukti}: ${num}`);
+          return num;
+        }
+        return null;
+      })
+      .filter((num) => num !== null);
+
+    console.log('usedNumbers:', usedNumbers);
+
+    // Cari nomor terkecil yang belum dipakai
+    let nextNumber = 1;
+    if (usedNumbers.length > 0) {
+      usedNumbers.sort((a, b) => a - b);
+      for (let i = 0; i < usedNumbers.length; i++) {
+        if (usedNumbers[i] !== nextNumber) {
+          break;
+        }
+        nextNumber++;
+      }
+    }
+
+    console.log('nextNumber:', nextNumber);
+
+    // Hitung digit dari format
+    const digitMatch = format.match(/#?(9+)#/);
+    let digitCount = 0;
+    if (digitMatch) {
+      digitCount = digitMatch[1].length;
+    }
+
+    let nextNumberString = nextNumber.toString();
+    if (digitCount > 0) {
+      nextNumberString = nextNumberString.padStart(digitCount, '0');
+    }
+
     let runningNumber = this.formatNumber(
       format,
       placeholders,
@@ -252,7 +308,10 @@ export class RunningNumberService {
 
     // Loop cek keunikan nomor
     let isUnique = false;
-    while (!isUnique) {
+    let attempts = 0;
+    const maxAttempts = 10000;
+
+    while (!isUnique && attempts < maxAttempts) {
       const existingNobukti = await trx(table)
         .where('nobukti', runningNumber)
         .first();
@@ -267,7 +326,14 @@ export class RunningNumberService {
           placeholders,
           nextNumberString,
         );
+        attempts++;
       }
+    }
+
+    if (attempts >= maxAttempts) {
+      throw new Error(
+        'Unable to generate unique running number after maximum attempts',
+      );
     }
 
     return runningNumber;
@@ -280,34 +346,43 @@ export class RunningNumberService {
   ): string {
     let formatted = format;
 
-    // Step 1: Replace semua pola 9 (baik #9#, #99#, #999#, #9999#, atau 9# tanpa # di awal)
-    // Pattern: #9+# atau ^9+# (9 di awal tanpa # sebelumnya)
+    // Replace pola angka
     formatted = formatted.replace(/#(9+)#/g, nextNumberString);
     formatted = formatted.replace(/^(9+)#/g, nextNumberString);
 
-    // Step 2: Replace placeholder yang diapit dengan '#', seperti #R#, #Y#, #M#, #T#, #C#, #y#
-    for (const [placeholder, value] of Object.entries(placeholders)) {
-      const regex = new RegExp(`#${placeholder}#`, 'g');
-      formatted = formatted.replace(regex, value.toString());
-    }
+    // Replace placeholder - urutkan dari terpanjang ke terpendek
+    const keysOrder = ['NC', 'R', 'T', 'P', 'M', 'Y', 'y', 'C'];
 
-    // Step 3: Replace placeholder tanpa tanda '#' (untuk backward compatibility)
-    // Hanya jika belum ada di format dengan #
-    for (const [placeholder, value] of Object.entries(placeholders)) {
-      if (!format.includes(`#${placeholder}#`)) {
-        const escapedPlaceholder = placeholder.replace(
-          /[.*+?^${}()|[\]\\]/g,
-          '\\$&',
-        );
-        const regex = new RegExp(`\\b${escapedPlaceholder}\\b`, 'g');
-        formatted = formatted.replace(regex, value.toString());
+    for (const key of keysOrder) {
+      if (placeholders[key] !== undefined) {
+        const value = placeholders[key];
+
+        // Coba replace format #KEY# dulu
+        const placeholderPatternFull = `#${key}#`;
+        if (formatted.includes(placeholderPatternFull)) {
+          formatted = formatted
+            .split(placeholderPatternFull)
+            .join(value.toString());
+          continue;
+        }
+
+        // Kalau tidak ada, coba format #KEY (tanpa # di akhir)
+        // PENTING: Pastikan setelah KEY bukan huruf (gunakan regex dengan lookahead)
+        const placeholderPatternShort = `#${key}`;
+        const regexShort = new RegExp(`#${key}(?![A-Z])`, 'g');
+        if (regexShort.test(formatted)) {
+          formatted = formatted.replace(regexShort, value.toString());
+        }
       }
     }
 
-    // Step 4: Menghapus semua tanda '#' yang tersisa
+    // REMOVED: Bagian backward compatibility yang menyebabkan bug
+    // Karena sudah ditangani di atas dengan format #KEY# atau #KEY
+
+    // Hapus semua tanda '#' yang tersisa
     formatted = formatted.replace(/#/g, '');
 
-    console.log(formatted, 'formatted');
+    console.log('formatted:', formatted);
     return formatted;
   }
 

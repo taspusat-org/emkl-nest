@@ -16,6 +16,8 @@ export class RunningNumberController {
     @Query('cabang') cabang: string | null,
     @Query('jenisbiaya') jenisbiaya: string | null,
     @Query('marketing') marketing: string | null,
+    @Query('pelayaran') pelayaran: string | null,
+    @Query('field') field: string | null,
   ): Promise<string> {
     const trx = await dbMssql.transaction();
     try {
@@ -23,6 +25,7 @@ export class RunningNumberController {
       console.log('cabang', cabang);
       console.log('jenisbiaya', jenisbiaya);
       console.log('marketing', marketing);
+      console.log('field', field);
       const result = await this.runningNumberService.generateRunningNumber(
         trx, // transaction if you need one
         group,
@@ -33,6 +36,8 @@ export class RunningNumberController {
         tujuan,
         jenisbiaya,
         marketing,
+        pelayaran,
+        field,
       );
       await trx.commit();
       return result;
