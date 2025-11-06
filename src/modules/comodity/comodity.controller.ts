@@ -16,15 +16,15 @@ import {
   InternalServerErrorException,
   Res,
 } from '@nestjs/common';
-import { HargatruckingService } from './hargatrucking.service';
+import { ComodityService } from './comodity.service';
 import {
-  CreateHargatruckingDto,
-  CreateHargatruckingSchema,
-} from './dto/create-hargatrucking.dto';
+  CreateComodityDto,
+  CreateComoditySchema,
+} from './dto/create-comodity.dto';
 import {
-  UpdateHargatruckingDto,
-  UpdateHargatruckingSchema,
-} from './dto/update-hargatrucking.dto';
+  UpdateComodityDto,
+  UpdateComoditySchema,
+} from './dto/update-comodity.dto';
 import {
   FindAllDto,
   FindAllParams,
@@ -39,33 +39,32 @@ import { any } from 'zod';
 import { Response } from 'express';
 import * as fs from 'fs';
 
-@Controller('hargatrucking')
-export class HargatruckingController {
-  constructor(private readonly hargatruckingService: HargatruckingService) {}
+@Controller('comodity')
+export class ComodityController {
+  constructor(private readonly comodityService: ComodityService) {}
 
   @Post()
-  //@HARGA-TRUCKING
+  //@COMODITY
   async create(
     @Body(
-      new ZodValidationPipe(CreateHargatruckingSchema),
+      new ZodValidationPipe(CreateComoditySchema),
       KeyboardOnlyValidationPipe,
     )
-    data: CreateHargatruckingDto,
+    data: CreateComodityDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.hargatruckingService.create(data, trx);
+      const result = await this.comodityService.create(data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating harga trucking in controller', error);
+      console.error('Error while creating comodity in controller', error);
 
-      // Ensure any other errors get caught and returned
       if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
       }
@@ -74,7 +73,7 @@ export class HargatruckingController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to create harga trucking',
+          message: 'Failed to create comodity',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -82,14 +81,14 @@ export class HargatruckingController {
   }
 
   @Get()
-  //@HARGA-TRUCKING
+  //@COMODITY
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
       query;
 
     const sortParams = {
-      sortBy: sortBy || 'emkl_text',
+      sortBy: sortBy || 'keterangan',
       sortDirection: sortDirection || 'asc',
     };
 
@@ -108,7 +107,7 @@ export class HargatruckingController {
     const trx = await dbMssql.transaction();
 
     try {
-      const result = await this.hargatruckingService.findAll(params, trx);
+      const result = await this.comodityService.findAll(params, trx);
       trx.commit();
 
       return result;
@@ -121,24 +120,24 @@ export class HargatruckingController {
 
   @UseGuards(AuthGuard)
   @Put('update/:id')
-  //@HARGA-TRUCKING
+  //@COMODITY
   async update(
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(UpdateHargatruckingSchema))
-    data: UpdateHargatruckingDto,
+    @Body(new ZodValidationPipe(UpdateComoditySchema))
+    data: UpdateComodityDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
-      const result = await this.hargatruckingService.update(+id, data, trx);
+      const result = await this.comodityService.update(+id, data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error updating harga trucking in controller:', error);
+      console.error('Error updating Comodity in controller:', error);
       if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
       }
@@ -156,11 +155,11 @@ export class HargatruckingController {
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  //@HARGA-TRUCKING
+  //@COMODITY
   async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.hargatruckingService.delete(
+      const result = await this.comodityService.delete(
         +id,
         trx,
         req.user?.user?.username,
@@ -174,13 +173,13 @@ export class HargatruckingController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error deleting harga trucking in controller:', error);
+      console.error('Error deleting comodity in controller:', error);
 
       if (error instanceof NotFoundException) {
         throw error;
       }
 
-      throw new InternalServerErrorException('Failed to delete harga trucking');
+      throw new InternalServerErrorException('Failed to delete Comodity');
     }
   }
   @Get('/export')
@@ -192,7 +191,7 @@ export class HargatruckingController {
         throw new Error('Data is not an array or is undefined.');
       }
 
-      const tempFilePath = await this.hargatruckingService.exportToExcel(data);
+      const tempFilePath = await this.comodityService.exportToExcel(data);
 
       const fileStream = fs.createReadStream(tempFilePath);
 
@@ -202,7 +201,7 @@ export class HargatruckingController {
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_harga_trucking.xlsx"',
+        'attachment; filename="laporan_comodity.xlsx"',
       );
 
       fileStream.pipe(res);
