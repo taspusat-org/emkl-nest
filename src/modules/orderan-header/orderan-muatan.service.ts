@@ -310,53 +310,23 @@ export class OrderanMuatanService {
           tglSampaiFormatted,
         ]);
       }
-      console.log('exactMatch', exactMatch);
 
       if (exactMatch) {
-        console.log('MASUK SINI1', exactMatch);
         query.where('u.nobukti', '=', exactMatch);
       }
+
+      const excludeSearchKeys = ['tglDari', 'tglSampai'];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+      console.log('searchFields', searchFields);
       if (search) {
-        console.log('MASUK SINI2');
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('u.nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.nopolisi', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.nosp', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.nocontainer', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.noseal', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.nominalstuffing', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.asalmuatan', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.comodity', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.gandengan', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ])
-            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ])
-            .orWhereRaw("FORMAT(header.tglbukti, 'dd-MM-yyyy') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ])
-            .orWhere('container.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('shipper.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('tujuankapal.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('marketing.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere(
-              'schedulekapal.voyberangkat',
-              'like',
-              `%${sanitizedValue}%`,
-            )
-            .orWhere('pelayaran.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('jenismuatan.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('sandarkapal.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('hargatrucking.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('emkl.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('daftarbl.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('marketing.nama', 'like', `%${sanitizedValue}%`);
+        const sanitized = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+          });
         });
       }
 

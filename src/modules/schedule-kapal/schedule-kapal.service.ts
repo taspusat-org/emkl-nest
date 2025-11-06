@@ -157,31 +157,34 @@ export class ScheduleKapalService {
         );
       }
 
+      const excludeSearchKeys = [
+        'tglDari',
+        'tglSampai',
+        'statusaktif_nama',
+        'statusaktif',
+      ];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('a.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('b.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('c.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('d.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('e.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.voyberangkat', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.tglberangkat', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.tgltiba', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.tglclosing', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.statusberangkatkapal', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.statustibakapal', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.batasmuatankapal', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.text', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ])
-            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ]);
+        const sanitized = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (field === 'jenisorderan_nama') {
+              qb.orWhere(`a.nama`, 'like', `%${sanitized}%`);
+            } else if (field === 'kapal_nama') {
+              qb.orWhere(`b.nama`, 'like', `%${sanitized}%`);
+            } else if (field === 'pelayaran_nama') {
+              qb.orWhere(`c.nama`, 'like', `%${sanitized}%`);
+            } else if (field === 'tujuankapal_nama') {
+              qb.orWhere(`d.nama`, 'like', `%${sanitized}%`);
+            } else if (field === 'asalkapal_nama') {
+              qb.orWhere(`e.keterangan`, 'like', `%${sanitized}%`);
+            } else {
+              qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+            }
+          });
         });
       }
 

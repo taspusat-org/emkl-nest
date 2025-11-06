@@ -109,6 +109,9 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { OrderanHeaderModule } from './modules/orderan-header/orderan-header.module';
 import { ComodityModule } from './modules/comodity/comodity.module';
+import { PackinglistheaderModule } from './modules/packinglistheader/packinglistheader.module';
+import { PackinglistdetailModule } from './modules/packinglistdetail/packinglistdetail.module';
+import { PackinglistdetailrincianModule } from './modules/packinglistdetailrincian/packinglistdetailrincian.module';
 
 @Module({
   imports: [
@@ -221,6 +224,9 @@ import { ComodityModule } from './modules/comodity/comodity.module';
     StatusjobModule,
     OrderanHeaderModule,
     ComodityModule,
+    PackinglistheaderModule,
+    PackinglistdetailModule,
+    PackinglistdetailrincianModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

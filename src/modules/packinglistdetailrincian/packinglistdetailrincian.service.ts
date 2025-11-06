@@ -1,19 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CreateJurnalumumdetailDto } from './dto/create-jurnalumumdetail.dto';
-import { UpdateJurnalumumdetailDto } from './dto/update-jurnalumumdetail.dto';
-import { tandatanya, UtilsService } from 'src/utils/utils.service';
-import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { CreatePackinglistdetailrincianDto } from './dto/create-packinglistdetailrincian.dto';
+import { UpdatePackinglistdetailrincianDto } from './dto/update-packinglistdetailrincian.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
-import { filter } from 'rxjs';
+import { UtilsService } from 'src/utils/utils.service';
+import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 
 @Injectable()
-export class JurnalumumdetailService {
-  private readonly tableName = 'jurnalumumdetail';
+export class PackinglistdetailrincianService {
+  private readonly tableName = 'packinglistdetailrincian';
   constructor(
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
-  private readonly logger = new Logger(JurnalumumdetailService.name);
+  private readonly logger = new Logger(PackinglistdetailrincianService.name);
   async create(details: any, id: any = 0, trx: any = null) {
     let insertedData = null;
     let data: any = null;
@@ -31,7 +30,7 @@ export class JurnalumumdetailService {
     const logData: any[] = [];
     const mainDataToInsert: any[] = [];
     if (details.length === 0) {
-      await trx(this.tableName).delete().where('jurnalumum_id', id);
+      await trx(this.tableName).delete().where('packinglistdetail_id', id);
       return;
     }
     for (data of details) {
@@ -83,7 +82,7 @@ export class JurnalumumdetailService {
     // Ensure each item has an idheader
     const processedData = mainDataToInsert.map((item: any) => ({
       ...item,
-      jurnalumum_id: item.jurnalumum_id ?? id, // Ensure correct field mapping
+      packinglistdetail_id: item.packinglistdetail_id ?? id, // Ensure correct field mapping
     }));
     const jsonString = JSON.stringify(processedData);
 
@@ -101,18 +100,21 @@ export class JurnalumumdetailService {
     // Insert into temp table
     await trx(tempTableName).insert(openJson);
 
-    // **Update or Insert into 'jurnalumumdetail' with correct idheader**
-    const updatedData = await trx('jurnalumumdetail')
-      .join(`${tempTableName}`, 'jurnalumumdetail.id', `${tempTableName}.id`)
+    // **Update or Insert into 'packinglistdetailrincian' with correct idheader**
+    const updatedData = await trx('packinglistdetailrincian')
+      .join(
+        `${tempTableName}`,
+        'packinglistdetailrincian.id',
+        `${tempTableName}.id`,
+      )
       .update({
-        nobukti: trx.raw(`jurnalumumdetail.nobukti`),
-        tglbukti: trx.raw(`jurnalumumdetail.tglbukti`),
-        coa: trx.raw(`jurnalumumdetail.coa`),
+        packinglistdetail_id: trx.raw(`${tempTableName}.packinglistdetail_id`),
+        statuspackinglist_id: trx.raw(`${tempTableName}.statuspackinglist_id`),
         keterangan: trx.raw(`${tempTableName}.keterangan`),
-        nominal: trx.raw(`${tempTableName}.nominal`),
+        berat: trx.raw(`${tempTableName}.berat`),
+        banyak: trx.raw(`${tempTableName}.banyak`),
         info: trx.raw(`${tempTableName}.info`),
         modifiedby: trx.raw(`${tempTableName}.modifiedby`),
-        jurnalumum_id: trx.raw(`${tempTableName}.jurnalumum_id`),
         created_at: trx.raw(`${tempTableName}.created_at`),
         updated_at: trx.raw(`${tempTableName}.updated_at`),
       })
@@ -127,13 +129,13 @@ export class JurnalumumdetailService {
     const insertedDataQuery = await trx(tempTableName)
       .select([
         'nobukti',
-        'tglbukti',
-        'coa',
+        'statuspackinglist_id',
         'keterangan',
-        'nominal',
+        'banyak',
+        'berat',
         'info',
         'modifiedby',
-        trx.raw('? as jurnalumum_id', [id]),
+        trx.raw('? as packinglistdetail_id', [id]),
         'created_at',
         'updated_at',
       ])
@@ -142,24 +144,24 @@ export class JurnalumumdetailService {
     const getDeleted = await trx(this.tableName)
       .leftJoin(
         `${tempTableName}`,
-        'jurnalumumdetail.id',
+        'packinglistdetailrincian.id',
         `${tempTableName}.id`,
       )
       .select(
-        'jurnalumumdetail.id',
-        'jurnalumumdetail.nobukti',
-        'jurnalumumdetail.tglbukti',
-        'jurnalumumdetail.coa',
-        'jurnalumumdetail.keterangan',
-        'jurnalumumdetail.nominal',
-        'jurnalumumdetail.info',
-        'jurnalumumdetail.modifiedby',
-        'jurnalumumdetail.created_at',
-        'jurnalumumdetail.updated_at',
-        'jurnalumumdetail.jurnalumum_id',
+        'packinglistdetailrincian.id',
+        'packinglistdetailrincian.nobukti',
+        'packinglistdetailrincian.statuspackinglist_id',
+        'packinglistdetailrincian.keterangan',
+        'packinglistdetailrincian.banyak',
+        'packinglistdetailrincian.berat',
+        'packinglistdetailrincian.info',
+        'packinglistdetailrincian.modifiedby',
+        'packinglistdetailrincian.packinglistdetail_id',
+        'packinglistdetailrincian.created_at',
+        'packinglistdetailrincian.updated_at',
       )
       .whereNull(`${tempTableName}.id`)
-      .where('jurnalumumdetail.jurnalumum_id', id);
+      .where('packinglistdetailrincian.packinglistdetail_id', id);
 
     let pushToLog: any[] = [];
 
@@ -177,14 +179,14 @@ export class JurnalumumdetailService {
     const deletedData = await trx(this.tableName)
       .leftJoin(
         `${tempTableName}`,
-        'jurnalumumdetail.id',
+        'packinglistdetailrincian.id',
         `${tempTableName}.id`,
       )
       .whereNull(`${tempTableName}.id`)
-      .where('jurnalumumdetail.jurnalumum_id', id)
+      .where('packinglistdetailrincian.packinglistdetail_id', id)
       .del();
     if (insertedDataQuery.length > 0) {
-      insertedData = await trx('jurnalumumdetail')
+      insertedData = await trx('packinglistdetailrincian')
         .insert(insertedDataQuery)
         .returning('*')
         .then((result: any) => result[0])
@@ -197,7 +199,7 @@ export class JurnalumumdetailService {
     await this.logTrailService.create(
       {
         namatabel: this.tableName,
-        postingdari: 'PENGEMBALIAN KAS GANTUNG HEADER',
+        postingdari: 'PACKING LIST DETAIL RINCIAN',
         idtrans: id,
         nobuktitrans: id,
         aksi: 'EDIT',
@@ -216,31 +218,31 @@ export class JurnalumumdetailService {
         data: [],
       };
     }
-    const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
+    // const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
 
-    await trx.schema.createTable(tempUrl, (t) => {
-      t.integer('id').nullable();
-      t.string('nobukti').nullable();
-      t.text('link').nullable();
-    });
-    const url = 'jurnalumumheader';
+    // await trx.schema.createTable(tempUrl, (t) => {
+    //   t.integer('id').nullable();
+    //   t.string('nobukti').nullable();
+    //   t.text('link').nullable();
+    // });
+    // const url = 'jurnalumumheader';
 
-    await trx(tempUrl).insert(
-      trx
-        .select(
-          'u.id',
-          'u.nobukti',
-          trx.raw(`
-            STRING_AGG(
-              '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'nobukti=' + u.nobukti + '">' +
-              '<HighlightWrapper value="' + u.nobukti + '" />' +
-              '</a>', ','
-            ) AS link
-          `),
-        )
-        .from(this.tableName + ' as u')
-        .groupBy('u.id', 'u.nobukti'),
-    );
+    // await trx(tempUrl).insert(
+    //   trx
+    //     .select(
+    //       'u.id',
+    //       'u.nobukti',
+    //       trx.raw(`
+    //         STRING_AGG(
+    //           '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'nobukti=' + u.nobukti + '">' +
+    //           '<HighlightWrapper value="' + u.nobukti + '" />' +
+    //           '</a>', ','
+    //         ) AS link
+    //       `),
+    //     )
+    //     .from(this.tableName + ' as u')
+    //     .groupBy('u.id', 'u.nobukti'),
+    // );
 
     try {
       if (!filters?.nobukti) {
@@ -254,47 +256,24 @@ export class JurnalumumdetailService {
         .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
         .select(
           'p.id',
-          'p.jurnalumum_id',
-          trx.raw("FORMAT(p.tglbukti, 'dd-MM-yyyy') as tglbukti"),
           'p.nobukti',
-          'p.coa',
+          'p.packinglistdetail_id',
+          'p.statuspackinglist_id',
           'p.keterangan',
-          'ap.keterangancoa as coa_nama',
-
-          // Jika nominal < 0 → nominalkredit = ABS(nominal), selain itu 0
-          trx.raw(
-            'CASE WHEN p.nominal < 0 THEN ABS(p.nominal) ELSE 0 END AS nominalkredit',
-          ),
-
-          // Jika nominal > 0 → nominaldebet = nominal, selain itu 0
-          trx.raw(
-            'CASE WHEN p.nominal > 0 THEN p.nominal ELSE 0 END AS nominaldebet',
-          ),
-
-          trx.raw('ABS(p.nominal) AS nominal'),
           'p.info',
           'p.modifiedby',
           trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          'tempUrl.link',
-        )
-        .innerJoin(trx.raw(`${tempUrl} as tempUrl`), 'p.id', 'tempUrl.id')
-        .innerJoin(
-          trx.raw('akunpusat as ap WITH (READUNCOMMITTED)'),
-          'p.coa',
-          'ap.coa',
         )
         .orderBy('p.created_at', 'desc');
 
       if (filters?.nobukti) {
         query.where('p.nobukti', filters?.nobukti);
       }
-      const excludeSearchKeys = ['tglDari', 'tglSampai', 'nobukti'];
       const searchFields = Object.keys(filters || {}).filter(
-        (k) => !excludeSearchKeys.includes(k) && filters![k],
+        (k) => filters![k],
       );
       if (search) {
-        console.log(search, 'search');
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
         query.where((qb) => {
@@ -305,41 +284,10 @@ export class JurnalumumdetailService {
       }
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
-          if (key === 'pengeluaran_nobukti') {
-            continue;
-          }
           if (!value) continue;
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
           switch (key) {
-            case 'coa_nama':
-              query.andWhere('ap.keterangancoa', 'like', `%${sanitizedValue}%`);
-              break;
-
-            case 'tglbukti':
-              query.andWhereRaw("FORMAT(p.tglbukti, 'dd-MM-yyyy') LIKE ?", [
-                `%${sanitizedValue}%`,
-              ]);
-              break;
-
-            case 'nominaldebet':
-              query.andWhere(
-                trx.raw('CASE WHEN p.nominal > 0 THEN p.nominal ELSE 0 END'),
-                'like',
-                `%${sanitizedValue}%`,
-              );
-              break;
-
-            case 'nominalkredit':
-              query.andWhere(
-                trx.raw(
-                  'CASE WHEN p.nominal < 0 THEN ABS(p.nominal) ELSE 0 END',
-                ),
-                'like',
-                `%${sanitizedValue}%`,
-              );
-              break;
-
             default:
               query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
           }
@@ -354,20 +302,22 @@ export class JurnalumumdetailService {
         data: result,
       };
     } catch (error) {
-      console.error('Error in findAll Kas Gantung Detail', error);
+      console.error('Error in findAll Packinglist Detail Rincian', error);
       throw new Error(error);
     }
   }
-
   findOne(id: number) {
-    return `This action returns a #${id} jurnalumumdetail`;
+    return `This action returns a #${id} packinglistdetailrincian`;
   }
 
-  update(id: number, updateJurnalumumdetailDto: UpdateJurnalumumdetailDto) {
-    return `This action updates a #${id} jurnalumumdetail`;
+  update(
+    id: number,
+    updatePackinglistdetailrincianDto: UpdatePackinglistdetailrincianDto,
+  ) {
+    return `This action updates a #${id} packinglistdetailrincian`;
   }
 
   remove(id: number) {
-    return `This action removes a #${id} jurnalumumdetail`;
+    return `This action removes a #${id} packinglistdetailrincian`;
   }
 }
