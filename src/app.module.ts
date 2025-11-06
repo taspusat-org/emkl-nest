@@ -108,6 +108,7 @@ import { StatusjobModule } from './modules/statusjob/statusjob.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { OrderanHeaderModule } from './modules/orderan-header/orderan-header.module';
+import { ComodityModule } from './modules/comodity/comodity.module';
 
 @Module({
   imports: [
@@ -219,6 +220,7 @@ import { OrderanHeaderModule } from './modules/orderan-header/orderan-header.mod
     PrinterModule,
     StatusjobModule,
     OrderanHeaderModule,
+    ComodityModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],
