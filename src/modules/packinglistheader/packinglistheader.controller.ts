@@ -151,10 +151,8 @@ export class PackinglistheaderController {
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error deleting pengembalianjurnalumumheader:', error);
-      throw new Error(
-        `Error deleting pengembalianjurnalumumheader: ${error.message}`,
-      );
+      console.error('Error deleting packinglistheader:', error);
+      throw new Error(`Error deleting packinglistheader: ${error.message}`);
     }
   }
 

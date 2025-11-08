@@ -1,4 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreatePackinglistdetailDto } from './dto/create-packinglistdetail.dto';
 import { UpdatePackinglistdetailDto } from './dto/update-packinglistdetail.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
@@ -376,7 +381,58 @@ export class PackinglistdetailService {
       throw new Error(error);
     }
   }
+  async delete(id: number, trx: any, modifiedby: string) {
+    try {
+      const dataDetail = await trx('packinglistdetail').where(
+        'packinglist_id',
+        id,
+      );
 
+      if (dataDetail.length === 0) {
+        return {
+          status: 200,
+          message: 'Data not found',
+          data: [],
+        };
+      }
+      let deletedData: any = [];
+      for (const item of dataDetail) {
+        const deletedDataItem = await this.utilsService.lockAndDestroy(
+          item.id,
+          this.tableName,
+          'id',
+          trx,
+        );
+        deletedData.push(deletedDataItem);
+        await this.packinglistdetailrincianService.delete(
+          item.id,
+          trx,
+          modifiedby,
+        );
+      }
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE PACKING LIST DETAIL',
+          idtrans: deletedData.id,
+          nobuktitrans: deletedData.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedData),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+
+      return { status: 200, message: 'Data deleted successfully', deletedData };
+    } catch (error) {
+      console.log('Error deleting data:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to delete data');
+    }
+  }
   findOne(id: number) {
     return `This action returns a #${id} packinglistdetail`;
   }

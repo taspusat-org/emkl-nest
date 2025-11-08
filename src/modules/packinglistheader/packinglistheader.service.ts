@@ -561,6 +561,8 @@ export class PackinglistheaderService {
               packinglistdetail_id: detail.id || 0,
               statuspackinglist_id: rincian.statuspackinglist_id,
               keterangan: rincian.keterangan,
+              berat: rincian.berat,
+              banyak: rincian.banyak,
               info: rincian.info,
               modifiedby: payload.modifiedby,
               created_at: this.utilsService.getTime(),
@@ -644,22 +646,17 @@ export class PackinglistheaderService {
         'id',
         trx,
       );
-      const deletedDataDetail = await this.utilsService.lockAndDestroy(
-        id,
-        'jurnalumumdetail',
-        'jurnalumum_id',
-        trx,
-      );
+      await this.packinglistdetailService.delete(id, trx, modifiedby);
       await this.statuspendukungService.remove(id, modifiedby, trx);
 
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE JURNAL UMUM DETAIL',
-          idtrans: deletedDataDetail.id,
-          nobuktitrans: deletedDataDetail.id,
+          postingdari: 'DELETE PACKING LIST HEADER',
+          idtrans: deletedData.id,
+          nobuktitrans: deletedData.id,
           aksi: 'DELETE',
-          datajson: JSON.stringify(deletedDataDetail),
+          datajson: JSON.stringify(deletedData),
           modifiedby: modifiedby,
         },
         trx,
