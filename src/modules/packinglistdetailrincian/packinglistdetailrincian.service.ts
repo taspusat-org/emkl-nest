@@ -1,4 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreatePackinglistdetailrincianDto } from './dto/create-packinglistdetailrincian.dto';
 import { UpdatePackinglistdetailrincianDto } from './dto/update-packinglistdetailrincian.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
@@ -260,6 +265,8 @@ export class PackinglistdetailrincianService {
           'p.packinglistdetail_id',
           'p.statuspackinglist_id',
           'p.keterangan',
+          'p.banyak',
+          'p.berat',
           'p.info',
           'p.modifiedby',
           trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
@@ -304,6 +311,51 @@ export class PackinglistdetailrincianService {
     } catch (error) {
       console.error('Error in findAll Packinglist Detail Rincian', error);
       throw new Error(error);
+    }
+  }
+  async delete(id: number, trx: any, modifiedby: string) {
+    try {
+      const dataDetail = await trx('packinglistdetailrincian').where(
+        'packinglistdetail_id',
+        id,
+      );
+      if (dataDetail.length === 0) {
+        return {
+          status: 200,
+          message: 'Data not found',
+          data: [],
+        };
+      }
+      let deletedData: any = [];
+      for (const item of dataDetail) {
+        const deletedDataItem = await this.utilsService.lockAndDestroy(
+          item.id,
+          this.tableName,
+          'id',
+          trx,
+        );
+        deletedData.push(deletedDataItem);
+      }
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE PACKING LIST DETAIL RINCIAN',
+          idtrans: deletedData.id,
+          nobuktitrans: deletedData.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedData),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+
+      return { status: 200, message: 'Data deleted successfully', deletedData };
+    } catch (error) {
+      console.log('Error deleting data:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to delete data');
     }
   }
   findOne(id: number) {
