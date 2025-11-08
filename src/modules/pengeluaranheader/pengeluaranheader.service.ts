@@ -803,11 +803,14 @@ export class PengeluaranheaderService {
       // Handle detail updates
       if (details && details.length > 0) {
         const nobuktiHeader = insertData.nobukti || existingData.nobukti;
-        const cleanedDetails = details.map(({ coadebet_text, ...rest }) => ({
-          ...rest,
-          nobukti: nobuktiHeader,
-          modifiedby: insertData.modifiedby || existingData.modifiedby,
-        }));
+        const cleanedDetails = details.map(
+          ({ coadebet_text, tglinvoiceemkl, ...rest }) => ({
+            ...rest,
+            nobukti: nobuktiHeader,
+            tglinvoiceemkl: formatDateToSQL(tglinvoiceemkl),
+            modifiedby: insertData.modifiedby || existingData.modifiedby,
+          }),
+        );
 
         await this.pengeluarandetailService.create(cleanedDetails, id, trx);
       }

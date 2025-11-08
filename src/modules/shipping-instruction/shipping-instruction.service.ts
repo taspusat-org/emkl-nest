@@ -1,8 +1,8 @@
-import { 
-  Inject, 
-  Injectable, 
+import {
+  Inject,
+  Injectable,
   NotFoundException,
-  InternalServerErrorException, 
+  InternalServerErrorException,
 } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -41,7 +41,7 @@ export class ShippingInstructionService {
         }
       });
 
-      const formattedTglBukti = formatDateToSQL(data.tglbukti)
+      const formattedTglBukti = formatDateToSQL(data.tglbukti);
       const updated_at = this.utilsService.getTime();
       const created_at = this.utilsService.getTime();
 
@@ -66,10 +66,12 @@ export class ShippingInstructionService {
         statusformat: getFormatShipping.id,
         modifiedby: data.modifiedby,
         created_at,
-        updated_at
-      }
+        updated_at,
+      };
 
-      const insertedItems = await trx(this.tableName).insert(headerData).returning('*');
+      const insertedItems = await trx(this.tableName)
+        .insert(headerData)
+        .returning('*');
       const newItem = insertedItems[0];
 
       if (data.details && data.details.length > 0) {
@@ -85,12 +87,16 @@ export class ShippingInstructionService {
         const shippingdetail = data.details.map((detail: any) => {
           // Susun payload untuk rincian, tidak langsung set rincian mentah
           let rincianPayload: any[] = [];
-          if (Array.isArray(detail.detailsrincian) && detail.detailsrincian.length > 0) {
+          if (
+            Array.isArray(detail.detailsrincian) &&
+            detail.detailsrincian.length > 0
+          ) {
             rincianPayload = detail.detailsrincian.map((rincian: any) => ({
               id: 0,
               nobukti: newItem.nobukti,
               shippinginstructiondetail_id: detail.id || 0,
-              shippinginstructiondetail_nobukti: detail.shippinginstructiondetail_nobukti || '',
+              shippinginstructiondetail_nobukti:
+                detail.shippinginstructiondetail_nobukti || '',
               orderanmuatan_nobukti: rincian.orderanmuatan_nobukti,
               comodity: rincian.comodity,
               keterangan: rincian.keterangan,
@@ -105,7 +111,8 @@ export class ShippingInstructionService {
             id: 0,
             orderan_id: detail.orderan_id,
             nobukti: newItem.nobukti,
-            shippinginstructiondetail_nobukti: detail.shippinginstructiondetail_nobukti || '',
+            shippinginstructiondetail_nobukti:
+              detail.shippinginstructiondetail_nobukti || '',
             tglbukti: formattedTglBukti,
             shippinginstruction_id: newItem.id,
             asalpelabuhan: detail.asalpelabuhan,
@@ -165,7 +172,10 @@ export class ShippingInstructionService {
       const pageNumber = Math.floor(dataIndex / data.limit) + 1;
       const endIndex = pageNumber * data.limit;
       const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
-      await this.redisService.set(`${this.tableName}-allItems`, JSON.stringify(limitedItems));
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
 
       return {
         newItem,
@@ -212,7 +222,7 @@ export class ShippingInstructionService {
           'kapal.nama as kapal_nama',
           trx.raw("FORMAT(p.tglberangkat, 'dd-MM-yyyy') as tglberangkat"),
           'p.tujuankapal_id',
-          'tujuankapal.nama as tujuankapal_nama'
+          'tujuankapal.nama as tujuankapal_nama',
         ])
         .leftJoin('schedulekapal as p', 'u.schedule_id', 'p.id')
         .leftJoin('pelayaran as pel', 'p.pelayaran_id', 'pel.id')
@@ -230,7 +240,9 @@ export class ShippingInstructionService {
       }
 
       const excludeSearchKeys = ['tglDari', 'tglSampai'];
-      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
 
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
@@ -238,23 +250,24 @@ export class ShippingInstructionService {
           searchFields.forEach((field) => {
             if (field === 'voyberangkat') {
               qb.orWhere(`p.voyberangkat`, 'like', `%${sanitized}%`);
-            } else if(field === 'pelayaran_text'){
+            } else if (field === 'pelayaran_text') {
               qb.orWhere(`pel.nama`, 'like', `%${sanitized}%`);
-            } else if(field === 'kapal_text'){
+            } else if (field === 'kapal_text') {
               qb.orWhere(`kapal.nama`, 'like', `%${sanitized}%`);
-            } else if(field === 'tglbukti'){
+            } else if (field === 'tglbukti') {
               qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy') LIKE ?`, [
                 `%${sanitized}%`,
-              ])
-            } else if(field === 'tglberangkat'){
+              ]);
+            } else if (field === 'tglberangkat') {
               qb.orWhereRaw(`FORMAT(p.tglberangkat, 'dd-MM-yyyy') LIKE ?`, [
                 `%${sanitized}%`,
-              ])
-            } else if(field === 'created_at' || field === 'updated_at'){
-              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`, [
-                `%${sanitized}%`,
-              ])
-            } else if(field === 'tujuankapal_text'){
+              ]);
+            } else if (field === 'created_at' || field === 'updated_at') {
+              qb.orWhereRaw(
+                `FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`,
+                [`%${sanitized}%`],
+              );
+            } else if (field === 'tujuankapal_text') {
               qb.orWhere(`tujuankapal.nama`, 'like', `%${sanitized}%`);
             } else {
               qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
@@ -268,16 +281,24 @@ export class ShippingInstructionService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
           if (key === 'tglDari' || key === 'tglSampai') {
-            continue; 
+            continue;
           }
 
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'tglbukti') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'tglberangkat') {
-              query.andWhereRaw("FORMAT(p.tglberangkat, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(p.tglberangkat, 'dd-MM-yyyy') LIKE ?", [
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'voyberangkat') {
               query.andWhere(`p.voyberangkat`, 'like', `%${sanitizedValue}%`);
             } else if (key === 'pelayaran_text') {
@@ -343,12 +364,12 @@ export class ShippingInstructionService {
       const query = trx(`${this.tableName} as u`)
         .select([
           'u.id',
-          'u.nobukti', 
+          'u.nobukti',
           'u.schedule_id',
           trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
-          'u.modifiedby', 
-          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), 
-          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), 
+          'u.modifiedby',
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
           trx.raw("FORMAT(p.tglberangkat, 'dd-MM-yyyy') as tglberangkat"),
           'p.kapal_id',
           'kapal.nama as kapal_nama',
@@ -357,16 +378,25 @@ export class ShippingInstructionService {
         .leftJoin('kapal', 'p.kapal_id', 'kapal.id')
         .where('u.id', id);
 
-      const data = await query
+      const data = await query;
 
       const params: FindAllParams = { search: '', filters: {} };
-      const getDetail = await this.shippingInstructionDetailService.findAll(id, trx, params)
-      
+      const getDetail = await this.shippingInstructionDetailService.findAll(
+        id,
+        trx,
+        params,
+      );
+
       let mergedDetails: any[] = [];
       if (getDetail?.data && getDetail.data.length > 0) {
         mergedDetails = await Promise.all(
           getDetail.data.map(async (detail) => {
-            const getRincian = await this.shippingInstructionDetailRincianService.findAll(detail.id, trx, params);            
+            const getRincian =
+              await this.shippingInstructionDetailRincianService.findAll(
+                detail.id,
+                trx,
+                params,
+              );
 
             return {
               ...detail,
@@ -392,7 +422,7 @@ export class ShippingInstructionService {
 
   async update(id: number, data: any, trx: any) {
     try {
-      let updatedData
+      let updatedData;
       const updated_at = this.utilsService.getTime();
 
       Object.keys(data).forEach((key) => {
@@ -413,14 +443,17 @@ export class ShippingInstructionService {
         tglbukti: data.tglbukti,
         schedule_id: data.schedule_id,
         modifiedby: data.modifiedby,
-        updated_at
-      }
+        updated_at,
+      };
 
       const existingData = await trx(this.tableName).where('id', id).first();
       const hasChanges = this.utilsService.hasChanges(headerData, existingData);
 
       if (hasChanges) {
-        const updated = await trx(this.tableName).where('id', id).update(headerData).returning('*');
+        const updated = await trx(this.tableName)
+          .where('id', id)
+          .update(headerData)
+          .returning('*');
         updatedData = updated[0];
       }
 
@@ -428,12 +461,16 @@ export class ShippingInstructionService {
         const shippingdetail = data.details.map((detail: any) => {
           // Susun payload untuk rincian, tidak langsung set rincian mentah
           let rincianPayload: any[] = [];
-          if (Array.isArray(detail.detailsrincian) && detail.detailsrincian.length > 0) {
+          if (
+            Array.isArray(detail.detailsrincian) &&
+            detail.detailsrincian.length > 0
+          ) {
             rincianPayload = detail.detailsrincian.map((rincian: any) => ({
               id: rincian.id || 0,
               nobukti: headerData.nobukti,
               shippinginstructiondetail_id: detail.id || 0,
-              shippinginstructiondetail_nobukti: detail.shippinginstructiondetail_nobukti || '',
+              shippinginstructiondetail_nobukti:
+                detail.shippinginstructiondetail_nobukti || '',
               orderanmuatan_nobukti: rincian.orderanmuatan_nobukti,
               comodity: rincian.comodity,
               keterangan: rincian.keterangan,
@@ -447,7 +484,8 @@ export class ShippingInstructionService {
             id: detail.id || 0,
             orderan_id: detail.orderan_id || 0,
             nobukti: headerData.nobukti,
-            shippinginstructiondetail_nobukti: detail.shippinginstructiondetail_nobukti || '',
+            shippinginstructiondetail_nobukti:
+              detail.shippinginstructiondetail_nobukti || '',
             tglbukti: headerData.tglbukti,
             shippinginstruction_id: id,
             asalpelabuhan: detail.asalpelabuhan,
@@ -474,7 +512,7 @@ export class ShippingInstructionService {
           trx,
         );
       }
-      
+
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
@@ -499,14 +537,19 @@ export class ShippingInstructionService {
         trx,
       );
 
-      let dataIndex = filteredItems.findIndex((item) => item.id === updatedData.id);
+      let dataIndex = filteredItems.findIndex(
+        (item) => item.id === updatedData.id,
+      );
       if (dataIndex === -1) {
         dataIndex = 0;
       }
       const pageNumber = Math.floor(dataIndex / data.limit) + 1;
       const endIndex = pageNumber * data.limit;
       const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
-      await this.redisService.set(`${this.tableName}-allItems`, JSON.stringify(limitedItems));
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
 
       return {
         updatedData,
@@ -529,17 +572,29 @@ export class ShippingInstructionService {
 
   async delete(id: number, trx: any, modifiedby: any) {
     try {
-      const checkDataDetail = await trx('shippinginstructiondetail').select('id').where('shippinginstruction_id', id);      
+      const checkDataDetail = await trx('shippinginstructiondetail')
+        .select('id')
+        .where('shippinginstruction_id', id);
       if (checkDataDetail && checkDataDetail.length > 0) {
         for (const detail of checkDataDetail) {
-          const checkDataRincian = await trx('shippinginstructiondetailrincian').select('id').where('shippinginstructiondetail_id', detail.id)
-          
+          const checkDataRincian = await trx('shippinginstructiondetailrincian')
+            .select('id')
+            .where('shippinginstructiondetail_id', detail.id);
+
           if (checkDataRincian.length > 0) {
             for (const rincian of checkDataRincian) {
-              await this.shippingInstructionDetailRincianService.delete(rincian.id, trx, modifiedby);
+              await this.shippingInstructionDetailRincianService.delete(
+                rincian.id,
+                trx,
+                modifiedby,
+              );
             }
           }
-          await this.shippingInstructionDetailService.delete(detail.id, trx, modifiedby);
+          await this.shippingInstructionDetailService.delete(
+            detail.id,
+            trx,
+            modifiedby,
+          );
         }
       }
 
@@ -611,7 +666,7 @@ export class ShippingInstructionService {
   //   const worksheet = workbook.addWorksheet('Data Export');
   //   console.log('SERVICE HEADER EXPORT', data);
   //   console.log('dataHeader', dataHeader);
-    
+
   //   const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
   //   const getCabang = await dbMssql('parameter')
   //   .select(
@@ -790,7 +845,7 @@ export class ShippingInstructionService {
     // === Loop detail per sheet ===
     for (const [index, detail] of details.entries()) {
       // nama sheet berdasarkan no bukti (max 31 karakter biar aman)
-      const sheetName = (`ShippingInstruction_${index + 1}`).substring(0, 31);
+      const sheetName = `ShippingInstruction_${index + 1}`.substring(0, 31);
       const worksheet = workbook.addWorksheet(sheetName);
 
       let currentRow = 2; // mulai dari A2
@@ -799,22 +854,38 @@ export class ShippingInstructionService {
       worksheet.mergeCells(`A${currentRow}:K${currentRow}`);
       worksheet.getCell(`A${currentRow}`).value = 'EKSPEDISI MUATAN KAPAL LAUT';
       worksheet.getCell(`A${currentRow}`).alignment = { horizontal: 'center' };
-      worksheet.getCell(`A${currentRow}`).font = { bold: true, size: 12, name: 'Tahoma' };
+      worksheet.getCell(`A${currentRow}`).font = {
+        bold: true,
+        size: 12,
+        name: 'Tahoma',
+      };
       currentRow++;
 
       worksheet.mergeCells(`A${currentRow}:K${currentRow}`);
-      worksheet.getCell(`A${currentRow}`).value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
+      worksheet.getCell(`A${currentRow}`).value =
+        'PT. TRANSPORINDO AGUNG SEJAHTERA';
       worksheet.getCell(`A${currentRow}`).alignment = { horizontal: 'center' };
-      worksheet.getCell(`A${currentRow}`).font = { bold: true, size: 10, name: 'Tahoma' };
+      worksheet.getCell(`A${currentRow}`).font = {
+        bold: true,
+        size: 10,
+        name: 'Tahoma',
+      };
       currentRow++;
 
       worksheet.mergeCells(`A${currentRow}:K${currentRow}`);
-      worksheet.getCell(`A${currentRow}`).value = `${getCabang.cabang} - ${pelabuhan.pelabuhan}`;
+      worksheet.getCell(`A${currentRow}`).value =
+        `${getCabang.cabang} - ${pelabuhan.pelabuhan}`;
       worksheet.getCell(`A${currentRow}`).alignment = { horizontal: 'center' };
-      worksheet.getCell(`A${currentRow}`).font = { bold: true, size: 10, name: 'Tahoma' };
+      worksheet.getCell(`A${currentRow}`).font = {
+        bold: true,
+        size: 10,
+        name: 'Tahoma',
+      };
       currentRow += 2;
 
-      worksheet.getCell(`L${currentRow}`).value = new Date().toLocaleString('id-ID');
+      worksheet.getCell(`L${currentRow}`).value = new Date().toLocaleString(
+        'id-ID',
+      );
       worksheet.getCell(`L${currentRow}`).font = { size: 8, name: 'Tahoma' };
       worksheet.getCell(`L${currentRow}`).alignment = { horizontal: 'right' };
       currentRow += 2;
@@ -823,13 +894,22 @@ export class ShippingInstructionService {
       worksheet.mergeCells(`A${currentRow}:K${currentRow}`);
       worksheet.getCell(`A${currentRow}`).value = 'SHIPPING INSTRUCTION';
       worksheet.getCell(`A${currentRow}`).alignment = { horizontal: 'center' };
-      worksheet.getCell(`A${currentRow}`).font = { bold: true, size: 11, name: 'Tahoma' };
+      worksheet.getCell(`A${currentRow}`).font = {
+        bold: true,
+        size: 11,
+        name: 'Tahoma',
+      };
       currentRow++;
 
       worksheet.mergeCells(`A${currentRow}:K${currentRow}`);
-      worksheet.getCell(`A${currentRow}`).value = detail.shippinginstructiondetail_nobukti || '';
+      worksheet.getCell(`A${currentRow}`).value =
+        detail.shippinginstructiondetail_nobukti || '';
       worksheet.getCell(`A${currentRow}`).alignment = { horizontal: 'center' };
-      worksheet.getCell(`A${currentRow}`).font = { bold: true, size: 10, name: 'Tahoma' };
+      worksheet.getCell(`A${currentRow}`).font = {
+        bold: true,
+        size: 10,
+        name: 'Tahoma',
+      };
       currentRow += 2;
 
       // === INFO UTAMA ===
@@ -843,7 +923,11 @@ export class ShippingInstructionService {
 
       infoRows.forEach(([label, val]) => {
         worksheet.getCell(`A${currentRow}`).value = label;
-        worksheet.getCell(`A${currentRow}`).font = { bold: true, size: 10, name: 'Tahoma' };
+        worksheet.getCell(`A${currentRow}`).font = {
+          bold: true,
+          size: 10,
+          name: 'Tahoma',
+        };
         worksheet.getCell(`C${currentRow}`).value = val;
         worksheet.getCell(`C${currentRow}`).font = { size: 10, name: 'Tahoma' };
         currentRow++;
@@ -853,7 +937,11 @@ export class ShippingInstructionService {
 
       // === NO COUNT / SEAL ===
       worksheet.getCell(`A${currentRow}`).value = 'NO COUNT / SEAL';
-      worksheet.getCell(`A${currentRow}`).font = { bold: true, size: 10, name: 'Tahoma' };
+      worksheet.getCell(`A${currentRow}`).font = {
+        bold: true,
+        size: 10,
+        name: 'Tahoma',
+      };
       currentRow++;
 
       const rincian = detail.rincian || [];
@@ -882,13 +970,21 @@ export class ShippingInstructionService {
 
       // === PORTS ===
       worksheet.getCell(`A${currentRow}`).value = 'PORT OF LOADING';
-      worksheet.getCell(`A${currentRow}`).font = { bold: true, size: 10, name: 'Tahoma' };
+      worksheet.getCell(`A${currentRow}`).font = {
+        bold: true,
+        size: 10,
+        name: 'Tahoma',
+      };
       worksheet.getCell(`C${currentRow}`).value = 'TANJUNG PERAK';
       worksheet.getCell(`C${currentRow}`).font = { size: 10, name: 'Tahoma' };
       currentRow++;
 
       worksheet.getCell(`A${currentRow}`).value = 'PORT OF DESTINATION';
-      worksheet.getCell(`A${currentRow}`).font = { bold: true, size: 10, name: 'Tahoma' };
+      worksheet.getCell(`A${currentRow}`).font = {
+        bold: true,
+        size: 10,
+        name: 'Tahoma',
+      };
       worksheet.getCell(`C${currentRow}`).value = detail.tujuankapal_nama || '';
       worksheet.getCell(`C${currentRow}`).font = { size: 10, name: 'Tahoma' };
       currentRow += 2;
@@ -913,7 +1009,7 @@ export class ShippingInstructionService {
 
     const tempFilePath = path.resolve(
       tempDir,
-      `shipping_instruction_${Date.now()}.xlsx`
+      `shipping_instruction_${Date.now()}.xlsx`,
     );
 
     await workbook.xlsx.writeFile(tempFilePath);

@@ -8,13 +8,7 @@ import { RunningNumberModule } from '../running-number/running-number.module';
 @Module({
   controllers: [ShippingInstructionDetailRincianController],
   providers: [ShippingInstructionDetailRincianService],
-  imports: [
-    UtilsModule,
-    LogtrailModule,
-    RunningNumberModule
-  ],
-  exports: [
-    ShippingInstructionDetailRincianService
-  ]
+  imports: [UtilsModule, LogtrailModule, RunningNumberModule],
+  exports: [ShippingInstructionDetailRincianService],
 })
 export class ShippingInstructionDetailRincianModule {}

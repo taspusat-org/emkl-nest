@@ -106,8 +106,9 @@ export class HutangheaderService {
 
       if (details.length > 0) {
         const detailsWithNobukti = details.map(
-          ({ coa_text, ...detail }: any) => ({
+          ({ coa_text, tglinvoiceemkl, ...detail }: any) => ({
             ...detail,
+            tglinvoiceemkl: formatDateToSQL(tglinvoiceemkl),
             nobukti: nomorBukti,
             modifiedby: data.modifiedby || null,
           }),
@@ -606,11 +607,14 @@ export class HutangheaderService {
       // Handle detail updates
       if (details && details.length > 0) {
         const nobuktiHeader = insertData.nobukti || existingData.nobukti;
-        const cleanedDetails = details.map(({ coa_text, ...rest }) => ({
-          ...rest,
-          nobukti: nobuktiHeader,
-          modifiedby: insertData.modifiedby || existingData.modifiedby,
-        }));
+        const cleanedDetails = details.map(
+          ({ coa_text, tglinvoiceemkl, ...rest }) => ({
+            ...rest,
+            nobukti: nobuktiHeader,
+            tglinvoiceemkl: formatDateToSQL(tglinvoiceemkl),
+            modifiedby: insertData.modifiedby || existingData.modifiedby,
+          }),
+        );
 
         await this.hutangdetailService.create(cleanedDetails, id, trx);
       }

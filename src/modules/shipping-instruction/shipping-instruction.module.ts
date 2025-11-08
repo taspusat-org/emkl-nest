@@ -25,7 +25,7 @@ import { ShippingInstructionDetailRincianModule } from '../shipping-instruction-
     LogtrailModule,
     RunningNumberModule,
     ShippingInstructionDetailModule,
-    ShippingInstructionDetailRincianModule
+    ShippingInstructionDetailRincianModule,
   ],
 })
 export class ShippingInstructionModule {}

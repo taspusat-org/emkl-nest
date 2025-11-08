@@ -13,10 +13,8 @@ import { ShippingInstructionDetailRincianModule } from '../shipping-instruction-
     UtilsModule,
     LogtrailModule,
     RunningNumberModule,
-    ShippingInstructionDetailRincianModule
+    ShippingInstructionDetailRincianModule,
   ],
-  exports: [
-    ShippingInstructionDetailService
-  ]
+  exports: [ShippingInstructionDetailService],
 })
 export class ShippingInstructionDetailModule {}

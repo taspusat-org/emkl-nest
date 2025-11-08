@@ -326,7 +326,7 @@ export class PackinglistdetailrincianService {
           data: [],
         };
       }
-      let deletedData: any = [];
+      const deletedData: any = [];
       for (const item of dataDetail) {
         const deletedDataItem = await this.utilsService.lockAndDestroy(
           item.id,

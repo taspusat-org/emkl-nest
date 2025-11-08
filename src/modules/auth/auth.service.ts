@@ -50,8 +50,8 @@ export class AuthService {
       .where({ username })
       .first();
 
-      const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
-      const cabang = await dbMssql('parameter')
+    const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
+    const cabang = await dbMssql('parameter')
       .select(
         'id',
         'grp',
@@ -61,14 +61,11 @@ export class AuthService {
       .where('grp', 'CABANG')
       .first();
 
-      const pelabuhan = await dbMssql('cabang')
-      .select(
-        'id',
-        'pelabuhan'
-      )
+    const pelabuhan = await dbMssql('cabang')
+      .select('id', 'pelabuhan')
       .where('id', cabang.cabang_id)
       .first();
-      
+
     if (!user) {
       throw new UnauthorizedException('User Tidak ditemukan');
     }
@@ -88,7 +85,7 @@ export class AuthService {
       ...restUser,
       role_id: roles,
       cabang: cabang.cabang,
-      pelabuhan: pelabuhan.pelabuhan
+      pelabuhan: pelabuhan.pelabuhan,
     };
 
     // Prepare JWT payload
