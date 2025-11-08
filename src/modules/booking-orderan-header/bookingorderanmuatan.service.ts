@@ -159,7 +159,7 @@ export class BookingOrderanMuatanService {
         t.string('orderan_nobukti').nullable();
         t.text('link').nullable();
       });
-      const url = 'orderan-header';
+      const url = 'orderanmuatan';
 
       await trx(tempUrl).insert(
         trx
