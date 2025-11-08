@@ -44,12 +44,24 @@ export class UtilsService {
         }
 
         // Jika tipe kolom nvarchar dengan maxLength -1, set panjangnya menjadi 255
-        if (type === 'nvarchar' && maxLength === -1) {
-          return `${columnName} ${type}(255)`;
+        // if (type === 'nvarchar' && maxLength === -1) {
+        //   return `${columnName} ${type}(255)`;
+        // }
+
+        // // Jika kolom memiliki maxLength yang valid, set panjang sesuai dengan maxLength
+        // if (maxLength !== null) {
+        //   return `${columnName} ${type}(${maxLength})`;
+        // }
+
+        if (
+          (type === 'nvarchar' || type === 'varchar') &&
+          (maxLength === null || maxLength === -1)
+        ) {
+          return `${columnName} ${type}(255)`; // fallback aman
         }
 
-        // Jika kolom memiliki maxLength yang valid, set panjang sesuai dengan maxLength
-        if (maxLength !== null) {
+        // Jika punya maxLength valid (> 0)
+        if (typeof maxLength === 'number' && maxLength > 0) {
           return `${columnName} ${type}(${maxLength})`;
         }
 

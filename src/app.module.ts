@@ -105,13 +105,16 @@ import { TradoModule } from './modules/trado/trado.module';
 import { GandenganModule } from './modules/gandengan/gandengan.module';
 import { PrinterModule } from './modules/printer/printer.module';
 import { StatusjobModule } from './modules/statusjob/statusjob.module';
-import { ThrottlerModule } from '@nestjs/throttler';
-import { ThrottlerGuard } from '@nestjs/throttler';
+// import { ThrottlerModule } from '@nestjs/throttler';
+// import { ThrottlerGuard } from '@nestjs/throttler';
 import { OrderanHeaderModule } from './modules/orderan-header/orderan-header.module';
 import { ComodityModule } from './modules/comodity/comodity.module';
 import { PackinglistheaderModule } from './modules/packinglistheader/packinglistheader.module';
 import { PackinglistdetailModule } from './modules/packinglistdetail/packinglistdetail.module';
 import { PackinglistdetailrincianModule } from './modules/packinglistdetailrincian/packinglistdetailrincian.module';
+import { ShippingInstructionModule } from './modules/shipping-instruction/shipping-instruction.module';
+import { ShippingInstructionDetailModule } from './modules/shipping-instruction-detail/shipping-instruction-detail.module';
+import { ShippingInstructionDetailRincianModule } from './modules/shipping-instruction-detail-rincian/shipping-instruction-detail-rincian.module';
 
 @Module({
   imports: [
@@ -119,14 +122,14 @@ import { PackinglistdetailrincianModule } from './modules/packinglistdetailrinci
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    ThrottlerModule.forRoot({
-      throttlers: [
-        {
-          ttl: 60000,
-          limit: 10,
-        },
-      ],
-    }),
+    // ThrottlerModule.forRoot({
+    //   throttlers: [
+    //     {
+    //       ttl: 60000,
+    //       limit: 10,
+    //     },
+    //   ],
+    // }),
     AuthModule,
     MailModule,
     AcosModule,
@@ -227,6 +230,9 @@ import { PackinglistdetailrincianModule } from './modules/packinglistdetailrinci
     PackinglistheaderModule,
     PackinglistdetailModule,
     PackinglistdetailrincianModule,
+    ShippingInstructionModule,
+    ShippingInstructionDetailModule,
+    ShippingInstructionDetailRincianModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],
