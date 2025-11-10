@@ -21,7 +21,7 @@ export class PackinglistdetailService {
   ) {}
   private readonly logger = new Logger(PackinglistdetailService.name);
   async create(details: any, id: any = 0, trx: any = null) {
-    let insertedData = null;
+    const insertedData = null;
     let data: any = null;
     const tempTableName = `##temp_${Math.random().toString(36).substring(2, 15)}`;
 
@@ -395,7 +395,7 @@ export class PackinglistdetailService {
           data: [],
         };
       }
-      let deletedData: any = [];
+      const deletedData: any = [];
       for (const item of dataDetail) {
         const deletedDataItem = await this.utilsService.lockAndDestroy(
           item.id,

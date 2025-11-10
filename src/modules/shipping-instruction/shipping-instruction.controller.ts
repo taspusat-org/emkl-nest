@@ -1,24 +1,24 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
+import {
+  Controller,
+  Get,
+  Post,
   Body,
-  Param, 
-  Delete, 
-  UsePipes, 
-  Query, 
-  InternalServerErrorException, 
-  UseGuards, 
-  Req, 
-  HttpException, 
-  HttpStatus, 
-  Put, 
-  Res 
+  Param,
+  Delete,
+  UsePipes,
+  Query,
+  InternalServerErrorException,
+  UseGuards,
+  Req,
+  HttpException,
+  HttpStatus,
+  Put,
+  Res,
 } from '@nestjs/common';
-import { 
-  CreateShippingInstructionSchema, 
-  UpdateShippingInstructionDto, 
-  UpdateShippingInstructionSchema 
+import {
+  CreateShippingInstructionSchema,
+  UpdateShippingInstructionDto,
+  UpdateShippingInstructionSchema,
 } from './dto/create-shipping-instruction.dto';
 import * as fs from 'fs';
 import { Response } from 'express';
@@ -28,11 +28,17 @@ import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { ShippingInstructionService } from './shipping-instruction.service';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
-import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
 
 @Controller('shippinginstruction')
 export class ShippingInstructionController {
-  constructor(private readonly shippingInstructionService: ShippingInstructionService) {}
+  constructor(
+    private readonly shippingInstructionService: ShippingInstructionService,
+  ) {}
 
   @UseGuards(AuthGuard)
   @Post()
@@ -55,7 +61,10 @@ export class ShippingInstructionController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating shipping instruction in controller', error);
+      console.error(
+        'Error while creating shipping instruction in controller',
+        error,
+      );
 
       if (error instanceof HttpException) {
         throw error;
@@ -95,7 +104,7 @@ export class ShippingInstructionController {
       isLookUp: isLookUp === 'true',
       sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
     };
-    
+
     const trx = await dbMssql.transaction();
     try {
       const result = await this.shippingInstructionService.findAll(params, trx);
@@ -108,7 +117,9 @@ export class ShippingInstructionController {
         error,
         error.message,
       );
-      throw new InternalServerErrorException('Failed to fetch shipping instruction');
+      throw new InternalServerErrorException(
+        'Failed to fetch shipping instruction',
+      );
     }
   }
 
@@ -127,13 +138,20 @@ export class ShippingInstructionController {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      const result = await this.shippingInstructionService.update(+id, data, trx);
+      const result = await this.shippingInstructionService.update(
+        +id,
+        data,
+        trx,
+      );
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while updating shipping instruction in controller:', error);
+      console.error(
+        'Error while updating shipping instruction in controller:',
+        error,
+      );
 
       if (error instanceof HttpException) {
         // Ensure any other errors get caught and returned
@@ -153,10 +171,7 @@ export class ShippingInstructionController {
   @UseGuards(AuthGuard)
   @Delete(':id')
   //@SHIPPING-INSTRUCTION
-  async delete(
-    @Param('id') id: string,
-    @Req() req,
-  ) {
+  async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     const modifiedby = req.user?.user?.username || 'unknown';
     try {
@@ -170,7 +185,10 @@ export class ShippingInstructionController {
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error deleting shipping instruction in controller:', error);
+      console.error(
+        'Error deleting shipping instruction in controller:',
+        error,
+      );
       throw new Error(
         `Error deleting shipping instruction in controller: ${error.message}`,
       );
@@ -218,10 +236,7 @@ export class ShippingInstructionController {
   }
 
   @Get('/export/:id')
-  async exportToExcel(
-    @Param('id') id: string,
-    @Res() res: Response,
-  ) {
+  async exportToExcel(@Param('id') id: string, @Res() res: Response) {
     try {
       const data = await this.findOne(id);
 
@@ -250,5 +265,4 @@ export class ShippingInstructionController {
       res.status(500).send('Failed to export file');
     }
   }
-
 }

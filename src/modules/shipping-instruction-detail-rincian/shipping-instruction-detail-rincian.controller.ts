@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, InternalServerErrorException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ShippingInstructionDetailRincianService } from './shipping-instruction-detail-rincian.service';
 import { CreateShippingInstructionDetailRincianDto } from './dto/create-shipping-instruction-detail-rincian.dto';
 import { UpdateShippingInstructionDetailRincianDto } from './dto/update-shipping-instruction-detail-rincian.dto';
@@ -7,10 +17,15 @@ import { dbMssql } from 'src/common/utils/db';
 
 @Controller('shippinginstructiondetailrincian')
 export class ShippingInstructionDetailRincianController {
-  constructor(private readonly shippingInstructionDetailRincianService: ShippingInstructionDetailRincianService) {}
+  constructor(
+    private readonly shippingInstructionDetailRincianService: ShippingInstructionDetailRincianService,
+  ) {}
 
   @Post()
-  create(@Body() createShippingInstructionDetailRincianDto: CreateShippingInstructionDetailRincianDto) {
+  create(
+    @Body()
+    createShippingInstructionDetailRincianDto: CreateShippingInstructionDetailRincianDto,
+  ) {
     // return this.shippingInstructionDetailRincianService.create(createShippingInstructionDetailRincianDto);
   }
 
@@ -39,7 +54,11 @@ export class ShippingInstructionDetailRincianController {
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.shippingInstructionDetailRincianService.findAll(id, trx, params);
+      const result = await this.shippingInstructionDetailRincianService.findAll(
+        id,
+        trx,
+        params,
+      );
       if (result.data.length === 0) {
         await trx.commit();
 
@@ -57,7 +76,7 @@ export class ShippingInstructionDetailRincianController {
       console.error(
         'Error fetching data shipping instruction detail rincian in controller ',
         error,
-        error.message
+        error.message,
       );
       throw new InternalServerErrorException(
         'Failed to fetch shipping instruction detail rincian in controller',
@@ -71,8 +90,14 @@ export class ShippingInstructionDetailRincianController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateShippingInstructionDetailRincianDto: UpdateShippingInstructionDetailRincianDto) {
-    return this.shippingInstructionDetailRincianService.update(+id, updateShippingInstructionDetailRincianDto);
+  update(
+    @Param('id') id: string,
+    @Body()
+    updateShippingInstructionDetailRincianDto: UpdateShippingInstructionDetailRincianDto,
+  ) {
+    return this.shippingInstructionDetailRincianService.update(
+      +id,
+      updateShippingInstructionDetailRincianDto,
+    );
   }
-  
 }

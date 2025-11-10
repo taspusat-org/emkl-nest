@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, InternalServerErrorException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ShippingInstructionDetailService } from './shipping-instruction-detail.service';
 import { CreateShippingInstructionDetailDto } from './dto/create-shipping-instruction-detail.dto';
 import { UpdateShippingInstructionDetailDto } from './dto/update-shipping-instruction-detail.dto';
@@ -7,10 +17,15 @@ import { dbMssql } from 'src/common/utils/db';
 
 @Controller('shippinginstructiondetail')
 export class ShippingInstructionDetailController {
-  constructor(private readonly shippingInstructionDetailService: ShippingInstructionDetailService) {}
+  constructor(
+    private readonly shippingInstructionDetailService: ShippingInstructionDetailService,
+  ) {}
 
   @Post()
-  create(@Body() createShippingInstructionDetailDto: CreateShippingInstructionDetailDto) {
+  create(
+    @Body()
+    createShippingInstructionDetailDto: CreateShippingInstructionDetailDto,
+  ) {
     // return this.shippingInstructionDetailService.create(createShippingInstructionDetailDto);
   }
 
@@ -39,7 +54,11 @@ export class ShippingInstructionDetailController {
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.shippingInstructionDetailService.findAll(id, trx, params);
+      const result = await this.shippingInstructionDetailService.findAll(
+        id,
+        trx,
+        params,
+      );
       if (result.data.length === 0) {
         await trx.commit();
 
@@ -57,7 +76,7 @@ export class ShippingInstructionDetailController {
       console.error(
         'Error fetching data shipping instruction detail in controller ',
         error,
-        error.message
+        error.message,
       );
       throw new InternalServerErrorException(
         'Failed to fetch shipping instruction detail in controller',
@@ -66,8 +85,14 @@ export class ShippingInstructionDetailController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateShippingInstructionDetailDto: UpdateShippingInstructionDetailDto) {
-    return this.shippingInstructionDetailService.update(+id, updateShippingInstructionDetailDto);
+  update(
+    @Param('id') id: string,
+    @Body()
+    updateShippingInstructionDetailDto: UpdateShippingInstructionDetailDto,
+  ) {
+    return this.shippingInstructionDetailService.update(
+      +id,
+      updateShippingInstructionDetailDto,
+    );
   }
-
 }

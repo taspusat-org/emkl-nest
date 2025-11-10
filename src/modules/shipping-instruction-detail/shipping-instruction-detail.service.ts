@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateShippingInstructionDetailDto } from './dto/create-shipping-instruction-detail.dto';
 import { UpdateShippingInstructionDetailDto } from './dto/update-shipping-instruction-detail.dto';
 import { UtilsService } from 'src/utils/utils.service';
@@ -21,7 +25,7 @@ export class ShippingInstructionDetailService {
 
   async create(details: any, id: any, trx: any) {
     try {
-      const allRincian: any[] = [];  // Ambil semua data rincian di luar mapping utama
+      const allRincian: any[] = []; // Ambil semua data rincian di luar mapping utama
       let insertedData = null;
       const logData: any[] = [];
       const mainDataToInsert: any[] = [];
@@ -37,14 +41,14 @@ export class ShippingInstructionDetailService {
         await trx(this.tableName).delete().where('shippinginstruction_id', id);
         return;
       }
-      
+
       const getFormatShippingDetail = await trx('parameter')
         .select('id', 'grp', 'subgrp')
         .where('grp', 'NOMOR SHIPPING INSTRUCTION DETAIL')
         .where('kelompok', 'SHIPPING INSTRUCTION DETAIL')
         .first();
 
-      for (let data of details) {
+      for (const data of details) {
         let isDataChanged = false;
 
         Object.keys(data).forEach((key) => {
@@ -54,33 +58,43 @@ export class ShippingInstructionDetailService {
         });
 
         const { detailsrincian, orderan_id, ...detailsWithoutRincian } = data;
-        detailsWithoutRincian.statusformat = getFormatShippingDetail.id
+        detailsWithoutRincian.statusformat = getFormatShippingDetail.id;
 
-        // Cek apakah ada detail orderan_id (UNTUK CREATE) atau engga, 
+        // Cek apakah ada detail orderan_id (UNTUK CREATE) atau engga,
         // kalo ada ambil data status pendukung orderan muatan untuk ambil nilai status pisah bl dari orderan
-        if (orderan_id) { 
-          const getStatusDataPendukung = await trx('parameter').select('id')
+        if (orderan_id) {
+          const getStatusDataPendukung = await trx('parameter')
+            .select('id')
             .where('grp', 'DATA PENDUKUNG')
             .where('subgrp', 'ORDERANMUATAN')
             .where('text', 'PISAH BL')
             .first();
-            
-          const getStatusPisahBl = await trx('statuspendukung').select('statuspendukung')
+
+          const getStatusPisahBl = await trx('statuspendukung')
+            .select('statuspendukung')
             .where('statusdatapendukung', getStatusDataPendukung.id)
             .where('transaksi_id', orderan_id)
             .first();
 
-          detailsWithoutRincian.statuspisahbl = getStatusPisahBl?.statuspendukung ? getStatusPisahBl.statuspendukung : 15;
+          detailsWithoutRincian.statuspisahbl =
+            getStatusPisahBl?.statuspendukung
+              ? getStatusPisahBl.statuspendukung
+              : 15;
         } else {
           const getDataStatusPisahBl = await trx(this.tableName)
             .select('statuspisahbl')
-            .where('shippinginstructiondetail_nobukti', detailsWithoutRincian.shippinginstructiondetail_nobukti)
+            .where(
+              'shippinginstructiondetail_nobukti',
+              detailsWithoutRincian.shippinginstructiondetail_nobukti,
+            )
             .first();
 
-          detailsWithoutRincian.statuspisahbl = getDataStatusPisahBl.statuspisahbl;
+          detailsWithoutRincian.statuspisahbl =
+            getDataStatusPisahBl.statuspisahbl;
         }
-        
-        if (data.shippinginstructiondetail_nobukti === '') { // Cek ada payload nobukti detail atau enggak, kalo gada buat
+
+        if (data.shippinginstructiondetail_nobukti === '') {
+          // Cek ada payload nobukti detail atau enggak, kalo gada buat
           const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
           const getcabang = await trx('parameter')
             .select(
@@ -88,21 +102,22 @@ export class ShippingInstructionDetailService {
             )
             .where('grp', 'CABANG')
             .first();
-            
-          const nomorBukti = await this.runningNumberService.generateRunningNumber(
-            trx,
-            getFormatShippingDetail.grp,
-            getFormatShippingDetail.subgrp,
-            this.tableName,
-            data.tglbukti,
-            getcabang.cabang_id,
-            data.tujuankapal_id,
-            null,
-            null,
-            data.containerpelayaran_id, 
-            'shippinginstructiondetail_nobukti' 
-          );
-          detailsWithoutRincian.shippinginstructiondetail_nobukti = nomorBukti
+
+          const nomorBukti =
+            await this.runningNumberService.generateRunningNumber(
+              trx,
+              getFormatShippingDetail.grp,
+              getFormatShippingDetail.subgrp,
+              this.tableName,
+              data.tglbukti,
+              getcabang.cabang_id,
+              data.tujuankapal_id,
+              null,
+              null,
+              data.containerpelayaran_id,
+              'shippinginstructiondetail_nobukti',
+            );
+          detailsWithoutRincian.shippinginstructiondetail_nobukti = nomorBukti;
         }
 
         // Extract dan simpan data rincian jika ada
@@ -116,9 +131,9 @@ export class ShippingInstructionDetailService {
         if (tempRincian) {
           allRincian.push(tempRincian);
         }
-        
+
         if (detailsWithoutRincian.id) {
-          const existingData = await trx(this.tableName)  // Check if the data has an id (existing record)
+          const existingData = await trx(this.tableName) // Check if the data has an id (existing record)
             .where('id', detailsWithoutRincian.id)
             .first();
 
@@ -128,15 +143,18 @@ export class ShippingInstructionDetailService {
               updated_at: existingData.updated_at,
             };
             Object.assign(detailsWithoutRincian, createdAt);
-  
-            if (this.utilsService.hasChanges(detailsWithoutRincian, existingData)) {
+
+            if (
+              this.utilsService.hasChanges(detailsWithoutRincian, existingData)
+            ) {
               detailsWithoutRincian.updated_at = time;
               isDataChanged = true;
               detailsWithoutRincian.aksi = 'UPDATE';
             }
           }
         } else {
-          const newTimestamps = { // New record: Set timestamps
+          const newTimestamps = {
+            // New record: Set timestamps
             created_at: time,
             updated_at: time,
           };
@@ -144,11 +162,11 @@ export class ShippingInstructionDetailService {
           isDataChanged = true;
           detailsWithoutRincian.aksi = 'CREATE';
         }
-  
+
         if (!isDataChanged) {
           detailsWithoutRincian.aksi = 'NO UPDATE';
         }
-  
+
         const { aksi, ...dataForInsert } = detailsWithoutRincian;
         mainDataToInsert.push(dataForInsert);
         logData.push({
@@ -158,13 +176,13 @@ export class ShippingInstructionDetailService {
       }
 
       await trx.raw(tableTemp);
-      
+
       // const processedData = mainDataToInsert.map((item: any) => ({
       //   ...item,
-      //   shippinginstruction_id: item.shippinginstruction_id ?? id, 
+      //   shippinginstruction_id: item.shippinginstruction_id ?? id,
       //   // statuspisahbl: 15,
       // }));
-      
+
       const jsonString = JSON.stringify(mainDataToInsert);
       const mappingData = Object.keys(mainDataToInsert[0]).map((key) => [
         'value',
@@ -185,8 +203,12 @@ export class ShippingInstructionDetailService {
         .update({
           nobukti: trx.raw(`${tempTableName}.nobukti`),
           tglbukti: trx.raw(`${tempTableName}.tglbukti`),
-          shippinginstructiondetail_nobukti: trx.raw(`${tempTableName}.shippinginstructiondetail_nobukti`),
-          shippinginstruction_id: trx.raw(`${tempTableName}.shippinginstruction_id`),
+          shippinginstructiondetail_nobukti: trx.raw(
+            `${tempTableName}.shippinginstructiondetail_nobukti`,
+          ),
+          shippinginstruction_id: trx.raw(
+            `${tempTableName}.shippinginstruction_id`,
+          ),
           asalpelabuhan: trx.raw(`${tempTableName}.asalpelabuhan`),
           keterangan: trx.raw(`${tempTableName}.keterangan`),
           consignee: trx.raw(`${tempTableName}.consignee`),
@@ -196,7 +218,9 @@ export class ShippingInstructionDetailService {
           totalgw: trx.raw(`${tempTableName}.totalgw`),
           statuspisahbl: trx.raw(`${tempTableName}.statuspisahbl`),
           emkllain_id: trx.raw(`${tempTableName}.emkllain_id`),
-          containerpelayaran_id: trx.raw(`${tempTableName}.containerpelayaran_id`),
+          containerpelayaran_id: trx.raw(
+            `${tempTableName}.containerpelayaran_id`,
+          ),
           tujuankapal_id: trx.raw(`${tempTableName}.tujuankapal_id`),
           daftarbl_id: trx.raw(`${tempTableName}.daftarbl_id`),
           statusformat: trx.raw(`${tempTableName}.statusformat`),
@@ -204,8 +228,8 @@ export class ShippingInstructionDetailService {
           created_at: trx.raw(`${tempTableName}.created_at`),
           updated_at: trx.raw(`${tempTableName}.updated_at`),
         })
-        .returning('*')
-        
+        .returning('*');
+
       const insertedDataQuery = await trx(tempTableName)
         .select([
           'nobukti',
@@ -271,7 +295,11 @@ export class ShippingInstructionDetailService {
       const finalData = logData.concat(pushToLogWithAction);
 
       const deletedData = await trx(this.tableName)
-        .leftJoin(`${tempTableName}`, `${this.tableName}.id`, `${tempTableName}.id`)
+        .leftJoin(
+          `${tempTableName}`,
+          `${this.tableName}.id`,
+          `${tempTableName}.id`,
+        )
         .whereNull(`${tempTableName}.id`)
         .where(`${this.tableName}.shippinginstruction_id`, id)
         .del();
@@ -279,19 +307,16 @@ export class ShippingInstructionDetailService {
       // Insert new records
       if (insertedDataQuery.length > 0) {
         insertedData = await trx(this.tableName)
-        .insert(insertedDataQuery)
-        .returning('*')
-        
+          .insert(insertedDataQuery)
+          .returning('*');
       }
 
       // PROSES DETAIL RINCIAN
       // Gabungkan detail yang sudah ada dengan yang baru diinsert
-      const allDetails = [
-        ...(updatedData||[]),
-        ...(insertedData||[]),
-      ];
-      
-      for (let i = 0; i < allRincian.length; i++) { // Map rincian dengan ID detail yang benar
+      const allDetails = [...(updatedData || []), ...(insertedData || [])];
+
+      for (let i = 0; i < allRincian.length; i++) {
+        // Map rincian dengan ID detail yang benar
         const rincianItem = allRincian[i];
 
         // Panggil service rincian jika ada data rincian
@@ -300,14 +325,16 @@ export class ShippingInstructionDetailService {
           const fixDataRincian = rincianItem.rincian.map((r: any) => ({
             ...r,
             shippinginstructiondetail_id: allDetails[i].id,
-            shippinginstructiondetail_nobukti: allDetails[i].shippinginstructiondetail_nobukti,
+            shippinginstructiondetail_nobukti:
+              allDetails[i].shippinginstructiondetail_nobukti,
           }));
-          
-          const test = await this.shippingInstructionDetailRincianService.create(
-            fixDataRincian,
-            allDetails[i].id,
-            trx,
-          );
+
+          const test =
+            await this.shippingInstructionDetailRincianService.create(
+              fixDataRincian,
+              allDetails[i].id,
+              trx,
+            );
         }
       }
       console.log('insertedData', insertedData, 'updatedData', updatedData);
@@ -405,10 +432,13 @@ export class ShippingInstructionDetailService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
             if (key === 'detail_nobukti') {
-              query.andWhere(`p.shippinginstructiondetail_nobukti`, 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                `p.shippinginstructiondetail_nobukti`,
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'statuspisahbl_text') {
               query.andWhere('bl.nama', 'like', `%${sanitizedValue}%`);
-
             } else if (key === 'tujuankapal') {
               query.andWhere('q.nama', 'like', `%${sanitizedValue}%`);
             } else {
@@ -429,9 +459,9 @@ export class ShippingInstructionDetailService {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }
       }
-      
+
       const result = await query;
-      
+
       return {
         data: result,
       };
@@ -441,7 +471,10 @@ export class ShippingInstructionDetailService {
     }
   }
 
-  update(id: number, updateShippingInstructionDetailDto: UpdateShippingInstructionDetailDto) {
+  update(
+    id: number,
+    updateShippingInstructionDetailDto: UpdateShippingInstructionDetailDto,
+  ) {
     return `This action updates a #${id} shippingInstructionDetail`;
   }
 
@@ -450,7 +483,7 @@ export class ShippingInstructionDetailService {
       const deletedData = await this.utilsService.lockAndDestroy(
         id,
         this.tableName,
-        'id', 
+        'id',
         trx,
       );
 
@@ -469,11 +502,16 @@ export class ShippingInstructionDetailService {
 
       return { status: 200, message: 'Data deleted successfully', deletedData };
     } catch (error) {
-      console.log('Error deleting data shipping instruction detail in service:', error);
+      console.log(
+        'Error deleting data shipping instruction detail in service:',
+        error,
+      );
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to delete data shipping instruction detail in service');
+      throw new InternalServerErrorException(
+        'Failed to delete data shipping instruction detail in service',
+      );
     }
   }
 }

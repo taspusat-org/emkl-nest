@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateShippingInstructionDetailRincianDto } from './dto/create-shipping-instruction-detail-rincian.dto';
 import { UpdateShippingInstructionDetailRincianDto } from './dto/update-shipping-instruction-detail-rincian.dto';
 import { UtilsService } from 'src/utils/utils.service';
@@ -15,7 +19,11 @@ export class ShippingInstructionDetailRincianService {
     private readonly logTrailService: LogtrailService,
   ) {}
 
-  async create(detailsrincian: any, shippinginstructiondetail_id: number, trx: any) {
+  async create(
+    detailsrincian: any,
+    shippinginstructiondetail_id: number,
+    trx: any,
+  ) {
     try {
       let insertedData = null;
       // let data: any = null;
@@ -28,12 +36,14 @@ export class ShippingInstructionDetailRincianService {
         trx,
         tempTableName,
       );
-      
+
       if (detailsrincian.length === 0) {
-        await trx(this.tableName).delete().where('shippinginstructiondetail_id', shippinginstructiondetail_id);
+        await trx(this.tableName)
+          .delete()
+          .where('shippinginstructiondetail_id', shippinginstructiondetail_id);
         return;
       }
-      
+
       for (const data of detailsrincian) {
         let isDataChanged = false;
 
@@ -42,9 +52,9 @@ export class ShippingInstructionDetailRincianService {
             data[key] = data[key].toUpperCase();
           }
         });
-  
+
         if (data.id) {
-          const existingData = await trx(this.tableName)  // Check if the data has an id (existing record)
+          const existingData = await trx(this.tableName) // Check if the data has an id (existing record)
             .where('id', data.id)
             .first();
 
@@ -54,7 +64,7 @@ export class ShippingInstructionDetailRincianService {
               updated_at: existingData.updated_at,
             };
             Object.assign(data, createdAt);
-  
+
             if (this.utilsService.hasChanges(data, existingData)) {
               data.updated_at = time;
               isDataChanged = true;
@@ -62,7 +72,8 @@ export class ShippingInstructionDetailRincianService {
             }
           }
         } else {
-          const newTimestamps = { // New record: Set timestamps
+          const newTimestamps = {
+            // New record: Set timestamps
             created_at: time,
             updated_at: time,
           };
@@ -70,11 +81,11 @@ export class ShippingInstructionDetailRincianService {
           isDataChanged = true;
           data.aksi = 'CREATE';
         }
-  
+
         if (!isDataChanged) {
           data.aksi = 'NO UPDATE';
         }
-  
+
         const { aksi, ...dataForInsert } = data;
         mainDataToInsert.push(dataForInsert);
         logData.push({
@@ -84,7 +95,7 @@ export class ShippingInstructionDetailRincianService {
       }
 
       await trx.raw(tableTemp);
-      
+
       const jsonString = JSON.stringify(mainDataToInsert);
       const mappingData = Object.keys(mainDataToInsert[0]).map((key) => [
         'value',
@@ -104,9 +115,15 @@ export class ShippingInstructionDetailRincianService {
         .join(`${tempTableName}`, `${this.tableName}.id`, `${tempTableName}.id`)
         .update({
           nobukti: trx.raw(`${tempTableName}.nobukti`),
-          shippinginstructiondetail_id: trx.raw(`${tempTableName}.shippinginstructiondetail_id`),
-          shippinginstructiondetail_nobukti: trx.raw(`${tempTableName}.shippinginstructiondetail_nobukti`),
-          orderanmuatan_nobukti: trx.raw(`${tempTableName}.orderanmuatan_nobukti`),
+          shippinginstructiondetail_id: trx.raw(
+            `${tempTableName}.shippinginstructiondetail_id`,
+          ),
+          shippinginstructiondetail_nobukti: trx.raw(
+            `${tempTableName}.shippinginstructiondetail_nobukti`,
+          ),
+          orderanmuatan_nobukti: trx.raw(
+            `${tempTableName}.orderanmuatan_nobukti`,
+          ),
           comodity: trx.raw(`${tempTableName}.comodity`),
           keterangan: trx.raw(`${tempTableName}.keterangan`),
           modifiedby: trx.raw(`${tempTableName}.modifiedby`),
@@ -123,7 +140,7 @@ export class ShippingInstructionDetailRincianService {
           );
           throw error;
         });
-        
+
       const insertedDataQuery = await trx(tempTableName)
         .select([
           'nobukti',
@@ -168,26 +185,32 @@ export class ShippingInstructionDetailRincianService {
       const finalData = logData.concat(pushToLogWithAction);
 
       const deletedData = await trx(this.tableName)
-        .leftJoin(`${tempTableName}`, `${this.tableName}.id`, `${tempTableName}.id`)
+        .leftJoin(
+          `${tempTableName}`,
+          `${this.tableName}.id`,
+          `${tempTableName}.id`,
+        )
         .whereNull(`${tempTableName}.id`)
-        .where(`${this.tableName}.shippinginstructiondetail_id`, shippinginstructiondetail_id)
+        .where(
+          `${this.tableName}.shippinginstructiondetail_id`,
+          shippinginstructiondetail_id,
+        )
         .del();
 
       if (insertedDataQuery.length > 0) {
         insertedData = await trx(this.tableName)
-        .insert(insertedDataQuery)
-        .returning('*')
-        .then((result: any) => result[0])
-        .catch((error: any) => {
-          console.error(
-            'Error inserting data to shipping instruction detail rincian in service:',
-            error,
-          );
-          throw error;
-        });
+          .insert(insertedDataQuery)
+          .returning('*')
+          .then((result: any) => result[0])
+          .catch((error: any) => {
+            console.error(
+              'Error inserting data to shipping instruction detail rincian in service:',
+              error,
+            );
+            throw error;
+          });
       }
       console.log('insertedData', insertedData, 'updatedData', updatedData);
-      
 
       await this.logTrailService.create(
         {
@@ -238,7 +261,7 @@ export class ShippingInstructionDetailRincianService {
           'p.keterangan',
           'q.nocontainer',
           'q.noseal',
-          'r.nama as shipper_nama'
+          'r.nama as shipper_nama',
         )
         .leftJoin('orderanmuatan as q', 'p.orderanmuatan_nobukti', 'q.nobukti')
         .leftJoin('shipper as r', 'q.shipper_id', 'r.id')
@@ -273,12 +296,15 @@ export class ShippingInstructionDetailRincianService {
 
       const result = await query;
       console.log('result SI RINCIAN', result);
-      
+
       return {
         data: result,
       };
     } catch (error) {
-      console.error('Error to findAll Schedule detail rincian in service', error);
+      console.error(
+        'Error to findAll Schedule detail rincian in service',
+        error,
+      );
       throw new Error(error);
     }
   }
@@ -287,7 +313,10 @@ export class ShippingInstructionDetailRincianService {
     return `This action returns a #${id} shippingInstructionDetailRincian`;
   }
 
-  update(id: number, updateShippingInstructionDetailRincianDto: UpdateShippingInstructionDetailRincianDto) {
+  update(
+    id: number,
+    updateShippingInstructionDetailRincianDto: UpdateShippingInstructionDetailRincianDto,
+  ) {
     return `This action updates a #${id} shippingInstructionDetailRincian`;
   }
 
@@ -296,7 +325,7 @@ export class ShippingInstructionDetailRincianService {
       const deletedData = await this.utilsService.lockAndDestroy(
         id,
         this.tableName,
-        'id', 
+        'id',
         trx,
       );
 
@@ -315,11 +344,16 @@ export class ShippingInstructionDetailRincianService {
 
       return { status: 200, message: 'Data deleted successfully', deletedData };
     } catch (error) {
-      console.log('Error deleting data shipping instruction detail rincian in service:', error);
+      console.log(
+        'Error deleting data shipping instruction detail rincian in service:',
+        error,
+      );
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to delete data shipping instruction detail rincian in service');
+      throw new InternalServerErrorException(
+        'Failed to delete data shipping instruction detail rincian in service',
+      );
     }
   }
 }
