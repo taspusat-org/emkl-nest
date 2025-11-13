@@ -26,6 +26,7 @@ export class TradoController {
   constructor(private readonly tradoService: TradoService) {}
 
   @Post()
+  //@TRADO
   create(@Body() createTradoDto: CreateTradoDto) {
     return this.tradoService.create(createTradoDto);
   }

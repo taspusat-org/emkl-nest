@@ -151,22 +151,23 @@ export class TypeAkuntansiService {
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
         .leftJoin('akuntansi as ak', 'u.akuntansi_id', 'ak.id');
 
+      const excludeSearchKeys = ['statusaktif'];
+      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
+
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('u.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.order', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('ak.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.text', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ])
-            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ]);
+        const sanitized = String(search).replace(/\[/g, '[[]').trim();
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (field === 'akuntansi') {
+              qb.orWhere(`ak.nama`, 'like', `%${sanitized}%`);
+            } else if(field === 'created_at' || field === 'updated_at'){
+              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`, [
+                `%${sanitized}%`,
+              ])
+            } else {
+              qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+            }
+          });
         });
       }
 
@@ -198,7 +199,11 @@ export class TypeAkuntansiService {
       const totalPages = Math.ceil(total / limit);
 
       if (sort?.sortBy && sort?.sortDirection) {
-        query.orderBy(sort.sortBy, sort.sortDirection);
+        if (sort.sortBy === 'akuntansi') {
+          query.orderBy('ak.nama', sort.sortDirection);
+        } else {
+          query.orderBy(sort.sortBy, sort.sortDirection);
+        }
       }
 
       const data = await query;

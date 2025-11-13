@@ -157,6 +157,19 @@ export class ScheduleKapalService {
         );
       }
 
+      if (filters?.notIn) {
+        const notInObj = typeof filters?.notIn === 'string' ? JSON.parse(filters?.notIn) : filters?.notIn;
+
+        if (notInObj && typeof notInObj === 'object') {
+          // Loop semua key di notIn object
+          for (const [key, values] of Object.entries(notInObj)) {
+            if (Array.isArray(values) && values.length > 0) {
+              query.whereNotIn(`u.${key}`, values);
+            }
+          }
+        }
+      }
+
       const excludeSearchKeys = [
         'tglDari',
         'tglSampai',
@@ -181,6 +194,10 @@ export class ScheduleKapalService {
               qb.orWhere(`d.nama`, 'like', `%${sanitized}%`);
             } else if (field === 'asalkapal_nama') {
               qb.orWhere(`e.keterangan`, 'like', `%${sanitized}%`);
+            } else if(field === 'created_at' || field === 'updated_at'){
+              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`, [
+                `%${sanitized}%`,
+              ])
             } else {
               qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
             }
@@ -192,7 +209,7 @@ export class ScheduleKapalService {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
-          if (key === 'join') {
+          if (key === 'join' || key === 'notIn') {
             continue;
           }
 

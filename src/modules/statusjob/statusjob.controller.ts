@@ -154,7 +154,7 @@ export class StatusjobController {
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  //@BOOKINGORDERANMUATAN
+  //@STATUS-JOB
   async delete(@Param('id') tglstatus: string, @Body() data: any, @Req() req) {
     const trx = await dbMssql.transaction();
     try {

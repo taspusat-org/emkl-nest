@@ -148,20 +148,6 @@ export class ScheduleHeaderService {
       page = page ?? 1;
       limit = limit ?? 0;
 
-      // if (isLookUp) {
-      //   const scheduleheaderCount = await trx(this.tableName)
-      //     .count('id as total')
-      //     .first();
-
-      //   const scheduleCountResult = scheduleheaderCount?.total || 0;
-
-      //   if (Number(scheduleCountResult) > 500) {
-      //     return { data: { type: 'json' } };
-      //   } else {
-      //     limit = 0;
-      //   }
-      // }
-
       const query = trx(`${this.tableName} as u`).select([
         'u.id as id',
         'u.nobukti',
@@ -181,22 +167,21 @@ export class ScheduleHeaderService {
         ]);
       }
 
+      const excludeSearchKeys = ['tglDari', 'tglSampai'];
+      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
+
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
-        query.where((builder) => {
-          builder
-            .orWhere('u.nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.tglbukti, 'dd-MM-yyyy') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ])
-            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.modifiedby', 'like', `%${sanitizedValue}%`)
-            .orWhereRaw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ])
-            .orWhereRaw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              `%${sanitizedValue}%`,
-            ]);
+        const sanitized = String(search).replace(/\[/g, '[[]').trim();
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if(field === 'created_at' || field === 'updated_at'){
+              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`, [
+                `%${sanitized}%`,
+              ])
+            } else {
+              qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+            }
+          });
         });
       }
 
@@ -234,7 +219,6 @@ export class ScheduleHeaderService {
       const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
       const totalPages = Math.ceil(total / limit);
-      //
 
       if (sort?.sortBy && sort.sortDirection) {
         query.orderBy(sort.sortBy, sort.sortDirection);
@@ -242,7 +226,6 @@ export class ScheduleHeaderService {
 
       const data = await query;
       const responseType = Number(total) > 500 ? 'json' : 'local';
-      //
 
       return {
         data: data,

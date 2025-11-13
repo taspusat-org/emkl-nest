@@ -26,6 +26,7 @@ export class GandenganController {
   constructor(private readonly gandenganService: GandenganService) {}
 
   @Post()
+  //@GANDENGAN
   create(@Body() createGandenganDto: CreateGandenganDto) {
     return this.gandenganService.create(createGandenganDto);
   }

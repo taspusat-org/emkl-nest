@@ -268,9 +268,7 @@ export class ShippingInstructionDetailRincianService {
         .where('shippinginstructiondetail_id', id);
 
       const excludeSearchKeys = [''];
-      const searchFields = Object.keys(filters || {}).filter(
-        (k) => !excludeSearchKeys.includes(k) && filters![k],
-      );
+      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k) && filters![k]);
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
@@ -285,13 +283,21 @@ export class ShippingInstructionDetailRincianService {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
-            query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
+            if (key === 'detail_nobukti') {
+              query.andWhere(`p.shippinginstructiondetail_nobukti`, 'like', `%${sanitizedValue}%`);
+            } else {
+              query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
+            }
           }
         }
       }
 
       if (sort?.sortBy && sort?.sortDirection) {
-        query.orderBy(sort.sortBy, sort.sortDirection);
+        if (sort?.sortBy === 'detail_nobukti') {
+          query.orderBy('p.shippinginstructiondetail_nobukti', sort.sortDirection);
+        } else {
+          query.orderBy(sort.sortBy, sort.sortDirection);
+        }
       }
 
       const result = await query;
