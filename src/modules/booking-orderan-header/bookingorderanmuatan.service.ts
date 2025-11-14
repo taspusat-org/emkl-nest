@@ -1104,6 +1104,13 @@ export class BookingOrderanMuatanService {
             cekOrderanNoBukti.orderan_nobukti,
             trx,
           );
+
+          if (validasi.status === 'failed') {
+            return {
+              status: 'failed',
+              message: `Data ini tidak diizinkan untuk diedit, silahkan edit dari orderan.`,
+            }
+          }
           return validasi;
         } else {
           const forceEdit = await this.locksService.forceEdit(

@@ -453,7 +453,7 @@ export class ShippingInstructionDetailService {
             } else if (key === 'daftarbl_text') {
               query.andWhere(`bl.nama`, 'like', `%${sanitizedValue}%`);
             } else if (key === 'statuspisahbl_text') {
-              query.andWhere('parameter.id', '=', `%${sanitizedValue}%`);
+              query.andWhere('parameter.id', '=', sanitizedValue);
             } else {
               query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
             }
