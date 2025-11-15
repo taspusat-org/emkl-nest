@@ -164,7 +164,7 @@ export class StatusjobService {
     try {
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
-      limit = 0;
+      limit = limit ?? 0;
 
       console.log('filters di findAll', filters);
       // const tempStatusJob = `##temp_hasil${Math.random().toString(36).substring(2, 15)}`;

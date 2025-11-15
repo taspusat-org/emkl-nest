@@ -332,7 +332,7 @@ export class BookingOrderanHeaderService {
     try {
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
-      limit = 0;
+      limit = limit ?? 0;
 
       const query = trx
         .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))

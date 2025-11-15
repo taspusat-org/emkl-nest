@@ -111,9 +111,8 @@ export class TypeAkuntansiService {
   ) {
     try {
       let { page, limit } = pagination ?? {};
-
       page = page ?? 1;
-      limit = 0;
+      limit = limit ?? 0;
 
       if (isLookUp) {
         const totalData = await trx(this.tableName)
