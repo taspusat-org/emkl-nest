@@ -150,7 +150,7 @@ export class BookingOrderanMuatanService {
 
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
-      limit = 0;
+      limit = limit ?? 0;
 
       const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
 
