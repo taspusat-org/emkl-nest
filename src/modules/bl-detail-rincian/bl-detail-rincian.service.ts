@@ -1,32 +1,22 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
-import { CreateShippingInstructionDetailRincianDto } from './dto/create-shipping-instruction-detail-rincian.dto';
-import { UpdateShippingInstructionDetailRincianDto } from './dto/update-shipping-instruction-detail-rincian.dto';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { CreateBlDetailRincianDto } from './dto/create-bl-detail-rincian.dto';
+import { UpdateBlDetailRincianDto } from './dto/update-bl-detail-rincian.dto';
+import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
-import { RunningNumberService } from '../running-number/running-number.service';
-import { FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Injectable()
-export class ShippingInstructionDetailRincianService {
-  private readonly tableName: string = 'shippinginstructiondetailrincian';
-
+export class BlDetailRincianService {
+  private readonly tableName: string = 'bldetailrincian';
+  
   constructor(
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
 
-  async create(
-    detailsrincian: any,
-    shippinginstructiondetail_id: number,
-    trx: any,
-  ) {
+  async create(details: any, id: any = 0, trx: any = null) {
     try {
       let insertedData = null;
-      // let data: any = null;
       const logData: any[] = [];
       const mainDataToInsert: any[] = [];
       const time = this.utilsService.getTime();
@@ -37,24 +27,16 @@ export class ShippingInstructionDetailRincianService {
         tempTableName,
       );
 
-      if (detailsrincian.length === 0) {
-        await trx(this.tableName)
-          .delete()
-          .where('shippinginstructiondetail_id', shippinginstructiondetail_id);
+      if (details.length === 0) {
+        await trx(this.tableName).delete().where('bldetail_id', id);
         return;
       }
 
-      for (const data of detailsrincian) {
+      for (let data of details) {
         let isDataChanged = false;
-
-        Object.keys(data).forEach((key) => {
-          if (typeof data[key] === 'string') {
-            data[key] = data[key].toUpperCase();
-          }
-        });
-
+        // Check if the data has an id (existing record)
         if (data.id) {
-          const existingData = await trx(this.tableName) // Check if the data has an id (existing record)
+          const existingData = await trx(this.tableName)
             .where('id', data.id)
             .first();
 
@@ -72,8 +54,8 @@ export class ShippingInstructionDetailRincianService {
             }
           }
         } else {
+          // New record: Set timestamps
           const newTimestamps = {
-            // New record: Set timestamps
             created_at: time,
             updated_at: time,
           };
@@ -95,7 +77,6 @@ export class ShippingInstructionDetailRincianService {
       }
 
       await trx.raw(tableTemp);
-
       const jsonString = JSON.stringify(mainDataToInsert);
       const mappingData = Object.keys(mainDataToInsert[0]).map((key) => [
         'value',
@@ -107,25 +88,24 @@ export class ShippingInstructionDetailRincianService {
         .from(trx.raw('OPENJSON(?)', [jsonString]))
         .jsonExtract(mappingData)
         .as('jsonData');
-
+        
       // Insert into temp table
       await trx(tempTableName).insert(openJson);
 
+      // **Update or Insert into 'packinglistdetailrincian' with correct idheader**
       const updatedData = await trx(this.tableName)
-        .join(`${tempTableName}`, `${this.tableName}.id`, `${tempTableName}.id`)
+        .join(
+          `${tempTableName}`,
+          `${this.tableName}.id`,
+          `${tempTableName}.id`,
+        )
         .update({
           nobukti: trx.raw(`${tempTableName}.nobukti`),
-          shippinginstructiondetail_id: trx.raw(
-            `${tempTableName}.shippinginstructiondetail_id`,
-          ),
-          shippinginstructiondetail_nobukti: trx.raw(
-            `${tempTableName}.shippinginstructiondetail_nobukti`,
-          ),
-          orderanmuatan_nobukti: trx.raw(
-            `${tempTableName}.orderanmuatan_nobukti`,
-          ),
-          comodity: trx.raw(`${tempTableName}.comodity`),
+          bldetail_id: trx.raw(`${tempTableName}.bldetail_id`),
+          bldetail_nobukti: trx.raw(`${tempTableName}.bldetail_nobukti`),
+          orderanmuatan_nobukti: trx.raw(`${tempTableName}.orderanmuatan_nobukti`),
           keterangan: trx.raw(`${tempTableName}.keterangan`),
+          info: trx.raw(`${tempTableName}.info`),
           modifiedby: trx.raw(`${tempTableName}.modifiedby`),
           created_at: trx.raw(`${tempTableName}.created_at`),
           updated_at: trx.raw(`${tempTableName}.updated_at`),
@@ -133,22 +113,19 @@ export class ShippingInstructionDetailRincianService {
         .returning('*')
         .then((result: any) => result[0])
         .catch((error: any) => {
-          console.error(
-            'Error inserting data shipping instruction detail rincian in servoce',
-            error,
-            error.message,
-          );
+          console.error('Error updated data bl detail rincian:', error);
           throw error;
         });
 
+      // Handle insertion if no update occurs
       const insertedDataQuery = await trx(tempTableName)
         .select([
           'nobukti',
-          'shippinginstructiondetail_id',
-          'shippinginstructiondetail_nobukti',
+          'bldetail_id',
+          'bldetail_nobukti',
           'orderanmuatan_nobukti',
-          'comodity',
           'keterangan',
+          'info',
           'modifiedby',
           'created_at',
           'updated_at',
@@ -156,20 +133,25 @@ export class ShippingInstructionDetailRincianService {
         .where(`${tempTableName}.id`, '0');
 
       const getDeleted = await trx(`${this.tableName} as u`)
-        .leftJoin(`${tempTableName}`, 'u.id', `${tempTableName}.id`)
+        .leftJoin(
+          `${tempTableName}`,
+          'u.id',
+          `${tempTableName}.id`,
+        )
         .select(
+          'u.id',
           'u.nobukti',
-          'u.shippinginstructiondetail_id',
-          'u.shippinginstructiondetail_nobukti',
+          'u.bldetail_id',
+          'u.bldetail_nobukti',
           'u.orderanmuatan_nobukti',
-          'u.comodity',
           'u.keterangan',
+          'u.info',
           'u.modifiedby',
           'u.created_at',
           'u.updated_at',
         )
         .whereNull(`${tempTableName}.id`)
-        .where('u.shippinginstructiondetail_id', shippinginstructiondetail_id);
+        .where('u.bldetail_id', id);
 
       let pushToLog: any[] = [];
 
@@ -191,10 +173,7 @@ export class ShippingInstructionDetailRincianService {
           `${tempTableName}.id`,
         )
         .whereNull(`${tempTableName}.id`)
-        .where(
-          `${this.tableName}.shippinginstructiondetail_id`,
-          shippinginstructiondetail_id,
-        )
+        .where(`${this.tableName}.bldetail_id`, id)
         .del();
 
       if (insertedDataQuery.length > 0) {
@@ -203,39 +182,37 @@ export class ShippingInstructionDetailRincianService {
           .returning('*')
           .then((result: any) => result[0])
           .catch((error: any) => {
-            console.error(
-              'Error inserting data to shipping instruction detail rincian in service:',
-              error,
-            );
+            console.error('Error inserting data bl detail rincian:', error);
             throw error;
           });
       }
-      console.log('insertedData', insertedData, 'updatedData', updatedData);
 
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'ADD SHIPPING INSTRUCTION DETAIL RINCIAN',
-          idtrans: shippinginstructiondetail_id,
-          nobuktitrans: shippinginstructiondetail_id,
+          postingdari: 'ADD BL DETAIL RINCIAN',
+          idtrans: id,
+          nobuktitrans: id,
           aksi: 'EDIT',
           datajson: JSON.stringify(finalData),
-          modifiedby: detailsrincian[0].modifiedby,
+          modifiedby: details[0].modifiedby || 'unknown',
         },
         trx,
       );
 
+      console.log('RESULT RINCIAN insertedData', insertedData, 'updatedData', updatedData);
+      
       return updatedData || insertedData;
     } catch (error) {
       console.error(
-        'Error process creating shipping instruction detail rincian in service:',
+        'Error process creating bl detail rincian in service:',
         error.message,
       );
       if (error instanceof NotFoundException) {
         throw error;
       }
       throw new InternalServerErrorException(
-        'Error process creating shipping instruction detail rincian in service',
+        'Error process creating bl detail rincian in service',
       );
     }
   }
@@ -250,31 +227,33 @@ export class ShippingInstructionDetailRincianService {
       page = page ?? 1;
       limit = limit ?? 0;
 
-      const query = trx(`${this.tableName} as p`)
+      const query = trx(`${this.tableName} as u`)
         .select(
-          'p.id',
-          'p.nobukti',
-          'p.shippinginstructiondetail_id',
-          'p.shippinginstructiondetail_nobukti',
-          'p.orderanmuatan_nobukti',
-          'p.comodity',
-          'p.keterangan',
+          'u.id',
+          'u.nobukti',
+          'u.bldetail_id',
+          'u.bldetail_nobukti',
+          'u.orderanmuatan_nobukti',
+          'u.keterangan',
           'q.nocontainer',
-          'q.noseal',
-          'r.nama as shipper_nama',
+          'q.noseal'
         )
-        .leftJoin('orderanmuatan as q', 'p.orderanmuatan_nobukti', 'q.nobukti')
-        .leftJoin('shipper as r', 'q.shipper_id', 'r.id')
-        .where('shippinginstructiondetail_id', id);
+        .leftJoin('orderanmuatan as q', 'u.orderanmuatan_nobukti', 'q.nobukti')
+        .where('bldetail_id', id);
 
       const excludeSearchKeys = [''];
-      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k) && filters![k]);
+      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
+      
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
         query.where((qb) => {
           searchFields.forEach((field) => {
-            qb.orWhere(`p.${field}`, 'like', `%${sanitized}%`);
+            if (field === 'nocontainer' || field === 'noseal') {
+              qb.orWhere(`q.${field}`, 'like', `%${sanitized}%`);
+            } else {
+              qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+            }
           });
         });
       }
@@ -283,47 +262,32 @@ export class ShippingInstructionDetailRincianService {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
-            if (key === 'detail_nobukti') {
-              query.andWhere(`p.shippinginstructiondetail_nobukti`, 'like', `%${sanitizedValue}%`);
+            if (key === 'nocontainer' || key === 'noseal') {
+              query.andWhere(`q.${key}`, 'like', `%${sanitizedValue}%`);
             } else {
-              query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
+              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
           }
         }
       }
 
       if (sort?.sortBy && sort?.sortDirection) {
-        if (sort?.sortBy === 'detail_nobukti') {
-          query.orderBy('p.shippinginstructiondetail_nobukti', sort.sortDirection);
+        if (sort?.sortBy === 'nocontainer' || sort?.sortBy === 'noseal') {
+          query.orderBy(`q.${sort.sortBy}`, sort.sortDirection);
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }
       }
 
       const result = await query;
-      console.log('result SI RINCIAN', result);
-
+      
       return {
         data: result,
       };
     } catch (error) {
-      console.error(
-        'Error to findAll Schedule detail rincian in service',
-        error,
-      );
+      console.error('Error to findAll Bl detail rincian in service', error);
       throw new Error(error);
     }
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} shippingInstructionDetailRincian`;
-  }
-
-  update(
-    id: number,
-    updateShippingInstructionDetailRincianDto: UpdateShippingInstructionDetailRincianDto,
-  ) {
-    return `This action updates a #${id} shippingInstructionDetailRincian`;
   }
 
   async delete(id: number, trx: any, modifiedby: any) {
@@ -338,7 +302,7 @@ export class ShippingInstructionDetailRincianService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE SHIPPING INSTRUCTION DETAIL RINCIAN',
+          postingdari: 'DELETE BL DETAIL RINCIAN',
           idtrans: id,
           nobuktitrans: id,
           aksi: 'DELETE',
@@ -351,15 +315,23 @@ export class ShippingInstructionDetailRincianService {
       return { status: 200, message: 'Data deleted successfully', deletedData };
     } catch (error) {
       console.log(
-        'Error deleting data shipping instruction detail rincian in service:',
+        'Error deleting data bl detail rincian in service:',
         error,
       );
       if (error instanceof NotFoundException) {
         throw error;
       }
       throw new InternalServerErrorException(
-        'Failed to delete data shipping instruction detail rincian in service',
+        'Failed to delete data bl detail rincian in service',
       );
     }
+  }
+
+  findOne(id: number) {
+    return `This action returns a #${id} blDetailRincian`;
+  }
+
+  update(id: number, updateBlDetailRincianDto: UpdateBlDetailRincianDto) {
+    return `This action updates a #${id} blDetailRincian`;
   }
 }

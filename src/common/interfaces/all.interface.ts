@@ -47,7 +47,7 @@ export const FindAllSchema = z
     limit: z.preprocess((val) => {
       const parsed = Number(val);
       return isNaN(parsed) ? 10 : parsed; // Jika tidak valid, set limit ke 10
-    }, z.number().int().min(1).default(10)),
+    }, z.number().int().default(10)),
     sortBy: z.string().optional(),
     isLookUp: z.string().optional(),
     exclude: z.string().optional(),

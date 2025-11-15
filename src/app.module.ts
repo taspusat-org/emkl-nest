@@ -115,6 +115,9 @@ import { PackinglistdetailrincianModule } from './modules/packinglistdetailrinci
 import { ShippingInstructionModule } from './modules/shipping-instruction/shipping-instruction.module';
 import { ShippingInstructionDetailModule } from './modules/shipping-instruction-detail/shipping-instruction-detail.module';
 import { ShippingInstructionDetailRincianModule } from './modules/shipping-instruction-detail-rincian/shipping-instruction-detail-rincian.module';
+import { BlHeaderModule } from './modules/bl-header/bl-header.module';
+import { BlDetailRincianModule } from './modules/bl-detail-rincian/bl-detail-rincian.module';
+import { BlDetailModule } from './modules/bl-detail/bl-detail.module';
 
 @Module({
   imports: [
@@ -233,6 +236,9 @@ import { ShippingInstructionDetailRincianModule } from './modules/shipping-instr
     ShippingInstructionModule,
     ShippingInstructionDetailModule,
     ShippingInstructionDetailRincianModule,
+    BlHeaderModule,
+    BlDetailRincianModule,
+    BlDetailModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

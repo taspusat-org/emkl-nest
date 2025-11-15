@@ -340,8 +340,6 @@ export class ScheduleDetailService {
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
   ) {
     try {
-      const { tglDari, tglSampai, ...filtersWithoutTanggal } = filters ?? {};
-
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
@@ -381,31 +379,34 @@ export class ScheduleDetailService {
         .leftJoin('tujuankapal as q', 'p.tujuankapal_id', 'q.id')
         .where('schedule_id', id);
 
+      const excludeSearchKeys = ['tglDari', 'tglSampai'];
+      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
+
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('p.nobukti', 'like', `%${sanitizedValue}%`)
-            .orWhere('pel.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('kapal.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('q.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.tglberangkat', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.tgltiba', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.etb', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.eta', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.etd', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.voyberangkat', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.voytiba', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.closing', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.etatujuan', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.etdtujuan', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.keterangan', 'like', `%${sanitizedValue}%`);
+        const sanitized = String(search).replace(/\[/g, '[[]').trim();
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (field === 'pelayaran') {
+              qb.orWhere(`pel.nama`, 'like', `%${sanitized}%`);
+            } else if(field === 'kapal'){
+              qb.orWhere(`kapal.nama`, 'like', `%${sanitized}%`);
+            } else if(field === 'tujuankapal'){
+              qb.orWhere(`q.nama`, 'like', `%${sanitized}%`);
+            } else {
+              qb.orWhere(`p.${field}`, 'like', `%${sanitized}%`);
+            }
+          });
         });
       }
 
-      if (filtersWithoutTanggal) {
-        for (const [key, value] of Object.entries(filtersWithoutTanggal)) {
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
+
+          if (key === 'tglDari' || key === 'tglSampai') {
+            continue; 
+          }
+
           if (value) {
             if (key === 'pelayaran') {
               query.andWhere(`pel.nama`, 'like', `%${sanitizedValue}%`);

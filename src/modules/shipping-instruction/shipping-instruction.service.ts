@@ -305,7 +305,7 @@ export class ShippingInstructionService {
               query.andWhere(`pel.nama`, 'like', `%${sanitizedValue}%`);
             } else if (key === 'kapal_text') {
               query.andWhere(`kapal.nama`, 'like', `%${sanitizedValue}%`);
-            } else if (key === 'tujunakapal_text') {
+            } else if (key === 'tujuankapal_text') {
               query.andWhere(`tujuankapal.nama`, 'like', `%${sanitizedValue}%`);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
