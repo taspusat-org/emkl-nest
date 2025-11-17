@@ -150,7 +150,7 @@ export class TypeAkuntansiService {
         .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
         .leftJoin('akuntansi as ak', 'u.akuntansi_id', 'ak.id');
 
-      const excludeSearchKeys = ['statusaktif'];
+      const excludeSearchKeys = ['statusaktif', 'text', 'icon'];
       const searchFields = Object.keys(filters || {}).filter(
         (k) => !excludeSearchKeys.includes(k),
       );
