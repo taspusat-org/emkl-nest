@@ -158,7 +158,10 @@ export class ScheduleKapalService {
       }
 
       if (filters?.notIn) {
-        const notInObj = typeof filters?.notIn === 'string' ? JSON.parse(filters?.notIn) : filters?.notIn;
+        const notInObj =
+          typeof filters?.notIn === 'string'
+            ? JSON.parse(filters?.notIn)
+            : filters?.notIn;
 
         if (notInObj && typeof notInObj === 'object') {
           // Loop semua key di notIn object
@@ -194,10 +197,11 @@ export class ScheduleKapalService {
               qb.orWhere(`d.nama`, 'like', `%${sanitized}%`);
             } else if (field === 'asalkapal_nama') {
               qb.orWhere(`e.keterangan`, 'like', `%${sanitized}%`);
-            } else if(field === 'created_at' || field === 'updated_at'){
-              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`, [
-                `%${sanitized}%`,
-              ])
+            } else if (field === 'created_at' || field === 'updated_at') {
+              qb.orWhereRaw(
+                `FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`,
+                [`%${sanitized}%`],
+              );
             } else {
               qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
             }

@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, InternalServerErrorException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { BlDetailService } from './bl-detail.service';
 import { CreateBlDetailDto } from './dto/create-bl-detail.dto';
 import { UpdateBlDetailDto } from './dto/update-bl-detail.dto';
@@ -39,11 +49,7 @@ export class BlDetailController {
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.blDetailService.findAll(
-        id,
-        trx,
-        params,
-      );
+      const result = await this.blDetailService.findAll(id, trx, params);
       if (result.data.length === 0) {
         await trx.commit();
 
@@ -75,8 +81,10 @@ export class BlDetailController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateBlDetailDto: UpdateBlDetailDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateBlDetailDto: UpdateBlDetailDto,
+  ) {
     return this.blDetailService.update(+id, updateBlDetailDto);
   }
-
 }

@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateBlDetailRincianDto } from './dto/create-bl-detail-rincian.dto';
 import { UpdateBlDetailRincianDto } from './dto/update-bl-detail-rincian.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
@@ -8,7 +12,7 @@ import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 @Injectable()
 export class BlDetailRincianService {
   private readonly tableName: string = 'bldetailrincian';
-  
+
   constructor(
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
@@ -32,7 +36,7 @@ export class BlDetailRincianService {
         return;
       }
 
-      for (let data of details) {
+      for (const data of details) {
         let isDataChanged = false;
         // Check if the data has an id (existing record)
         if (data.id) {
@@ -88,22 +92,20 @@ export class BlDetailRincianService {
         .from(trx.raw('OPENJSON(?)', [jsonString]))
         .jsonExtract(mappingData)
         .as('jsonData');
-        
+
       // Insert into temp table
       await trx(tempTableName).insert(openJson);
 
       // **Update or Insert into 'packinglistdetailrincian' with correct idheader**
       const updatedData = await trx(this.tableName)
-        .join(
-          `${tempTableName}`,
-          `${this.tableName}.id`,
-          `${tempTableName}.id`,
-        )
+        .join(`${tempTableName}`, `${this.tableName}.id`, `${tempTableName}.id`)
         .update({
           nobukti: trx.raw(`${tempTableName}.nobukti`),
           bldetail_id: trx.raw(`${tempTableName}.bldetail_id`),
           bldetail_nobukti: trx.raw(`${tempTableName}.bldetail_nobukti`),
-          orderanmuatan_nobukti: trx.raw(`${tempTableName}.orderanmuatan_nobukti`),
+          orderanmuatan_nobukti: trx.raw(
+            `${tempTableName}.orderanmuatan_nobukti`,
+          ),
           keterangan: trx.raw(`${tempTableName}.keterangan`),
           info: trx.raw(`${tempTableName}.info`),
           modifiedby: trx.raw(`${tempTableName}.modifiedby`),
@@ -133,11 +135,7 @@ export class BlDetailRincianService {
         .where(`${tempTableName}.id`, '0');
 
       const getDeleted = await trx(`${this.tableName} as u`)
-        .leftJoin(
-          `${tempTableName}`,
-          'u.id',
-          `${tempTableName}.id`,
-        )
+        .leftJoin(`${tempTableName}`, 'u.id', `${tempTableName}.id`)
         .select(
           'u.id',
           'u.nobukti',
@@ -200,8 +198,13 @@ export class BlDetailRincianService {
         trx,
       );
 
-      console.log('RESULT RINCIAN insertedData', insertedData, 'updatedData', updatedData);
-      
+      console.log(
+        'RESULT RINCIAN insertedData',
+        insertedData,
+        'updatedData',
+        updatedData,
+      );
+
       return updatedData || insertedData;
     } catch (error) {
       console.error(
@@ -236,14 +239,16 @@ export class BlDetailRincianService {
           'u.orderanmuatan_nobukti',
           'u.keterangan',
           'q.nocontainer',
-          'q.noseal'
+          'q.noseal',
         )
         .leftJoin('orderanmuatan as q', 'u.orderanmuatan_nobukti', 'q.nobukti')
         .where('bldetail_id', id);
 
       const excludeSearchKeys = [''];
-      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
-      
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
@@ -280,7 +285,7 @@ export class BlDetailRincianService {
       }
 
       const result = await query;
-      
+
       return {
         data: result,
       };
@@ -314,10 +319,7 @@ export class BlDetailRincianService {
 
       return { status: 200, message: 'Data deleted successfully', deletedData };
     } catch (error) {
-      console.log(
-        'Error deleting data bl detail rincian in service:',
-        error,
-      );
+      console.log('Error deleting data bl detail rincian in service:', error);
       if (error instanceof NotFoundException) {
         throw error;
       }

@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateBlDetailDto } from './dto/create-bl-detail.dto';
 import { UpdateBlDetailDto } from './dto/update-bl-detail.dto';
 import { UtilsService } from 'src/utils/utils.service';
@@ -18,7 +22,7 @@ export class BlDetailService {
 
   async create(details: any, id: any = 0, trx: any = null) {
     try {
-      const allRincian: any[] = [];  // Ambil semua data rincian di luar mapping utama
+      const allRincian: any[] = []; // Ambil semua data rincian di luar mapping utama
       let insertedData = null;
       const logData: any[] = [];
       const mainDataToInsert: any[] = [];
@@ -35,7 +39,7 @@ export class BlDetailService {
         return;
       }
 
-      for (let data of details) {
+      for (const data of details) {
         let isDataChanged = false;
 
         Object.keys(data).forEach((key) => {
@@ -57,9 +61,9 @@ export class BlDetailService {
         if (tempRincian) {
           allRincian.push(tempRincian);
         }
-        
+
         if (detailsWithoutRincian.id) {
-          const existingData = await trx(this.tableName)  // Check if the data has an id (existing record)
+          const existingData = await trx(this.tableName) // Check if the data has an id (existing record)
             .where('id', detailsWithoutRincian.id)
             .first();
 
@@ -69,15 +73,18 @@ export class BlDetailService {
               updated_at: existingData.updated_at,
             };
             Object.assign(detailsWithoutRincian, createdAt);
-  
-            if (this.utilsService.hasChanges(detailsWithoutRincian, existingData)) {
+
+            if (
+              this.utilsService.hasChanges(detailsWithoutRincian, existingData)
+            ) {
               detailsWithoutRincian.updated_at = time;
               isDataChanged = true;
               detailsWithoutRincian.aksi = 'UPDATE';
             }
           }
         } else {
-          const newTimestamps = { // New record: Set timestamps
+          const newTimestamps = {
+            // New record: Set timestamps
             created_at: time,
             updated_at: time,
           };
@@ -85,11 +92,11 @@ export class BlDetailService {
           isDataChanged = true;
           detailsWithoutRincian.aksi = 'CREATE';
         }
-  
+
         if (!isDataChanged) {
           detailsWithoutRincian.aksi = 'NO UPDATE';
         }
-  
+
         const { aksi, ...dataForInsert } = detailsWithoutRincian;
         mainDataToInsert.push(dataForInsert);
         logData.push({
@@ -98,7 +105,7 @@ export class BlDetailService {
         });
       }
       await trx.raw(tableTemp);
-      
+
       const jsonString = JSON.stringify(mainDataToInsert);
       const mappingData = Object.keys(mainDataToInsert[0]).map((key) => [
         'value',
@@ -122,14 +129,16 @@ export class BlDetailService {
           bl_id: trx.raw(`${tempTableName}.bl_id`),
           keterangan: trx.raw(`${tempTableName}.keterangan`),
           noblconecting: trx.raw(`${tempTableName}.noblconecting`),
-          shippinginstructiondetail_nobukti: trx.raw(`${tempTableName}.shippinginstructiondetail_nobukti`),
+          shippinginstructiondetail_nobukti: trx.raw(
+            `${tempTableName}.shippinginstructiondetail_nobukti`,
+          ),
           info: trx.raw(`${tempTableName}.info`),
           modifiedby: trx.raw(`${tempTableName}.modifiedby`),
           created_at: trx.raw(`${tempTableName}.created_at`),
           updated_at: trx.raw(`${tempTableName}.updated_at`),
         })
-        .returning('*')
-        
+        .returning('*');
+
       const insertedDataQuery = await trx(tempTableName)
         .select([
           'nobukti',
@@ -175,7 +184,11 @@ export class BlDetailService {
       const finalData = logData.concat(pushToLogWithAction);
 
       const deletedData = await trx(this.tableName)
-        .leftJoin(`${tempTableName}`, `${this.tableName}.id`, `${tempTableName}.id`)
+        .leftJoin(
+          `${tempTableName}`,
+          `${this.tableName}.id`,
+          `${tempTableName}.id`,
+        )
         .whereNull(`${tempTableName}.id`)
         .where(`${this.tableName}.bl_id`, id)
         .del();
@@ -183,18 +196,15 @@ export class BlDetailService {
       // Insert new records
       if (insertedDataQuery.length > 0) {
         insertedData = await trx(this.tableName)
-        .insert(insertedDataQuery)
-        .returning('*')
-        
+          .insert(insertedDataQuery)
+          .returning('*');
       }
 
       // PROSES DETAIL RINCIAN, Gabungkan detail yang sudah ada dengan yang baru diinsert
-      const allDetails = [
-        ...(updatedData||[]),
-        ...(insertedData||[]),
-      ];
-      
-      for (let i = 0; i < allRincian.length; i++) { // Map rincian dengan ID detail yang benar
+      const allDetails = [...(updatedData || []), ...(insertedData || [])];
+
+      for (let i = 0; i < allRincian.length; i++) {
+        // Map rincian dengan ID detail yang benar
         const rincianItem = allRincian[i];
 
         // Panggil service rincian jika ada data rincian
@@ -205,7 +215,7 @@ export class BlDetailService {
             bldetail_id: allDetails[i].id,
             bldetail_nobukti: allDetails[i].bl_nobukti,
           }));
-          
+
           const test = await this.blDetailRincianService.create(
             fixDataRincian,
             allDetails[i].id,
@@ -272,21 +282,33 @@ export class BlDetailService {
           'emkl.nama as emkllain_nama',
           'pel.nama as pelayaran_nama',
         )
-        .leftJoin('shippinginstructiondetail as si', 'u.shippinginstructiondetail_nobukti', 'si.shippinginstructiondetail_nobukti')
+        .leftJoin(
+          'shippinginstructiondetail as si',
+          'u.shippinginstructiondetail_nobukti',
+          'si.shippinginstructiondetail_nobukti',
+        )
         .leftJoin('parameter', 'si.statuspisahbl', 'parameter.id')
         .leftJoin('emkl', 'si.emkllain_id', 'emkl.id')
         .leftJoin('pelayaran as pel', 'si.containerpelayaran_id', 'pel.id')
         .where('bl_id', id);
 
       const excludeSearchKeys = ['statuspisahbl_text'];
-      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
-      
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
         query.where((qb) => {
           searchFields.forEach((field) => {
-            if (field === 'asalpelabuhan' || field === 'consignee' || field === 'shipper' || field === 'comodity' || field === 'notifyparty') {
+            if (
+              field === 'asalpelabuhan' ||
+              field === 'consignee' ||
+              field === 'shipper' ||
+              field === 'comodity' ||
+              field === 'notifyparty'
+            ) {
               qb.orWhere(`si.${field}`, 'like', `%${sanitized}%`);
             } else if (field === 'emkllain_text') {
               qb.orWhere(`emkl.nama`, 'like', `%${sanitized}%`);
@@ -303,7 +325,13 @@ export class BlDetailService {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
-            if (key === 'asalpelabuhan' || key === 'consignee' || key === 'shipper' || key === 'comodity' || key === 'notifyparty') {
+            if (
+              key === 'asalpelabuhan' ||
+              key === 'consignee' ||
+              key === 'shipper' ||
+              key === 'comodity' ||
+              key === 'notifyparty'
+            ) {
               query.andWhere(`si.${key}`, 'like', `%${sanitizedValue}%`);
             } else if (key === 'emkllain_text') {
               query.andWhere(`emkl.nama`, 'like', `%${sanitizedValue}%`);
@@ -319,7 +347,13 @@ export class BlDetailService {
       }
 
       if (sort?.sortBy && sort?.sortDirection) {
-        if (sort.sortBy === 'asalpelabuhan' || sort.sortBy === 'consignee' || sort.sortBy === 'shipper' || sort.sortBy === 'comodity' || sort.sortBy === 'notifyparty') {
+        if (
+          sort.sortBy === 'asalpelabuhan' ||
+          sort.sortBy === 'consignee' ||
+          sort.sortBy === 'shipper' ||
+          sort.sortBy === 'comodity' ||
+          sort.sortBy === 'notifyparty'
+        ) {
           query.orderBy(`si.${sort.sortBy}`, sort.sortDirection);
         } else if (sort?.sortBy === 'emkllain_text') {
           query.orderBy(`emkl.nama`, sort.sortDirection);
@@ -375,10 +409,7 @@ export class BlDetailService {
 
       return { status: 200, message: 'Data deleted successfully', deletedData };
     } catch (error) {
-      console.log(
-        'Error deleting data bl detail in service:',
-        error,
-      );
+      console.log('Error deleting data bl detail in service:', error);
       if (error instanceof NotFoundException) {
         throw error;
       }

@@ -1109,7 +1109,7 @@ export class BookingOrderanMuatanService {
             return {
               status: 'failed',
               message: `Data ini tidak diizinkan untuk diedit, silahkan edit dari orderan.`,
-            }
+            };
           }
           return validasi;
         } else {

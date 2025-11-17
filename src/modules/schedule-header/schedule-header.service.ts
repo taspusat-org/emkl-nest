@@ -168,16 +168,19 @@ export class ScheduleHeaderService {
       }
 
       const excludeSearchKeys = ['tglDari', 'tglSampai'];
-      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
 
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
         query.where((qb) => {
           searchFields.forEach((field) => {
-            if(field === 'created_at' || field === 'updated_at'){
-              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`, [
-                `%${sanitized}%`,
-              ])
+            if (field === 'created_at' || field === 'updated_at') {
+              qb.orWhereRaw(
+                `FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`,
+                [`%${sanitized}%`],
+              );
             } else {
               qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
             }

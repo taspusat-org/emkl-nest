@@ -66,7 +66,7 @@ export class JenissealService {
         {
           search,
           filters,
-          pagination: { page, limit },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false, // Set based on your requirement (e.g., lookup flag)
         },
@@ -80,6 +80,7 @@ export class JenissealService {
       }
 
       const pageNumber = Math.floor(itemIndex / limit) + 1;
+
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(data),
@@ -509,7 +510,7 @@ export class JenissealService {
       } else if (aksi === 'DELETE') {
         const validasi = await this.globalService.checkUsed(
           'hargatrucking',
-          'jenisseal_id',
+          'id',
           value,
           trx,
         );

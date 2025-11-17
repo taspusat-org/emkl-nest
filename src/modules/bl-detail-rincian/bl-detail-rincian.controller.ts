@@ -3,11 +3,23 @@ import { BlDetailRincianService } from './bl-detail-rincian.service';
 import { CreateBlDetailRincianDto } from './dto/create-bl-detail-rincian.dto';
 import { UpdateBlDetailRincianDto } from './dto/update-bl-detail-rincian.dto';
 import { FindAllDto, FindAllParams } from 'src/common/interfaces/all.interface';
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, InternalServerErrorException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  InternalServerErrorException,
+} from '@nestjs/common';
 
 @Controller('bldetailrincian')
 export class BlDetailRincianController {
-  constructor(private readonly blDetailRincianService: BlDetailRincianService) {}
+  constructor(
+    private readonly blDetailRincianService: BlDetailRincianService,
+  ) {}
 
   @Post()
   create(@Body() createBlDetailRincianDto: CreateBlDetailRincianDto) {
@@ -57,7 +69,7 @@ export class BlDetailRincianController {
       console.error(
         'Error fetching data bl detail rincian in controller ',
         error,
-        error.message
+        error.message,
       );
       throw new InternalServerErrorException(
         'Failed to fetch bl detail rincian in controller',
@@ -71,8 +83,10 @@ export class BlDetailRincianController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateBlDetailRincianDto: UpdateBlDetailRincianDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateBlDetailRincianDto: UpdateBlDetailRincianDto,
+  ) {
     return this.blDetailRincianService.update(+id, updateBlDetailRincianDto);
   }
-
 }
