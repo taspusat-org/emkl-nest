@@ -25,7 +25,7 @@ import { BlDetailRincianModule } from '../bl-detail-rincian/bl-detail-rincian.mo
     LogtrailModule,
     RunningNumberModule,
     BlDetailModule,
-    BlDetailRincianModule
+    BlDetailRincianModule,
   ],
 })
 export class BlHeaderModule {}

@@ -8,13 +8,7 @@ import { BlDetailRincianModule } from '../bl-detail-rincian/bl-detail-rincian.mo
 @Module({
   controllers: [BlDetailController],
   providers: [BlDetailService],
-  imports: [
-    UtilsModule,
-    LogtrailModule,
-    BlDetailRincianModule
-  ],
-  exports: [
-    BlDetailService
-  ]
+  imports: [UtilsModule, LogtrailModule, BlDetailRincianModule],
+  exports: [BlDetailService],
 })
 export class BlDetailModule {}

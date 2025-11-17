@@ -10,7 +10,12 @@ import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { BlDetailRincianService } from '../bl-detail-rincian/bl-detail-rincian.service';
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 
 @Injectable()
 export class BlHeaderService {
@@ -26,7 +31,7 @@ export class BlHeaderService {
     private readonly blDetailService: BlDetailService,
     private readonly blDetailRincianService: BlDetailRincianService,
   ) {}
-  
+
   async create(data: any, trx: any) {
     try {
       Object.keys(data).forEach((key) => {
@@ -68,17 +73,22 @@ export class BlHeaderService {
         shippinginstruction_nobukti: data.shippinginstruction_nobukti,
         modifiedby: data.modifiedby,
         created_at,
-        updated_at
-      }
+        updated_at,
+      };
 
-      const insertedItems = await trx(this.tableName).insert(headerData).returning('*');
+      const insertedItems = await trx(this.tableName)
+        .insert(headerData)
+        .returning('*');
       const newItem = insertedItems[0];
 
       if (data.details && data.details.length > 0) {
         const bldetail = data.details.map((detail: any) => {
           // Susun payload untuk rincian, tidak langsung set rincian mentah
           let rincianPayload: any[] = [];
-          if (Array.isArray(detail.detailsrincian) && detail.detailsrincian.length > 0) {
+          if (
+            Array.isArray(detail.detailsrincian) &&
+            detail.detailsrincian.length > 0
+          ) {
             rincianPayload = detail.detailsrincian.map((rincian: any) => ({
               id: 0,
               nobukti: newItem.nobukti,
@@ -100,7 +110,8 @@ export class BlHeaderService {
             bl_id: newItem.id,
             keterangan: detail.keterangan || '',
             noblconecting: detail.noblconecting || '',
-            shippinginstructiondetail_nobukti: detail.shippinginstructiondetail_nobukti || '',
+            shippinginstructiondetail_nobukti:
+              detail.shippinginstructiondetail_nobukti || '',
             info: detail.info,
             modifiedby: headerData.modifiedby,
             created_at: headerData.created_at,
@@ -109,11 +120,7 @@ export class BlHeaderService {
           };
         });
 
-        await this.blDetailService.create(
-          bldetail,
-          newItem.id,
-          trx,
-        );
+        await this.blDetailService.create(bldetail, newItem.id, trx);
       }
 
       await this.logTrailService.create(
@@ -147,7 +154,10 @@ export class BlHeaderService {
       const pageNumber = Math.floor(dataIndex / data.limit) + 1;
       const endIndex = pageNumber * data.limit;
       const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
-      await this.redisService.set(`${this.tableName}-allItems`, JSON.stringify(limitedItems));
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
 
       return {
         newItem,
@@ -195,7 +205,7 @@ export class BlHeaderService {
           'p.kapal_id',
           'kapal.nama as kapal_nama',
           'p.tujuankapal_id',
-          'tujuankapal.nama as tujuankapal_nama'
+          'tujuankapal.nama as tujuankapal_nama',
         ])
         .leftJoin('schedulekapal as p', 'u.schedule_id', 'p.id')
         .leftJoin('pelayaran as pel', 'p.pelayaran_id', 'pel.id')
@@ -213,7 +223,9 @@ export class BlHeaderService {
       }
 
       const excludeSearchKeys = ['tglDari', 'tglSampai'];
-      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
 
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
@@ -221,23 +233,24 @@ export class BlHeaderService {
           searchFields.forEach((field) => {
             if (field === 'voyberangkat') {
               qb.orWhere(`p.voyberangkat`, 'like', `%${sanitized}%`);
-            } else if(field === 'pelayaran_text'){
+            } else if (field === 'pelayaran_text') {
               qb.orWhere(`pel.nama`, 'like', `%${sanitized}%`);
-            } else if(field === 'kapal_text'){
+            } else if (field === 'kapal_text') {
               qb.orWhere(`kapal.nama`, 'like', `%${sanitized}%`);
-            } else if(field === 'tglbukti'){
+            } else if (field === 'tglbukti') {
               qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy') LIKE ?`, [
                 `%${sanitized}%`,
-              ])
-            } else if(field === 'tglberangkat'){
+              ]);
+            } else if (field === 'tglberangkat') {
               qb.orWhereRaw(`FORMAT(p.tglberangkat, 'dd-MM-yyyy') LIKE ?`, [
                 `%${sanitized}%`,
-              ])
-            } else if(field === 'created_at' || field === 'updated_at'){
-              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`, [
-                `%${sanitized}%`,
-              ])
-            } else if(field === 'tujuankapal_text'){
+              ]);
+            } else if (field === 'created_at' || field === 'updated_at') {
+              qb.orWhereRaw(
+                `FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`,
+                [`%${sanitized}%`],
+              );
+            } else if (field === 'tujuankapal_text') {
               qb.orWhere(`tujuankapal.nama`, 'like', `%${sanitized}%`);
             } else {
               qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
@@ -251,16 +264,24 @@ export class BlHeaderService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
           if (key === 'tglDari' || key === 'tglSampai') {
-            continue; 
+            continue;
           }
 
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'tglbukti') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'tglberangkat') {
-              query.andWhereRaw("FORMAT(p.tglberangkat, 'dd-MM-yyyy') LIKE ?", [`%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(p.tglberangkat, 'dd-MM-yyyy') LIKE ?", [
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'voyberangkat') {
               query.andWhere(`p.voyberangkat`, 'like', `%${sanitizedValue}%`);
             } else if (key === 'pelayaran_text') {
@@ -282,7 +303,10 @@ export class BlHeaderService {
       }
 
       if (sort?.sortBy && sort?.sortDirection) {
-        if (sort?.sortBy === 'voyberangkat' || sort?.sortBy === 'tglberangkat') {
+        if (
+          sort?.sortBy === 'voyberangkat' ||
+          sort?.sortBy === 'tglberangkat'
+        ) {
           query.orderBy(`p.${sort.sortBy}`, sort.sortDirection);
         } else if (sort?.sortBy === 'pelayaran_text') {
           query.orderBy('pel.nama', sort.sortDirection);
@@ -332,10 +356,14 @@ export class BlHeaderService {
           'rincian.orderanmuatan_nobukti',
           'rincian.bldetail_nobukti',
           'orderan.nocontainer',
-          'orderan.noseal'
+          'orderan.noseal',
         ])
         .leftJoin('bldetailrincian as rincian', 'u.nobukti', 'rincian.nobukti')
-        .leftJoin('orderanmuatan as orderan', 'rincian.orderanmuatan_nobukti', 'orderan.nobukti')
+        .leftJoin(
+          'orderanmuatan as orderan',
+          'rincian.orderanmuatan_nobukti',
+          'orderan.nobukti',
+        )
         .where('u.id', id);
 
       const data = await query;
@@ -417,7 +445,8 @@ export class BlHeaderService {
             bl_id: detail.bl_id || updatedData.id,
             keterangan: detail.keterangan || '',
             noblconecting: detail.noblconecting || '',
-            shippinginstructiondetail_nobukti: detail.shippinginstructiondetail_nobukti || '',
+            shippinginstructiondetail_nobukti:
+              detail.shippinginstructiondetail_nobukti || '',
             info: detail.info,
             modifiedby: updatedData.modifiedby,
             created_at: updatedData.created_at,
@@ -426,11 +455,7 @@ export class BlHeaderService {
           };
         });
 
-        await this.blDetailService.create(
-          bldetail,
-          id,
-          trx,
-        );
+        await this.blDetailService.create(bldetail, id, trx);
       }
 
       await this.logTrailService.create(
@@ -466,7 +491,10 @@ export class BlHeaderService {
       const pageNumber = Math.floor(dataIndex / data.limit) + 1;
       const endIndex = pageNumber * data.limit;
       const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
-      await this.redisService.set(`${this.tableName}-allItems`, JSON.stringify(limitedItems));
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
 
       return {
         updatedData,
@@ -508,11 +536,7 @@ export class BlHeaderService {
               );
             }
           }
-          await this.blDetailService.delete(
-            detail.id,
-            trx,
-            modifiedby,
-          );
+          await this.blDetailService.delete(detail.id, trx, modifiedby);
         }
       }
 
@@ -547,7 +571,7 @@ export class BlHeaderService {
   }
 
   async processBl(schedule_id: number, trx: any) {
-    try {      
+    try {
       const query = trx
         .from(trx.raw(`shippinginstructionheader as u WITH (READUNCOMMITTED)`))
         .select([
@@ -560,12 +584,16 @@ export class BlHeaderService {
           'p.comodity',
           'p.notifyparty',
           'emkl.nama as emkllain_nama',
-          'pel.nama as pelayaran_nama'
+          'pel.nama as pelayaran_nama',
         ])
-        .leftJoin('shippinginstructiondetail as p', 'u.id', 'p.shippinginstruction_id')
+        .leftJoin(
+          'shippinginstructiondetail as p',
+          'u.id',
+          'p.shippinginstruction_id',
+        )
         .leftJoin('emkl', 'p.emkllain_id', 'emkl.id')
         .leftJoin('pelayaran as pel', 'p.containerpelayaran_id', 'pel.id')
-        .where('u.schedule_id', schedule_id)
+        .where('u.schedule_id', schedule_id);
 
       const data = await query;
 
@@ -610,15 +638,18 @@ export class BlHeaderService {
   }
 
   async exportToExcel(data: any, id: any) {
-    const dataHeader = data.data[0]
+    const dataHeader = data.data[0];
     const workbook = new Workbook();
 
     // GROUP DATA JADI ARRAY DENGAN KEY BERDASARKAN BLDETAIL_NOBUKTI
-    const grouped: Record<string, any[]> = data.data.reduce((acc, item) => {
-      if (!acc[item.bldetail_nobukti]) acc[item.bldetail_nobukti] = [];
-      acc[item.bldetail_nobukti].push(item);
-      return acc;
-    }, {} as Record<string, any[]>);
+    const grouped: Record<string, any[]> = data.data.reduce(
+      (acc, item) => {
+        if (!acc[item.bldetail_nobukti]) acc[item.bldetail_nobukti] = [];
+        acc[item.bldetail_nobukti].push(item);
+        return acc;
+      },
+      {} as Record<string, any[]>,
+    );
 
     // Mendefinisikan header kolom
     const headers = [
@@ -679,7 +710,7 @@ export class BlHeaderService {
           right: { style: 'thin' },
         };
       });
-      
+
       rows.forEach((row, rowIndex) => {
         const currentRow = rowIndex + 10;
         const rowValues = [
@@ -689,7 +720,7 @@ export class BlHeaderService {
           '',
           '',
           '',
-          ''
+          '',
         ];
 
         rowValues.forEach((value, colIndex) => {
@@ -722,17 +753,14 @@ export class BlHeaderService {
         });
 
       worksheet.getColumn(1).width = 6;
-    };
+    }
 
     const tempDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
 
-    const tempFilePath = path.resolve(
-      tempDir,
-      `laporan_BL_${Date.now()}.xlsx`,
-    );
+    const tempFilePath = path.resolve(tempDir, `laporan_BL_${Date.now()}.xlsx`);
     await workbook.xlsx.writeFile(tempFilePath);
 
     return tempFilePath;

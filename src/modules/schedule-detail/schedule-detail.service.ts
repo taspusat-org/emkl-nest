@@ -380,7 +380,9 @@ export class ScheduleDetailService {
         .where('schedule_id', id);
 
       const excludeSearchKeys = ['tglDari', 'tglSampai'];
-      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
 
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
@@ -388,9 +390,9 @@ export class ScheduleDetailService {
           searchFields.forEach((field) => {
             if (field === 'pelayaran') {
               qb.orWhere(`pel.nama`, 'like', `%${sanitized}%`);
-            } else if(field === 'kapal'){
+            } else if (field === 'kapal') {
               qb.orWhere(`kapal.nama`, 'like', `%${sanitized}%`);
-            } else if(field === 'tujuankapal'){
+            } else if (field === 'tujuankapal') {
               qb.orWhere(`q.nama`, 'like', `%${sanitized}%`);
             } else {
               qb.orWhere(`p.${field}`, 'like', `%${sanitized}%`);
@@ -404,7 +406,7 @@ export class ScheduleDetailService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
           if (key === 'tglDari' || key === 'tglSampai') {
-            continue; 
+            continue;
           }
 
           if (value) {

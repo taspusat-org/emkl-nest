@@ -1,19 +1,19 @@
-import { 
-  Get, 
-  Put, 
-  Req, 
-  Post, 
-  Body, 
-  Query, 
+import {
+  Get,
+  Put,
+  Req,
+  Post,
+  Body,
+  Query,
   Param,
-  Delete, 
-  UsePipes, 
-  UseGuards, 
-  HttpStatus, 
-  Controller, 
-  HttpException, 
+  Delete,
+  UsePipes,
+  UseGuards,
+  HttpStatus,
+  Controller,
+  HttpException,
   InternalServerErrorException,
-  Res, 
+  Res,
 } from '@nestjs/common';
 import * as fs from 'fs';
 import { Response } from 'express';
@@ -22,9 +22,17 @@ import { AuthGuard } from '../auth/auth.guard';
 import { BlHeaderService } from './bl-header.service';
 import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
-import { CreateBlSchema, UpdateBlDto, UpdateBlSchema } from './dto/create-bl-header.dto';
+import {
+  CreateBlSchema,
+  UpdateBlDto,
+  UpdateBlSchema,
+} from './dto/create-bl-header.dto';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
-import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
 
 @Controller('blheader')
 export class BlHeaderController {
@@ -91,7 +99,7 @@ export class BlHeaderController {
       isLookUp: isLookUp === 'true',
       sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
     };
-    
+
     const trx = await dbMssql.transaction();
     try {
       const result = await this.blHeaderService.findAll(params, trx);
@@ -113,30 +121,20 @@ export class BlHeaderController {
   //@BL-HEADER
   async update(
     @Param('id') id: string,
-    @Body(
-      new InjectMethodPipe('update'),
-      new ZodValidationPipe(UpdateBlSchema),
-    )
+    @Body(new InjectMethodPipe('update'), new ZodValidationPipe(UpdateBlSchema))
     data: UpdateBlDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      const result = await this.blHeaderService.update(
-        +id,
-        data,
-        trx,
-      );
+      const result = await this.blHeaderService.update(+id, data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error(
-        'Error while updating bl header in controller:',
-        error,
-      );
+      console.error('Error while updating bl header in controller:', error);
 
       if (error instanceof HttpException) {
         // Ensure any other errors get caught and returned
@@ -160,26 +158,19 @@ export class BlHeaderController {
     const trx = await dbMssql.transaction();
     const modifiedby = req.user?.user?.username || 'unknown';
     try {
-      const result = await this.blHeaderService.delete(
-        +id,
-        trx,
-        modifiedby,
-      );
+      const result = await this.blHeaderService.delete(+id, trx, modifiedby);
 
       trx.commit();
       return result;
     } catch (error) {
       trx.rollback();
-      console.error(
-        'Error deleting bl header in controller:',
-        error,
-      );
+      console.error('Error deleting bl header in controller:', error);
       throw new Error(
         `Error deleting bl header in controller: ${error.message}`,
       );
     }
   }
-  
+
   @UseGuards(AuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string) {
@@ -202,10 +193,7 @@ export class BlHeaderController {
   async prosesBl(@Param('schedule_id') schedule_id) {
     const trx = await dbMssql.transaction();
     try {
-      const forceEdit = await this.blHeaderService.processBl(
-        schedule_id,
-        trx,
-      );
+      const forceEdit = await this.blHeaderService.processBl(schedule_id, trx);
       trx.commit();
       return forceEdit;
     } catch (error) {
@@ -247,10 +235,7 @@ export class BlHeaderController {
         throw new Error('Data is not found');
       }
 
-      const tempFilePath = await this.blHeaderService.exportToExcel(
-        data,
-        id,
-      );
+      const tempFilePath = await this.blHeaderService.exportToExcel(data, id);
       const fileStream = fs.createReadStream(tempFilePath);
 
       res.setHeader(

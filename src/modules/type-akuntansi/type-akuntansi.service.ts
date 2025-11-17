@@ -151,7 +151,9 @@ export class TypeAkuntansiService {
         .leftJoin('akuntansi as ak', 'u.akuntansi_id', 'ak.id');
 
       const excludeSearchKeys = ['statusaktif'];
-      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
 
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
@@ -159,10 +161,11 @@ export class TypeAkuntansiService {
           searchFields.forEach((field) => {
             if (field === 'akuntansi') {
               qb.orWhere(`ak.nama`, 'like', `%${sanitized}%`);
-            } else if(field === 'created_at' || field === 'updated_at'){
-              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`, [
-                `%${sanitized}%`,
-              ])
+            } else if (field === 'created_at' || field === 'updated_at') {
+              qb.orWhereRaw(
+                `FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`,
+                [`%${sanitized}%`],
+              );
             } else {
               qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
             }

@@ -414,15 +414,21 @@ export class ShippingInstructionDetailService {
         .where('shippinginstruction_id', id);
 
       const excludeSearchKeys = ['statuspisahbl_text'];
-      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
-      
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
         query.where((qb) => {
           searchFields.forEach((field) => {
             if (field === 'detail_nobukti') {
-              qb.orWhere(`p.shippinginstructiondetail_nobukti`, 'like', `%${sanitized}%`);
+              qb.orWhere(
+                `p.shippinginstructiondetail_nobukti`,
+                'like',
+                `%${sanitized}%`,
+              );
             } else if (field === 'emkllain_text') {
               qb.orWhere(`emkl.nama`, 'like', `%${sanitized}%`);
             } else if (field === 'containerpelayaran_text') {
@@ -443,7 +449,11 @@ export class ShippingInstructionDetailService {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
           if (value) {
             if (key === 'detail_nobukti') {
-              query.andWhere(`p.shippinginstructiondetail_nobukti`, 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                `p.shippinginstructiondetail_nobukti`,
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'emkllain_text') {
               query.andWhere(`emkl.nama`, 'like', `%${sanitizedValue}%`);
             } else if (key === 'containerpelayaran_text') {
@@ -463,7 +473,10 @@ export class ShippingInstructionDetailService {
 
       if (sort?.sortBy && sort?.sortDirection) {
         if (sort?.sortBy === 'detail_nobukti') {
-          query.orderBy(`p.shippinginstructiondetail_nobukti`, sort.sortDirection);
+          query.orderBy(
+            `p.shippinginstructiondetail_nobukti`,
+            sort.sortDirection,
+          );
         } else if (sort?.sortBy === 'emkllain_text') {
           query.orderBy(`emkl.nama`, sort.sortDirection);
         } else if (sort?.sortBy === 'containerpelayaran_text') {
