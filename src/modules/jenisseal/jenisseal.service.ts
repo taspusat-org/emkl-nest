@@ -157,7 +157,7 @@ export class JenissealService {
         query.limit(limit).offset(offset);
       }
 
-      const excludeSearchKeys = ['statusaktif'];
+      const excludeSearchKeys = ['statusaktif', 'text', 'icon'];
       const searchFields = Object.keys(filters || {}).filter(
         (k) => !excludeSearchKeys.includes(k),
       );
