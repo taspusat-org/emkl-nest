@@ -81,7 +81,7 @@ export class AsalkapalService {
 
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(newItem),
+        JSON.stringify(data),
       );
 
       await this.logTrailService.create(
@@ -150,22 +150,41 @@ export class AsalkapalService {
         .leftJoin('cabang', 'u.cabang_id', 'cabang.id')
         .leftJoin('container', 'u.container_id', 'container.id');
 
+      const excludeSearchKeys = ['statusaktif', 'text', 'icon'];
+
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
       if (limit > 0) {
         const offset = (page - 1) * limit;
         query.limit(limit).offset(offset);
       }
 
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
+        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
 
-        query.where((builder) => {
-          builder
-            .orWhere('u.nominal', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.memo', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.text', 'like', `%${sanitizedValue}%`)
-            .orWhere('cabang.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('container.nama', 'like', `%${sanitizedValue}%`);
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'coagiro_ket') {
+              qb.orWhere(
+                'coagiro.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
+            } else if (field === 'cabang') {
+              qb.orWhere('cabang.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'container') {
+              qb.orWhere('container.nama', 'like', `%${sanitizedValue}%`);
+            } else {
+              qb.orWhere(`u.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
         });
       }
 
@@ -300,6 +319,7 @@ export class AsalkapalService {
         limit,
         statusaktif_nama,
         cabang,
+        id: skipId,
         container,
         ...insertData
       } = data;

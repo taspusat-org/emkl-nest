@@ -7,7 +7,7 @@ import {
 import { CreateCabangDto } from './dto/create-cabang.dto';
 import { UpdateCabangDto } from './dto/update-cabang.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
-import { dbHr, dbMssql, dbMssqlHr } from 'src/common/utils/db';
+import { dbHr, dbMssql } from 'src/common/utils/db';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RedisService } from 'src/common/redis/redis.service';

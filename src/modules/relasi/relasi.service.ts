@@ -123,23 +123,65 @@ export class RelasiService {
         .leftJoin('akunpusat as coahutang', 'r.coahutang', 'coahutang.coa')
         .leftJoin('cabang', 'r.titipcabang_id', 'cabang.id');
 
-      // full-text search
+      const excludeSearchKeys = [
+        'titipcabang_id',
+        'statusaktif',
+        'statusaktif_text',
+        'statusrelasi',
+        'statustitip',
+        'coagiro',
+        'coapiutang',
+        'coahutang',
+      ];
+
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.limit(limit).offset(offset);
+      }
+
       if (search) {
-        const val = String(search).replace(/\[/g, '[[]');
-        query.where((builder) =>
-          builder
-            .orWhere('r.nama', 'like', `%${val}%`)
-            .orWhere('r.coagiro', 'like', `%${val}%`)
-            .orWhere('r.coapiutang', 'like', `%${val}%`)
-            .orWhere('r.coahutang', 'like', `%${val}%`)
-            .orWhere('r.alamat', 'like', `%${val}%`)
-            .orWhere('r.npwp', 'like', `%${val}%`)
-            .orWhere('r.namapajak', 'like', `%${val}%`)
-            .orWhere('r.alamatpajak', 'like', `%${val}%`)
-            .orWhere('r.info', 'like', `%${val}%`)
-            .orWhere('r.modifiedby', 'like', `%${val}%`)
-            .orWhere('r.editing_by', 'like', `%${val}%`),
-        );
+        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(r.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'coagiro_ket') {
+              qb.orWhere(
+                'coagiro.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
+            } else if (field === 'statusrelasi_text') {
+              qb.orWhere('statusrelasi.text', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'statustitip_text') {
+              qb.orWhere('statustitip', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'coapiutang_ket') {
+              qb.orWhere(
+                'coapiutang.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
+            } else if (field === 'coahutang_ket') {
+              qb.orWhere(
+                'coahutang.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
+            } else if (field === 'titipcabang') {
+              qb.orWhere('cabang.nama', 'like', `%${sanitizedValue}%`);
+            } else {
+              qb.orWhere(`r.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
+        });
       }
 
       // filters per kolom

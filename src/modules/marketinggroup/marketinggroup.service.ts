@@ -145,12 +145,30 @@ export class MarketinggroupService {
         query.limit(limit).offset(offset);
       }
 
+      const excludeSearchKeys = [
+        'statusaktif',
+        'marketing_id',
+        'statusaktif_text',
+      ];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('marketing.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('mg.modifiedby', 'like', `%${sanitizedValue}%`);
+        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(mg.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'marketing_nama') {
+              qb.orWhere('marketing.nama', 'like', `%${sanitizedValue}%`);
+            } else {
+              qb.orWhere(`mg.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
         });
       }
 

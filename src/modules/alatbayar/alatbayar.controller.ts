@@ -60,7 +60,7 @@ export class AlatbayarController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating bank in controller', error);
+      console.error('Error while creating alatbayar in controller', error);
 
       // Ensure any other errors get caught and returned
       if (error instanceof HttpException) {
@@ -71,7 +71,7 @@ export class AlatbayarController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to create bank',
+          message: 'Failed to create alatbayar',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -135,7 +135,7 @@ export class AlatbayarController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error updating Bank in controller:', error);
+      console.error('Error updating alatbayar in controller:', error);
       if (error instanceof HttpException) {
         throw error; // If it's already a HttpException, rethrow it
       }

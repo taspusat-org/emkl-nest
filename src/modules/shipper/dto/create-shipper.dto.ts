@@ -45,19 +45,19 @@ export const CreateShipperSchema = z
 
     npwp: z.string().min(1, { message: 'NPWP Wajib Diisi' }),
 
-    coagiro: z.string().min(1, { message: 'COAGIRO is required' }),
+    coagiro: z.string().min(1, { message: 'COA GIRO is required' }),
     coagiro_text: z.string().nullable().optional(),
 
-    ppn: z.number().nullable().optional(),
+    ppn: z.string().nullable().optional(),
     titipke: z.string().nullable().optional(),
-    ppnbatalmuat: z.number().nullable().optional(),
+    ppnbatalmuat: z.string().nullable().optional(),
     grup: z.string().nullable().optional(),
     formatdeliveryreport: z.number().nullable().optional(),
     comodity: z.string().nullable().optional(),
     namashippercetak: z.string().nullable().optional(),
     formatcetak: z.number().nullable().optional(),
 
-    marketing_id: z.number().min(1, { message: 'MARKETING_ID is required' }),
+    marketing_id: z.number().min(1, { message: 'MARKETING ID is required' }),
     marketing_text: z.string().nullable().optional(),
 
     blok: z.string().nullable().optional(),
@@ -68,23 +68,23 @@ export const CreateShipperSchema = z
     kabupaten: z.string().nullable().optional(),
     kecamatan: z.string().nullable().optional(),
     propinsi: z.string().nullable().optional(),
-    isdpp10psn: z.number().nullable().optional(),
+    isdpp10psn: z.string().nullable().optional(),
     usertracing: z.string().nullable().optional(),
     passwordtracing: z.string().nullable().optional(),
 
-    kodeprospek: z.string().min(1, { message: 'KODEPROSPEK Wajib Diisi' }),
+    kodeprospek: z.string().min(1, { message: 'KODEP ROSPEK Wajib Diisi' }),
     namashipperprospek: z
       .string()
-      .min(1, { message: 'NAMASHIPPERPROSPEK Wajib Diisi' }),
+      .min(1, { message: 'NAMA SHIPPER PROSPEK Wajib Diisi' }),
 
     emaildelay: z.string().nullable().optional(),
     keterangan1barisinvoice: z.string().nullable().optional(),
     nik: z.string().nullable().optional(),
     namaparaf: z.string().nullable().optional(),
-    saldopiutang: z.number().nullable().optional(),
+    saldopiutang: z.string().nullable().optional(),
     keteranganshipperjobminus: z.string().nullable().optional(),
     tglemailshipperjobminus: z.string().nullable().optional(),
-    tgllahir: z.string().min(1, { message: 'TGLLAHIR Wajib Diisi' }),
+    tgllahir: z.string().min(1, { message: 'TGL LAHIR Wajib Diisi' }),
     idshipperasal: z.number().nullable().optional(),
     shipperasal_text: z.string().nullable().optional(),
 

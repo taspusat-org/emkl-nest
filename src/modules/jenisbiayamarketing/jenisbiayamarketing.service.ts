@@ -63,12 +63,15 @@ export class JenisbiayamarketingService {
         },
         trx,
       );
-      let itemIndex = data.findIndex((item) => item.id === newItem.id);
+
+      let itemIndex = data.findIndex(
+        (item) => Number(item.id) === Number(newItem.id),
+      );
       if (itemIndex === -1) {
         itemIndex = 0;
       }
 
-      const pageNumber = pagination?.currentPage;
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
 
       await this.redisService.set(
         `${this.tableName}-allItems`,
@@ -147,12 +150,24 @@ export class JenisbiayamarketingService {
         query.limit(limit).offset(offset);
       }
 
+      const excludeSearchKeys = ['statusaktif', 'statusaktif_text'];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('jbm.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('jbm.keterangan', 'like', `%${sanitizedValue}%`);
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(jbm.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else {
+              qb.orWhere(`jbm.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
         });
       }
 
@@ -261,7 +276,7 @@ export class JenisbiayamarketingService {
 
       // Cari index item yang baru saja diupdate
       let itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === dataId,
+        (item) => Number(item.id) === Number(id),
       );
       if (itemIndex === -1) {
         itemIndex = 0;

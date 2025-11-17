@@ -28,30 +28,6 @@ const knexConfig: { [key: string]: Knex.Config } = {
       directory: './migrations',
     },
   },
-  hr: {
-    client: 'mssql',
-    connection: {
-      server: process.env.SSMS_HR,
-      user: process.env.SSMS_HR_USER,
-      password: process.env.SSMS_HR_PASSWORD,
-      database: process.env.SSMS_HR_DB,
-      port: Number(process.env.SSMS_HR_PORT),
-      pool: {
-        min: 2,
-        max: 10,
-      },
-      options: {
-        encrypt: false,
-        enableArithAbort: true, // Diperlukan untuk mencegah error aritmatika
-      },
-      requestTimeout: 60000, // 60 detik
-    },
-    migrations: {
-      tableName: 'knex_migrations',
-      // Set an absolute path to the migrations folder
-      directory: './migrations',
-    },
-  },
   medanEmkl: {
     client: 'mssql',
     connection: {

@@ -1,17 +1,34 @@
-import { isRecordExist } from 'src/utils/utils.service';
 import { z } from 'zod';
+import { isRecordExist } from 'src/utils/utils.service';
 
 export const CreateCabangSchema = z.object({
   kodecabang: z
     .string()
-    .trim()
-    .min(1, { message: 'Kode Cabang is required' })
-    .max(255),
+    .min(1, { message: 'Kode Cabang Wajib Diisi' })
+    .max(100)
+    .refine(
+      async (value) => {
+        const exists = await isRecordExist('kodecabang', value, 'cabang');
+        return !exists; // Validasi jika nama sudah ada
+      },
+      {
+        message: 'Kode Cabang dengan dengan kode ini sudah ada',
+      },
+    ),
+
   nama: z
     .string()
-    .trim()
-    .min(1, { message: 'Nama Cabang is required' })
-    .max(255),
+    .min(1, { message: 'Nama Wajib Diisi' })
+    .max(100)
+    .refine(
+      async (value) => {
+        const exists = await isRecordExist('nama', value, 'cabang');
+        return !exists; // Validasi jika nama sudah ada
+      },
+      {
+        message: 'Cabang dengan dengan nama ini sudah ada',
+      },
+    ),
 
   statusaktif: z
     .number()
