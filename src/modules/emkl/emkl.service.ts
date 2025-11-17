@@ -93,12 +93,14 @@ export class EmklService {
         },
         trx,
       );
-      let itemIndex = data.findIndex((item) => item.id === newItem.id);
+      let itemIndex = data.findIndex(
+        (item) => Number(item.id) === Number(newItem.id),
+      );
       if (itemIndex === -1) {
         itemIndex = 0;
       }
 
-      const pageNumber = pagination?.currentPage;
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
 
       await this.redisService.set(
         `${this.tableName}-allItems`,
@@ -204,18 +206,57 @@ export class EmklService {
           'statusaktif.id',
         );
 
+      const excludeSearchKeys = ['statustrado', 'statusaktif'];
+
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
       if (limit > 0) {
         const offset = (page - 1) * limit;
         query.limit(limit).offset(offset);
       }
 
       if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('emkl.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('emkl.contactperson', 'like', `%${sanitizedValue}%`)
-            .orWhere('coagiro.keterangancoa', 'like', `%${sanitizedValue}%`);
+        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(emkl.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (field === 'statusaktif_memo') {
+              qb.orWhere('statusaktif.memo', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'statusaktif_text') {
+              qb.orWhere('statusaktif.text', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'statustrado_memo') {
+              qb.orWhere('statustrado.memo', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'statustrado_text') {
+              qb.orWhere('statustrado.text', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'coagiro_ket') {
+              qb.orWhere(
+                'coagiro.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
+            } else if (field === 'coapiutang_ket') {
+              qb.orWhere(
+                'coapiutang.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
+            } else if (field === 'coahutang_ket') {
+              qb.orWhere(
+                'coahutang.keterangancoa',
+                'like',
+                `%${sanitizedValue}%`,
+              );
+            } else {
+              qb.orWhere(`emkl.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
         });
       }
 
@@ -347,11 +388,11 @@ export class EmklService {
       );
 
       // Cari index item yang baru saja diupdate
-      const itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === dataId,
+      let itemIndex = filteredData.findIndex(
+        (item) => Number(item.id) === Number(dataId),
       );
       if (itemIndex === -1) {
-        throw new Error('Updated item not found in all items');
+        itemIndex = 0;
       }
       const statusRelasi = await trx('parameter')
         .select('*')

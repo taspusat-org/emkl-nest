@@ -61,12 +61,14 @@ export class JenisOrderanService {
         },
         trx,
       );
-      let itemIndex = data.findIndex((item) => item.id === newItem.id);
+      let itemIndex = data.findIndex(
+        (item) => Number(item.id) === Number(newItem.id),
+      );
       if (itemIndex === -1) {
         itemIndex = 0;
       }
 
-      const pageNumber = pagination?.currentPage;
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
 
       await this.redisService.set(
         `${this.tableName}-allItems`,
@@ -76,7 +78,7 @@ export class JenisOrderanService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'ADD JENIS MUATAN',
+          postingdari: 'ADD JENIS ORDERAN',
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -320,6 +322,7 @@ export class JenisOrderanService {
         page,
         limit,
         statusaktif_text,
+        id: skipId,
         statusformat_nama,
         ...insertData
       } = data;
@@ -346,11 +349,11 @@ export class JenisOrderanService {
       );
 
       // Cari index item yang baru saja diupdate
-      const itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === id,
+      let itemIndex = filteredData.findIndex(
+        (item) => Number(item.id) === Number(id),
       );
       if (itemIndex === -1) {
-        throw new Error('Updated item not found in all items');
+        itemIndex = 0;
       }
 
       const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
@@ -367,7 +370,7 @@ export class JenisOrderanService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'EDIT JENIS MUATAN',
+          postingdari: 'EDIT JENIS ORDERAN',
           idtrans: id,
           nobuktitrans: id,
           aksi: 'EDIT',
@@ -403,7 +406,7 @@ export class JenisOrderanService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE JENIS MUATAN',
+          postingdari: 'DELETE JENIS ORDERAN',
           idtrans: deletedData.id,
           nobuktitrans: deletedData.id,
           aksi: 'DELETE',

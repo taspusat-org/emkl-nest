@@ -90,12 +90,14 @@ export class PelayaranService {
         trx,
       );
 
-      let itemIndex = data.findIndex((item) => item.id === newItem.id);
+      let itemIndex = data.findIndex(
+        (item) => Number(item.id) === Number(newItem.id),
+      );
       if (itemIndex === -1) {
         itemIndex = 0;
       }
 
-      const pageNumber = pagination?.currentPage;
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
 
       await this.redisService.set(
         `${this.tableName}-allItems`,
@@ -147,7 +149,8 @@ export class PelayaranService {
         }
       }
 
-      const query = trx(`${this.tableName} as pel`)
+      const query = trx
+        .from(trx.raw(`${this.tableName} as pel with (readuncommitted)`))
         .select([
           'pel.id as id',
           'pel.nama',
@@ -163,21 +166,34 @@ export class PelayaranService {
           'par.memo',
           'par.text as statusaktif_text',
         ])
-        .leftJoin('parameter as par', 'pel.statusaktif', 'par.id');
+        .leftJoin(
+          trx.raw('parameter as par WITH (READUNCOMMITTED)'),
+          'pel.statusaktif',
+          'par.id',
+        );
 
       if (limit > 0) {
         const offset = (page - 1) * limit;
         query.limit(limit).offset(offset);
       }
-
+      const excludeSearchKeys = ['statusaktif'];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
-        query.where((builder) => {
-          builder
-            .orWhere('pel.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('pel.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('par.memo', 'like', `%${sanitizedValue}%`)
-            .orWhere('par.text', 'like', `%${sanitizedValue}%`);
+
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(pel.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else {
+              qb.orWhere(`pel.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
         });
       }
 
@@ -337,11 +353,11 @@ export class PelayaranService {
       );
 
       // Cari index item yang baru saja diupdate
-      const itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === dataId,
+      let itemIndex = filteredData.findIndex(
+        (item) => Number(item.id) === Number(dataId),
       );
       if (itemIndex === -1) {
-        throw new Error('Updated item not found in all items');
+        itemIndex = 0;
       }
       const statusRelasi = await trx('parameter')
         .select('*')

@@ -647,13 +647,30 @@ export class PengeluaranheaderService {
           if (value) {
             const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
-            if (['created_at', 'updated_at', 'tglbukti'].includes(key)) {
+            if (
+              [
+                'created_at',
+                'updated_at',
+                'tglbukti',
+                'tgljatuhtempo',
+              ].includes(key)
+            ) {
               query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
                 key,
                 `%${sanitizedValue}%`,
               ]);
+            } else if (key === 'relasi_text') {
+              query.orWhere('r.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'bank_text') {
+              query.orWhere('b.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'coakredit_text') {
+              query.orWhere('a.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'alatbayar_text') {
+              query.orWhere('c.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'daftarbank_text') {
+              query.orWhere('d.nama', 'like', `%${sanitizedValue}%`);
             } else {
-              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+              query.orWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
           }
         }

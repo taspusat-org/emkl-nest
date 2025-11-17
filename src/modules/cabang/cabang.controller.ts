@@ -45,20 +45,6 @@ export class CabangController {
     @Body(new ZodValidationPipe(CreateCabangSchema)) request: CreateCabangDto,
     @Req() req,
   ) {
-    const kodecabangexits = await isRecordExist(
-      'kodecabang',
-      request.kodecabang,
-      'cabang',
-    );
-    if (kodecabangexits) {
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.BAD_REQUEST,
-          message: 'Kode Cabang sudah ada', // Custom message
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
     const trx = await dbMssql.transaction();
     try {
       request.modifiedby = req.user?.user?.username || 'unknown';
@@ -77,35 +63,6 @@ export class CabangController {
   //@CABANG-REPORT
   async findAllByIds(@Body() ids: { id: number }[]) {
     return this.cabangService.findAllByIds(ids);
-  }
-
-  @Get('/export')
-  async exportToExcel(@Query() params: any, @Res() res: Response) {
-    try {
-      const { data } = await this.findAll(params);
-
-      if (!Array.isArray(data)) {
-        throw new Error('Data is not an array or is undefined.');
-      }
-
-      const tempFilePath = await this.cabangService.exportToExcel(data);
-
-      const fileStream = fs.createReadStream(tempFilePath);
-
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-      res.setHeader(
-        'Content-Disposition',
-        'attachment; filename="laporan_cabang.xlsx"',
-      );
-
-      fileStream.pipe(res);
-    } catch (error) {
-      console.error('Error exporting to Excel:', error);
-      res.status(500).send('Failed to export file');
-    }
   }
 
   @Post('/export-byselect')
@@ -168,6 +125,36 @@ export class CabangController {
       sort,
     };
     return this.cabangService.findAll(params);
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id')
+  //@CABANG
+  async delete(@Param('id') id: string, @Req() req) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.cabangService.remove(
+        +id,
+        trx,
+        req.user?.user?.username,
+      );
+
+      if (result.status === 404) {
+        throw new NotFoundException(result.message);
+      }
+
+      await trx.commit();
+      return result;
+    } catch (error) {
+      await trx.rollback();
+      console.error('Error deleting data in controller:', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Failed to delete data');
+    }
   }
 
   @Get('hr')
@@ -246,32 +233,32 @@ export class CabangController {
     }
   }
 
-  @UseGuards(AuthGuard)
-  @Delete(':id')
-  async delete(@Param('id') id: string, @Req() req) {
-    const trx = await dbMssql.transaction();
+  @Get('/export')
+  async exportToExcel(@Query() params: any, @Res() res: Response) {
     try {
-      const result = await this.cabangService.remove(
-        +id,
-        trx,
-        req.user?.user?.username,
+      const { data } = await this.findAll(params);
+
+      if (!Array.isArray(data)) {
+        throw new Error('Data is not an array or is undefined.');
+      }
+
+      const tempFilePath = await this.cabangService.exportToExcel(data);
+
+      const fileStream = fs.createReadStream(tempFilePath);
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="laporan_cabang.xlsx"',
       );
 
-      if (result.status === 404) {
-        throw new NotFoundException(result.message);
-      }
-
-      await trx.commit();
-      return result;
+      fileStream.pipe(res);
     } catch (error) {
-      await trx.rollback();
-      console.error('Error deleting data in controller:', error);
-
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('Failed to delete data');
+      console.error('Error exporting to Excel:', error);
+      res.status(500).send('Failed to export file');
     }
   }
 }

@@ -72,17 +72,17 @@ export class JenissealService {
         },
         trx,
       );
-      let itemIndex = data.findIndex((item) => item.id === newItem.id);
+      let itemIndex = data.findIndex(
+        (item) => Number(item.id) === Number(newItem.id),
+      );
       if (itemIndex === -1) {
         itemIndex = 0;
       }
 
-      // Optionally, you can find the page number or other info if needed
-      const pageNumber = pagination?.currentPage;
-
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(newItem),
+        JSON.stringify(data),
       );
 
       await this.logTrailService.create(
@@ -290,7 +290,7 @@ export class JenissealService {
       const existingData = await trx(this.tableName).where('id', id).first();
 
       if (!existingData) {
-        throw new Error('Container not found');
+        throw new Error('JENIS SEAL not found');
       }
 
       const {
@@ -300,6 +300,7 @@ export class JenissealService {
         search,
         page,
         limit,
+        id: skipId,
         statusaktif_nama,
         ...insertData
       } = data;
@@ -320,7 +321,7 @@ export class JenissealService {
         {
           search,
           filters,
-          pagination: { page, limit },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false, // Set based on your requirement (e.g., lookup flag)
         },
@@ -328,11 +329,11 @@ export class JenissealService {
       );
 
       // Cari index item yang baru saja diupdate
-      const itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === id,
+      let itemIndex = filteredData.findIndex(
+        (item) => Number(item.id) === Number(id),
       );
       if (itemIndex === -1) {
-        throw new Error('Updated item not found in all items');
+        itemIndex = 0;
       }
 
       const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
@@ -508,7 +509,7 @@ export class JenissealService {
       } else if (aksi === 'DELETE') {
         const validasi = await this.globalService.checkUsed(
           'hargatrucking',
-          'container_id',
+          'jenisseal_id',
           value,
           trx,
         );

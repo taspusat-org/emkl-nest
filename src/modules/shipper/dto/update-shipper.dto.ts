@@ -1,7 +1,9 @@
+import { isRecordExist } from 'src/utils/utils.service';
 import { z } from 'zod';
 
 export const UpdateShipperSchema = z
   .object({
+    id: z.number().optional(),
     nama: z.string().trim().min(1, { message: 'NAMA is required' }),
 
     keterangan: z.string().nullable().optional(),
@@ -32,7 +34,7 @@ export const UpdateShipperSchema = z
 
     npwp: z.string().min(1, { message: 'NPWP Wajib Diisi' }),
 
-    coagiro: z.string().min(1, { message: 'COAGIRO is required' }),
+    coagiro: z.string().min(1, { message: 'COA GIRO is required' }),
     coagiro_text: z.string().nullable().optional(),
 
     ppn: z.string().nullable().optional(),
@@ -44,7 +46,7 @@ export const UpdateShipperSchema = z
     namashippercetak: z.string().nullable().optional(),
     formatcetak: z.number().nullable().optional(),
 
-    marketing_id: z.number().min(1, { message: 'MARKETING_ID is required' }),
+    marketing_id: z.number().min(1, { message: 'MARKETING ID is required' }),
     marketing_text: z.string().nullable().optional(),
 
     blok: z.string().nullable().optional(),
@@ -59,10 +61,10 @@ export const UpdateShipperSchema = z
     usertracing: z.string().nullable().optional(),
     passwordtracing: z.string().nullable().optional(),
 
-    kodeprospek: z.string().min(1, { message: 'KODEPROSPEK Wajib Diisi' }),
+    kodeprospek: z.string().min(1, { message: 'KODEP ROSPEK Wajib Diisi' }),
     namashipperprospek: z
       .string()
-      .min(1, { message: 'NAMASHIPPERPROSPEK Wajib Diisi' }),
+      .min(1, { message: 'NAMA SHIPPER PROSPEK Wajib Diisi' }),
 
     emaildelay: z.string().nullable().optional(),
     keterangan1barisinvoice: z.string().nullable().optional(),
@@ -71,7 +73,7 @@ export const UpdateShipperSchema = z
     saldopiutang: z.string().nullable().optional(),
     keteranganshipperjobminus: z.string().nullable().optional(),
     tglemailshipperjobminus: z.string().nullable().optional(),
-    tgllahir: z.string().min(1, { message: 'TGLLAHIR Wajib Diisi' }),
+    tgllahir: z.string().min(1, { message: 'TGL LAHIR Wajib Diisi' }),
     idshipperasal: z.number().nullable().optional(),
     shipperasal_text: z.string().nullable().optional(),
 
@@ -117,6 +119,21 @@ export const UpdateShipperSchema = z
           });
         }
       }
+    }
+  })
+  .superRefine(async (data, ctx) => {
+    const existsName = await isRecordExist(
+      'nama',
+      data.nama,
+      'shipper',
+      data.id ?? undefined,
+    );
+    if (existsName) {
+      ctx.addIssue({
+        path: ['nama'],
+        code: 'custom',
+        message: 'Shipper dengan nama ini sudah ada',
+      });
     }
   });
 

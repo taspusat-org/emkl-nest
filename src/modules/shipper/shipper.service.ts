@@ -106,12 +106,14 @@ export class ShipperService {
         },
         trx,
       );
-      let itemIndex = data.findIndex((item) => item.id === newItem.id);
+      let itemIndex = data.findIndex(
+        (item) => Number(item.id) === Number(newItem.id),
+      );
       if (itemIndex === -1) {
         itemIndex = 0;
       }
 
-      const pageNumber = pagination?.currentPage;
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
 
       await this.redisService.set(
         `${this.tableName}-allItems`,
@@ -1660,6 +1662,10 @@ export class ShipperService {
   // }
 
   async update(id: number, data: any, trx: any) {
+    data.tglemailshipperjobminus = formatDateToSQL(
+      String(data?.tglemailshipperjobminus),
+    );
+    data.tgllahir = formatDateToSQL(String(data?.tgllahir));
     try {
       const existingData = await trx(this.tableName).where('id', id).first();
 
@@ -1681,6 +1687,7 @@ export class ShipperService {
         marketing_text,
         text,
         shipperasal_text,
+        id: skipId,
         parentshipper_text,
         ...insertData
       } = data;
@@ -1689,6 +1696,7 @@ export class ShipperService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
+
       const hasChanges = this.utilsService.hasChanges(insertData, existingData);
       if (hasChanges) {
         insertData.updated_at = this.utilsService.getTime();
@@ -1707,11 +1715,11 @@ export class ShipperService {
       );
 
       // Cari index item yang baru saja diupdate
-      const itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === id,
+      let itemIndex = filteredData.findIndex(
+        (item) => Number(item.id) === Number(id),
       );
       if (itemIndex === -1) {
-        throw new Error('Updated item not found in all items');
+        itemIndex = 0;
       }
       const statusRelasi = await trx('parameter')
         .select('*')

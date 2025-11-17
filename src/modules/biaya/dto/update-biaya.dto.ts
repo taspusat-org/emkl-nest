@@ -1,7 +1,9 @@
+import { isRecordExist } from 'src/utils/utils.service';
 import { z } from 'zod';
 
 export const UpdateBiayaSchema = z
   .object({
+    id: z.number().optional(),
     nama: z.string().trim().min(1, { message: 'NAMA is required' }),
 
     keterangan: z.string().trim().min(1, { message: 'KETERANGAN is required' }),
@@ -34,6 +36,21 @@ export const UpdateBiayaSchema = z
           message: 'COA dan COA Hutang tidak boleh sama',
         });
       }
+    }
+  })
+  .superRefine(async (data, ctx) => {
+    const existsName = await isRecordExist(
+      'nama',
+      data.nama,
+      'biaya',
+      data.id ?? undefined,
+    );
+    if (existsName) {
+      ctx.addIssue({
+        path: ['nama'],
+        code: 'custom',
+        message: 'Biaya dengan nama ini sudah ada',
+      });
     }
   });
 

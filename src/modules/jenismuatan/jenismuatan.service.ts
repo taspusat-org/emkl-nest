@@ -60,12 +60,14 @@ export class JenisMuatanService {
         },
         trx,
       );
-      let itemIndex = data.findIndex((item) => item.id === newItem.id);
+      let itemIndex = data.findIndex(
+        (item) => Number(item.id) === Number(newItem.id),
+      );
       if (itemIndex === -1) {
         itemIndex = 0;
       }
 
-      const pageNumber = pagination?.currentPage;
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
 
       await this.redisService.set(
         `${this.tableName}-allItems`,
@@ -284,6 +286,7 @@ export class JenisMuatanService {
         search,
         page,
         limit,
+        id: skipId,
         statusaktif_text,
         ...insertData
       } = data;
@@ -310,11 +313,12 @@ export class JenisMuatanService {
       );
 
       // Cari index item yang baru saja diupdate
-      const itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === id,
+      // Cari index item yang baru saja diupdate
+      let itemIndex = filteredData.findIndex(
+        (item) => Number(item.id) === Number(id),
       );
       if (itemIndex === -1) {
-        throw new Error('Updated item not found in all items');
+        itemIndex = 0;
       }
 
       const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend

@@ -15,6 +15,7 @@ export type UpdateManagermarketingDetailDto = z.infer<
 
 export const UpdateManagermarketingHeaderSchema = z
   .object({
+    id: z.number().optional(),
     nama: z.string().min(1, { message: 'Nama Wajib Diisi' }).max(100),
     keterangan: z.string().trim().min(1, { message: 'Keterangan wajib diisi' }),
     minimalprofit: z
@@ -65,6 +66,22 @@ export const UpdateManagermarketingHeaderSchema = z
             message: `Persentase < 100 !`,
           });
         }
+      });
+    }
+  })
+
+  .superRefine(async (data, ctx) => {
+    const existsName = await isRecordExist(
+      'nama',
+      data.nama,
+      'managermarketing',
+      data.id ?? undefined,
+    );
+    if (existsName) {
+      ctx.addIssue({
+        path: ['nama'],
+        code: 'custom',
+        message: 'Manager Marketing dengan nama ini sudah ada',
       });
     }
   });

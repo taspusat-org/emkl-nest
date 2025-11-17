@@ -67,17 +67,18 @@ export class DivisiService {
         },
         trx,
       );
-      let itemIndex = data.findIndex((item) => item.id === newItem.id);
+      let itemIndex = data.findIndex(
+        (item) => Number(item.id) === Number(newItem.id),
+      );
       if (itemIndex === -1) {
         itemIndex = 0;
       }
 
-      // Optionally, you can find the page number or other info if needed
-      const pageNumber = pagination?.currentPage;
+      const pageNumber = Math.floor(itemIndex / limit) + 1;
 
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(newItem),
+        JSON.stringify(data),
       );
 
       await this.logTrailService.create(
@@ -145,16 +146,24 @@ export class DivisiService {
         const offset = (page - 1) * limit;
         query.limit(limit).offset(offset);
       }
-
+      const excludeSearchKeys = ['statusaktif', 'text', 'icon'];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
       if (search) {
         const sanitizedValue = String(search).replace(/\[/g, '[[]');
 
-        query.where((builder) => {
-          builder
-            .orWhere('u.nama', 'like', `%${sanitizedValue}%`)
-            .orWhere('u.keterangan', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.memo', 'like', `%${sanitizedValue}%`)
-            .orWhere('p.text', 'like', `%${sanitizedValue}%`);
+        query.where((qb) => {
+          searchFields.forEach((field) => {
+            if (['created_at', 'updated_at'].includes(field)) {
+              qb.orWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                field,
+                `%${sanitizedValue}%`,
+              ]);
+            } else {
+              qb.orWhere(`u.${field}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
         });
       }
 
@@ -282,6 +291,7 @@ export class DivisiService {
         page,
         limit,
         statusaktif_nama,
+        id: skipId,
         pelayaran,
         ...insertData
       } = data;
@@ -309,12 +319,11 @@ export class DivisiService {
         trx,
       );
 
-      // Cari index item yang baru saja diupdate
-      const itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === id,
+      let itemIndex = filteredData.findIndex(
+        (item) => Number(item.id) === Number(id),
       );
       if (itemIndex === -1) {
-        throw new Error('Updated item not found in all items');
+        itemIndex = 0;
       }
 
       const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
