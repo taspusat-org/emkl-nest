@@ -286,6 +286,7 @@ export class HargatruckingService {
         emkl_text,
         container_text,
         jenisorderan_text,
+        id: skipId,
         text,
         ...insertData
       } = data;

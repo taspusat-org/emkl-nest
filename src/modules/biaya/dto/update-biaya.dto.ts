@@ -1,5 +1,5 @@
-import { isRecordExist } from 'src/utils/utils.service';
 import { z } from 'zod';
+import { dbMssql } from 'src/common/utils/db';
 
 export const UpdateBiayaSchema = z
   .object({
@@ -37,19 +37,26 @@ export const UpdateBiayaSchema = z
         });
       }
     }
-  })
-  .superRefine(async (data, ctx) => {
-    const existsName = await isRecordExist(
-      'nama',
-      data.nama,
-      'biaya',
-      data.id ?? undefined,
-    );
-    if (existsName) {
+
+    const query = dbMssql('biaya').where('nama', data.nama);
+
+    if (data.id) {
+      query.whereNot('id', data.id);
+    }
+
+    if (data.jenisorderan_id !== null && data.jenisorderan_id !== undefined) {
+      query.where('jenisorderan_id', data.jenisorderan_id);
+    } else {
+      query.whereNull('jenisorderan_id');
+    }
+
+    const exists = await query.first();
+
+    if (exists) {
       ctx.addIssue({
         path: ['nama'],
-        code: 'custom',
-        message: 'Biaya dengan nama ini sudah ada',
+        code: z.ZodIssueCode.custom,
+        message: 'Nama Biaya dengan jenis orderan ini sudah ada',
       });
     }
   });

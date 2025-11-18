@@ -22,9 +22,9 @@ export const UpdateComoditySchema = z
     );
     if (existsName) {
       ctx.addIssue({
-        path: ['nama'],
+        path: ['keterangan'],
         code: 'custom',
-        message: 'Keterangan ini sudah ada',
+        message: 'Comodity dengan Keterangan ini sudah ada',
       });
     }
   });

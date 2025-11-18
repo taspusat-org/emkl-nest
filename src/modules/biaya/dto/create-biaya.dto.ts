@@ -1,21 +1,9 @@
 import { z } from 'zod';
-import { isRecordExist } from 'src/utils/utils.service';
+import { dbMssql } from 'src/common/utils/db';
 
 export const CreateBiayaSchema = z
   .object({
-    nama: z
-      .string()
-      .min(1, { message: 'Nama Wajib Diisi' })
-      .max(100)
-      .refine(
-        async (value) => {
-          const exists = await isRecordExist('nama', value, 'biaya');
-          return !exists; // Validasi jika nama sudah ada
-        },
-        {
-          message: 'Biaya dengan dengan nama ini sudah ada',
-        },
-      ),
+    nama: z.string().min(1, { message: 'Nama Wajib Diisi' }).max(100),
 
     keterangan: z.string().trim().min(1, { message: 'KETERANGAN is required' }),
 
@@ -47,6 +35,24 @@ export const CreateBiayaSchema = z
           message: 'COA dan COA Hutang tidak boleh sama',
         });
       }
+    }
+
+    const query = dbMssql('biaya').where('nama', data.nama);
+
+    if (data.jenisorderan_id !== null && data.jenisorderan_id !== undefined) {
+      query.where('jenisorderan_id', data.jenisorderan_id);
+    } else {
+      query.whereNull('jenisorderan_id');
+    }
+
+    const exists = await query.first();
+
+    if (exists) {
+      ctx.addIssue({
+        path: ['nama'],
+        code: z.ZodIssueCode.custom,
+        message: 'Nama Biaya dengan jenis orderan ini sudah ada',
+      });
     }
   });
 

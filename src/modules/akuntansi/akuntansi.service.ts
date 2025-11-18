@@ -290,6 +290,7 @@ export class AkuntansiService {
         search,
         page,
         limit,
+        id: skipId,
         statusaktif_nama,
         ...insertData
       } = data;
