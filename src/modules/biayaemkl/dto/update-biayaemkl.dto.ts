@@ -18,6 +18,12 @@ export const UpdateBiayaemklSchema = z.object({
   statusaktif: z.number().min(1, { message: 'STATUSAKTIF is required' }),
   text: z.string().nullable().optional(),
 
+  statusbiayabl: z.number().min(1, { message: 'Status Biaya BL is required' }),
+  statusbiayabl_text: z.string().nullable().optional(),
+
+  statusseal: z.number().min(1, { message: 'Status Seal is required' }),
+  statusseal_text: z.string().nullable().optional(),
+
   info: z.string().nullable().optional(),
   modifiedby: z.string().nullable().optional(),
 });

@@ -27,8 +27,14 @@ export const CreateBiayaemklSchema = z.object({
   jenisorderan_id: z.number().min(1, { message: 'JENIS ORDERAN is required' }),
   jenisorderan_text: z.string().nullable().optional(),
 
-  statusaktif: z.number().min(1, { message: 'STATUSAKTIF is required' }),
+  statusaktif: z.number().min(1, { message: 'Status Aktif is required' }),
   text: z.string().nullable().optional(),
+
+  statusbiayabl: z.number().min(1, { message: 'Status Biaya BL is required' }),
+  statusbiayabl_text: z.string().nullable().optional(),
+
+  statusseal: z.number().min(1, { message: 'Status Seal is required' }),
+  statusseal_text: z.string().nullable().optional(),
 
   info: z.string().nullable().optional(),
   modifiedby: z.string().nullable().optional(),
