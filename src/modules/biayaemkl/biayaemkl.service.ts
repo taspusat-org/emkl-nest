@@ -196,6 +196,10 @@ export class BiayaemklService {
         'coahut',
         'jenisorderan_id',
         'statusaktif',
+        'statusbiayabl',
+        'statusbiayabl_text',
+        'statusseal',
+        'statusseal_text',
       ];
 
       const searchFields = Object.keys(filters || {}).filter(
