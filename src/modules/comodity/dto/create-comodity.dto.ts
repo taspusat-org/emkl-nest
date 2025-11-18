@@ -12,7 +12,7 @@ export const CreateComoditySchema = z.object({
         return !exists; // Validasi jika keterangan sudah ada
       },
       {
-        message: 'Keterangan ini sudah ada',
+        message: 'Comodity Keterangan ini sudah ada',
       },
     ),
   rate: z.string().min(1, { message: 'Rate is required' }),

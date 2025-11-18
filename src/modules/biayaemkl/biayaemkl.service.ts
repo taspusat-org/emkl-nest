@@ -37,6 +37,8 @@ export class BiayaemklService {
         coahut,
         jenisorderan_id,
         statusaktif,
+        statusbiayabl,
+        statusseal,
         modifiedby,
         created_at,
         updated_at,
@@ -48,6 +50,8 @@ export class BiayaemklService {
         biaya_id: biaya_id,
         coahut: coahut,
         jenisorderan_id: jenisorderan_id,
+        statusbiayabl: statusbiayabl,
+        statusseal: statusseal,
         statusaktif: statusaktif,
         modifiedby: modifiedby,
         created_at: created_at || this.utilsService.getTime(),
@@ -135,6 +139,8 @@ export class BiayaemklService {
           'b.biaya_id',
           'b.coahut',
           'b.jenisorderan_id',
+          'b.statusbiayabl',
+          'b.statusseal',
           'b.statusaktif',
           'b.info',
           'b.modifiedby',
@@ -145,6 +151,10 @@ export class BiayaemklService {
           'p1.nama as biaya_text',
           'p2.keterangancoa as coahut_text',
           'p3.nama as jenisorderan_text',
+          'p4.text as statusbiayabl_text',
+          'p4.memo as statusbiayabl_memo',
+          'p5.text as statusseal_text',
+          'p5.memo as statusseal_memo',
         ])
         .leftJoin(
           trx.raw('parameter as p WITH (READUNCOMMITTED)'),
@@ -165,6 +175,16 @@ export class BiayaemklService {
           trx.raw('jenisorderan as p3 WITH (READUNCOMMITTED)'),
           'b.jenisorderan_id',
           'p3.id',
+        )
+        .leftJoin(
+          trx.raw('parameter as p4 WITH (READUNCOMMITTED)'),
+          'b.statusbiayabl',
+          'p4.id',
+        )
+        .leftJoin(
+          trx.raw('parameter as p5 WITH (READUNCOMMITTED)'),
+          'b.statusseal',
+          'p5.id',
         );
 
       if (limit > 0) {
@@ -283,6 +303,8 @@ export class BiayaemklService {
         biaya_text,
         coahut_text,
         jenisorderan_text,
+        statusbiayabl_text,
+        statusseal_text,
         id: skipId,
         text,
         ...insertData
