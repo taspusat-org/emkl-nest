@@ -253,7 +253,7 @@ export class MarketinggroupService {
         limit,
         marketing_nama,
         statusaktif_text,
-        id,
+        id: skipId,
         ...insertData
       } = data;
       Object.keys(insertData).forEach((key) => {

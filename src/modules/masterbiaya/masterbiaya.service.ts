@@ -331,6 +331,7 @@ export class MasterbiayaService {
   }
 
   async update(id: number, data: any, trx: any) {
+    data.tglberlaku = formatDateToSQL(String(data?.tglberlaku));
     try {
       const existingData = await trx(this.tableName).where('id', id).first();
 
