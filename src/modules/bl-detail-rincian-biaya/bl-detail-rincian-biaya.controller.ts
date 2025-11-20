@@ -1,29 +1,17 @@
+import { Controller, Get, Post, Body, Patch, Param, Delete, InternalServerErrorException, Query } from '@nestjs/common';
+import { BlDetailRincianBiayaService } from './bl-detail-rincian-biaya.service';
+import { CreateBlDetailRincianBiayaDto } from './dto/create-bl-detail-rincian-biaya.dto';
+import { UpdateBlDetailRincianBiayaDto } from './dto/update-bl-detail-rincian-biaya.dto';
 import { dbMssql } from 'src/common/utils/db';
-import { BlDetailRincianService } from './bl-detail-rincian.service';
-import { CreateBlDetailRincianDto } from './dto/create-bl-detail-rincian.dto';
-import { UpdateBlDetailRincianDto } from './dto/update-bl-detail-rincian.dto';
 import { FindAllDto, FindAllParams } from 'src/common/interfaces/all.interface';
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Query,
-  InternalServerErrorException,
-} from '@nestjs/common';
 
-@Controller('bldetailrincian')
-export class BlDetailRincianController {
-  constructor(
-    private readonly blDetailRincianService: BlDetailRincianService,
-  ) {}
+@Controller('bldetailrincianbiaya')
+export class BlDetailRincianBiayaController {
+  constructor(private readonly blDetailRincianBiayaService: BlDetailRincianBiayaService) {}
 
   @Post()
-  create(@Body() createBlDetailRincianDto: CreateBlDetailRincianDto) {
-    return this.blDetailRincianService.create(createBlDetailRincianDto);
+  create(@Body() createBlDetailRincianBiayaDto: CreateBlDetailRincianBiayaDto) {
+    return this.blDetailRincianBiayaService.create(createBlDetailRincianBiayaDto);
   }
 
   @Get(':id')
@@ -51,7 +39,7 @@ export class BlDetailRincianController {
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.blDetailRincianService.findAll(+id, trx, params);
+      const result = await this.blDetailRincianBiayaService.findAll(id, trx, params);
       if (result.data.length === 0) {
         await trx.commit();
 
@@ -67,26 +55,23 @@ export class BlDetailRincianController {
     } catch (error) {
       trx.rollback();
       console.error(
-        'Error fetching data bl detail rincian in controller ',
+        'Error fetching data bl detail rincian biaya in controller ',
         error,
-        error.message,
+        error.message
       );
       throw new InternalServerErrorException(
-        'Failed to fetch bl detail rincian in controller',
+        'Failed to fetch bl detail rincian biaya in controller',
       );
     }
   }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.blDetailRincianService.findOne(+id);
+    return this.blDetailRincianBiayaService.findOne(+id);
   }
 
   @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateBlDetailRincianDto: UpdateBlDetailRincianDto,
-  ) {
-    return this.blDetailRincianService.update(+id, updateBlDetailRincianDto);
+  update(@Param('id') id: string, @Body() updateBlDetailRincianBiayaDto: UpdateBlDetailRincianBiayaDto) {
+    return this.blDetailRincianBiayaService.update(+id, updateBlDetailRincianBiayaDto);
   }
 }
