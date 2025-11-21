@@ -8,18 +8,22 @@ import { UpdateBlDetailRincianDto } from './dto/update-bl-detail-rincian.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { UtilsService } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { BlDetailRincianBiayaService } from '../bl-detail-rincian-biaya/bl-detail-rincian-biaya.service';
 
 @Injectable()
 export class BlDetailRincianService {
   private readonly tableName: string = 'bldetailrincian';
-
+  private readonly tableNameRincianBiaya: string = 'bldetailrincianbiaya';
+  
   constructor(
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
+    private readonly blDetailRincianBiayaService: BlDetailRincianBiayaService,
   ) {}
 
   async create(details: any, id: any = 0, trx: any = null) {
     try {
+      const allRincianBiaya: any[] = [];  // Ambil semua data detail rincian biaya di luar mapping utama
       let insertedData = null;
       const logData: any[] = [];
       const mainDataToInsert: any[] = [];
@@ -38,10 +42,31 @@ export class BlDetailRincianService {
 
       for (const data of details) {
         let isDataChanged = false;
+
+        Object.keys(data).forEach((key) => {
+          if (typeof data[key] === 'string') {
+            data[key] = data[key].toUpperCase();
+          }
+        });
+
+        const { rincianbiaya, ...rincianWithOutBiaya } = data;        
+
+        // Extract dan simpan data rincian jika ada
+        let tempRincianBiaya: any = {};
+        if (rincianbiaya && rincianbiaya.length > 0) {
+          tempRincianBiaya = {
+            rincian: [...rincianbiaya], // Copy array rincian
+          };
+        }
+
+        if (tempRincianBiaya) {
+          allRincianBiaya.push(tempRincianBiaya);
+        }
+
         // Check if the data has an id (existing record)
-        if (data.id) {
+        if (rincianWithOutBiaya.id) {
           const existingData = await trx(this.tableName)
-            .where('id', data.id)
+            .where('id', rincianWithOutBiaya.id)
             .first();
 
           if (existingData) {
@@ -49,12 +74,12 @@ export class BlDetailRincianService {
               created_at: existingData.created_at,
               updated_at: existingData.updated_at,
             };
-            Object.assign(data, createdAt);
+            Object.assign(rincianWithOutBiaya, createdAt);
 
-            if (this.utilsService.hasChanges(data, existingData)) {
-              data.updated_at = time;
+            if (this.utilsService.hasChanges(rincianWithOutBiaya, existingData)) {
+              rincianWithOutBiaya.updated_at = time;
               isDataChanged = true;
-              data.aksi = 'UPDATE';
+              rincianWithOutBiaya.aksi = 'UPDATE';
             }
           }
         } else {
@@ -63,19 +88,19 @@ export class BlDetailRincianService {
             created_at: time,
             updated_at: time,
           };
-          Object.assign(data, newTimestamps);
+          Object.assign(rincianWithOutBiaya, newTimestamps);
           isDataChanged = true;
-          data.aksi = 'CREATE';
+          rincianWithOutBiaya.aksi = 'CREATE';
         }
 
         if (!isDataChanged) {
-          data.aksi = 'NO UPDATE';
+          rincianWithOutBiaya.aksi = 'NO UPDATE';
         }
 
-        const { aksi, ...dataForInsert } = data;
+        const { aksi, ...dataForInsert } = rincianWithOutBiaya;
         mainDataToInsert.push(dataForInsert);
         logData.push({
-          ...data,
+          ...rincianWithOutBiaya,
           created_at: time,
         });
       }
@@ -113,11 +138,6 @@ export class BlDetailRincianService {
           updated_at: trx.raw(`${tempTableName}.updated_at`),
         })
         .returning('*')
-        .then((result: any) => result[0])
-        .catch((error: any) => {
-          console.error('Error updated data bl detail rincian:', error);
-          throw error;
-        });
 
       // Handle insertion if no update occurs
       const insertedDataQuery = await trx(tempTableName)
@@ -178,11 +198,32 @@ export class BlDetailRincianService {
         insertedData = await trx(this.tableName)
           .insert(insertedDataQuery)
           .returning('*')
-          .then((result: any) => result[0])
-          .catch((error: any) => {
-            console.error('Error inserting data bl detail rincian:', error);
-            throw error;
-          });
+      }
+
+      // PROSES DETAIL RINCIAN, Gabungkan detail yang sudah ada dengan yang baru diinsert
+      const allDetailsRincian = [
+        ...(updatedData||[]),
+        ...(insertedData||[]),
+      ];
+      
+      for (let i = 0; i < allRincianBiaya.length; i++) { // Map rincian dengan ID detail yang benar
+        const rincianItem = allRincianBiaya[i];    
+
+        // Panggil service rincian jika ada data rincian
+        if (rincianItem.rincian && rincianItem.rincian.length > 0) {
+          // Tambahkan keperluan data lainnya ke setiap rincian
+          const fixDataRincian = rincianItem.rincian.map((r: any) => ({
+            ...r,
+            bldetail_id: allDetailsRincian[i].bldetail_id,
+            bldetail_nobukti: allDetailsRincian[i].bldetail_nobukti
+          }));          
+          
+          await this.blDetailRincianBiayaService.create(
+            fixDataRincian,
+            id,
+            trx,
+          );
+        }
       }
 
       await this.logTrailService.create(
@@ -220,16 +261,217 @@ export class BlDetailRincianService {
     }
   }
 
+  async tempPivotBiaya(trx: any) {
+    try {
+      const tempRincianBiaya = `##temp_${Math.random().toString(36).substring(2, 15)}`;
+      const tempData = `##temp_data${Math.random().toString(36).substring(2, 15)}`;
+      const tempHasil = `##temp_hasil${Math.random().toString(36).substring(2, 15)}`;
+      const getIdStatusYa = await trx('parameter').select('id').where('grp', 'STATUS NILAI').where('text', 'YA').first();
+      const getBiayaEmkl = await trx('biayaemkl').select('nama').where('statusbiayabl', getIdStatusYa.id)
+
+      await trx.schema.createTable(tempRincianBiaya, (t) => {  // Create tempRincianBiaya table
+        t.bigInteger('id').nullable();
+        t.string('nobukti').nullable();
+        t.bigInteger('bldetail_id').nullable();
+        t.string('bldetail_nobukti').nullable();
+        t.string('orderanmuatan_nobukti').nullable();
+        t.string('nominal').nullable();
+        t.bigInteger('biayaemkl_id').nullable();
+        t.string('modifiedby').nullable();
+        t.string('updated_at').nullable();
+        t.string('created_at').nullable();
+      });
+
+      await trx.schema.createTable(tempData, (t) => { // Create tempData table (DATA YG AKAN JADI KOLOM)
+        t.bigInteger('id').nullable();
+        t.bigInteger('bldetail_id').nullable();
+        t.string('orderanmuatan_nobukti').nullable();
+        t.string('keterangan').nullable();
+        t.string('judul').nullable();
+      });
+      
+      await trx.schema.createTable(tempHasil, (t) => {
+        t.string('bldetail_id').nullable();
+        t.string('orderanmuatan_nobukti').nullable();
+        // LOOPING GET BIAYA EMKL BIAR FIELD TEMP HASIL NGIKUT OTOMATIS DARI NAMA BIAYA EMKL
+        // Dan dibuat supaya dia lowercase dan cek kalo gak dimulai dari kata biaya maka tambahkan awalnya dengan kata 'biaya'
+        getBiayaEmkl.forEach(item => {  
+          let columnFields = item.nama.replace(/\s+/g, '').toLowerCase();
+          if (!columnFields.startsWith('biaya')) {
+            columnFields = 'biaya' + columnFields;
+          }          
+          t.text(columnFields).nullable();
+        });
+        // t.text('biayatruckingmuat').nullable();
+        // t.text('biayadokumenbl').nullable();
+        // t.text('biayaoperationalpelabuhan').nullable();
+        // t.text('biayaseal').nullable();
+      });      
+      
+      await trx(tempRincianBiaya).insert(
+        trx
+          .select(
+            'a.id',
+            'a.nobukti',
+            'a.bldetail_id',
+            'a.bldetail_nobukti',
+            'a.orderanmuatan_nobukti',
+            'a.nominal',
+            'a.biayaemkl_id',
+            'a.modifiedby',
+            'a.updated_at',
+            'a.created_at',
+          )
+          .from(`${this.tableNameRincianBiaya} as a`)
+          .innerJoin('biayaemkl as b', 'a.biayaemkl_id', 'b.id')
+          .where('b.statusbiayabl', getIdStatusYa.id),
+      );
+      // console.log('SELECT TEMP', await trx(tempRincianBiaya).select('*'));
+
+      await trx(tempData).insert(
+        trx
+          .select(
+            'a.id',
+            'a.bldetail_id',
+            'a.orderanmuatan_nobukti',
+            trx.raw(
+              `CONCAT(
+                '{"nominal":"',
+                b.nominal,
+                '","biayaemkl_id":',
+                b.biayaemkl_id,
+                ',"biayaemkl_nama":"',
+                c.nama,
+                '"}'
+              ) AS keterangan`,
+            ),
+            trx.raw(
+              `c.nama AS judul`,
+            ),
+          )
+          .from(`${this.tableName} as a`)
+          // .innerJoin(`${tempRincianBiaya} as b`, 'a.orderanmuatan_nobukti', 'b.orderanmuatan_nobukti')
+          // .innerJoin('biayaemkl as c', 'b.biayaemkl_id', 'c.id')
+
+          .crossJoin('biayaemkl as c') // UNTUK AMBIL SEMUA DATA BIAYA EMKL
+          // leftjoin dengan TEMPRINCIANBIAYA BERDASARKAN a.orderanmuatan_nobukti = b.orderanmuatan_nobukti dan BERDASARKAN b.biayaemkl_id = c.id (Kalau ga ada biayaemkl_id yg cocok dengan biayaemkl(c) id akan dibuat null)
+          .leftJoin(`${tempRincianBiaya} as b`, function () { 
+            this.on('a.orderanmuatan_nobukti', '=', 'b.orderanmuatan_nobukti')
+              .andOn('b.biayaemkl_id', '=', 'c.id');
+          })
+          .where('c.statusbiayabl', getIdStatusYa.id) // Kondisikan berdasarkan biaya emkl dgn statusbiaya bl YA biar yg dibutuhkan aja yg diambil
+      );
+      // console.log('SELECT TEMP DATA', await trx(tempData).select('*'));
+
+      const columnsResult = await trx
+        .select('judul')
+        .from(tempData)
+        .groupBy('judul');
+
+      let columns = '';
+      columnsResult.forEach((row, index) => {
+        if (index === 0) {
+          columns = `[${row.judul}]`;
+        } else {
+          columns += `, [${row.judul}]`;
+        }
+      });
+      
+      if (!columns) {
+        throw new Error('No columns generated for PIVOT');
+      }
+
+      // BIKIN LOOPING DARI SEMUA NAMA BIAYA EMKL UNTUK SELECT INSERT TO TEMPHASIL
+      const biayaColumns = getBiayaEmkl.map(item => {
+        const original = item.nama;                          
+        const alias = item.nama.replace(/\s+/g, '').toLowerCase();  
+
+        return trx.raw(`JSON_VALUE(A.[${original}], '$.nominal') as ${alias}`);
+      });
+      
+      const pivotSubqueryRaw = `
+        (
+          SELECT bldetail_id, orderanmuatan_nobukti, ${columns}
+          FROM (
+            SELECT bldetail_id, orderanmuatan_nobukti, judul, keterangan
+            FROM ${tempData}
+          ) AS SourceTable
+          PIVOT (
+            MAX(keterangan)
+            FOR judul IN (${columns})
+          ) AS PivotTable
+        ) AS A
+      `;
+ 
+      await trx(tempHasil).insert(
+        trx
+          .select([
+            'A.bldetail_id',
+            'A.orderanmuatan_nobukti',
+            ...biayaColumns // PAKE HASIL LOOPING BIAYACOLUMNS
+            // trx.raw(
+            //   "JSON_VALUE(A.[BIAYA TRUCKING MUAT], '$.nominal') as biayatruckingmuat",
+            // ),
+            // trx.raw(
+            //   "JSON_VALUE(A.[DOKUMEN BL], '$.nominal') as dokumenbl",
+            // ),
+            // trx.raw(
+            //   "JSON_VALUE(A.[OPERATIONAL PELABUHAN], '$.nominal') as operationalpelabuhan",
+            // ),
+            // trx.raw(
+            //   "JSON_VALUE(A.[SEAL], '$.nominal') as seal",
+            // ),
+          ])
+          .from(trx.raw(pivotSubqueryRaw)),
+      );
+      // console.log('SELECT TEMP HASIL', await trx(tempHasil).select('*'));
+
+      return tempHasil;
+    } catch (error) {
+      console.error(
+        'Error to create temp pivot rincian biaya in service:',
+        error.message,
+      );
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        'Error to create temp pivot rincian biaya in service',
+      );
+    }
+  }
+
   async findAll(
-    id: string,
+    id: number,
     trx: any,
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
   ) {
     try {
+      if (!id) {
+        return {
+          data: [],
+        };
+      }
+      
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
 
+      const getIdStatusYa = await trx('parameter').select('id').where('grp', 'STATUS NILAI').where('text', 'YA').first();
+      const getBiayaEmkl = await trx('biayaemkl').select('nama').where('statusbiayabl', getIdStatusYa.id)
+      const dataTempPivotBiaya = await this.tempPivotBiaya(trx)
+
+      // BIKIN LOOPING DARI SEMUA NAMA BIAYA EMKL UNTUK SELECT HASIL JOIN DATATEMPPIVOTBIAYA
+      const selectColumnPivotBiaya = getBiayaEmkl.map(item => {
+        let column = item.nama.replace(/\s+/g, '').toLowerCase();  
+        if (!column.startsWith('biaya')) {
+          column = 'biaya' + column;
+        } 
+        return `p.${column}`
+      });
+      // HAPUS TANDA p. didepan supaya sisa nama field kolom pivot tanpa "p." untuk dimanfaatkan buat kondisi search/filters/sorting
+      const pivotFields = selectColumnPivotBiaya.map(c => c.replace('p.', '')); 
+         
       const query = trx(`${this.tableName} as u`)
         .select(
           'u.id',
@@ -240,15 +482,19 @@ export class BlDetailRincianService {
           'u.keterangan',
           'q.nocontainer',
           'q.noseal',
+          ...selectColumnPivotBiaya
+          // 'p.biayatruckingmuat',
+          // 'p.biayadokumenbl',
+          // 'p.biayaoperationalpelabuhan',
+          // 'p.biayaseal'
         )
+        .leftJoin(`${dataTempPivotBiaya} as p`, 'u.orderanmuatan_nobukti', 'p.orderanmuatan_nobukti')
         .leftJoin('orderanmuatan as q', 'u.orderanmuatan_nobukti', 'q.nobukti')
-        .where('bldetail_id', id);
+        .where('u.bldetail_id', id);
 
       const excludeSearchKeys = [''];
-      const searchFields = Object.keys(filters || {}).filter(
-        (k) => !excludeSearchKeys.includes(k),
-      );
-
+      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));      
+      
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
@@ -256,6 +502,8 @@ export class BlDetailRincianService {
           searchFields.forEach((field) => {
             if (field === 'nocontainer' || field === 'noseal') {
               qb.orWhere(`q.${field}`, 'like', `%${sanitized}%`);
+            } else if (pivotFields.includes(field)) {
+              qb.orWhere(`p.${field}`, 'like', `%${sanitized}%`);
             } else {
               qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
             }
@@ -269,6 +517,8 @@ export class BlDetailRincianService {
           if (value) {
             if (key === 'nocontainer' || key === 'noseal') {
               query.andWhere(`q.${key}`, 'like', `%${sanitizedValue}%`);
+            } else if (pivotFields.includes(key)) {
+              query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
@@ -279,6 +529,8 @@ export class BlDetailRincianService {
       if (sort?.sortBy && sort?.sortDirection) {
         if (sort?.sortBy === 'nocontainer' || sort?.sortBy === 'noseal') {
           query.orderBy(`q.${sort.sortBy}`, sort.sortDirection);
+        } else if (pivotFields.includes(sort.sortBy)) {
+          query.orderBy(`p.${sort.sortBy}`, sort.sortDirection);
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }

@@ -171,35 +171,33 @@ export class BlHeaderController {
     }
   }
 
-  @UseGuards(AuthGuard)
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const trx = await dbMssql.transaction();
-
-    try {
-      const result = await this.blHeaderService.findOne(id, trx);
-      trx.commit();
-
-      return result;
-    } catch (error) {
-      trx.rollback();
-      console.error('Error in findOne bl header:', error);
-      throw error; // Re-throw the error to be handled by the global exception filter
-    }
-  }
-
   @Get('processbl/:schedule_id')
   @UseGuards(AuthGuard)
   async prosesBl(@Param('schedule_id') schedule_id) {
     const trx = await dbMssql.transaction();
     try {
-      const forceEdit = await this.blHeaderService.processBl(schedule_id, trx);
+      const proccesBl = await this.blHeaderService.processBl(schedule_id, trx);
       trx.commit();
-      return forceEdit;
+      return proccesBl;
     } catch (error) {
       trx.rollback();
       console.error('Error to proccess bl:', error);
       throw new InternalServerErrorException('Failed to proccess bl');
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('processblrincianbiaya')
+  async prosesBlRincianBiaya() {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.blHeaderService.processBlRincianBiaya(trx);
+      trx.commit();
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error to proccess bl rincian biaya:', error);
+      throw new InternalServerErrorException('Failed to proccess bl rincian biaya');
     }
   }
 
@@ -251,6 +249,22 @@ export class BlHeaderController {
     } catch (error) {
       console.error('Error exporting to Excel:', error);
       res.status(500).send('Failed to export file');
+    }
+  }
+
+  @UseGuards(AuthGuard)
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    const trx = await dbMssql.transaction();
+    try {
+      const result = await this.blHeaderService.findOne(id, trx);
+      trx.commit();
+
+      return result;
+    } catch (error) {
+      trx.rollback();
+      console.error('Error in findOne bl header:', error);
+      throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
 }

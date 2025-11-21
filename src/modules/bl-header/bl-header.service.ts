@@ -10,12 +10,8 @@ import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { BlDetailRincianService } from '../bl-detail-rincian/bl-detail-rincian.service';
-import {
-  Inject,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BlDetailRincianBiayaService } from '../bl-detail-rincian-biaya/bl-detail-rincian-biaya.service';
 
 @Injectable()
 export class BlHeaderService {
@@ -30,6 +26,7 @@ export class BlHeaderService {
     private readonly runningNumberService: RunningNumberService,
     private readonly blDetailService: BlDetailService,
     private readonly blDetailRincianService: BlDetailRincianService,
+    private readonly blDetailRincianBiayaService: BlDetailRincianBiayaService,
   ) {}
 
   async create(data: any, trx: any) {
@@ -83,24 +80,42 @@ export class BlHeaderService {
 
       if (data.details && data.details.length > 0) {
         const bldetail = data.details.map((detail: any) => {
-          // Susun payload untuk rincian, tidak langsung set rincian mentah
+          // Susun payload untuk rincian, tidak langsung set rincian mentah 
           let rincianPayload: any[] = [];
-          if (
-            Array.isArray(detail.detailsrincian) &&
-            detail.detailsrincian.length > 0
-          ) {
-            rincianPayload = detail.detailsrincian.map((rincian: any) => ({
-              id: 0,
-              nobukti: newItem.nobukti,
-              bldetail_id: detail.bldetail_id || 0,
-              bldetail_nobukti: detail.bldetail_nobukti || '',
-              orderanmuatan_nobukti: rincian.orderanmuatan_nobukti || '',
-              keterangan: rincian.keterangan || '',
-              info: rincian.info || null,
-              modifiedby: headerData.modifiedby,
-              created_at: headerData.created_at,
-              updated_at: headerData.updated_at,
-            }));
+          if (Array.isArray(detail.detailsrincian) && detail.detailsrincian.length > 0) {
+            rincianPayload = detail.detailsrincian.map((rincian: any) => {
+
+              let rincianBiaya = [];
+              if (Array.isArray(rincian.rincianbiaya) && rincian.rincianbiaya.length > 0) {
+                rincianBiaya = rincian.rincianbiaya.map((rBiaya: any) => ({
+                  id: 0,
+                  nobukti: newItem.nobukti,
+                  bldetail_id: detail.bldetail_id || 0,
+                  bldetail_nobukti: detail.bl_nobukti || '',
+                  orderanmuatan_nobukti: rBiaya.orderanmuatan_nobukti,
+                  nominal: rBiaya.nominal,
+                  biayaemkl_id: rBiaya.biayaemkl_id,
+                  info: rincian.info,
+                  modifiedby: headerData.modifiedby, 
+                  created_at: headerData.created_at,
+                  updated_at: headerData.updated_at,
+                }));
+              }
+
+              return {
+                id: 0,
+                nobukti: newItem.nobukti,
+                bldetail_id: detail.bldetail_id || 0,
+                bldetail_nobukti: detail.bl_nobukti || '',
+                orderanmuatan_nobukti: rincian.orderanmuatan_nobukti || '',
+                keterangan: rincian.keterangan || '',
+                info: rincian.info || null,
+                modifiedby: headerData.modifiedby,
+                created_at: headerData.created_at,
+                updated_at: headerData.updated_at,
+                rincianbiaya: rincianBiaya
+              }
+            });
           }
 
           return {
@@ -420,22 +435,40 @@ export class BlHeaderService {
         const bldetail = data.details.map((detail: any) => {
           // Susun payload untuk rincian, tidak langsung set rincian mentah
           let rincianPayload: any[] = [];
-          if (
-            Array.isArray(detail.detailsrincian) &&
-            detail.detailsrincian.length > 0
-          ) {
-            rincianPayload = detail.detailsrincian.map((rincian: any) => ({
-              id: rincian.id || 0,
-              nobukti: updatedData.nobukti,
-              bldetail_id: detail.bldetail_id || 0,
-              bldetail_nobukti: detail.bldetail_nobukti || '',
-              orderanmuatan_nobukti: rincian.orderanmuatan_nobukti || '',
-              keterangan: rincian.keterangan || '',
-              info: rincian.info || null,
-              modifiedby: updatedData.modifiedby,
-              created_at: updatedData.created_at,
-              updated_at: updatedData.updated_at,
-            }));
+          if (Array.isArray(detail.detailsrincian) && detail.detailsrincian.length > 0) {
+            rincianPayload = detail.detailsrincian.map((rincian: any) => {
+              let rincianBiaya = [];
+
+              if (Array.isArray(rincian.rincianbiaya) && rincian.rincianbiaya.length > 0) {
+                rincianBiaya = rincian.rincianbiaya.map((rBiaya: any) => ({
+                  id: rBiaya.id,
+                  nobukti: rBiaya.nobukti || updatedData.nobukti,
+                  bldetail_id: rBiaya.bldetail_id || detail.bldetail_id,
+                  bldetail_nobukti: rBiaya.bldetail_nobukti || detail.bl_nobukti,
+                  orderanmuatan_nobukti: rBiaya.orderanmuatan_nobukti,
+                  nominal: rBiaya.nominal,
+                  biayaemkl_id: rBiaya.biayaemkl_id,
+                  info: rincian.info,
+                  modifiedby: updatedData.modifiedby, 
+                  created_at: updatedData.created_at,
+                  updated_at: updatedData.updated_at,
+                }));
+              }
+              
+              return {
+                id: rincian.id,
+                nobukti: rincian.nobukti || updatedData.nobukti,
+                bldetail_id: rincian.bldetail_id || detail.bldetail_id,
+                bldetail_nobukti: rincian.bldetail_nobukti || detail.bl_nobukti,
+                orderanmuatan_nobukti: rincian.orderanmuatan_nobukti,
+                keterangan: rincian.keterangan || '',
+                info: rincian.info || null,
+                modifiedby: updatedData.modifiedby,
+                created_at: updatedData.created_at,
+                updated_at: updatedData.updated_at,
+                rincianbiaya: rincianBiaya
+              }
+            });
           }
 
           return {
@@ -503,14 +536,14 @@ export class BlHeaderService {
       };
     } catch (error) {
       console.error(
-        'Error process approval update bl header in service:',
+        'Error process update bl header in service:',
         error.message,
       );
       if (error instanceof NotFoundException) {
         throw error;
       }
       throw new InternalServerErrorException(
-        'Error process approval update bl header in service',
+        'Error process update bl header in service',
       );
     }
   }
@@ -527,6 +560,9 @@ export class BlHeaderService {
             .select('id')
             .where('bldetail_id', detail.id);
 
+          const checkDataRincianBiaya = await trx('bldetailrincianbiaya')
+            .select('id').where('bldetail_id', detail.id)
+
           if (checkDataRincian.length > 0) {
             for (const rincian of checkDataRincian) {
               await this.blDetailRincianService.delete(
@@ -536,7 +572,21 @@ export class BlHeaderService {
               );
             }
           }
-          await this.blDetailService.delete(detail.id, trx, modifiedby);
+
+          if (checkDataRincianBiaya.length > 0) {                        
+            for (const rincianbiaya of checkDataRincianBiaya) {
+              await this.blDetailRincianBiayaService.delete(
+                rincianbiaya.id,
+                trx,
+                modifiedby,
+              );
+            }
+          }
+          await this.blDetailService.delete(
+            detail.id,
+            trx,
+            modifiedby,
+          );
         }
       }
 
@@ -594,6 +644,37 @@ export class BlHeaderService {
         .leftJoin('emkl', 'p.emkllain_id', 'emkl.id')
         .leftJoin('pelayaran as pel', 'p.containerpelayaran_id', 'pel.id')
         .where('u.schedule_id', schedule_id);
+
+      const data = await query;
+
+      return {
+        data,
+      };
+    } catch (error) {
+      console.error('Error to findAll Orderan Muatan', error);
+      throw new Error(error);
+    }
+  }
+
+  async processBlRincianBiaya(trx: any) {
+    try {     
+      const getIdStatusYa = await trx
+        .from(trx.raw(`parameter as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('grp', 'STATUS NILAI')
+        .where('subgrp', 'STATUS NILAI')
+        .where('text', 'YA')
+        .first()
+
+      const query = trx
+        .from(trx.raw(`biayaemkl as u WITH (READUNCOMMITTED)`))
+        .select([
+          'u.id',
+          'u.nama',
+          'u.keterangan',
+          'u.statusbiayabl'
+        ])
+        .where('u.statusbiayabl', getIdStatusYa.id)
 
       const data = await query;
 

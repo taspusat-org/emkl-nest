@@ -11,6 +11,7 @@ import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 import { RunningNumberModule } from '../running-number/running-number.module';
 import { BlDetailModule } from '../bl-detail/bl-detail.module';
 import { BlDetailRincianModule } from '../bl-detail-rincian/bl-detail-rincian.module';
+import { BlDetailRincianBiayaModule } from '../bl-detail-rincian-biaya/bl-detail-rincian-biaya.module';
 
 @Module({
   controllers: [BlHeaderController],
@@ -26,6 +27,7 @@ import { BlDetailRincianModule } from '../bl-detail-rincian/bl-detail-rincian.mo
     RunningNumberModule,
     BlDetailModule,
     BlDetailRincianModule,
+    BlDetailRincianBiayaModule
   ],
 })
 export class BlHeaderModule {}

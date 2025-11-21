@@ -192,8 +192,11 @@ export class TypeAkuntansiService {
           }
         }
       }
-      //
-      //
+     
+      if (limit > 0) {
+        const offset = (page - 1) * limit;
+        query.limit(limit).offset(offset);
+      }
 
       const result = await trx(this.tableName).count('id as total').first();
       const total = result?.total as number;
