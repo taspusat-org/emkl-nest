@@ -59,7 +59,7 @@ export class TypeAkuntansiController {
   })
   @ApiBearerAuth()
   @ApiBody({ type: CreateTypeAkuntansiSwaggerDto })
-  @ApiResponse({ status: 200, description: 'Create A New TypeAkuntansi Data' })
+  @ApiResponse({ status: 200, description: 'Create New TypeAkuntansi Data' })
   async create(
     @Body(
       new InjectMethodPipe('create'),
