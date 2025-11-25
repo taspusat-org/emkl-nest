@@ -119,6 +119,9 @@ import { BlHeaderModule } from './modules/bl-header/bl-header.module';
 import { BlDetailRincianModule } from './modules/bl-detail-rincian/bl-detail-rincian.module';
 import { BlDetailModule } from './modules/bl-detail/bl-detail.module';
 import { BlDetailRincianBiayaModule } from './modules/bl-detail-rincian-biaya/bl-detail-rincian-biaya.module';
+import { BiayaExtraHeaderModule } from './modules/biaya-extra-header/biaya-extra-header.module';
+import { BiayaExtraMuatanDetailModule } from './modules/biaya-extra-muatan-detail/biaya-extra-muatan-detail.module';
+import { GroupbiayaextraModule } from './modules/groupbiayaextra/groupbiayaextra.module';
 
 @Module({
   imports: [
@@ -241,6 +244,9 @@ import { BlDetailRincianBiayaModule } from './modules/bl-detail-rincian-biaya/bl
     BlDetailRincianModule,
     BlDetailModule,
     BlDetailRincianBiayaModule,
+    BiayaExtraHeaderModule,
+    BiayaExtraMuatanDetailModule,
+    GroupbiayaextraModule
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

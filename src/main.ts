@@ -8,8 +8,11 @@ import * as express from 'express';
 import * as path from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
-import { ThrottlerGuard } from '@nestjs/throttler';
+// import { ThrottlerGuard } from '@nestjs/throttler';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+// import { swaggerConfig, buildSwaggerMetadata } from './swagger/swagger.config';
+import { setupSwagger } from './swagger/swagger.config';
 
 dotenv.config(); // Memuat file .env
 
@@ -27,11 +30,20 @@ async function bootstrap() {
       'http://192.168.3.21:3000',
       'http://localhost:3000',
       'http://192.168.3.217:3000',
+      'http://192.168.3.26:3000',
     ], // List of allowed origins
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
     allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
   });
   // main.ts
+  // const { config, SwaggerTagDescriptions } = swaggerConfig();
+  // const document = SwaggerModule.createDocument(app, config);
+  // // writeFileSync('./swagger-history.json', JSON.stringify(document, null, 2));
+  // document.info.description += buildSwaggerMetadata(document, AUTHOR);
+  // document.tags = SwaggerTagDescriptions;
+  // SwaggerModule.setup('api-docs', app, document);
+
+  setupSwagger(app);
 
   app.useGlobalFilters(new ZodFilter());
   app.use(
