@@ -4,36 +4,46 @@ import { execSync } from 'child_process';
 import { SwaggerTagDescriptions } from './swagger.tags';
 
 export function setupSwagger(app: INestApplication) {
-  // commit terakhir yang menyentuh swagger folder
-  const SWAGGER_AUTHOR = git(`git log -1 --pretty=format:"%an" -- src/swagger`);
-  const SWAGGER_DATE   = git(`git log -1 --pretty=format:"%ad" -- src/swagger`);
-  const SWAGGER_MSG    = git(`git log -1 --pretty=format:"%s" -- src/swagger`);
+  // Ambil commit hash yang TERAKHIR menyentuh swagger
+  const LAST_COMMIT_HASH = git(`git log -1 --pretty=format:"%H" -- src/swagger`);
 
-  // file apa saja yang berubah
-  const SWAGGER_FILE_CHANGES = git(
-    `git diff --name-only HEAD~1 HEAD -- src/swagger`
+  // Kalau belum pernah ada commit ke swagger
+  if (!LAST_COMMIT_HASH) {
+    console.warn('⚠ Tidak ada commit terkait swagger');
+  }
+
+  // Info detail commit
+  const AUTHOR = git(`git show -s --pretty=format:"%an" ${LAST_COMMIT_HASH}`);
+  const DATE   = git(`git show -s --pretty=format:"%ad" ${LAST_COMMIT_HASH}`);
+  const MSG    = git(`git show -s --pretty=format:"%s" ${LAST_COMMIT_HASH}`);
+
+  // File apa saja yg berubah pada commit itu
+  const FILE_CHANGES = git(
+    `git diff --name-only ${LAST_COMMIT_HASH}~1 ${LAST_COMMIT_HASH} -- src/swagger`
   );
 
-  // diff baris detailnya
-  const SWAGGER_DIFF = git(
-    `git diff HEAD~1 HEAD -- src/swagger`
+  // Diff baris perubahan commit itu
+  const RAW_DIFF = git(
+    `git diff ${LAST_COMMIT_HASH}~1 ${LAST_COMMIT_HASH} -- src/swagger`
   );
+  const CLEAN_DIFF = cleanDiff(RAW_DIFF);
 
-  // decorator API yang berubah seluruh project
-  const DECORATOR_CHANGES = git(
-    `git diff HEAD~1 HEAD -- '**/*.ts' | grep -E '@Api|@ApiProperty|@ApiTags|@ApiResponse' || true`
+  // Diff decorator swagger commit itu
+  const DECORATOR_RAW = git(
+    `git diff ${LAST_COMMIT_HASH}~1 ${LAST_COMMIT_HASH} -- '**/*.ts' | grep -E '^\\+|^\\-' | grep -E '@Api|@ApiProperty|@ApiTags|@ApiResponse' || true`
   );
+  const DECORATOR_DIFF = cleanDiff(DECORATOR_RAW);
 
   const config = new DocumentBuilder()
     .setTitle('DOKUMENTASI API EMKL')
     .setDescription(
       buildDescription(
-        SWAGGER_AUTHOR,
-        SWAGGER_DATE,
-        SWAGGER_MSG,
-        SWAGGER_FILE_CHANGES,
-        SWAGGER_DIFF,
-        DECORATOR_CHANGES
+        AUTHOR,
+        DATE,
+        MSG,
+        FILE_CHANGES,
+        CLEAN_DIFF,
+        DECORATOR_DIFF
       )
     )
     .setVersion('1.0')
@@ -54,34 +64,57 @@ function git(cmd: string) {
   }
 }
 
+// Bersihin diff → hanya + dan -
+function cleanDiff(diff: string) {
+  if (!diff) return '';
+  return diff
+    .split('\n')
+    .filter(line => line.startsWith('+') || line.startsWith('-'))
+    .filter(line => !line.startsWith('+++') && !line.startsWith('---'))
+    .join('\n');
+}
+
+// Format tampilan swagger
 function buildDescription(
   author: string,
   date: string,
-  commitMsg: string,
+  msg: string,
   fileChanges: string,
-  fileDiff: string,
-  decoratorChanges: string,
+  lineDiff: string,
+  decoratorDiff: string,
 ) {
   return `
 ### 🔧 Last Swagger Modification
 - **Author:** ${author || '-'}
 - **Date:** ${date || '-'}
-- **Commit Message:** ${commitMsg || '-'}
+- **Commit:** ${msg || '-'}
 
 ---
 
-### 📄 Changed Swagger Files
+<details>
+<summary><strong>📄 Changed Swagger Files</strong></summary>
+
 ${formatList(fileChanges)}
 
----
-
-### 📌 Line-by-Line Changes (src/swagger)
-${fileDiff ? '```diff\n' + fileDiff + '\n```' : '_No line changes detected_'}
+</details>
 
 ---
 
-### 🧩 Swagger Decorator Changes (Controller / DTO)
-${decoratorChanges ? '```diff\n' + decoratorChanges + '\n```' : '_No decorator changes detected_'}
+<details>
+<summary><strong>📌 Line Changes (src/swagger)</strong></summary>
+
+${lineDiff ? '```diff\n' + lineDiff + '\n```' : '_No changes detected_'}
+
+</details>
+
+---
+
+<details>
+<summary><strong>🧩 Decorator Swagger Changes (Controller / DTO)</strong></summary>
+
+${decoratorDiff ? '```diff\n' + decoratorDiff + '\n```' : '_No decorator changes detected_'}
+
+</details>
 `;
 }
 
