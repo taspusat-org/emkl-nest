@@ -9,11 +9,11 @@ export const SwaggerTagDescriptions = [
   },
   {
     name: 'TypeAkuntansi',
-    description: `Ini Endpoint Type Akuntansi, id type akuntansi (type_id) ada dipake 
+    description: `Ini Endpoint Type Akuntansi, id type akuntansi (type_id) ada dipakes2 
     ditempat lain (lupa dimana) jadi kalo mau hapus ddskanksjdnksjdnsjkanjkdnfj
     kandankdnknfd rrrrrrrrrrrrrrr
     dlfamdmfknnnnnkjnfajdjabdjbjabdjabjdbmfacm kjavanakhdkagn
-    adklndklafoiehfnjkadnvkajdbfkjdkdnf 
-    asjdkafnknfdnfjdfjkdfjfjdbjdbfiuahefnwaefjdfjabi cek dulu dia dipake atau engga`
+    adklndklafoiehfnjkadnvkajdbfkjdkdnf
+    asjdkafnknfdnfjdfjkdfjfjdbjdbfiuahefnwaefjdfjabi cek dulu dia dipake atau engga`,
   },
 ];
