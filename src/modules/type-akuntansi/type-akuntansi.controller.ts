@@ -38,12 +38,15 @@ import {
 import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 import { AclGuard } from '../auth/acl.guard';
 import { RequireAcos } from '../auth/access.decorator';
+import { ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
 @Controller('type-akuntansi')
 export class TypeAkuntansiController {
   constructor(private readonly typeAkuntansiService: TypeAkuntansiService) {}
 
   @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiResponse({ status: 200, description: 'Create A New TypeAkuntansi Data' })
   @Post()
   //@TYPE-AKUNTANSI
   async create(
