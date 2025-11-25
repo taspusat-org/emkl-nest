@@ -279,7 +279,7 @@ export class ContainerService {
       const result = await trx(this.tableName).where('id', id).first();
 
       if (!result) {
-        throw new Error('Data not founds');
+        throw new Error('Data not founds2');
       }
 
       return result;
