@@ -30,7 +30,7 @@ export function setupSwagger(app: INestApplication) {
 
   // Diff decorator swagger commit itu
   const DECORATOR_RAW = git(
-    `git diff ${LAST_COMMIT_HASH}~1 ${LAST_COMMIT_HASH} -- '**/*.ts' | grep -E '^\\+|^\\-' | grep -E '@Api|@ApiProperty|@ApiTags|@ApiResponse' || true`
+    `git diff ${LAST_COMMIT_HASH}~1 ${LAST_COMMIT_HASH} -- '**/*.ts' | grep -E '^\\+|^\\-' | grep -E '@Api|@ApiProperty|@ApiTags|@ApiResponse|@ApiOperation|@ApiExtraModels|@ApiBearerAuth|@ApiProperty' || true`
   );
   const DECORATOR_DIFF = cleanDiff(DECORATOR_RAW);
 
@@ -47,6 +47,8 @@ export function setupSwagger(app: INestApplication) {
       )
     )
     .setVersion('1.0')
+    .addServer('http://localhost:3003/', 'Local environment')
+    .addServer('https://emkl.transporindo.com/', 'Production')
     .addBearerAuth()
     .build();
 

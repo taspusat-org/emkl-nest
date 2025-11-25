@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isRecordExist } from 'src/utils/utils.service';
+import { ApiProperty } from '@nestjs/swagger';
 // ------------------------
 // 1. BASE FIELDS
 // ------------------------
@@ -66,3 +67,26 @@ export const UpdateTypeAkuntansiSchema = z
     // Validasi khusus update bisa diletakkan di sini
   });
 export type UpdateTypeAkuntansiDto = z.infer<typeof UpdateTypeAkuntansiSchema>;
+
+export class CreateTypeAkuntansiSwaggerDto {
+  @ApiProperty({
+    example: 'TEST',
+    description: 'Nama Harus Diisi Dan tidak boleh sama',
+  })
+  nama: string;
+
+  @ApiProperty()
+  order: number;
+
+  @ApiProperty()
+  keterangan: string;
+
+  @ApiProperty()
+  akuntansi_id: number;
+
+  @ApiProperty()
+  statusaktif: number;
+
+  @ApiProperty({ required: false })
+  modifiedby?: string;
+}
