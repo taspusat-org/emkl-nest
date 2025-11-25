@@ -4,45 +4,43 @@ import { execSync } from 'child_process';
 import { SwaggerTagDescriptions } from './swagger.tags';
 
 export function setupSwagger(app: INestApplication) {
-  // Ambil commit hash yang TERAKHIR menyentuh swagger
-  const LAST_COMMIT_HASH = git(`git log -1 --pretty=format:"%H" -- src/swagger`);
-
-  // Kalau belum pernah ada commit ke swagger
-  if (!LAST_COMMIT_HASH) {
-    console.warn('⚠ Tidak ada commit terkait swagger');
-  }
-
-  // Info detail commit
-  const AUTHOR = git(`git show -s --pretty=format:"%an" ${LAST_COMMIT_HASH}`);
-  const DATE   = git(`git show -s --pretty=format:"%ad" ${LAST_COMMIT_HASH}`);
-  const MSG    = git(`git show -s --pretty=format:"%s" ${LAST_COMMIT_HASH}`);
-
-  // File apa saja yg berubah pada commit itu
-  const FILE_CHANGES = git(
-    `git diff --name-only ${LAST_COMMIT_HASH}~1 ${LAST_COMMIT_HASH} -- src/swagger`
+  // 1️⃣ Commit terakhir yang menyentuh file swagger
+  const LAST_SWAGGER_COMMIT = git(
+    `git log -1 --pretty=format:"%H" -- src/swagger/swagger.config.ts src/swagger/swagger.tags.ts`
   );
 
-  // Diff baris perubahan commit itu
-  const RAW_DIFF = git(
-    `git diff ${LAST_COMMIT_HASH}~1 ${LAST_COMMIT_HASH} -- src/swagger`
+  const SWAGGER_FILE_CHANGES = git(
+    `git diff --name-only ${LAST_SWAGGER_COMMIT}~1 ${LAST_SWAGGER_COMMIT} -- src/swagger/swagger.config.ts src/swagger/swagger.tags.ts`
   );
-  const CLEAN_DIFF = cleanDiff(RAW_DIFF);
 
-  // Diff decorator swagger commit itu
+  const SWAGGER_RAW_DIFF = git(
+    `git diff ${LAST_SWAGGER_COMMIT}~1 ${LAST_SWAGGER_COMMIT} -- src/swagger/swagger.config.ts src/swagger/swagger.tags.ts`
+  );
+  const SWAGGER_CLEAN_DIFF = cleanDiff(SWAGGER_RAW_DIFF);
+
+  // Info commit file swagger
+  const SWAGGER_AUTHOR = git(`git show -s --pretty=format:"%an" ${LAST_SWAGGER_COMMIT}`);
+  const SWAGGER_DATE   = git(`git show -s --pretty=format:"%ad" ${LAST_SWAGGER_COMMIT}`);
+  const SWAGGER_MSG    = git(`git show -s --pretty=format:"%s" ${LAST_SWAGGER_COMMIT}`);
+
+  // 2️⃣ Commit terakhir di seluruh repo (untuk decorator)
+  const LAST_DECORATOR_COMMIT = git(`git log -1 --pretty=format:"%H"`);
+
   const DECORATOR_RAW = git(
-    `git diff ${LAST_COMMIT_HASH}~1 ${LAST_COMMIT_HASH} -- '**/*.ts' | grep -E '^\\+|^\\-' | grep -E '@Api|@ApiProperty|@ApiTags|@ApiResponse|@ApiOperation|@ApiExtraModels|@ApiBearerAuth|@ApiProperty' || true`
+    `git diff ${LAST_DECORATOR_COMMIT}~1 ${LAST_DECORATOR_COMMIT} -- '**/*.ts' | grep -E '^\\+|^\\-' | grep -E '@Api|@ApiProperty|@ApiTags|@ApiResponse|@ApiOperation|@ApiExtraModels|@ApiBearerAuth' || true`
   );
   const DECORATOR_DIFF = cleanDiff(DECORATOR_RAW);
 
+  // Build swagger document
   const config = new DocumentBuilder()
     .setTitle('DOKUMENTASI API EMKL')
     .setDescription(
       buildDescription(
-        AUTHOR,
-        DATE,
-        MSG,
-        FILE_CHANGES,
-        CLEAN_DIFF,
+        SWAGGER_AUTHOR,
+        SWAGGER_DATE,
+        SWAGGER_MSG,
+        SWAGGER_FILE_CHANGES,
+        SWAGGER_CLEAN_DIFF,
         DECORATOR_DIFF
       )
     )
@@ -60,7 +58,7 @@ export function setupSwagger(app: INestApplication) {
 
 function git(cmd: string) {
   try {
-    return execSync(cmd).toString().trim();
+    return execSync(cmd, { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
   } catch {
     return '';
   }
@@ -81,12 +79,12 @@ function buildDescription(
   author: string,
   date: string,
   msg: string,
-  fileChanges: string,
-  lineDiff: string,
+  swaggerFileChanges: string,
+  swaggerLineDiff: string,
   decoratorDiff: string,
 ) {
   return `
-### 🔧 Last Swagger Modification
+### 🔧 Last Swagger Modification (File swagger.config.ts & swagger.tags.ts)
 - **Author:** ${author || '-'}
 - **Date:** ${date || '-'}
 - **Commit:** ${msg || '-'}
@@ -96,16 +94,16 @@ function buildDescription(
 <details>
 <summary><strong>📄 Changed Swagger Files</strong></summary>
 
-${formatList(fileChanges)}
+${formatList(swaggerFileChanges)}
 
 </details>
 
 ---
 
 <details>
-<summary><strong>📌 Line Changes (src/swagger)</strong></summary>
+<summary><strong>📌 Line Changes (swagger.config.ts & swagger.tags.ts)</strong></summary>
 
-${lineDiff ? '```diff\n' + lineDiff + '\n```' : '_No changes detected_'}
+${swaggerLineDiff ? '```diff\n' + swaggerLineDiff + '\n```' : '_No changes detected_'}
 
 </details>
 
