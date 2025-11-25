@@ -118,6 +118,7 @@ import { ShippingInstructionDetailRincianModule } from './modules/shipping-instr
 import { BlHeaderModule } from './modules/bl-header/bl-header.module';
 import { BlDetailRincianModule } from './modules/bl-detail-rincian/bl-detail-rincian.module';
 import { BlDetailModule } from './modules/bl-detail/bl-detail.module';
+import { BlDetailRincianBiayaModule } from './modules/bl-detail-rincian-biaya/bl-detail-rincian-biaya.module';
 
 @Module({
   imports: [
@@ -239,6 +240,7 @@ import { BlDetailModule } from './modules/bl-detail/bl-detail.module';
     BlHeaderModule,
     BlDetailRincianModule,
     BlDetailModule,
+    BlDetailRincianBiayaModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],
