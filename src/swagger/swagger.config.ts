@@ -2,6 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { execSync } from 'child_process';
 import { SwaggerTagDescriptions } from './swagger.tags';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 export function setupSwagger(app: INestApplication) {
   // 1️⃣ Commit terakhir yang menyentuh file swagger
@@ -31,6 +33,16 @@ export function setupSwagger(app: INestApplication) {
   );
   const DECORATOR_DIFF = cleanDiff(DECORATOR_RAW);
 
+  // 3️⃣ Ambil full description untuk tag yang berubah di swagger.tags.ts
+  const SWAGGER_TAGS_PATH = join(process.cwd(), 'src', 'swagger', 'swagger.tags.ts');
+  const SWAGGER_TAGS_CONTENT = readFileSync(SWAGGER_TAGS_PATH, 'utf-8');
+
+  const SWAGGER_TAGS_RAW_DIFF = git(
+    `git diff ${LAST_SWAGGER_COMMIT}~1 ${LAST_SWAGGER_COMMIT} -- src/swagger/swagger.tags.ts`
+  );
+
+  const SWAGGER_TAGS_FULL_DESCRIPTION = getChangedTagDescriptions(SWAGGER_TAGS_RAW_DIFF, SWAGGER_TAGS_CONTENT);
+
   // Build swagger document
   const config = new DocumentBuilder()
     .setTitle('DOKUMENTASI API EMKL')
@@ -41,7 +53,8 @@ export function setupSwagger(app: INestApplication) {
         SWAGGER_MSG,
         SWAGGER_FILE_CHANGES,
         SWAGGER_CLEAN_DIFF,
-        DECORATOR_DIFF
+        DECORATOR_DIFF,
+        SWAGGER_TAGS_FULL_DESCRIPTION
       )
     )
     .setVersion('1.0')
@@ -74,6 +87,22 @@ function cleanDiff(diff: string) {
     .join('\n');
 }
 
+// Ambil full description tag yang berubah
+function getChangedTagDescriptions(diff: string, fileContent: string) {
+  if (!diff) return '';
+
+  // Ambil array dari file
+  const arrayString = fileContent.replace('export const SwaggerTagDescriptions =', '');
+  const moduleExports = eval(arrayString); // aman karena controlled file
+
+  const changedTags = moduleExports.filter((tag: any) => {
+    // Kalau diff mengandung kata di description atau nama tag
+    return diff.includes(tag.name) || diff.includes(tag.description.slice(0, 20));
+  });
+
+  return changedTags.map((tag: any) => `${tag.name}:\n${tag.description}`).join('\n\n');
+}
+
 // Format tampilan swagger
 function buildDescription(
   author: string,
@@ -82,6 +111,7 @@ function buildDescription(
   swaggerFileChanges: string,
   swaggerLineDiff: string,
   decoratorDiff: string,
+  swaggerTagsFullDescription: string
 ) {
   return `
 ### 🔧 Last Swagger Modification (File swagger.config.ts & swagger.tags.ts)
@@ -104,6 +134,15 @@ ${formatList(swaggerFileChanges)}
 <summary><strong>📌 Line Changes (swagger.config.ts & swagger.tags.ts)</strong></summary>
 
 ${swaggerLineDiff ? '```diff\n' + swaggerLineDiff + '\n```' : '_No changes detected_'}
+
+</details>
+
+---
+
+<details>
+<summary><strong>📝 Full Description (Changed Tags in swagger.tags.ts)</strong></summary>
+
+${swaggerTagsFullDescription ? '```text\n' + swaggerTagsFullDescription + '\n```' : '_No changes detected_'}
 
 </details>
 
