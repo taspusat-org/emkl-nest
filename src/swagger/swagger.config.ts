@@ -137,21 +137,12 @@ ${swaggerLineDiff ? '```diff\n' + swaggerLineDiff + '\n```' : '_No changes detec
 
 </details>
 
----
+--- 
 
 <details>
 <summary><strong>📝 Full Description (Changed Tags in swagger.tags.ts)</strong></summary>
 
 ${swaggerTagsFullDescription ? '```text\n' + swaggerTagsFullDescription + '\n```' : '_No changes detected_'}
-
-</details>
-
----
-
-<details>
-<summary><strong>🧩 Decorator Swagger Changes (Controller / DTO)</strong></summary>
-
-${decoratorDiff ? '```diff\n' + decoratorDiff + '\n```' : '_No decorator changes detected_'}
 
 </details>
 `;
@@ -161,3 +152,11 @@ function formatList(txt: string) {
   if (!txt) return '_No changes detected_';
   return txt.split('\n').map(t => `- ${t}`).join('\n');
 }
+
+
+// <details>
+// <summary><strong>🧩 Decorator Swagger Changes (Controller / DTO)</strong></summary>
+
+// ${decoratorDiff ? '```diff\n' + decoratorDiff + '\n```' : '_No decorator changes detected_'}
+
+// </details>
