@@ -112,9 +112,6 @@ import { ComodityModule } from './modules/comodity/comodity.module';
 import { PackinglistheaderModule } from './modules/packinglistheader/packinglistheader.module';
 import { PackinglistdetailModule } from './modules/packinglistdetail/packinglistdetail.module';
 import { PackinglistdetailrincianModule } from './modules/packinglistdetailrincian/packinglistdetailrincian.module';
-import { ShippingInstructionModule } from './modules/shipping-instruction/shipping-instruction.module';
-import { ShippingInstructionDetailModule } from './modules/shipping-instruction-detail/shipping-instruction-detail.module';
-import { ShippingInstructionDetailRincianModule } from './modules/shipping-instruction-detail-rincian/shipping-instruction-detail-rincian.module';
 import { BlHeaderModule } from './modules/bl-header/bl-header.module';
 import { BlDetailRincianModule } from './modules/bl-detail-rincian/bl-detail-rincian.module';
 import { BlDetailModule } from './modules/bl-detail/bl-detail.module';
@@ -122,6 +119,10 @@ import { BlDetailRincianBiayaModule } from './modules/bl-detail-rincian-biaya/bl
 import { BiayaExtraHeaderModule } from './modules/biaya-extra-header/biaya-extra-header.module';
 import { BiayaExtraMuatanDetailModule } from './modules/biaya-extra-muatan-detail/biaya-extra-muatan-detail.module';
 import { GroupbiayaextraModule } from './modules/groupbiayaextra/groupbiayaextra.module';
+import { ConsigneeModule } from './modules/consignee/consignee.module';
+import { ConsigneedetailModule } from './modules/consigneedetail/consigneedetail.module';
+import { ConsigneebiayaModule } from './modules/consigneebiaya/consigneebiaya.module';
+import { ConsigneehargajualModule } from './modules/consigneehargajual/consigneehargajual.module';
 
 @Module({
   imports: [
@@ -237,16 +238,17 @@ import { GroupbiayaextraModule } from './modules/groupbiayaextra/groupbiayaextra
     PackinglistheaderModule,
     PackinglistdetailModule,
     PackinglistdetailrincianModule,
-    ShippingInstructionModule,
-    ShippingInstructionDetailModule,
-    ShippingInstructionDetailRincianModule,
     BlHeaderModule,
     BlDetailRincianModule,
     BlDetailModule,
     BlDetailRincianBiayaModule,
     BiayaExtraHeaderModule,
     BiayaExtraMuatanDetailModule,
-    GroupbiayaextraModule
+    GroupbiayaextraModule,
+    ConsigneeModule,
+    ConsigneedetailModule,
+    ConsigneebiayaModule,
+    ConsigneehargajualModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

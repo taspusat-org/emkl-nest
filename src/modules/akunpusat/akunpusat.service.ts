@@ -53,29 +53,58 @@ export class AkunpusatService {
 
       const newItem = insertedItems[0]; // Get the inserted item
 
-      // Now use findAll to get the updated list with pagination, sorting, and filters
-      const { data, pagination } = await this.findAll(
+      // Get all data to find the position of new item
+      const { data: allData } = await this.findAll(
         {
           search,
           filters,
-          pagination: { page, limit: 0 },
+          pagination: { page: 1, limit: 0 },
           sort: { sortBy, sortDirection },
-          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+          isLookUp: false,
         },
         trx,
       );
-      let itemIndex = data.findIndex((item) => item.id === newItem.id);
+
+      // Find the index of the new item in all data
+      let itemIndex = allData.findIndex((item) => item.id === newItem.id);
       if (itemIndex === -1) {
         itemIndex = 0;
       }
 
-      // Optionally, you can find the page number or other info if needed
-      const pageNumber = Math.floor(itemIndex / limit) + 1;
+      const itemsPerPage = limit || 10;
+      const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;
 
-      // Optionally, you can log the event or store the new item in a cache if needed
+      // Fetch data from page 1 to pageNumber
+      const fetchedData: any[] = [];
+      const fetchedPages: number[] = [];
+
+      for (let pageNum = 1; pageNum <= pageNumber; pageNum++) {
+        const { data: pageData } = await this.findAll(
+          {
+            search,
+            filters,
+            pagination: { page: pageNum, limit: itemsPerPage },
+            sort: { sortBy, sortDirection },
+            isLookUp: false,
+          },
+          trx,
+        );
+
+        if (pageData.length > 0) {
+          fetchedData.push(...pageData);
+          fetchedPages.push(pageNum);
+        }
+      }
+
+      // Calculate itemIndex from fetchedData (position in all fetched pages from 1 to pageNumber)
+      const fetchedItemIndex = fetchedData.findIndex(
+        (item) => item.id === newItem.id,
+      );
+
+      // Store fetched data in Redis (data from page 1 to pageNumber)
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(data),
+        JSON.stringify(fetchedData),
       );
 
       await this.logTrailService.create(
@@ -94,7 +123,8 @@ export class AkunpusatService {
       return {
         newItem,
         pageNumber,
-        itemIndex,
+        itemIndex: fetchedItemIndex,
+        fetchedPages, // Array of page numbers that were fetched [1, 2, 3, ..., pageNumber]
       };
     } catch (error) {
       throw new Error(`Error creating parameter: ${error.message}`);
@@ -315,11 +345,9 @@ export class AkunpusatService {
       );
 
       // Cari index item yang baru saja diupdate
-      const itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === id,
-      );
+      let itemIndex = filteredData.findIndex((item) => Number(item.id) === id);
       if (itemIndex === -1) {
-        throw new Error('Updated item not found in all items');
+        itemIndex = 0;
       }
 
       const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
