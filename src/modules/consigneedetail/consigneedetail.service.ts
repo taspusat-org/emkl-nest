@@ -1,19 +1,21 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { CreateJurnalumumdetailDto } from './dto/create-jurnalumumdetail.dto';
-import { UpdateJurnalumumdetailDto } from './dto/update-jurnalumumdetail.dto';
-import { tandatanya, UtilsService } from 'src/utils/utils.service';
-import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { CreateConsigneedetailDto } from './dto/create-consigneedetail.dto';
+import { UpdateConsigneedetailDto } from './dto/update-consigneedetail.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
-import { filter } from 'rxjs';
+import { LogtrailService } from 'src/common/logtrail/logtrail.service';
+import { UtilsService } from 'src/utils/utils.service';
 
 @Injectable()
-export class JurnalumumdetailService {
-  private readonly tableName = 'jurnalumumdetail';
+export class ConsigneedetailService {
+  private readonly tableName = 'consigneedetail';
   constructor(
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
-  private readonly logger = new Logger(JurnalumumdetailService.name);
   async create(details: any, id: any = 0, trx: any = null) {
     let insertedData = null;
     let data: any = null;
@@ -31,7 +33,7 @@ export class JurnalumumdetailService {
     const logData: any[] = [];
     const mainDataToInsert: any[] = [];
     if (details.length === 0) {
-      await trx(this.tableName).delete().where('jurnalumum_id', id);
+      await trx(this.tableName).delete().where('consignee_id', id);
       return;
     }
     for (data of details) {
@@ -83,7 +85,7 @@ export class JurnalumumdetailService {
     // Ensure each item has an idheader
     const processedData = mainDataToInsert.map((item: any) => ({
       ...item,
-      jurnalumum_id: item.jurnalumum_id ?? id, // Ensure correct field mapping
+      consignee_id: item.consignee_id ?? id, // Ensure correct field mapping
     }));
     const jsonString = JSON.stringify(processedData);
 
@@ -101,18 +103,14 @@ export class JurnalumumdetailService {
     // Insert into temp table
     await trx(tempTableName).insert(openJson);
 
-    // **Update or Insert into 'jurnalumumdetail' with correct idheader**
-    const updatedData = await trx('jurnalumumdetail')
-      .join(`${tempTableName}`, 'jurnalumumdetail.id', `${tempTableName}.id`)
+    // **Update or Insert into 'consigneedetail' with correct idheader**
+    const updatedData = await trx('consigneedetail')
+      .join(`${tempTableName}`, 'consigneedetail.id', `${tempTableName}.id`)
       .update({
-        nobukti: trx.raw(`jurnalumumdetail.nobukti`),
-        tglbukti: trx.raw(`jurnalumumdetail.tglbukti`),
-        coa: trx.raw(`jurnalumumdetail.coa`),
         keterangan: trx.raw(`${tempTableName}.keterangan`),
-        nominal: trx.raw(`${tempTableName}.nominal`),
         info: trx.raw(`${tempTableName}.info`),
         modifiedby: trx.raw(`${tempTableName}.modifiedby`),
-        jurnalumum_id: trx.raw(`${tempTableName}.jurnalumum_id`),
+        consignee_id: trx.raw(`${tempTableName}.consignee_id`),
         created_at: trx.raw(`${tempTableName}.created_at`),
         updated_at: trx.raw(`${tempTableName}.updated_at`),
       })
@@ -126,40 +124,28 @@ export class JurnalumumdetailService {
     // Handle insertion if no update occurs
     const insertedDataQuery = await trx(tempTableName)
       .select([
-        'nobukti',
-        'tglbukti',
-        'coa',
         'keterangan',
-        'nominal',
         'info',
         'modifiedby',
-        trx.raw('? as jurnalumum_id', [id]),
+        trx.raw('? as consignee_id', [id]),
         'created_at',
         'updated_at',
       ])
       .where(`${tempTableName}.id`, '0');
 
     const getDeleted = await trx(this.tableName)
-      .leftJoin(
-        `${tempTableName}`,
-        'jurnalumumdetail.id',
-        `${tempTableName}.id`,
-      )
+      .leftJoin(`${tempTableName}`, 'consigneedetail.id', `${tempTableName}.id`)
       .select(
-        'jurnalumumdetail.id',
-        'jurnalumumdetail.nobukti',
-        'jurnalumumdetail.tglbukti',
-        'jurnalumumdetail.coa',
-        'jurnalumumdetail.keterangan',
-        'jurnalumumdetail.nominal',
-        'jurnalumumdetail.info',
-        'jurnalumumdetail.modifiedby',
-        'jurnalumumdetail.created_at',
-        'jurnalumumdetail.updated_at',
-        'jurnalumumdetail.jurnalumum_id',
+        'consigneedetail.id',
+        'consigneedetail.keterangan',
+        'consigneedetail.info',
+        'consigneedetail.modifiedby',
+        'consigneedetail.created_at',
+        'consigneedetail.updated_at',
+        'consigneedetail.consignee_id',
       )
       .whereNull(`${tempTableName}.id`)
-      .where('jurnalumumdetail.jurnalumum_id', id);
+      .where('consigneedetail.consignee_id', id);
 
     let pushToLog: any[] = [];
 
@@ -175,16 +161,12 @@ export class JurnalumumdetailService {
     const finalData = logData.concat(pushToLogWithAction);
 
     const deletedData = await trx(this.tableName)
-      .leftJoin(
-        `${tempTableName}`,
-        'jurnalumumdetail.id',
-        `${tempTableName}.id`,
-      )
+      .leftJoin(`${tempTableName}`, 'consigneedetail.id', `${tempTableName}.id`)
       .whereNull(`${tempTableName}.id`)
-      .where('jurnalumumdetail.jurnalumum_id', id)
+      .where('consigneedetail.consignee_id', id)
       .del();
     if (insertedDataQuery.length > 0) {
-      insertedData = await trx('jurnalumumdetail')
+      insertedData = await trx('consigneedetail')
         .insert(insertedDataQuery)
         .returning('*')
         .then((result: any) => result[0])
@@ -197,7 +179,7 @@ export class JurnalumumdetailService {
     await this.logTrailService.create(
       {
         namatabel: this.tableName,
-        postingdari: 'JURNAL UMUM DETAIL',
+        postingdari: 'CONSIGNEE DETAIL',
         idtrans: id,
         nobuktitrans: id,
         aksi: 'EDIT',
@@ -211,39 +193,13 @@ export class JurnalumumdetailService {
   }
 
   async findAll({ search, filters, sort }: FindAllParams, trx: any) {
-    if (!filters?.nobukti) {
+    if (!filters?.consignee_id) {
       return {
         data: [],
       };
     }
-    const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
-
-    await trx.schema.createTable(tempUrl, (t) => {
-      t.integer('id').nullable();
-      t.string('nobukti').nullable();
-      t.text('link').nullable();
-    });
-    const url = 'jurnalumumheader';
-
-    await trx(tempUrl).insert(
-      trx
-        .select(
-          'u.id',
-          'u.nobukti',
-          trx.raw(`
-            STRING_AGG(
-              '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'nobukti=' + u.nobukti + '">' +
-              '<HighlightWrapper value="' + u.nobukti + '" />' +
-              '</a>', ','
-            ) AS link
-          `),
-        )
-        .from(this.tableName + ' as u')
-        .groupBy('u.id', 'u.nobukti'),
-    );
-
     try {
-      if (!filters?.nobukti) {
+      if (!filters?.consignee_id) {
         return {
           status: true,
           message: 'Jurnal umum Detail failed to fetch',
@@ -251,97 +207,65 @@ export class JurnalumumdetailService {
         };
       }
       const query = trx
-        .from(trx.raw(`${this.tableName} as p WITH (READUNCOMMITTED)`))
+        .from(
+          trx.raw(
+            `${this.tableName} as consigneedetail WITH (READUNCOMMITTED)`,
+          ),
+        )
         .select(
-          'p.id',
-          'p.jurnalumum_id',
-          trx.raw("FORMAT(p.tglbukti, 'dd-MM-yyyy') as tglbukti"),
-          'p.nobukti',
-          'p.coa',
-          'p.keterangan',
-          'ap.keterangancoa as coa_nama',
-
-          // Jika nominal < 0 → nominalkredit = ABS(nominal), selain itu 0
+          'consigneedetail.id',
+          'consigneedetail.consignee_id',
+          'consigneedetail.keterangan',
+          'consigneedetail.info',
+          'consigneedetail.modifiedby',
           trx.raw(
-            'CASE WHEN p.nominal < 0 THEN ABS(p.nominal) ELSE 0 END AS nominalkredit',
+            "FORMAT(consigneedetail.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at",
           ),
-
-          // Jika nominal > 0 → nominaldebet = nominal, selain itu 0
           trx.raw(
-            'CASE WHEN p.nominal > 0 THEN p.nominal ELSE 0 END AS nominaldebet',
+            "FORMAT(consigneedetail.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at",
           ),
-
-          trx.raw('ABS(p.nominal) AS nominal'),
-          'p.info',
-          'p.modifiedby',
-          trx.raw("FORMAT(p.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-          trx.raw("FORMAT(p.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          'tempUrl.link',
         )
-        .innerJoin(trx.raw(`${tempUrl} as tempUrl`), 'p.id', 'tempUrl.id')
-        .innerJoin(
-          trx.raw('akunpusat as ap WITH (READUNCOMMITTED)'),
-          'p.coa',
-          'ap.coa',
-        )
-        .orderBy('p.created_at', 'desc');
+        .orderBy('consigneedetail.created_at', 'desc');
 
-      if (filters?.nobukti) {
-        query.where('p.nobukti', filters?.nobukti);
+      if (filters?.consignee_id) {
+        query.where('consigneedetail.consignee_id', filters?.consignee_id);
       }
-      const excludeSearchKeys = ['tglDari', 'tglSampai', 'nobukti'];
+      const excludeSearchKeys = ['consignee_id'];
       const searchFields = Object.keys(filters || {}).filter(
         (k) => !excludeSearchKeys.includes(k) && filters![k],
       );
       if (search) {
-        console.log(search, 'search');
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
         query.where((qb) => {
           searchFields.forEach((field) => {
-            qb.orWhere(`p.${field}`, 'like', `%${sanitized}%`);
+            qb.orWhere(`consigneedetail.${field}`, 'like', `%${sanitized}%`);
           });
         });
       }
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
-          if (key === 'pengeluaran_nobukti') {
+          if (key === 'consignee_id') {
             continue;
           }
           if (!value) continue;
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
           switch (key) {
-            case 'coa_nama':
-              query.andWhere('ap.keterangancoa', 'like', `%${sanitizedValue}%`);
-              break;
-
-            case 'tglbukti':
-              query.andWhereRaw("FORMAT(p.tglbukti, 'dd-MM-yyyy') LIKE ?", [
-                `%${sanitizedValue}%`,
-              ]);
-              break;
-
-            case 'nominaldebet':
+            case 'bongkarke':
               query.andWhere(
-                trx.raw('CASE WHEN p.nominal > 0 THEN p.nominal ELSE 0 END'),
-                'like',
-                `%${sanitizedValue}%`,
-              );
-              break;
-
-            case 'nominalkredit':
-              query.andWhere(
-                trx.raw(
-                  'CASE WHEN p.nominal < 0 THEN ABS(p.nominal) ELSE 0 END',
-                ),
+                'consigneedetail.bongkarke',
                 'like',
                 `%${sanitizedValue}%`,
               );
               break;
 
             default:
-              query.andWhere(`p.${key}`, 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                `consigneedetail.${key}`,
+                'like',
+                `%${sanitizedValue}%`,
+              );
           }
         }
       }
@@ -354,20 +278,63 @@ export class JurnalumumdetailService {
         data: result,
       };
     } catch (error) {
-      console.error('Error in findAll Kas Gantung Detail', error);
+      console.error('Error in findAll Consignee Detail', error);
       throw new Error(error);
     }
   }
+  async delete(id: number, trx: any, modifiedby: string) {
+    try {
+      const dataDetail = await trx(this.tableName).where('consignee_id', id);
 
+      if (dataDetail.length === 0) {
+        return {
+          status: 200,
+          message: 'Data not found',
+          data: [],
+        };
+      }
+      let deletedData: any = [];
+      for (const item of dataDetail) {
+        const deletedDataItem = await this.utilsService.lockAndDestroy(
+          item.id,
+          this.tableName,
+          'id',
+          trx,
+        );
+        deletedData.push(deletedDataItem);
+      }
+
+      await this.logTrailService.create(
+        {
+          namatabel: this.tableName,
+          postingdari: 'DELETE CONSIGNEE DETAIL',
+          idtrans: deletedData.id,
+          nobuktitrans: deletedData.id,
+          aksi: 'DELETE',
+          datajson: JSON.stringify(deletedData),
+          modifiedby: modifiedby,
+        },
+        trx,
+      );
+
+      return { status: 200, message: 'Data deleted successfully', deletedData };
+    } catch (error) {
+      console.log('Error deleting data:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to delete data');
+    }
+  }
   findOne(id: number) {
-    return `This action returns a #${id} jurnalumumdetail`;
+    return `This action returns a #${id} consigneedetail`;
   }
 
-  update(id: number, updateJurnalumumdetailDto: UpdateJurnalumumdetailDto) {
-    return `This action updates a #${id} jurnalumumdetail`;
+  update(id: number, updateConsigneedetailDto: UpdateConsigneedetailDto) {
+    return `This action updates a #${id} consigneedetail`;
   }
 
   remove(id: number) {
-    return `This action removes a #${id} jurnalumumdetail`;
+    return `This action removes a #${id} consigneedetail`;
   }
 }
