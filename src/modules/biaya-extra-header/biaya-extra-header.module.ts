@@ -23,7 +23,7 @@ import { BiayaExtraMuatanDetailModule } from '../biaya-extra-muatan-detail/biaya
     GlobalModule,
     LogtrailModule,
     RunningNumberModule,
-    BiayaExtraMuatanDetailModule
-  ]
+    BiayaExtraMuatanDetailModule,
+  ],
 })
 export class BiayaExtraHeaderModule {}

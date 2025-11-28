@@ -51,7 +51,11 @@ export class BlDetailRincianController {
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.blDetailRincianService.findAll(+id, trx, params);
+      const result = await this.blDetailRincianService.findAll(
+        +id,
+        trx,
+        params,
+      );
       if (result.data.length === 0) {
         await trx.commit();
 

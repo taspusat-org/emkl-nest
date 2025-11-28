@@ -7,12 +7,7 @@ import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 @Module({
   controllers: [BlDetailRincianBiayaController],
   providers: [BlDetailRincianBiayaService],
-  imports: [
-    UtilsModule,
-    LogtrailModule
-  ],
-  exports: [
-    BlDetailRincianBiayaService
-  ]
+  imports: [UtilsModule, LogtrailModule],
+  exports: [BlDetailRincianBiayaService],
 })
 export class BlDetailRincianBiayaModule {}

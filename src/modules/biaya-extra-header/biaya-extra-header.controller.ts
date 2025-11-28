@@ -1,19 +1,19 @@
-import { 
-  Controller, 
-  Get, 
+import {
+  Controller,
+  Get,
   Res,
-  Req, 
+  Req,
   Put,
-  Post, 
-  Body, 
-  Param, 
-  Query, 
-  Delete, 
-  UsePipes, 
-  UseGuards, 
-  HttpStatus, 
-  HttpException, 
-  InternalServerErrorException, 
+  Post,
+  Body,
+  Param,
+  Query,
+  Delete,
+  UsePipes,
+  UseGuards,
+  HttpStatus,
+  HttpException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import * as fs from 'fs';
 import { Response } from 'express';
@@ -23,12 +23,22 @@ import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 import { BiayaExtraHeaderService } from './biaya-extra-header.service';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
-import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
-import { CreateBiayaExtraHeaderSchema, UpdateBiayaExtraHeaderDto, UpdateBiayaExtraHeaderSchema } from './dto/create-biaya-extra-header.dto';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
+import {
+  CreateBiayaExtraHeaderSchema,
+  UpdateBiayaExtraHeaderDto,
+  UpdateBiayaExtraHeaderSchema,
+} from './dto/create-biaya-extra-header.dto';
 
 @Controller('biayaextraheader')
 export class BiayaExtraHeaderController {
-  constructor(private readonly biayaExtraHeaderService: BiayaExtraHeaderService) {}
+  constructor(
+    private readonly biayaExtraHeaderService: BiayaExtraHeaderService,
+  ) {}
 
   @UseGuards(AuthGuard)
   @Post()
@@ -51,7 +61,10 @@ export class BiayaExtraHeaderController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating biaya extra header in controller', error);
+      console.error(
+        'Error while creating biaya extra header in controller',
+        error,
+      );
 
       if (error instanceof HttpException) {
         throw error;
@@ -104,7 +117,9 @@ export class BiayaExtraHeaderController {
         error,
         error.message,
       );
-      throw new InternalServerErrorException('Failed to fetch biaya extra header');
+      throw new InternalServerErrorException(
+        'Failed to fetch biaya extra header',
+      );
     }
   }
 
@@ -113,7 +128,10 @@ export class BiayaExtraHeaderController {
   //@BIAYA-EXTRA-HEADER
   async update(
     @Param('id') id: string,
-    @Body(new InjectMethodPipe('update'), new ZodValidationPipe(UpdateBiayaExtraHeaderSchema))
+    @Body(
+      new InjectMethodPipe('update'),
+      new ZodValidationPipe(UpdateBiayaExtraHeaderSchema),
+    )
     data: UpdateBiayaExtraHeaderDto,
     @Req() req,
   ) {
@@ -126,7 +144,10 @@ export class BiayaExtraHeaderController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while updating biaya extra header in controller:', error);
+      console.error(
+        'Error while updating biaya extra header in controller:',
+        error,
+      );
 
       if (error instanceof HttpException) {
         // Ensure any other errors get caught and returned
@@ -150,7 +171,11 @@ export class BiayaExtraHeaderController {
     const trx = await dbMssql.transaction();
     const modifiedby = req.user?.user?.username || 'unknown';
     try {
-      const result = await this.biayaExtraHeaderService.delete(+id, trx, modifiedby);
+      const result = await this.biayaExtraHeaderService.delete(
+        +id,
+        trx,
+        modifiedby,
+      );
 
       trx.commit();
       return result;
@@ -190,12 +215,13 @@ export class BiayaExtraHeaderController {
   async exportToExcel(@Param('id') id: string, @Res() res: Response) {
     try {
       const data = await this.findOne(id);
-      
+
       if (!data.data && data?.data.length === 0) {
         throw new Error('Data is not found');
       }
 
-      const tempFilePath = await this.biayaExtraHeaderService.exportToExcel(data);
+      const tempFilePath =
+        await this.biayaExtraHeaderService.exportToExcel(data);
       const fileStream = fs.createReadStream(tempFilePath);
 
       res.setHeader(
@@ -229,5 +255,4 @@ export class BiayaExtraHeaderController {
       throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
-
 }

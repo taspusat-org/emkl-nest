@@ -47,7 +47,7 @@ const baseDetailsFields = z.object({
 
   statustagih: z
     .number({
-      required_error: 'BIAYA EMKL WAJIB DIISI'
+      required_error: 'BIAYA EMKL WAJIB DIISI',
     })
     .min(1, { message: 'BIAYA EMKL WAJIB DIISI' }),
   statustagih_nama: z.string().nullable().optional(),
@@ -60,11 +60,10 @@ const baseDetailsFields = z.object({
 
   groupbiayaextra_id: z
     .number({
-      required_error: 'BIAYA EMKL WAJIB DIISI'
+      required_error: 'BIAYA EMKL WAJIB DIISI',
     })
     .min(1, { message: 'BIAYA EMKL WAJIB DIISI' }),
   groupbiayaextra_nama: z.string().nullable().optional(),
-
 });
 
 export const CreateBiayaExtraHeaderSchema = z.object({
@@ -73,8 +72,9 @@ export const CreateBiayaExtraHeaderSchema = z.object({
 
   // Field/aturan khusus create bisa ditambah di sini
 });
-export type CreateBiayaExtraHeaderDto = z.infer<typeof CreateBiayaExtraHeaderSchema>;
-
+export type CreateBiayaExtraHeaderDto = z.infer<
+  typeof CreateBiayaExtraHeaderSchema
+>;
 
 export const UpdateBiayaExtraHeaderSchema = z.object({
   ...baseFields,
@@ -82,4 +82,6 @@ export const UpdateBiayaExtraHeaderSchema = z.object({
   id: z.number({ required_error: 'Id wajib diisi untuk update' }),
   // Field atau aturan khusus update bisa ditambah di sini
 });
-export type UpdateBiayaExtraHeaderDto = z.infer<typeof UpdateBiayaExtraHeaderSchema>;
+export type UpdateBiayaExtraHeaderDto = z.infer<
+  typeof UpdateBiayaExtraHeaderSchema
+>;

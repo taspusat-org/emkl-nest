@@ -197,7 +197,9 @@ export class BlHeaderController {
     } catch (error) {
       trx.rollback();
       console.error('Error to proccess bl rincian biaya:', error);
-      throw new InternalServerErrorException('Failed to proccess bl rincian biaya');
+      throw new InternalServerErrorException(
+        'Failed to proccess bl rincian biaya',
+      );
     }
   }
 

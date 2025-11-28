@@ -192,7 +192,7 @@ export class TypeAkuntansiService {
           }
         }
       }
-     
+
       if (limit > 0) {
         const offset = (page - 1) * limit;
         query.limit(limit).offset(offset);

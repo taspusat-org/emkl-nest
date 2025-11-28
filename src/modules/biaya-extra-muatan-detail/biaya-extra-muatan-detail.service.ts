@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateBiayaExtraMuatanDetailDto } from './dto/create-biaya-extra-muatan-detail.dto';
 import { UpdateBiayaExtraMuatanDetailDto } from './dto/update-biaya-extra-muatan-detail.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
@@ -13,7 +17,7 @@ export class BiayaExtraMuatanDetailService {
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
-  
+
   async create(details: any, id: any = 0, trx: any = null) {
     try {
       let insertedData = null;
@@ -32,16 +36,16 @@ export class BiayaExtraMuatanDetailService {
         return;
       }
 
-      for (let data of details) {
+      for (const data of details) {
         let isDataChanged = false;
-        
+
         Object.keys(data).forEach((key) => {
           if (typeof data[key] === 'string') {
             data[key] = data[key].toUpperCase();
           }
         });
 
-        // Check if the data has an id (existing record) 
+        // Check if the data has an id (existing record)
         if (data.id) {
           const existingData = await trx(this.tableName)
             .where('id', data.id)
@@ -76,13 +80,13 @@ export class BiayaExtraMuatanDetailService {
         }
 
         const { aksi, ...dataForInsert } = data;
-        
+
         mainDataToInsert.push(dataForInsert);
         logData.push({
           ...data,
           created_at: time,
         });
-      }      
+      }
 
       await trx.raw(tableTemp);
       const jsonString = JSON.stringify(mainDataToInsert);
@@ -91,26 +95,24 @@ export class BiayaExtraMuatanDetailService {
         `$.${key}`,
         key,
       ]);
-      
+
       const openJson = await trx
         .from(trx.raw('OPENJSON(?)', [jsonString]))
         .jsonExtract(mappingData)
         .as('jsonData');
-        
-      // Insert into temp table
-      await trx(tempTableName).insert(openJson);      
 
-      // **Update or Insert into 'packinglistdetailrincian' with correct idheader** 
+      // Insert into temp table
+      await trx(tempTableName).insert(openJson);
+
+      // **Update or Insert into 'packinglistdetailrincian' with correct idheader**
       const updatedData = await trx(this.tableName)
-        .join(
-          `${tempTableName}`,
-          `${this.tableName}.id`,
-          `${tempTableName}.id`,
-        )
+        .join(`${tempTableName}`, `${this.tableName}.id`, `${tempTableName}.id`)
         .update({
           nobukti: trx.raw(`${tempTableName}.nobukti`),
           biayaextra_id: trx.raw(`${tempTableName}.biayaextra_id`),
-          orderanmuatan_nobukti: trx.raw(`${tempTableName}.orderanmuatan_nobukti`),
+          orderanmuatan_nobukti: trx.raw(
+            `${tempTableName}.orderanmuatan_nobukti`,
+          ),
           estimasi: trx.raw(`${tempTableName}.estimasi`),
           nominal: trx.raw(`${tempTableName}.nominal`),
           statustagih: trx.raw(`${tempTableName}.statustagih`),
@@ -129,7 +131,7 @@ export class BiayaExtraMuatanDetailService {
           throw error;
         });
 
-      // Handle insertion if no update occurs 
+      // Handle insertion if no update occurs
       const insertedDataQuery = await trx(tempTableName)
         .select([
           'nobukti',
@@ -149,11 +151,7 @@ export class BiayaExtraMuatanDetailService {
         .where(`${tempTableName}.id`, '0');
 
       const getDeleted = await trx(`${this.tableName} as u`)
-        .leftJoin(
-          `${tempTableName}`,
-          'u.id',
-          `${tempTableName}.id`,
-        )
+        .leftJoin(`${tempTableName}`, 'u.id', `${tempTableName}.id`)
         .select(
           'u.nobukti',
           'u.biayaextra_id',
@@ -184,7 +182,7 @@ export class BiayaExtraMuatanDetailService {
       }));
 
       const finalData = logData.concat(pushToLogWithAction);
-      
+
       const deletedData = await trx(this.tableName)
         .leftJoin(
           `${tempTableName}`,
@@ -198,17 +196,20 @@ export class BiayaExtraMuatanDetailService {
       if (insertedDataQuery.length > 0) {
         insertedData = await trx(this.tableName)
           .insert(insertedDataQuery)
-          .returning('*') 
+          .returning('*')
           .then((result: any) => result[0])
           .catch((error: any) => {
-            console.error('Error inserting data biaya extra muatan detail:', error);
+            console.error(
+              'Error inserting data biaya extra muatan detail:',
+              error,
+            );
             throw error;
           });
       }
 
       await this.logTrailService.create(
         {
-          namatabel: this.tableName, 
+          namatabel: this.tableName,
           postingdari: 'ADD BIAYA EXTRA MUATAN BIAYA',
           idtrans: id,
           nobuktitrans: id,
@@ -219,7 +220,12 @@ export class BiayaExtraMuatanDetailService {
         trx,
       );
 
-      console.log('RESULT BIAYA EXTRA MUATAN DETAIL insertedData', insertedData, 'updatedData', updatedData);
+      console.log(
+        'RESULT BIAYA EXTRA MUATAN DETAIL insertedData',
+        insertedData,
+        'updatedData',
+        updatedData,
+      );
 
       return updatedData || insertedData;
     } catch (error) {
@@ -260,14 +266,16 @@ export class BiayaExtraMuatanDetailService {
           'u.groupbiayaextra_id',
           'p.text as statustagih_nama',
           'p.memo as statustagih_memo',
-          'q.keterangan as groupbiayaextra_nama'
+          'q.keterangan as groupbiayaextra_nama',
         )
         .leftJoin('parameter as p', 'u.statustagih', 'p.id')
         .leftJoin('groupbiayaextra as q', 'u.groupbiayaextra_id', 'q.id')
         .where('biayaextra_id', id);
 
       const excludeSearchKeys = ['statustagih_text'];
-      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
 
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
@@ -300,8 +308,7 @@ export class BiayaExtraMuatanDetailService {
 
       if (sort?.sortBy && sort?.sortDirection) {
         if (sort?.sortBy === 'statustagih_text') {
-          const memoExpr =
-            'TRY_CONVERT(nvarchar(max), p.memo)';
+          const memoExpr = 'TRY_CONVERT(nvarchar(max), p.memo)';
           query.orderByRaw(
             `JSON_VALUE(${memoExpr}, '$.MEMO') ${sort.sortDirection}`,
           );
@@ -364,7 +371,10 @@ export class BiayaExtraMuatanDetailService {
     return `This action returns a #${id} biayaExtraMuatanDetail`;
   }
 
-  update(id: number, updateBiayaExtraMuatanDetailDto: UpdateBiayaExtraMuatanDetailDto) {
+  update(
+    id: number,
+    updateBiayaExtraMuatanDetailDto: UpdateBiayaExtraMuatanDetailDto,
+  ) {
     return `This action updates a #${id} biayaExtraMuatanDetail`;
   }
 }
