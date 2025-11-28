@@ -8,13 +8,7 @@ import { BlDetailRincianBiayaModule } from '../bl-detail-rincian-biaya/bl-detail
 @Module({
   controllers: [BlDetailRincianController],
   providers: [BlDetailRincianService],
-  imports: [
-    UtilsModule,
-    LogtrailModule,
-    BlDetailRincianBiayaModule
-  ],
-  exports: [
-    BlDetailRincianService
-  ],
+  imports: [UtilsModule, LogtrailModule, BlDetailRincianBiayaModule],
+  exports: [BlDetailRincianService],
 })
 export class BlDetailRincianModule {}

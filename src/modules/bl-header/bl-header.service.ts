@@ -10,7 +10,12 @@ import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { RunningNumberService } from '../running-number/running-number.service';
 import { BlDetailRincianService } from '../bl-detail-rincian/bl-detail-rincian.service';
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { BlDetailRincianBiayaService } from '../bl-detail-rincian-biaya/bl-detail-rincian-biaya.service';
 
 @Injectable()
@@ -80,13 +85,18 @@ export class BlHeaderService {
 
       if (data.details && data.details.length > 0) {
         const bldetail = data.details.map((detail: any) => {
-          // Susun payload untuk rincian, tidak langsung set rincian mentah 
+          // Susun payload untuk rincian, tidak langsung set rincian mentah
           let rincianPayload: any[] = [];
-          if (Array.isArray(detail.detailsrincian) && detail.detailsrincian.length > 0) {
+          if (
+            Array.isArray(detail.detailsrincian) &&
+            detail.detailsrincian.length > 0
+          ) {
             rincianPayload = detail.detailsrincian.map((rincian: any) => {
-
               let rincianBiaya = [];
-              if (Array.isArray(rincian.rincianbiaya) && rincian.rincianbiaya.length > 0) {
+              if (
+                Array.isArray(rincian.rincianbiaya) &&
+                rincian.rincianbiaya.length > 0
+              ) {
                 rincianBiaya = rincian.rincianbiaya.map((rBiaya: any) => ({
                   id: 0,
                   nobukti: newItem.nobukti,
@@ -96,7 +106,7 @@ export class BlHeaderService {
                   nominal: rBiaya.nominal,
                   biayaemkl_id: rBiaya.biayaemkl_id,
                   info: rincian.info,
-                  modifiedby: headerData.modifiedby, 
+                  modifiedby: headerData.modifiedby,
                   created_at: headerData.created_at,
                   updated_at: headerData.updated_at,
                 }));
@@ -113,8 +123,8 @@ export class BlHeaderService {
                 modifiedby: headerData.modifiedby,
                 created_at: headerData.created_at,
                 updated_at: headerData.updated_at,
-                rincianbiaya: rincianBiaya
-              }
+                rincianbiaya: rincianBiaya,
+              };
             });
           }
 
@@ -435,26 +445,33 @@ export class BlHeaderService {
         const bldetail = data.details.map((detail: any) => {
           // Susun payload untuk rincian, tidak langsung set rincian mentah
           let rincianPayload: any[] = [];
-          if (Array.isArray(detail.detailsrincian) && detail.detailsrincian.length > 0) {
+          if (
+            Array.isArray(detail.detailsrincian) &&
+            detail.detailsrincian.length > 0
+          ) {
             rincianPayload = detail.detailsrincian.map((rincian: any) => {
               let rincianBiaya = [];
 
-              if (Array.isArray(rincian.rincianbiaya) && rincian.rincianbiaya.length > 0) {
+              if (
+                Array.isArray(rincian.rincianbiaya) &&
+                rincian.rincianbiaya.length > 0
+              ) {
                 rincianBiaya = rincian.rincianbiaya.map((rBiaya: any) => ({
                   id: rBiaya.id,
                   nobukti: rBiaya.nobukti || updatedData.nobukti,
                   bldetail_id: rBiaya.bldetail_id || detail.bldetail_id,
-                  bldetail_nobukti: rBiaya.bldetail_nobukti || detail.bl_nobukti,
+                  bldetail_nobukti:
+                    rBiaya.bldetail_nobukti || detail.bl_nobukti,
                   orderanmuatan_nobukti: rBiaya.orderanmuatan_nobukti,
                   nominal: rBiaya.nominal,
                   biayaemkl_id: rBiaya.biayaemkl_id,
                   info: rincian.info,
-                  modifiedby: updatedData.modifiedby, 
+                  modifiedby: updatedData.modifiedby,
                   created_at: updatedData.created_at,
                   updated_at: updatedData.updated_at,
                 }));
               }
-              
+
               return {
                 id: rincian.id,
                 nobukti: rincian.nobukti || updatedData.nobukti,
@@ -466,8 +483,8 @@ export class BlHeaderService {
                 modifiedby: updatedData.modifiedby,
                 created_at: updatedData.created_at,
                 updated_at: updatedData.updated_at,
-                rincianbiaya: rincianBiaya
-              }
+                rincianbiaya: rincianBiaya,
+              };
             });
           }
 
@@ -561,7 +578,8 @@ export class BlHeaderService {
             .where('bldetail_id', detail.id);
 
           const checkDataRincianBiaya = await trx('bldetailrincianbiaya')
-            .select('id').where('bldetail_id', detail.id)
+            .select('id')
+            .where('bldetail_id', detail.id);
 
           if (checkDataRincian.length > 0) {
             for (const rincian of checkDataRincian) {
@@ -573,7 +591,7 @@ export class BlHeaderService {
             }
           }
 
-          if (checkDataRincianBiaya.length > 0) {                        
+          if (checkDataRincianBiaya.length > 0) {
             for (const rincianbiaya of checkDataRincianBiaya) {
               await this.blDetailRincianBiayaService.delete(
                 rincianbiaya.id,
@@ -582,11 +600,7 @@ export class BlHeaderService {
               );
             }
           }
-          await this.blDetailService.delete(
-            detail.id,
-            trx,
-            modifiedby,
-          );
+          await this.blDetailService.delete(detail.id, trx, modifiedby);
         }
       }
 
@@ -657,24 +671,19 @@ export class BlHeaderService {
   }
 
   async processBlRincianBiaya(trx: any) {
-    try {     
+    try {
       const getIdStatusYa = await trx
         .from(trx.raw(`parameter as u WITH (READUNCOMMITTED)`))
         .select('id')
         .where('grp', 'STATUS NILAI')
         .where('subgrp', 'STATUS NILAI')
         .where('text', 'YA')
-        .first()
+        .first();
 
       const query = trx
         .from(trx.raw(`biayaemkl as u WITH (READUNCOMMITTED)`))
-        .select([
-          'u.id',
-          'u.nama',
-          'u.keterangan',
-          'u.statusbiayabl'
-        ])
-        .where('u.statusbiayabl', getIdStatusYa.id)
+        .select(['u.id', 'u.nama', 'u.keterangan', 'u.statusbiayabl'])
+        .where('u.statusbiayabl', getIdStatusYa.id);
 
       const data = await query;
 

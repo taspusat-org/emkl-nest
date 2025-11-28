@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, InternalServerErrorException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { BiayaExtraMuatanDetailService } from './biaya-extra-muatan-detail.service';
 import { CreateBiayaExtraMuatanDetailDto } from './dto/create-biaya-extra-muatan-detail.dto';
 import { UpdateBiayaExtraMuatanDetailDto } from './dto/update-biaya-extra-muatan-detail.dto';
@@ -7,11 +17,17 @@ import { dbMssql } from 'src/common/utils/db';
 
 @Controller('biayaextramuatandetail')
 export class BiayaExtraMuatanDetailController {
-  constructor(private readonly biayaExtraMuatanDetailService: BiayaExtraMuatanDetailService) {}
+  constructor(
+    private readonly biayaExtraMuatanDetailService: BiayaExtraMuatanDetailService,
+  ) {}
 
   @Post()
-  create(@Body() createBiayaExtraMuatanDetailDto: CreateBiayaExtraMuatanDetailDto) {
-    return this.biayaExtraMuatanDetailService.create(createBiayaExtraMuatanDetailDto);
+  create(
+    @Body() createBiayaExtraMuatanDetailDto: CreateBiayaExtraMuatanDetailDto,
+  ) {
+    return this.biayaExtraMuatanDetailService.create(
+      createBiayaExtraMuatanDetailDto,
+    );
   }
 
   @Get(':id')
@@ -39,7 +55,11 @@ export class BiayaExtraMuatanDetailController {
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.biayaExtraMuatanDetailService.findAll(id, trx, params);
+      const result = await this.biayaExtraMuatanDetailService.findAll(
+        id,
+        trx,
+        params,
+      );
       if (result.data.length === 0) {
         await trx.commit();
 
@@ -71,8 +91,13 @@ export class BiayaExtraMuatanDetailController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateBiayaExtraMuatanDetailDto: UpdateBiayaExtraMuatanDetailDto) {
-    return this.biayaExtraMuatanDetailService.update(+id, updateBiayaExtraMuatanDetailDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateBiayaExtraMuatanDetailDto: UpdateBiayaExtraMuatanDetailDto,
+  ) {
+    return this.biayaExtraMuatanDetailService.update(
+      +id,
+      updateBiayaExtraMuatanDetailDto,
+    );
   }
-
 }

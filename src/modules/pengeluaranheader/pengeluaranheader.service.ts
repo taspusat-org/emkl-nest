@@ -623,6 +623,8 @@ export class PengeluaranheaderService {
               ]);
             } else if (field === 'relasi_text') {
               qb.orWhere('r.nama', 'like', `%${sanitizedValue}%`);
+            } else if (field === 'nobukti') {
+              qb.orWhere('u.nobukti', 'like', `%${sanitizedValue}%`);
             } else if (field === 'bank_text') {
               qb.orWhere('b.nama', 'like', `%${sanitizedValue}%`);
             } else if (field === 'coakredit_text') {
@@ -660,17 +662,19 @@ export class PengeluaranheaderService {
                 `%${sanitizedValue}%`,
               ]);
             } else if (key === 'relasi_text') {
-              query.orWhere('r.nama', 'like', `%${sanitizedValue}%`);
+              query.andWhere('r.nama', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'nobukti') {
+              query.andWhere('u.nobukti', 'like', `%${sanitizedValue}%`);
             } else if (key === 'bank_text') {
-              query.orWhere('b.nama', 'like', `%${sanitizedValue}%`);
+              query.andWhere('b.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'coakredit_text') {
-              query.orWhere('a.keterangancoa', 'like', `%${sanitizedValue}%`);
+              query.andWhere('a.keterangancoa', 'like', `%${sanitizedValue}%`);
             } else if (key === 'alatbayar_text') {
-              query.orWhere('c.nama', 'like', `%${sanitizedValue}%`);
+              query.andWhere('c.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'daftarbank_text') {
-              query.orWhere('d.nama', 'like', `%${sanitizedValue}%`);
+              query.andWhere('d.nama', 'like', `%${sanitizedValue}%`);
             } else {
-              query.orWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
           }
         }

@@ -27,7 +27,7 @@ import { BlDetailRincianBiayaModule } from '../bl-detail-rincian-biaya/bl-detail
     RunningNumberModule,
     BlDetailModule,
     BlDetailRincianModule,
-    BlDetailRincianBiayaModule
+    BlDetailRincianBiayaModule,
   ],
 })
 export class BlHeaderModule {}

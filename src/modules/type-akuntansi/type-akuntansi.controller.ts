@@ -39,7 +39,16 @@ import {
 import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 import { AclGuard } from '../auth/acl.guard';
 import { RequireAcos } from '../auth/access.decorator';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiHeader, ApiBearerAuth, ApiExtraModels } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBody,
+  ApiHeader,
+  ApiBearerAuth,
+  ApiExtraModels,
+} from '@nestjs/swagger';
 
 @Controller('type-akuntansi')
 export class TypeAkuntansiController {
@@ -50,12 +59,11 @@ export class TypeAkuntansiController {
   @ApiResponse({ status: 200, description: 'Create A New TypeAkuntansi Data' })
   @Post()
   //@TYPE-AKUNTANSI
-
   @ApiTags('TypeAkuntansi')
-  @ApiExtraModels(  )
-  @ApiOperation({ 
+  @ApiExtraModels()
+  @ApiOperation({
     summary: 'Create Type Akuntansi',
-    description: 'AAA'
+    description: 'AAA',
   })
   @ApiBearerAuth()
   @ApiBody({ type: CreateTypeAkuntansiSwaggerDto })
@@ -101,7 +109,10 @@ export class TypeAkuntansiController {
   //@TYPE-AKUNTANSI
   @ApiOperation({ summary: 'GET ALL TYPE AKUNTANSI' })
   @ApiBearerAuth()
-  @ApiResponse({ status: 200, description: 'Must return all TypeAkuntansi data' })
+  @ApiResponse({
+    status: 200,
+    description: 'Must return all TypeAkuntansi data',
+  })
   // @ApiParam({ name: 'id', type: Number })
   @RequireAcos({ action: 'GET', subject: 'type-akuntansi' })
   @UsePipes(new ZodValidationPipe(FindAllSchema))

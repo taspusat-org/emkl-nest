@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateBlDetailRincianBiayaDto } from './dto/create-bl-detail-rincian-biaya.dto';
 import { UpdateBlDetailRincianBiayaDto } from './dto/update-bl-detail-rincian-biaya.dto';
 import { UtilsService } from 'src/utils/utils.service';
@@ -8,21 +12,21 @@ import { FindAllParams } from 'src/common/interfaces/all.interface';
 @Injectable()
 export class BlDetailRincianBiayaService {
   private readonly tableName: string = 'bldetailrincianbiaya';
-  
+
   constructor(
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
-  
+
   async create(details: any, id: any = 0, trx: any = null) {
     try {
       console.log('MASUK DETAIL RINCIAN BIAYAAA', details);
-      
+
       let insertedData = null;
       const logData: any[] = [];
       const mainDataToInsert: any[] = [];
       const time = this.utilsService.getTime();
-      const orderanmuatan_nobukti = details[0].orderanmuatan_nobukti
+      const orderanmuatan_nobukti = details[0].orderanmuatan_nobukti;
       const tempTableName = `##temp_${Math.random().toString(36).substring(2, 15)}`;
       const tableTemp = await this.utilsService.createTempTable(
         this.tableName,
@@ -35,9 +39,9 @@ export class BlDetailRincianBiayaService {
         return;
       }
 
-      for (let data of details) {
+      for (const data of details) {
         let isDataChanged = false;
-        // Check if the data has an id (existing record) 
+        // Check if the data has an id (existing record)
         if (data.id) {
           const existingData = await trx(this.tableName)
             .where('id', data.id)
@@ -73,13 +77,13 @@ export class BlDetailRincianBiayaService {
 
         const { aksi, ...dataForInsert } = data;
         console.log('aksi', aksi);
-        
+
         mainDataToInsert.push(dataForInsert);
         logData.push({
           ...data,
           created_at: time,
         });
-      }      
+      }
 
       await trx.raw(tableTemp);
       const jsonString = JSON.stringify(mainDataToInsert);
@@ -88,27 +92,25 @@ export class BlDetailRincianBiayaService {
         `$.${key}`,
         key,
       ]);
-      
+
       const openJson = await trx
         .from(trx.raw('OPENJSON(?)', [jsonString]))
         .jsonExtract(mappingData)
         .as('jsonData');
-        
-      // Insert into temp table
-      await trx(tempTableName).insert(openJson);      
 
-      // **Update or Insert into 'packinglistdetailrincian' with correct idheader** 
+      // Insert into temp table
+      await trx(tempTableName).insert(openJson);
+
+      // **Update or Insert into 'packinglistdetailrincian' with correct idheader**
       const updatedData = await trx(this.tableName)
-        .join(
-          `${tempTableName}`,
-          `${this.tableName}.id`,
-          `${tempTableName}.id`,
-        )
+        .join(`${tempTableName}`, `${this.tableName}.id`, `${tempTableName}.id`)
         .update({
           nobukti: trx.raw(`${tempTableName}.nobukti`),
           bldetail_id: trx.raw(`${tempTableName}.bldetail_id`),
           bldetail_nobukti: trx.raw(`${tempTableName}.bldetail_nobukti`),
-          orderanmuatan_nobukti: trx.raw(`${tempTableName}.orderanmuatan_nobukti`),
+          orderanmuatan_nobukti: trx.raw(
+            `${tempTableName}.orderanmuatan_nobukti`,
+          ),
           nominal: trx.raw(`${tempTableName}.nominal`),
           biayaemkl_id: trx.raw(`${tempTableName}.biayaemkl_id`),
           info: trx.raw(`${tempTableName}.info`),
@@ -123,7 +125,7 @@ export class BlDetailRincianBiayaService {
           throw error;
         });
 
-      // Handle insertion if no update occurs 
+      // Handle insertion if no update occurs
       const insertedDataQuery = await trx(tempTableName)
         .select([
           'nobukti',
@@ -140,11 +142,7 @@ export class BlDetailRincianBiayaService {
         .where(`${tempTableName}.id`, '0');
 
       const getDeleted = await trx(`${this.tableName} as u`)
-        .leftJoin(
-          `${tempTableName}`,
-          'u.id',
-          `${tempTableName}.id`,
-        )
+        .leftJoin(`${tempTableName}`, 'u.id', `${tempTableName}.id`)
         .select(
           'u.id',
           'u.nobukti',
@@ -175,7 +173,7 @@ export class BlDetailRincianBiayaService {
       }));
 
       const finalData = logData.concat(pushToLogWithAction);
-      
+
       const deletedData = await trx(this.tableName)
         .leftJoin(
           `${tempTableName}`,
@@ -190,17 +188,20 @@ export class BlDetailRincianBiayaService {
       if (insertedDataQuery.length > 0) {
         insertedData = await trx(this.tableName)
           .insert(insertedDataQuery)
-          .returning('*') 
+          .returning('*')
           .then((result: any) => result[0])
           .catch((error: any) => {
-            console.error('Error inserting data bl detail rincian biaya:', error);
+            console.error(
+              'Error inserting data bl detail rincian biaya:',
+              error,
+            );
             throw error;
           });
       }
 
       await this.logTrailService.create(
         {
-          namatabel: this.tableName, 
+          namatabel: this.tableName,
           postingdari: 'ADD BL DETAIL RINCIAN BIAYA',
           idtrans: id,
           nobuktitrans: id,
@@ -211,7 +212,12 @@ export class BlDetailRincianBiayaService {
         trx,
       );
 
-      console.log('RESULT RINCIAN BIAYAAA insertedData', insertedData, 'updatedData', updatedData);
+      console.log(
+        'RESULT RINCIAN BIAYAAA insertedData',
+        insertedData,
+        'updatedData',
+        updatedData,
+      );
 
       return updatedData || insertedData;
     } catch (error) {
@@ -247,14 +253,16 @@ export class BlDetailRincianBiayaService {
           'u.orderanmuatan_nobukti',
           'nominal',
           'biayaemkl_id',
-          'p.nama as biayaemkl_nama'
+          'p.nama as biayaemkl_nama',
         )
         .leftJoin('biayaemkl as p', 'u.biayaemkl_id', 'p.id')
         .where('bldetail_id', id);
 
       const excludeSearchKeys = [''];
-      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
-      
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
 
@@ -289,14 +297,17 @@ export class BlDetailRincianBiayaService {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }
       }
-      
+
       const result = await query;
-      
+
       return {
         data: result,
       };
     } catch (error) {
-      console.error('Error to findAll Bl detail rincian biaya in service', error);
+      console.error(
+        'Error to findAll Bl detail rincian biaya in service',
+        error,
+      );
       throw new Error(error);
     }
   }
@@ -342,7 +353,10 @@ export class BlDetailRincianBiayaService {
     return `This action returns a #${id} blDetailRincianBiaya`;
   }
 
-  update(id: number, updateBlDetailRincianBiayaDto: UpdateBlDetailRincianBiayaDto) {
+  update(
+    id: number,
+    updateBlDetailRincianBiayaDto: UpdateBlDetailRincianBiayaDto,
+  ) {
     return `This action updates a #${id} blDetailRincianBiaya`;
   }
 }

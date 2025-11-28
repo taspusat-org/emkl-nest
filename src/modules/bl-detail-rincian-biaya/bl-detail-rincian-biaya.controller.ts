@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, InternalServerErrorException, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  InternalServerErrorException,
+  Query,
+} from '@nestjs/common';
 import { BlDetailRincianBiayaService } from './bl-detail-rincian-biaya.service';
 import { CreateBlDetailRincianBiayaDto } from './dto/create-bl-detail-rincian-biaya.dto';
 import { UpdateBlDetailRincianBiayaDto } from './dto/update-bl-detail-rincian-biaya.dto';
@@ -7,11 +17,15 @@ import { FindAllDto, FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Controller('bldetailrincianbiaya')
 export class BlDetailRincianBiayaController {
-  constructor(private readonly blDetailRincianBiayaService: BlDetailRincianBiayaService) {}
+  constructor(
+    private readonly blDetailRincianBiayaService: BlDetailRincianBiayaService,
+  ) {}
 
   @Post()
   create(@Body() createBlDetailRincianBiayaDto: CreateBlDetailRincianBiayaDto) {
-    return this.blDetailRincianBiayaService.create(createBlDetailRincianBiayaDto);
+    return this.blDetailRincianBiayaService.create(
+      createBlDetailRincianBiayaDto,
+    );
   }
 
   @Get(':id')
@@ -39,7 +53,11 @@ export class BlDetailRincianBiayaController {
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.blDetailRincianBiayaService.findAll(id, trx, params);
+      const result = await this.blDetailRincianBiayaService.findAll(
+        id,
+        trx,
+        params,
+      );
       if (result.data.length === 0) {
         await trx.commit();
 
@@ -57,7 +75,7 @@ export class BlDetailRincianBiayaController {
       console.error(
         'Error fetching data bl detail rincian biaya in controller ',
         error,
-        error.message
+        error.message,
       );
       throw new InternalServerErrorException(
         'Failed to fetch bl detail rincian biaya in controller',
@@ -71,7 +89,13 @@ export class BlDetailRincianBiayaController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateBlDetailRincianBiayaDto: UpdateBlDetailRincianBiayaDto) {
-    return this.blDetailRincianBiayaService.update(+id, updateBlDetailRincianBiayaDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateBlDetailRincianBiayaDto: UpdateBlDetailRincianBiayaDto,
+  ) {
+    return this.blDetailRincianBiayaService.update(
+      +id,
+      updateBlDetailRincianBiayaDto,
+    );
   }
 }

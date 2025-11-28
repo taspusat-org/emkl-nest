@@ -8,7 +8,12 @@ import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { RunningNumberService } from '../running-number/running-number.service';
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { BiayaExtraMuatanDetailService } from '../biaya-extra-muatan-detail/biaya-extra-muatan-detail.service';
 
 @Injectable()
@@ -24,10 +29,10 @@ export class BiayaExtraHeaderService {
     private readonly runningNumberService: RunningNumberService,
     private readonly biayaExtraMuatanDetailService: BiayaExtraMuatanDetailService,
   ) {}
-  
+
   async create(data: any, trx: any) {
     try {
-      let detailServiceCreate
+      let detailServiceCreate;
       Object.keys(data).forEach((key) => {
         if (typeof data[key] === 'string') {
           const value = data[key];
@@ -43,11 +48,31 @@ export class BiayaExtraHeaderService {
 
       const updated_at = this.utilsService.getTime();
       const created_at = this.utilsService.getTime();
-      const getOrderanMuatanId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'MUATAN').first();
-      const getOrderanBongkaranId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'BONGKARAN').first();
-      const getOrderanImportId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'IMPORT').first();
-      const getOrderanExportId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'EKSPORT').first();
-      const getFormatBiayaExtraHeader = await trx('parameter').select('id', 'grp', 'subgrp').where('grp', 'NOMOR EXTRA BIAYA').where('kelompok', 'EXTRA BIAYA').first();
+      const getOrderanMuatanId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'MUATAN')
+        .first();
+      const getOrderanBongkaranId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'BONGKARAN')
+        .first();
+      const getOrderanImportId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'IMPORT')
+        .first();
+      const getOrderanExportId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'EKSPORT')
+        .first();
+      const getFormatBiayaExtraHeader = await trx('parameter')
+        .select('id', 'grp', 'subgrp')
+        .where('grp', 'NOMOR EXTRA BIAYA')
+        .where('kelompok', 'EXTRA BIAYA')
+        .first();
 
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
@@ -82,15 +107,14 @@ export class BiayaExtraHeaderService {
         //   detailServiceCreate = 'test';
         //   break;
         // case 'EXPORT':
-        //   service = this.hitungmodalexportService; 
+        //   service = this.hitungmodalexportService;
         //   break;
         default:
           detailServiceCreate = this.biayaExtraMuatanDetailService;
           break;
       }
-      
 
-      if (data.details && data.details.length > 0) {    
+      if (data.details && data.details.length > 0) {
         const detailsWithNobukti = data.details.map((detail: any) => ({
           id: detail.id || 0,
           nobukti: nomorBukti,
@@ -132,14 +156,17 @@ export class BiayaExtraHeaderService {
       );
 
       let dataIndex = filteredItems.findIndex((item) => item.id === newItem.id);
-      
+
       if (dataIndex === -1) {
         dataIndex = 0;
       }
       const pageNumber = Math.floor(dataIndex / data.limit) + 1;
       const endIndex = pageNumber * data.limit;
       const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
-      await this.redisService.set(`${this.tableName}-allItems`, JSON.stringify(limitedItems));
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
 
       return {
         newItem,
@@ -165,16 +192,24 @@ export class BiayaExtraHeaderService {
     trx: any,
   ) {
     try {
-      let filtersJenisOrderan
+      let filtersJenisOrderan;
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
 
-      const getOrderanMuatanId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'MUATAN').first();
-      if (filters?.jenisOrderan && filters?.jenisOrderan !== null && filters?.jenisOrderan !== 'null') {
-        filtersJenisOrderan = filters.jenisOrderan
+      const getOrderanMuatanId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'MUATAN')
+        .first();
+      if (
+        filters?.jenisOrderan &&
+        filters?.jenisOrderan !== null &&
+        filters?.jenisOrderan !== 'null'
+      ) {
+        filtersJenisOrderan = filters.jenisOrderan;
       } else {
-        filtersJenisOrderan = getOrderanMuatanId.id
+        filtersJenisOrderan = getOrderanMuatanId.id;
       }
 
       const query = trx
@@ -189,9 +224,9 @@ export class BiayaExtraHeaderService {
           'u.modifiedby',
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          
+
           'p.nama as jenisorder_nama',
-          'q.nama as biayaemkl_nama'
+          'q.nama as biayaemkl_nama',
         ])
         .leftJoin('jenisorderan as p', 'u.jenisorder_id', 'p.id')
         .leftJoin('biayaemkl as q', 'u.biayaemkl_id', 'q.id')
@@ -205,7 +240,7 @@ export class BiayaExtraHeaderService {
           tglDariFormatted,
           tglSampaiFormatted,
         ]);
-      }      
+      }
 
       const excludeSearchKeys = ['tglDari', 'tglSampai', 'jenisOrderan'];
       const searchFields = Object.keys(filters || {}).filter(
@@ -221,9 +256,14 @@ export class BiayaExtraHeaderService {
             } else if (field === 'biayaemkl_text') {
               qb.orWhere(`q.nama`, 'like', `%${sanitized}%`);
             } else if (field === 'tglbukti') {
-              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy') LIKE ?`, [`%${sanitized}%`]);
+              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy') LIKE ?`, [
+                `%${sanitized}%`,
+              ]);
             } else if (field === 'created_at' || field === 'updated_at') {
-              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`, [`%${sanitized}%`]);
+              qb.orWhereRaw(
+                `FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`,
+                [`%${sanitized}%`],
+              );
             } else {
               qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
             }
@@ -235,15 +275,25 @@ export class BiayaExtraHeaderService {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
-          if (key === 'tglDari' || key === 'tglSampai' || key === 'jenisOrderan') {
+          if (
+            key === 'tglDari' ||
+            key === 'tglSampai' ||
+            key === 'jenisOrderan'
+          ) {
             continue;
           }
 
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'tglbukti') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'jenisorder_text') {
               query.andWhere(`p.nama`, 'like', `%${sanitizedValue}%`);
             } else if (key === 'biayaemkl_text') {
@@ -296,13 +346,33 @@ export class BiayaExtraHeaderService {
 
   async findOne(id: number, trx: any) {
     try {
-      let detailTableName
-      const checkJenisOrderId = await trx.from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`)).select('jenisorder_id').where('id', id).first();
-      const getOrderanMuatanId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'MUATAN').first();
-      const getOrderanBongkaranId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'BONGKARAN').first();
-      const getOrderanImportId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'IMPORT').first();
-      const getOrderanExportId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'EKSPORT').first();
-      
+      let detailTableName;
+      const checkJenisOrderId = await trx
+        .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
+        .select('jenisorder_id')
+        .where('id', id)
+        .first();
+      const getOrderanMuatanId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'MUATAN')
+        .first();
+      const getOrderanBongkaranId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'BONGKARAN')
+        .first();
+      const getOrderanImportId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'IMPORT')
+        .first();
+      const getOrderanExportId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'EKSPORT')
+        .first();
+
       switch (String(checkJenisOrderId.jenisorder_id)) {
         case getOrderanMuatanId?.id:
           detailTableName = 'biayaextramuatandetail';
@@ -311,13 +381,13 @@ export class BiayaExtraHeaderService {
         //   detailTableName = 'biayaextrabongkarandetail';
         //   break;
         // case 'EXPORT':
-        //   service = this.hitungmodalexportService;   
+        //   service = this.hitungmodalexportService;
         //   break;
         default:
           detailTableName = 'biayaextramuatandetail';
           break;
       }
-      
+
       const query = trx(`${this.tableName} as u`)
         .select([
           'u.id',
@@ -336,11 +406,15 @@ export class BiayaExtraHeaderService {
           'detail.keterangan as keterangan_detail',
           'detail.groupbiayaextra_id',
           'parameter.text as statustagih_nama',
-          'q.keterangan as groupbiayaextra_nama'
+          'q.keterangan as groupbiayaextra_nama',
         ])
         .leftJoin('jenisorderan', 'u.jenisorder_id', 'jenisorderan.id')
         .leftJoin('biayaemkl as p', 'u.biayaemkl_id', 'p.id')
-        .leftJoin(`${detailTableName} as detail`, 'u.id', 'detail.biayaextra_id')
+        .leftJoin(
+          `${detailTableName} as detail`,
+          'u.id',
+          'detail.biayaextra_id',
+        )
         .innerJoin('parameter', 'detail.statustagih', 'parameter.id')
         .innerJoin('groupbiayaextra as q', 'detail.groupbiayaextra_id', 'q.id')
         .where('u.id', id);
@@ -360,10 +434,26 @@ export class BiayaExtraHeaderService {
       let updatedData;
       let detailServiceCreate;
       const updated_at = this.utilsService.getTime();
-      const getOrderanMuatanId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'MUATAN').first();
-      const getOrderanBongkaranId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'BONGKARAN').first();
-      const getOrderanImportId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'IMPORT').first();
-      const getOrderanExportId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'EKSPORT').first();
+      const getOrderanMuatanId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'MUATAN')
+        .first();
+      const getOrderanBongkaranId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'BONGKARAN')
+        .first();
+      const getOrderanImportId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'IMPORT')
+        .first();
+      const getOrderanExportId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'EKSPORT')
+        .first();
 
       Object.keys(data).forEach((key) => {
         if (typeof data[key] === 'string') {
@@ -377,7 +467,7 @@ export class BiayaExtraHeaderService {
           }
         }
       });
-      
+
       const headerData = {
         nobukti: data.nobukti,
         tglbukti: data.tglbukti,
@@ -385,11 +475,11 @@ export class BiayaExtraHeaderService {
         biayaemkl_id: data.biayaemkl_id,
         keterangan: data.keterangan,
         modifiedby: data.modifiedby,
-        updated_at
+        updated_at,
       };
 
       const existingData = await trx(this.tableName).where('id', id).first();
-      const hasChanges = this.utilsService.hasChanges(headerData, existingData);      
+      const hasChanges = this.utilsService.hasChanges(headerData, existingData);
 
       if (hasChanges) {
         const updated = await trx(this.tableName)
@@ -407,13 +497,13 @@ export class BiayaExtraHeaderService {
         //   detailServiceCreate = 'test';
         //   break;
         // case 'EXPORT':
-        //   service = this.hitungmodalexportService; 
+        //   service = this.hitungmodalexportService;
         //   break;
         default:
           detailServiceCreate = this.biayaExtraMuatanDetailService;
           break;
       }
-      
+
       if (data.details && data.details.length > 0) {
         const detailsWithNobukti = data.details.map((detail: any) => ({
           id: detail.id || 0,
@@ -455,14 +545,19 @@ export class BiayaExtraHeaderService {
         trx,
       );
 
-      let dataIndex = filteredItems.findIndex((item) => item.id === updatedData.id);      
+      let dataIndex = filteredItems.findIndex(
+        (item) => item.id === updatedData.id,
+      );
       if (dataIndex === -1) {
         dataIndex = 0;
       }
       const pageNumber = Math.floor(dataIndex / data.limit) + 1;
       const endIndex = pageNumber * data.limit;
       const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
-      await this.redisService.set(`${this.tableName}-allItems`, JSON.stringify(limitedItems));
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
 
       return {
         updatedData,
@@ -485,13 +580,33 @@ export class BiayaExtraHeaderService {
 
   async delete(id: number, trx: any, modifiedby: any) {
     try {
-      let detailServiceDelete
-      let detailTableName
-      const checkJenisOrderId = await trx.from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`)).select('jenisorder_id').where('id', id).first();
-      const getOrderanMuatanId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'MUATAN').first();
-      const getOrderanBongkaranId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'BONGKARAN').first();
-      const getOrderanImportId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'IMPORT').first();
-      const getOrderanExportId = await trx.from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`)).select('id').where('nama', 'EKSPORT').first();
+      let detailServiceDelete;
+      let detailTableName;
+      const checkJenisOrderId = await trx
+        .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
+        .select('jenisorder_id')
+        .where('id', id)
+        .first();
+      const getOrderanMuatanId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'MUATAN')
+        .first();
+      const getOrderanBongkaranId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'BONGKARAN')
+        .first();
+      const getOrderanImportId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'IMPORT')
+        .first();
+      const getOrderanExportId = await trx
+        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
+        .select('id')
+        .where('nama', 'EKSPORT')
+        .first();
 
       switch (String(checkJenisOrderId.jenisorder_id)) {
         case getOrderanMuatanId?.id:
@@ -503,7 +618,7 @@ export class BiayaExtraHeaderService {
         //   detailTableName = 'biayaextrabongkarandetail';
         //   break;
         // case 'EXPORT':
-        //   service = this.hitungmodalexportService;  
+        //   service = this.hitungmodalexportService;
         //   break;
         default:
           detailServiceDelete = this.biayaExtraMuatanDetailService;
@@ -511,7 +626,9 @@ export class BiayaExtraHeaderService {
           break;
       }
 
-      const checkDataDetail = await trx(detailTableName).select('id').where('biayaextra_id', id);
+      const checkDataDetail = await trx(detailTableName)
+        .select('id')
+        .where('biayaextra_id', id);
       if (checkDataDetail && checkDataDetail.length > 0) {
         for (const detail of checkDataDetail) {
           await detailServiceDelete.delete(detail.id, trx, modifiedby);
@@ -606,7 +723,7 @@ export class BiayaExtraHeaderService {
     worksheet.getCell('B7').value = 'JENIS ORDER :';
     worksheet.getCell('B8').value = 'BIAYA EMKL :';
     worksheet.getCell('B9').value = 'KETERANGAN :';
-    
+
     worksheet.getCell('C5').value = dataHeader.nobukti;
     worksheet.getCell('C6').value = dataHeader.tglbukti;
     worksheet.getCell('C7').value = dataHeader.jenisorderan_nama;
@@ -656,7 +773,7 @@ export class BiayaExtraHeaderService {
         row.statustagih_nama,
         row.nominaltagih,
         row.keterangan_detail,
-        row.groupbiayaextra_nama
+        row.groupbiayaextra_nama,
       ];
 
       rowValues.forEach((value, colIndex) => {
@@ -681,7 +798,7 @@ export class BiayaExtraHeaderService {
         } else {
           cell.alignment = { horizontal: 'left', vertical: 'middle' };
         }
-        
+
         cell.border = {
           top: { style: 'thin' },
           left: { style: 'thin' },
@@ -709,10 +826,12 @@ export class BiayaExtraHeaderService {
       fs.mkdirSync(tempDir, { recursive: true });
     }
 
-    const tempFilePath = path.resolve(tempDir, `laporan_biaya_extra_${Date.now()}.xlsx`);
+    const tempFilePath = path.resolve(
+      tempDir,
+      `laporan_biaya_extra_${Date.now()}.xlsx`,
+    );
     await workbook.xlsx.writeFile(tempFilePath);
 
     return tempFilePath;
   }
-
 }

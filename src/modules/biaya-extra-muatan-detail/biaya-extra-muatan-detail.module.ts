@@ -7,12 +7,7 @@ import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 @Module({
   controllers: [BiayaExtraMuatanDetailController],
   providers: [BiayaExtraMuatanDetailService],
-  imports: [
-    UtilsModule,
-    LogtrailModule
-  ],
-  exports: [
-    BiayaExtraMuatanDetailService
-  ]
+  imports: [UtilsModule, LogtrailModule],
+  exports: [BiayaExtraMuatanDetailService],
 })
 export class BiayaExtraMuatanDetailModule {}
