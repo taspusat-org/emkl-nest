@@ -510,6 +510,7 @@ export class JurnalumumheaderService {
         .groupBy('judul');
 
       let columns = '';
+
       columnsResult.forEach((row, index) => {
         if (index === 0) {
           columns = `[${row.judul}]`;
@@ -519,7 +520,7 @@ export class JurnalumumheaderService {
       });
 
       if (!columns) {
-        throw new Error('No columns generated for PIVOT');
+        return tempHasil;
       }
       const pivotSubqueryRaw = `
         (

@@ -330,7 +330,7 @@ export class UtilsService {
       // Cek dulu apakah data ada
       const record = await trx(table)
         .where(field, identifier)
-        .forUpdate()
+
         .first();
 
       // Jika data tidak ada, tidak perlu return error, cukup keluar dari fungsi
@@ -720,7 +720,6 @@ export async function getLastNumber(
 ) {
   if (type === 'RESET BULAN') {
     return trx(table)
-      .forUpdate()
       .where('tglbukti', '>=', `${year}-${month}-01`)
       .andWhere('tglbukti', '<', `${year}-${month + 1}-01`)
       .andWhere('statusformat', statusformat)
@@ -730,7 +729,6 @@ export async function getLastNumber(
 
   if (type === 'RESET TAHUN') {
     return trx(table)
-      .forUpdate()
       .where('tglbukti', '>=', `${year}-01-01`)
       .andWhere('tglbukti', '<', `${year + 1}-01-01`)
       .andWhere('statusformat', statusformat)
@@ -739,7 +737,6 @@ export async function getLastNumber(
   }
 
   const query = await trx(table)
-    .forUpdate()
     .select('nobukti')
     .where('statusformat', statusformat)
     .orderBy('nobukti', 'desc')

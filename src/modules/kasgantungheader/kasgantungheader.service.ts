@@ -41,6 +41,9 @@ export class KasgantungheaderService {
   private readonly tableName = 'kasgantungheader';
   async create(data: any, trx: any) {
     try {
+      console.log('[KASGANTUNG] Starting create process...');
+      const startTime = Date.now();
+
       const {
         sortBy,
         sortDirection,
@@ -116,6 +119,9 @@ export class KasgantungheaderService {
         modifiedby: insertData.modifiedby,
       };
 
+      console.log('pengeluaranHeaderData', pengeluaranHeaderData);
+      console.log('nomorBuktiKasGantung', nomorBuktiKasGantung);
+
       const pengeluaranDetails = details.map((detail: any) => ({
         id: 0,
         coadebet: parameter.coa_nama ?? null,
@@ -142,9 +148,16 @@ export class KasgantungheaderService {
         details: pengeluaranDetails,
       };
 
+      console.log('[KASGANTUNG] Creating pengeluaran header...');
+      const pengeluaranStartTime = Date.now();
       const pengeluaranResult = await this.pengeluaranheaderService.create(
         pengeluaranData,
         trx,
+      );
+      console.log(
+        '[KASGANTUNG] Pengeluaran created in',
+        Date.now() - pengeluaranStartTime,
+        'ms',
       );
 
       const pengeluaranNoBukti = pengeluaranResult?.newItem?.nobukti;
@@ -192,31 +205,47 @@ export class KasgantungheaderService {
         );
       }
 
+      console.log('[KASGANTUNG] Starting findAll for Redis update...');
       const { data: filteredItems } = await this.findAll(
         {
           search,
           filters,
-          pagination: { page, limit: 0 },
+          pagination: { page, limit: limit || 10 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },
         trx,
       );
-      // Cari index item baru di hasil yang sudah difilter
-      let itemIndex = filteredItems.findIndex(
-        (item) => Number(item.id) === Number(newHeaderId),
+      console.log(
+        '[KASGANTUNG] FindAll completed, items:',
+        filteredItems.length,
       );
-      if (itemIndex === -1) itemIndex = 0;
 
-      const pageNumber = Math.floor(itemIndex / limit) + 1;
-      const endIndex = pageNumber * limit;
-      const limitedItems = filteredItems.slice(0, endIndex);
+      // Skip Redis update jika data terlalu besar (optimasi performance)
+      let itemIndex = 0;
+      let pageNumber = 1;
 
-      // Simpan ke Redis
-      await this.redisService.set(
-        `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
-      );
+      if (filteredItems.length <= 1000) {
+        // Cari index item baru di hasil yang sudah difilter
+        itemIndex = filteredItems.findIndex(
+          (item) => Number(item.id) === Number(newHeaderId),
+        );
+        if (itemIndex === -1) itemIndex = 0;
+
+        pageNumber = Math.floor(itemIndex / (limit || 10)) + 1;
+        const endIndex = pageNumber * (limit || 10);
+        const limitedItems = filteredItems.slice(0, endIndex);
+
+        // Simpan ke Redis
+        console.log('[KASGANTUNG] Saving to Redis...');
+        await this.redisService.set(
+          `${this.tableName}-allItems`,
+          JSON.stringify(limitedItems),
+        );
+        console.log('[KASGANTUNG] Redis save completed');
+      } else {
+        console.log('[KASGANTUNG] Skipping Redis update - dataset too large');
+      }
 
       const newItem = insertedKasGantungItems[0];
 
@@ -239,6 +268,12 @@ export class KasgantungheaderService {
           modifiedby: insertedKasGantungItems[0]?.modifiedby,
         },
         trx,
+      );
+
+      console.log(
+        '[KASGANTUNG] Total execution time:',
+        Date.now() - startTime,
+        'ms',
       );
 
       return {
