@@ -272,18 +272,11 @@ export class BiayaExtraHeaderService {
       }
 
       if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          const sanitizedValue = String(value).replace(/\[/g, '[[]');
+        Object.entries(filters)
+          .filter(([key, value]) => !excludeSearchKeys.includes(key) && value)
+          .forEach(([key, value]) => {
+            const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
-          if (
-            key === 'tglDari' ||
-            key === 'tglSampai' ||
-            key === 'jenisOrderan'
-          ) {
-            continue;
-          }
-
-          if (value) {
             if (key === 'created_at' || key === 'updated_at') {
               query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
                 key,
@@ -301,8 +294,7 @@ export class BiayaExtraHeaderService {
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
-          }
-        }
+          });
       }
 
       if (limit > 0) {

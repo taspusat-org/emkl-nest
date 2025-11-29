@@ -28,11 +28,14 @@ export class RunningNumberService {
       const startDateStr = formatDate(startDate);
       const endDateStr = formatDate(endDate);
 
-      const rows = await trx(table)
+      // ✅ OPTIMASI: Tambah READUNCOMMITTED + limit untuk performa
+      const rows = await trx
+        .from(trx.raw(`${table} WITH (READUNCOMMITTED)`))
         .select(`${fixField} as nobukti`)
         .where('tglbukti', '>=', startDateStr)
         .andWhere('tglbukti', '<', endDateStr)
-        .orderBy(fixField, 'asc');
+        .orderBy(fixField, 'desc') // DESC untuk ambil yang terbaru dulu
+        .limit(1000); // Limit untuk hindari load semua data
 
       return rows;
     }
@@ -41,20 +44,24 @@ export class RunningNumberService {
       const startDate = `${year}-01-01`;
       const endDate = `${year + 1}-01-01`;
 
-      const rows = await trx(table)
-        .forUpdate()
+      // ✅ OPTIMASI: Hapus forUpdate yang bisa deadlock + tambah hint
+      const rows = await trx
+        .from(trx.raw(`${table} WITH (READUNCOMMITTED)`))
         .select(`${fixField} as nobukti`)
         .where('tglbukti', '>=', startDate)
         .andWhere('tglbukti', '<', endDate)
-        .orderBy(fixField, 'asc');
+        .orderBy(fixField, 'desc') // DESC untuk ambil yang terbaru dulu
+        .limit(1000); // Limit untuk hindari load semua data
 
       return rows;
     }
 
-    const rows = await trx(table)
-      .forUpdate()
+    // ✅ OPTIMASI: Query tanpa filter date (harus limited!)
+    const rows = await trx
+      .from(trx.raw(`${table} WITH (READUNCOMMITTED)`))
       .select(`${fixField} as nobukti`)
-      .orderBy(fixField, 'asc');
+      .orderBy(fixField, 'desc') // DESC untuk ambil yang terbaru dulu
+      .limit(1000); // Limit wajib untuk kasus ini
 
     return rows;
   }

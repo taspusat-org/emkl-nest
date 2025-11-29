@@ -23,7 +23,7 @@ export class StatuspendukungService {
     trx: any,
     statuspendukung: any = 0,
   ) {
-    const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)'; // penting: TEXT/NTEXT -> nvarchar(max)
+    const memoExpr = 'TRY_CONVERT(nvarchar(max), memo)';
 
     try {
       const getDataRequest = await trx('parameter')
@@ -39,7 +39,9 @@ export class StatuspendukungService {
         )
         .where('grp', 'DATA PENDUKUNG')
         .andWhere('subgrp', tablename);
-      // console.log(getDataRequest);
+
+      console.log('getDataRequest', getDataRequest);
+
       if (getDataRequest && getDataRequest.length > 0) {
         const payload = getDataRequest.map((data: any) => {
           const value = statuspendukung?.[data.text] ?? data.nilai_tidak;
@@ -47,7 +49,6 @@ export class StatuspendukungService {
           return {
             statusdatapendukung: data.id,
             transaksi_id: id,
-            // statuspendukung: data.nilai_tidak,
             statuspendukung: value,
             keterangan: null,
             modifiedby: modifiedby,
@@ -55,22 +56,33 @@ export class StatuspendukungService {
             created_at: this.utilsService.getTime(),
           };
         });
+        console.log('payload', payload);
 
+        // Hapus .returning('*') dan query manual untuk mendapatkan data
+        await trx(this.tableName).insert(payload);
+
+        // Ambil data yang baru di-insert berdasarkan transaksi_id dan modifiedby
         const insertedData = await trx(this.tableName)
-          .insert(payload)
-          .returning('*');
-        await this.logTrailService.create(
-          {
-            namatabel: this.tableName,
-            postingdari: `ADD STATUS PENDUKUNG`,
-            idtrans: insertedData[0].id,
-            nobuktitrans: insertedData[0].id,
-            aksi: 'ADD',
-            datajson: JSON.stringify(insertedData[0]),
-            modifiedby: insertedData[0]?.modifiedby,
-          },
-          trx,
-        );
+          .where('transaksi_id', id)
+          .andWhere('modifiedby', modifiedby)
+          .orderBy('id', 'desc')
+          .limit(payload.length);
+
+        if (insertedData && insertedData.length > 0) {
+          await this.logTrailService.create(
+            {
+              namatabel: this.tableName,
+              postingdari: `ADD STATUS PENDUKUNG`,
+              idtrans: insertedData[0].id,
+              nobuktitrans: insertedData[0].id,
+              aksi: 'ADD',
+              datajson: JSON.stringify(insertedData[0]),
+              modifiedby: insertedData[0]?.modifiedby,
+            },
+            trx,
+          );
+        }
+
         return { success: true };
       }
       return { success: true };
