@@ -123,6 +123,8 @@ import { ConsigneeModule } from './modules/consignee/consignee.module';
 import { ConsigneedetailModule } from './modules/consigneedetail/consigneedetail.module';
 import { ConsigneebiayaModule } from './modules/consigneebiaya/consigneebiaya.module';
 import { ConsigneehargajualModule } from './modules/consigneehargajual/consigneehargajual.module';
+import { PanjarheaderModule } from './modules/panjarheader/panjarheader.module';
+import { PanjarmuatandetailModule } from './modules/panjarmuatandetail/panjarmuatandetail.module';
 
 @Module({
   imports: [
@@ -249,6 +251,8 @@ import { ConsigneehargajualModule } from './modules/consigneehargajual/consignee
     ConsigneedetailModule,
     ConsigneebiayaModule,
     ConsigneehargajualModule,
+    PanjarheaderModule,
+    PanjarmuatandetailModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],
