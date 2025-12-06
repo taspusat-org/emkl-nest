@@ -350,12 +350,10 @@ export class PanjarheaderService {
           'detail.estimasi',
           'detail.nominal',
           'detail.keterangan as keterangan_detail',
-          'parameter.text as statustagih_nama',
         ])
         .leftJoin('jenisorderan', 'u.jenisorder_id', 'jenisorderan.id')
         .leftJoin('biayaemkl as p', 'u.biayaemkl_id', 'p.id')
         .leftJoin(`${detailTableName} as detail`, 'u.id', 'detail.panjar_id')
-        .innerJoin('parameter', 'detail.statustagih', 'parameter.id')
         .where('u.id', id);
 
       const data = await query;
@@ -595,8 +593,8 @@ export class PanjarheaderService {
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Data Export');
 
-    worksheet.mergeCells('A1:H1');
-    worksheet.mergeCells('A2:H2');
+    worksheet.mergeCells('A1:E1');
+    worksheet.mergeCells('A2:E2');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
     worksheet.getCell('A2').value = 'LAPORAN PANJAR';
 
