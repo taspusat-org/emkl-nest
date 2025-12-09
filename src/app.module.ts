@@ -1,4 +1,9 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import {
+  Module,
+  NestModule,
+  MiddlewareConsumer,
+  RequestMethod,
+} from '@nestjs/common';
 import { MailModule } from './common/mail/mail.module';
 import { ConfigModule } from '@nestjs/config';
 import { AuthMiddleware } from './common/middlewares/auth.middleware';
@@ -39,7 +44,6 @@ import { JurnalumumdetailModule } from './modules/jurnalumumdetail/jurnalumumdet
 import { RelasiModule } from './modules/relasi/relasi.module';
 import { AlatbayarModule } from './modules/alatbayar/alatbayar.module';
 import { BankModule } from './modules/bank/bank.module';
-import { SseModule } from './modules/sse/sse.module';
 import { ContainerModule } from './modules/container/container.module';
 import { PelayaranModule } from './modules/pelayaran/pelayaran.module';
 import { JenisMuatanModule } from './modules/jenismuatan/jenismuatan.module';
@@ -125,6 +129,8 @@ import { ConsigneebiayaModule } from './modules/consigneebiaya/consigneebiaya.mo
 import { ConsigneehargajualModule } from './modules/consigneehargajual/consigneehargajual.module';
 import { PanjarheaderModule } from './modules/panjarheader/panjarheader.module';
 import { PanjarmuatandetailModule } from './modules/panjarmuatandetail/panjarmuatandetail.module';
+import { EmailvalidationModule } from './modules/emailvalidation/emailvalidation.module';
+import { TesmoduleModule } from './modules/tesmodule/tesmodule.module';
 
 @Module({
   imports: [
@@ -172,7 +178,6 @@ import { PanjarmuatandetailModule } from './modules/panjarmuatandetail/panjarmua
     RelasiModule,
     AlatbayarModule,
     BankModule,
-    SseModule,
     ContainerModule,
 
     AkunpusatModule,
@@ -253,6 +258,8 @@ import { PanjarmuatandetailModule } from './modules/panjarmuatandetail/panjarmua
     ConsigneehargajualModule,
     PanjarheaderModule,
     PanjarmuatandetailModule,
+    EmailvalidationModule,
+    TesmoduleModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],
@@ -263,6 +270,8 @@ export class AppModule implements NestModule {
       .apply(AuthMiddleware)
       .exclude(
         // 'offdays',
+        { path: 'bot/(.*)', method: RequestMethod.ALL },
+        { path: 'email-validation/(.*)', method: RequestMethod.ALL },
         'auth/*', // Exclude all routes under the 'auth' path
         'menu/*', // Exclude all routes under the 'menu' path
         // 'offdays/*', // Exclude all routes under the 'offdays' path
