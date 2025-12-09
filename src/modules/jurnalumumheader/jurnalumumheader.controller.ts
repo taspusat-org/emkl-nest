@@ -68,9 +68,17 @@ export class JurnalumumheaderController {
   @Get()
   //@JURNAL-UMUM
   @UsePipes(new ZodValidationPipe(FindAllSchema))
-  async findAll(@Query() query: FindAllDto) {
-    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
-      query;
+  async findAll(@Query() query: any, @Req() req) {
+    const {
+      search,
+      page,
+      limit,
+      sortBy,
+      sortDirection,
+      isLookUp,
+      isreload,
+      ...filters
+    } = query;
 
     const sortParams = {
       sortBy: sortBy || 'nobukti',
@@ -90,9 +98,14 @@ export class JurnalumumheaderController {
       isLookUp: isLookUp === 'true',
     };
     const trx = await dbMssql.transaction();
-
+    const modifiedby = req.user?.user?.username || 'unknown';
     try {
-      const result = await this.jurnalumumheaderService.findAll(params, trx);
+      const result = await this.jurnalumumheaderService.findAll(
+        params,
+        trx,
+        isreload,
+        modifiedby,
+      );
       trx.commit();
 
       return result;

@@ -1,30 +1,28 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import TelegramBot from 'node-telegram-bot-api'; // Menggunakan import jika menggunakan ESModule
 import { Client, ClientOptions, LocalAuth, Message } from 'whatsapp-web.js';
 import * as qrcode from 'qrcode';
+import * as dotenv from 'dotenv';
 import { dbMssql } from 'src/common/utils/db';
+import puppeteer from 'puppeteer-core';
 import * as path from 'path';
 import * as fs from 'fs';
+dotenv.config();
 @Injectable()
-export class BotService {
+export class BotService implements OnModuleInit {
   private bot: TelegramBot;
+  private isReady = false;
+  private qrCode: string = '';
   private chatId: string = '-1002388728181'; // Ganti dengan ID grup Anda
   private whatsappGroupId: string = '6281321232720-1583291142@g.us'; // Ganti dengan ID grup WhatsApp
-  private whatsappGroupId2: string = '120363401982707501@g.us'; // Ganti dengan ID grup WhatsApp
-  private whatsappChatId: string = '6289652164724@c.us'; // Ganti dengan ID grup WhatsApp
   private whatsappClient: Client;
-  constructor() {
-    // Tempat menyimpan QR code
-    const options: ClientOptions = {
-      puppeteer: { headless: true }, // Menggunakan puppeteer untuk menjalankan browser secara headless
-    };
-
+  async onModuleInit() {
     const token = '7025202986:AAHLW64Ght3115fBdvRGaWqLHK-Dlimtvk4'; // Ganti dengan token bot Anda
     this.bot = new TelegramBot(token);
-
-    this.whatsappClient = new Client(options);
-
-    // Menangani QR code untuk login pertama kali
+    this.whatsappClient = new Client({
+      authStrategy: new LocalAuth(), // Stores session data locally
+      puppeteer: { headless: true }, // Run in headless mode
+    });
     this.whatsappClient.on('qr', (qr: string) => {
       this.generateQRCode(qr);
     });
@@ -45,9 +43,15 @@ export class BotService {
     });
 
     // Inisialisasi WhatsApp client
-    this.whatsappClient.initialize();
+    await this.whatsappClient.initialize();
   }
   private readonly qrFilePath = path.join(process.cwd(), 'qrcode.png');
+  getClientStatus() {
+    return {
+      isReady: this.isReady,
+      qrCode: this.qrCode,
+    };
+  }
   async generateQRCode(qrData: string): Promise<void> {
     // Hanya membuat QR code jika aplikasi dalam mode 'production'
     if (process.env.NODE_ENV !== 'production') {
@@ -69,15 +73,16 @@ export class BotService {
       console.error('Error generating QR code:', err);
     }
   }
-
   // Fungsi untuk mengirim pesan ke grup
   async sendMessage(message: string): Promise<void> {
     try {
-      await this.bot.sendMessage(this.chatId, message);
+      await this.whatsappClient.sendMessage('6281321232720@c.us', message);
+      console.log('berhasil');
     } catch (error) {
       console.error('Error saat mengirim pesan ke Telegram:', error);
     }
   }
+
   async sendWhatsappMessage(message: string): Promise<void> {
     try {
       await this.whatsappClient.sendMessage(this.whatsappGroupId, message);
@@ -85,38 +90,54 @@ export class BotService {
       console.error('Error sending message to WhatsApp:', error);
     }
   }
-  async sendWhatsappMessage3(message: string): Promise<void> {
+  async sendWhatsappMessage2(tgllahir: string, trx: any): Promise<void> {
     try {
-      await this.whatsappClient.sendMessage(this.whatsappGroupId2, message);
-    } catch (error) {
-      console.error('Error sending message to WhatsApp:', error);
-    }
-  }
-  async sendWhatsappMessage2(
-    numbers: string[],
-    namakaryawan: string[],
-  ): Promise<void> {
-    try {
-      let i = 0;
-      while (true) {
-        const number = numbers[i];
-        const name = namakaryawan[i];
+      await new Promise((resolve) => setTimeout(resolve, 5000)); // Delay untuk memastikan client siap
 
-        // Format nomor WhatsApp (menghilangkan karakter non-digit dan menambahkan '@c.us')
-        const formattedNumber = number.replace(/\D/g, '') + '@c.us';
+      // Mengambil data karyawan dari database berdasarkan tanggal lahir yang sesuai dengan format dd-mm
+      const nomorKaryawan = await trx('karyawan')
+        .select('nohp', 'namakaryawan', 'jeniskelamin_id', 'tgllahir') // Menambahkan jeniskelamin_id ke dalam query
+        .where('tgllahir', 'LIKE', `%${tgllahir}`) // Mencari karyawan yang lahir pada tanggal yang sesuai dengan hari dan bulan
+        .where('statusaktif', '=', 131) // Pastikan hanya yang aktif
+        .whereNull('tglresign'); // Pastikan hanya yang tidak resign
 
-        // Pesan yang ingin dikirim, dengan nama karyawan disisipkan
-        const message = `Halo ${name}, ini adalah pesan otomatis dari Customer Service TAS.`;
+      if (nomorKaryawan.length === 0) {
+        console.log(`Tidak ada karyawan yang lahir pada tanggal ${tgllahir}`);
+        return; // Jika tidak ada karyawan yang ditemukan, keluar dari fungsi
+      }
 
-        // Kirim pesan menggunakan WhatsApp Client
+      // Kirim pesan ke grup WhatsApp dengan pesan yang sama seperti yang dikirim ke karyawan
+      for (const karyawan of nomorKaryawan) {
+        const { nohp, namakaryawan, jeniskelamin_id } = karyawan;
+
+        // Menentukan sapaan berdasarkan jeniskelamin_id
+        let sapaan = 'Bapak/Ibu'; // Default sapaan jika tidak ada jeniskelamin_id
+        if (jeniskelamin_id == 37) {
+          sapaan = 'Pak'; // Untuk jeniskelamin_id 37, gunakan "Pak"
+        } else if (jeniskelamin_id == 36) {
+          sapaan = 'Bu'; // Untuk jeniskelamin_id 36, gunakan "Buk"
+        }
+
+        // Cek jika nomor handphone dimulai dengan '0', ubah menjadi '62'
+        let formattedNumber = nohp.replace(/\D/g, ''); // Menghapus karakter non-digit
+        if (formattedNumber.startsWith('0')) {
+          formattedNumber = '62' + formattedNumber.slice(1); // Ganti '0' menjadi '62'
+        }
+        formattedNumber += '@c.us'; // Menambahkan '@c.us' di akhir
+        const trimmedName = String(namakaryawan).trim();
+        // Pesan ucapan selamat ulang tahun dengan sapaan dinamis
+        const message = `Selamat ulang tahun ${sapaan} *${trimmedName}*, Semoga sehat, sukses, dan bahagia selalu 🎂🥳🙏.\n\nDari : Management Transporindo.`;
+
+        // Kirim pesan ke nomor karyawan
         await this.whatsappClient.sendMessage(formattedNumber, message);
         console.log(`Pesan berhasil dikirim ke ${formattedNumber}`);
 
-        // Delay 1 detik sebelum mengirim pesan berikutnya
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Kirim pesan yang sama ke grup WhatsApp
+        await this.whatsappClient.sendMessage(this.whatsappGroupId, message);
+        console.log(`Pesan berhasil dikirim ke grup WhatsApp`);
 
-        // Mengatur indeks agar jika sudah sampai akhir array kembali ke awal
-        i = (i + 1) % numbers.length; // Jika sudah sampai akhir, kembali ke awal array
+        // Delay 2 detik sebelum mengirim pesan berikutnya
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     } catch (error) {
       console.error('Error sending message to WhatsApp:', error);
@@ -211,6 +232,147 @@ export class BotService {
       console.error('Gagal mengirim pesan:', error);
     }
   }
+
+  async sendBulkMessagesFromString(
+    numbersString: string,
+    message: string,
+  ): Promise<{ success: number; failed: number; details: any[] }> {
+    try {
+      // Split string berdasarkan titik koma
+      const numbers = numbersString
+        .split(';')
+        .map((num) => num.trim())
+        .filter((num) => num.length > 0);
+
+      if (numbers.length === 0) {
+        throw new Error('Tidak ada nomor yang valid ditemukan');
+      }
+
+      const results = {
+        success: 0,
+        failed: 0,
+        details: [] as any[],
+      };
+
+      const batchSize = 1; // Kirim 1 nomor per batch
+      const delay = 2000; // Delay 2 detik antara pengiriman
+
+      // Proses setiap nomor satu per satu
+      for (let i = 0; i < numbers.length; i++) {
+        let number = numbers[i];
+
+        // Format nomor WhatsApp
+        // Hapus karakter non-digit
+        let formattedNumber = number.replace(/\D/g, '');
+
+        // Jika nomor dimulai dengan '0', ubah menjadi '62'
+        if (formattedNumber.startsWith('0')) {
+          formattedNumber = '62' + formattedNumber.slice(1);
+        }
+
+        // Tambahkan '@c.us' di akhir
+        formattedNumber += '@c.us';
+
+        try {
+          // Kirim pesan
+          await this.whatsappClient.sendMessage(formattedNumber, message);
+          console.log(`Pesan berhasil dikirim ke ${number}`);
+
+          results.success++;
+          results.details.push({
+            number: number,
+            status: 'success',
+            message: 'Pesan berhasil dikirim',
+          });
+        } catch (error) {
+          console.error(`Gagal mengirim pesan ke ${number}: ${error.message}`);
+
+          results.failed++;
+          results.details.push({
+            number: number,
+            status: 'failed',
+            message: error.message,
+          });
+        }
+
+        // Delay 2 detik sebelum mengirim pesan berikutnya (kecuali untuk nomor terakhir)
+        if (i < numbers.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+
+      return results;
+    } catch (error) {
+      console.error('Gagal mengirim pesan bulk:', error);
+      throw error;
+    }
+  }
+
+  async checkWhatsAppNumber(phoneNumber: string): Promise<{
+    exists: boolean;
+    number: string;
+    formattedNumber?: string;
+  }> {
+    try {
+      // Format nomor dengan kode negara (Indonesia: 62)
+      let formattedNumber = phoneNumber.replace(/\D/g, '');
+
+      if (formattedNumber.startsWith('0')) {
+        formattedNumber = '62' + formattedNumber.substring(1);
+      } else if (!formattedNumber.startsWith('62')) {
+        formattedNumber = '62' + formattedNumber;
+      }
+
+      // Cek apakah nomor terdaftar di WhatsApp
+      const numberId = await this.whatsappClient.getNumberId(formattedNumber);
+
+      if (numberId) {
+        return {
+          exists: true,
+          number: phoneNumber,
+          formattedNumber: numberId.user + '@' + numberId.server,
+        };
+      }
+
+      return {
+        exists: false,
+        number: phoneNumber,
+      };
+    } catch (error) {
+      throw new Error(`Error checking WhatsApp number: ${error.message}`);
+    }
+  }
+
+  async checkMultipleNumbers(phoneNumbers: string[]): Promise<
+    Array<{
+      exists: boolean;
+      number: string;
+      formattedNumber?: string;
+    }>
+  > {
+    const results: Array<{
+      exists: boolean;
+      number: string;
+      formattedNumber?: string;
+      error?: string;
+    }> = [];
+
+    for (const number of phoneNumbers) {
+      try {
+        const result = await this.checkWhatsAppNumber(number);
+        results.push(result);
+      } catch (error) {
+        results.push({
+          exists: false,
+          number,
+          error: error.message,
+        });
+      }
+    }
+
+    return results;
+  }
+
   async getGroups(): Promise<any[]> {
     try {
       const chats = await this.whatsappClient.getChats();

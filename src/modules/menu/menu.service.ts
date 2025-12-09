@@ -496,6 +496,38 @@ export class MenuService {
       throw new Error('Gagal mengambil data menu sidebar user');
     }
   }
+
+  // Build breadcrumb string from parentId chain, e.g. "system -> user"
+  async buildParentBreadcrumb(parentId: number) {
+    try {
+      if (!parentId) return '';
+
+      const titles: string[] = [];
+      let currentId = parentId;
+
+      while (currentId && currentId !== 0) {
+        const row = await dbMssql('menus')
+          .select('title', 'parentId')
+          .where('id', currentId)
+          .first();
+
+        if (!row) break;
+
+        // accumulate title
+        titles.push(row.title);
+
+        // walk up
+        if (!row.parentId || row.parentId === 0) break;
+        currentId = row.parentId;
+      }
+
+      // reverse so top-most parent is first
+      return titles.reverse().join(' -> ');
+    } catch (error) {
+      console.error('Error building parent breadcrumb:', error);
+      return '';
+    }
+  }
   async getSearchMenu(userId: number, search: string = '') {
     try {
       const userAcls = await dbMssql('useracl')
@@ -518,7 +550,15 @@ export class MenuService {
       ]);
 
       let query = dbMssql('menus')
-        .select('id', 'title', 'icon', 'parentId', 'order')
+        .select(
+          'menus.id as id',
+          'title',
+          'icon',
+          'parentId',
+          'order',
+          'a.class as url',
+        )
+        .leftJoin('acos as a', 'menus.aco_id', 'a.id')
         .whereIn('aco_id', Array.from(userAcoIds))
         .orderBy('parentId')
         .orderBy('order');
@@ -533,7 +573,19 @@ export class MenuService {
         throw new Error(`No menus found for user ID ${userId}`);
       }
 
-      return menus;
+      const menusWithBreadcrumb = await Promise.all(
+        menus.map(async (m) => {
+          const parentBreadcrumb = m.parentId
+            ? await this.buildParentBreadcrumb(m.parentId)
+            : '';
+          return {
+            ...m,
+            parentBreadcrumb,
+          };
+        }),
+      );
+
+      return menusWithBreadcrumb;
     } catch (error) {
       console.error('Error fetching user menu sidebar:', error);
       throw new Error('Gagal mengambil data menu sidebar user');

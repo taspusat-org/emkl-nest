@@ -105,6 +105,169 @@ export class UtilsService {
     }
   }
 
+  /**
+   * Create temporary table from data array (auto-detect structure)
+   * OPTIMIZED FOR BIG DATA - Support jutaan records dengan bulk insert
+   *
+   * @param data Array of objects to insert
+   * @param trx Transaction object
+   * @param customPrefix Optional custom prefix for temp table name
+   * @param options Optional configuration
+   *   - chunkSize: Number of rows per batch (default: 5000 for big data)
+   *   - addPositionField: Add auto-increment position field (default: true)
+   *   - onProgress: Callback for progress tracking
+   * @returns Object containing temp table name, inserted count, and execution time
+   */
+  async createTempTableFromData(
+    data: any[],
+    trx: any,
+    customPrefix?: string,
+  ): Promise<{
+    tempTableName: string;
+    insertedCount: number;
+    executionTimeMs: number;
+  }> {
+    const startTime = Date.now();
+
+    try {
+      // Generate unique temp table name
+      const tempTableName = `##temp_${customPrefix || 'data'}_${Math.random().toString(36).substring(2, 15)}`;
+
+      // Handle empty data - create empty table with position field only
+      if (!data || data.length === 0) {
+        const createTableSQL = `
+          CREATE TABLE ${tempTableName} (
+            position BIGINT IDENTITY(1,1) NOT NULL
+          )
+        `;
+        await trx.raw(createTableSQL);
+
+        return {
+          tempTableName,
+          insertedCount: 0,
+          executionTimeMs: Date.now() - startTime,
+        };
+      }
+
+      // Configuration
+      const chunkSize = data.length > 100000 ? 5000 : 1000;
+
+      // Get column definitions from first data object
+      const firstRow = data[0];
+      const columns = Object.keys(firstRow);
+
+      // Build column definitions for raw SQL
+      const columnDefs: string[] = [];
+
+      columnDefs.push('position BIGINT IDENTITY(1,1) NOT NULL');
+      columns.forEach((columnName) => {
+        const value = firstRow[columnName];
+        const valueType = typeof value;
+
+        let columnDef = '';
+
+        if (valueType === 'number') {
+          if (Number.isInteger(value)) {
+            columnDef = `[${columnName}] BIGINT NULL`;
+          } else {
+            columnDef = `[${columnName}] DECIMAL(18,2) NULL`;
+          }
+        } else if (valueType === 'boolean') {
+          columnDef = `[${columnName}] BIT NULL`;
+        } else if (value instanceof Date) {
+          columnDef = `[${columnName}] DATETIME2 NULL`;
+        } else if (valueType === 'string') {
+          const strLength = String(value).length;
+          if (strLength > 500) {
+            columnDef = `[${columnName}] NVARCHAR(MAX) NULL`;
+          } else {
+            columnDef = `[${columnName}] NVARCHAR(255) NULL`;
+          }
+        } else {
+          columnDef = `[${columnName}] NVARCHAR(255) NULL`;
+        }
+
+        columnDefs.push(columnDef);
+      });
+
+      // Create table using raw SQL (faster than schema builder)
+      const createTableSQL = `
+        CREATE TABLE ${tempTableName} (
+          ${columnDefs.join(',\n          ')}
+        )
+      `;
+      await trx.raw(createTableSQL);
+
+      // Bulk insert using raw SQL (much faster for big data)
+      let insertedCount = 0;
+      const totalChunks = Math.ceil(data.length / chunkSize);
+
+      for (let i = 0; i < data.length; i += chunkSize) {
+        const chunk = data.slice(i, i + chunkSize);
+
+        // Build VALUES clause for bulk insert
+        const values = chunk
+          .map((row) => {
+            const rowValues = columns.map((col) => {
+              const value = row[col];
+
+              // Handle NULL
+              if (value === null || value === undefined) {
+                return 'NULL';
+              }
+
+              // Handle different types
+              if (typeof value === 'number') {
+                return value;
+              } else if (typeof value === 'boolean') {
+                return value ? '1' : '0';
+              } else if (value instanceof Date) {
+                return `'${value.toISOString().slice(0, 23)}'`;
+              } else {
+                // Escape single quotes in strings
+                const escaped = String(value).replace(/'/g, "''");
+                return `N'${escaped}'`;
+              }
+            });
+
+            return `(${rowValues.join(',')})`;
+          })
+          .join(',\n');
+
+        // Execute bulk insert
+        const insertSQL = `
+          INSERT INTO ${tempTableName} (${columns.map((c) => `[${c}]`).join(',')})
+          VALUES ${values}
+        `;
+
+        await trx.raw(insertSQL);
+        insertedCount += chunk.length;
+      }
+
+      const executionTimeMs = Date.now() - startTime;
+
+      // Log performance metrics for big data
+      if (data.length > 10000) {
+        console.log(`[TEMP TABLE] Created ${tempTableName}`);
+        console.log(
+          `[TEMP TABLE] Inserted ${insertedCount} rows in ${executionTimeMs}ms`,
+        );
+        console.log(
+          `[TEMP TABLE] Speed: ${Math.round(insertedCount / (executionTimeMs / 1000))} rows/sec`,
+        );
+      }
+
+      return {
+        tempTableName,
+        insertedCount,
+        executionTimeMs,
+      };
+    } catch (error) {
+      console.error('Error creating temp table from data:', error);
+      throw new Error(`Failed to create temp table: ${error.message}`);
+    }
+  }
+
   async tempPivotStatusPendukung(
     trx: any,
     tablename: string,
@@ -849,4 +1012,80 @@ export function formatIndonesianNegative(num: number): string {
 export function generateUUID(prefix?: string): string {
   const uuid = uuidv7();
   return prefix ? `${uuid}-${prefix}` : uuid;
+}
+export function getFetchedPages(
+  pageNumber: number,
+  totalPages: number,
+): number[] {
+  const pagesToFetch: number[] = [];
+
+  // Tentukan rentang awal & akhir
+  let start = pageNumber - 2;
+  let end = pageNumber + 2;
+
+  // Jika start < 1, geser ke kanan
+  if (start < 1) {
+    end += 1 - start;
+    start = 1;
+  }
+
+  // Jika end > totalPages, geser ke kiri
+  if (end > totalPages) {
+    start -= end - totalPages;
+    end = totalPages;
+
+    if (start < 1) start = 1; // jaga batas minimum
+  }
+
+  // Push ke array
+  for (let i = start; i <= end; i++) {
+    pagesToFetch.push(i);
+  }
+
+  return pagesToFetch;
+}
+export function extractFetchedPageData<T>(
+  allData: T[],
+  fetchedPages: number[],
+  limit: number,
+): T[] {
+  const results: T[] = [];
+
+  fetchedPages.forEach((page: number) => {
+    const start = (page - 1) * limit;
+    const end = page * limit;
+    const pageData = allData.slice(start, end);
+
+    results.push(...pageData);
+  });
+
+  return results;
+}
+export function calculateItemIndex(itemPosition, fetchedPages, limit) {
+  const minPage = Math.min(...fetchedPages); // page pertama
+  const startPosition = (minPage - 1) * limit + 1; // global start
+
+  const zeroBasedIndex = itemPosition - startPosition;
+  const oneBasedIndex = zeroBasedIndex + 1;
+
+  return {
+    zeroBasedIndex,
+    oneBasedIndex,
+  };
+}
+export function splitDataByPages(
+  allData: any[],
+  pages: number[],
+  limit: number,
+) {
+  const paged: Record<number, any[]> = {};
+
+  pages.forEach((page) => {
+    const start = (page - 1) * limit;
+    const end = page * limit;
+
+    paged[page] = allData.slice(start, end);
+  });
+
+  return paged;
 }

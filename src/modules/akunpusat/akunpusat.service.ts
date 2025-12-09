@@ -5,7 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
-import { UtilsService } from 'src/utils/utils.service';
+import {
+  calculateItemIndex,
+  extractFetchedPageData,
+  getFetchedPages,
+  splitDataByPages,
+  UtilsService,
+} from 'src/utils/utils.service';
 import { RedisService } from 'src/common/redis/redis.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
@@ -37,8 +43,10 @@ export class AkunpusatService {
         type_nama,
         ...insertData
       } = createAkunpusatDto;
+
       insertData.updated_at = this.utilsService.getTime();
       insertData.created_at = this.utilsService.getTime();
+
       // Normalize the data (e.g., convert strings to uppercase)
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
@@ -58,59 +66,86 @@ export class AkunpusatService {
         {
           search,
           filters,
-          pagination: { page: 1, limit: 0 },
+          pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
           isLookUp: false,
         },
         trx,
       );
 
-      // Find the index of the new item in all data
-      let itemIndex = allData.findIndex((item) => item.id === newItem.id);
-      if (itemIndex === -1) {
-        itemIndex = 0;
-      }
+      // If there is no data, skip creating the temp table and return minimal result
+      if (!allData || allData.length === 0) {
+        // Cache empty result
+        await this.redisService.set(
+          `${this.tableName}-allItems`,
+          JSON.stringify([]),
+        );
 
-      const itemsPerPage = limit || 10;
-      const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;
-
-      // Fetch data from page 1 to pageNumber
-      const fetchedData: any[] = [];
-      const fetchedPages: number[] = [];
-
-      for (let pageNum = 1; pageNum <= pageNumber; pageNum++) {
-        const { data: pageData } = await this.findAll(
+        // Log the creation action
+        await this.logTrailService.create(
           {
-            search,
-            filters,
-            pagination: { page: pageNum, limit: itemsPerPage },
-            sort: { sortBy, sortDirection },
-            isLookUp: false,
+            namatabel: this.tableName,
+            postingdari: 'ADD CONTAINER',
+            idtrans: newItem.id,
+            nobuktitrans: newItem.id,
+            aksi: 'ADD',
+            datajson: JSON.stringify(newItem),
+            modifiedby: newItem.modifiedby,
           },
           trx,
         );
 
-        if (pageData.length > 0) {
-          fetchedData.push(...pageData);
-          fetchedPages.push(pageNum);
-        }
+        return {
+          newItem,
+          itemIndex: 0,
+          fetchedPages: [],
+          pagedData: {},
+        };
       }
 
-      // Calculate itemIndex from fetchedData (position in all fetched pages from 1 to pageNumber)
-      const fetchedItemIndex = fetchedData.findIndex(
-        (item) => item.id === newItem.id,
+      // Create temporary table and insert data using utility method
+      const { tempTableName } = await this.utilsService.createTempTableFromData(
+        allData,
+        trx,
+        this.tableName,
       );
 
-      // Store fetched data in Redis (data from page 1 to pageNumber)
+      // Get position from temporary table (ini adalah posisi global dari SEMUA data, 1-based)
+      const positionResult = await trx(tempTableName)
+        .select('position', '__total_items')
+        .where('id', newItem.id)
+        .first();
+
+      // Posisi global
+      const itemPosition = positionResult?.position ?? 0;
+
+      // Hitung page berdasarkan limit
+      const pageNumber = limit > 0 ? Math.ceil(itemPosition / limit) : 1;
+      const totalItems = positionResult.__total_items;
+      const totalPages = Math.ceil(totalItems / limit);
+
+      const fetchedPages = getFetchedPages(pageNumber, totalPages);
+      const mergedFetchedData = extractFetchedPageData(
+        allData,
+        fetchedPages,
+        limit,
+      );
+      const pagedData = splitDataByPages(allData, fetchedPages, limit);
+      const itemIndex = calculateItemIndex(
+        Number(itemPosition),
+        fetchedPages,
+        limit,
+      );
+
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(fetchedData),
+        JSON.stringify(mergedFetchedData),
       );
 
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'ADD AKUN PUSAT',
+          postingdari: 'ADD CONTAINER',
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -122,9 +157,9 @@ export class AkunpusatService {
 
       return {
         newItem,
-        pageNumber,
-        itemIndex: fetchedItemIndex,
-        fetchedPages, // Array of page numbers that were fetched [1, 2, 3, ..., pageNumber]
+        itemIndex: itemIndex.zeroBasedIndex,
+        fetchedPages,
+        pagedData,
       };
     } catch (error) {
       throw new Error(`Error creating parameter: ${error.message}`);
@@ -132,7 +167,14 @@ export class AkunpusatService {
   }
 
   async findAll(
-    { search, filters = {}, pagination = {}, sort, isLookUp }: FindAllParams,
+    {
+      search,
+      filters = {},
+      pagination = {},
+      sort,
+      isLookUp,
+      flag,
+    }: FindAllParams,
     trx: any,
   ) {
     try {
@@ -151,9 +193,29 @@ export class AkunpusatService {
 
       // Fungsi helper untuk membuat base query dengan semua filter
       const buildBaseQuery = (selectColumns = false) => {
+        // Tentukan ORDER BY untuk row_number berdasarkan sort parameter
+        let orderByClause = 'u.id'; // default jika tidak ada sort
+        let orderDirection = 'ASC'; // default direction
+
+        if (sort?.sortBy) {
+          // Map field yang mungkin memerlukan alias atau join
+          const sortMapping = {
+            type_nama: 't.nama',
+            statusaktif_nama: 'p.text',
+            cabang_nama: 'c.nama',
+          };
+
+          // Gunakan mapping jika ada, atau tambahkan prefix 'u.' untuk field dari table utama
+          orderByClause = sortMapping[sort.sortBy] || `u.${sort.sortBy}`;
+          orderDirection = sort.sortDirection?.toUpperCase() || 'ASC';
+        }
+
         const query = selectColumns
           ? trx(`${this.tableName} as u`)
               .select([
+                trx.raw(
+                  `row_number() Over(Order By ${orderByClause} ${orderDirection}) As nomor`,
+                ),
                 'u.id as id',
                 'u.type_id',
                 'u.level',
@@ -170,6 +232,7 @@ export class AkunpusatService {
                 'u.modifiedby',
                 'u.created_at',
                 'u.updated_at',
+                trx.raw('COUNT(*) OVER() AS __total_items'),
               ])
               .leftJoin('cabang as c', 'u.cabang_id', 'c.id')
               .leftJoin('typeakuntansi as t', 'u.type_id', 't.id')
@@ -251,14 +314,6 @@ export class AkunpusatService {
         );
       }
 
-      // Build query untuk count dengan filter yang sama
-      let countQuery = buildBaseQuery(false).count('u.id as total');
-      countQuery = applyFilters(countQuery, tempParent);
-
-      // Get total records SETELAH filter diterapkan
-      const countResult = await countQuery.first();
-      const total = countResult?.total || 0;
-
       // Build query untuk fetch data dengan filter yang sama
       let dataQuery = buildBaseQuery(true);
       dataQuery = applyFilters(dataQuery, tempParent);
@@ -275,28 +330,41 @@ export class AkunpusatService {
       }
 
       // Fetch the data
-      const data = await dataQuery;
-
-      // Calculate total pages
-      const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
-
-      return {
-        data,
-        type: total > 500 ? 'json' : 'local',
-        total,
-        pagination: {
-          currentPage: page,
-          totalPages,
-          totalItems: total,
-          itemsPerPage: limit,
-        },
-      };
+      if (flag == 'GET POSITION') {
+        const data = await dataQuery;
+        const total = data.length ? Number(data[0].__total_items) : 0;
+        const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+        return {
+          query: dataQuery.toQuery(),
+          data,
+          total,
+          pagination: {
+            currentPage: Number(page),
+            totalPages,
+            totalItems: total,
+            itemsPerPage: limit > 0 ? limit : total,
+          },
+        };
+      } else {
+        const data = await dataQuery;
+        const total = data.length ? Number(data[0].__total_items) : 0;
+        const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+        return {
+          data,
+          total,
+          pagination: {
+            currentPage: Number(page),
+            totalPages,
+            totalItems: total,
+            itemsPerPage: limit > 0 ? limit : total,
+          },
+        };
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       throw new Error('Failed to fetch data');
     }
   }
-
   async update(data: any, trx: any) {
     try {
       const existingData = await trx(this.tableName)
@@ -333,7 +401,7 @@ export class AkunpusatService {
         await trx(this.tableName).where('id', id).update(insertData);
       }
 
-      const { data: filteredData, pagination } = await this.findAll(
+      const { data: allData, pagination } = await this.findAll(
         {
           search,
           filters,
@@ -344,20 +412,70 @@ export class AkunpusatService {
         trx,
       );
 
-      // Cari index item yang baru saja diupdate
-      let itemIndex = filteredData.findIndex((item) => Number(item.id) === id);
-      if (itemIndex === -1) {
-        itemIndex = 0;
+      // If there is no data, skip creating the temp table and return minimal result
+      if (!allData || allData.length === 0) {
+        // Cache empty result
+        await this.redisService.set(
+          `${this.tableName}-allItems`,
+          JSON.stringify([]),
+        );
+
+        // Log the edit action
+        await this.logTrailService.create(
+          {
+            namatabel: this.tableName,
+            postingdari: 'EDIT CONTAINER',
+            idtrans: id,
+            nobuktitrans: id,
+            aksi: 'EDIT',
+            datajson: JSON.stringify(data),
+            modifiedby: data.modifiedby,
+          },
+          trx,
+        );
+
+        return {
+          itemIndex: 0,
+          fetchedPages: [],
+          pagedData: {},
+        };
       }
 
-      const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
-      const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;
+      const { tempTableName } = await this.utilsService.createTempTableFromData(
+        allData,
+        trx,
+        this.tableName,
+      );
+      // Get position from temporary table (ini adalah posisi global dari SEMUA data, 1-based)
+      const positionResult = await trx(tempTableName)
+        .select('position', '__total_items')
+        .where('id', id)
+        .first();
 
-      const endIndex = pageNumber * itemsPerPage;
-      const limitedItems = filteredData.slice(0, endIndex);
+      // Posisi global
+      const itemPosition = positionResult?.position ?? 0;
+
+      // Hitung page berdasarkan limit
+      const pageNumber = limit > 0 ? Math.ceil(itemPosition / limit) : 1;
+      const totalItems = positionResult.__total_items;
+      const totalPages = Math.ceil(totalItems / limit);
+
+      const fetchedPages = getFetchedPages(pageNumber, totalPages);
+      const mergedFetchedData = extractFetchedPageData(
+        allData,
+        fetchedPages,
+        limit,
+      );
+      const pagedData = splitDataByPages(allData, fetchedPages, limit);
+      const itemIndex = calculateItemIndex(
+        Number(itemPosition),
+        fetchedPages,
+        limit,
+      );
+
       await this.redisService.set(
         `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
+        JSON.stringify(mergedFetchedData),
       );
 
       await this.logTrailService.create(
@@ -374,12 +492,9 @@ export class AkunpusatService {
       );
 
       return {
-        updatedItem: {
-          id,
-          ...data,
-        },
-        pageNumber,
-        itemIndex,
+        itemIndex: itemIndex.zeroBasedIndex,
+        fetchedPages,
+        pagedData,
       };
     } catch (error) {
       console.error('Error updating container:', error);

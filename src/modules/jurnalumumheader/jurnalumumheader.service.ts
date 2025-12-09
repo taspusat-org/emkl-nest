@@ -45,6 +45,7 @@ export class JurnalumumheaderService {
         page,
         limit,
         details,
+        isreload,
         ...insertData
       } = data;
       insertData.updated_at = this.utilsService.getTime();
@@ -54,6 +55,7 @@ export class JurnalumumheaderService {
           insertData[key] = insertData[key].toUpperCase();
         }
       });
+
       // **HELPER FUNCTION: Parse currency string to number**
       const parseCurrency = (value: any): number => {
         if (value === null || value === undefined || value === '') {
@@ -75,13 +77,10 @@ export class JurnalumumheaderService {
         let totalDebet = 0;
         let totalKredit = 0;
 
-        // Transform details: konversi nominaldebet/nominalkredit menjadi nominal
         const processedDetails = details.map((detail: any, index: number) => {
-          // Parse nominal debet dan kredit dari string currency
           const nominalDebetValue = parseCurrency(detail.nominaldebet);
           const nominalKreditValue = parseCurrency(detail.nominalkredit);
 
-          // Validasi: minimal salah satu harus ada nilainya
           if (nominalDebetValue === 0 && nominalKreditValue === 0) {
             throw new HttpException(
               {
@@ -93,7 +92,6 @@ export class JurnalumumheaderService {
             );
           }
 
-          // Validasi: tidak boleh kedua-duanya terisi
           if (nominalDebetValue > 0 && nominalKreditValue > 0) {
             throw new HttpException(
               {
@@ -105,20 +103,19 @@ export class JurnalumumheaderService {
             );
           }
 
-          // Buat object baru tanpa nominaldebet dan nominalkredit
           const { nominaldebet, nominalkredit, ...cleanDetail } = detail;
           if (nominalDebetValue > 0) {
-            cleanDetail.nominal = nominalDebetValue; // Positif untuk debet
+            cleanDetail.nominal = nominalDebetValue;
             totalDebet += nominalDebetValue;
           } else if (nominalKreditValue > 0) {
-            cleanDetail.nominal = nominalKreditValue * -1; // Negatif untuk kredit
+            cleanDetail.nominal = nominalKreditValue * -1;
             totalKredit += nominalKreditValue;
           }
 
           return cleanDetail;
         });
-        const selisih = totalDebet - totalKredit;
 
+        const selisih = totalDebet - totalKredit;
         const tolerance = 0.01;
 
         if (Math.abs(selisih) > tolerance) {
@@ -132,10 +129,8 @@ export class JurnalumumheaderService {
           );
         }
 
-        // Update details dengan yang sudah diproses
         data.details = processedDetails;
       } else {
-        // Jika tidak ada details
         throw new HttpException(
           {
             statusCode: HttpStatus.BAD_REQUEST,
@@ -171,6 +166,7 @@ export class JurnalumumheaderService {
         insertData.postingdari = parameter.memo_nama;
       }
 
+      // 1. INSERT KE TABLE UTAMA
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
@@ -188,8 +184,58 @@ export class JurnalumumheaderService {
           trx,
         );
       }
-      const newItem = insertedItems[0];
 
+      const newItem = insertedItems[0];
+      await this.statuspendukungService.create(
+        this.tableName,
+        newItem.id,
+        data.modifiedby,
+        trx,
+      );
+
+      const newItemFormatted = await this.findOne(newItem.id, trx);
+      const tempJurnalumumheader = `temp_jurnalumumheader${insertData.modifiedby}`;
+
+      // Cek apakah temp table sudah ada
+      const tempTableExists = await trx.schema.hasTable(tempJurnalumumheader);
+
+      if (!tempTableExists) {
+        // Buat temp table jika belum ada
+        await trx.schema.createTable(tempJurnalumumheader, (t) => {
+          t.bigInteger('id').nullable();
+          t.string('nobukti').nullable();
+          t.string('tglbukti').nullable();
+          t.string('keterangan').nullable();
+          t.string('postingdari').nullable();
+          t.string('statusformat').nullable();
+          t.string('keteranganapproval').nullable();
+          t.string('tglapproval').nullable();
+          t.string('statusapproval').nullable();
+          t.string('keterangancetak').nullable();
+          t.string('tglcetak').nullable();
+          t.string('statuscetak').nullable();
+          t.string('statusapproval_id').nullable();
+          t.string('statuscetak_id').nullable();
+          t.string('info').nullable();
+          t.string('modifiedby').nullable();
+          t.string('updated_at').nullable();
+          t.string('created_at').nullable();
+        });
+
+        // Register di listtemporarytable
+        const payloadtemptable = {
+          namatabel: tempJurnalumumheader,
+          namamenu: this.tableName,
+          modifiedby: insertData.modifiedby,
+          created_at: this.utilsService.getTime(),
+          updated_at: this.utilsService.getTime(),
+        };
+        await trx('listtemporarytable').insert(payloadtemptable);
+      }
+      console.log('masuk2', newItemFormatted);
+
+      // Insert data baru ke temp table
+      await trx(tempJurnalumumheader).insert(newItemFormatted.data);
       const { data: filteredItems } = await this.findAll(
         {
           search,
@@ -199,8 +245,11 @@ export class JurnalumumheaderService {
           isLookUp: false,
         },
         trx,
+        isreload,
+        insertData.modifiedby,
       );
 
+      // 5. CARI INDEX ITEM BARU DALAM FILTERED ITEMS
       let itemIndex = filteredItems.findIndex(
         (item) => Number(item.id) === Number(newItem.id),
       );
@@ -209,27 +258,26 @@ export class JurnalumumheaderService {
         itemIndex = 0;
       }
 
-      const pageNumber = Math.floor(itemIndex / limit) + 1;
-      const endIndex = pageNumber * limit;
+      // 6. HITUNG PAGE NUMBER
+      const pageNumber = limit > 0 ? Math.floor(itemIndex / limit) + 1 : 1;
+      const endIndex = limit > 0 ? pageNumber * limit : filteredItems.length;
 
+      // 7. AMBIL DATA SAMPAI PAGE YANG DIPERLUKAN
       const limitedItems = filteredItems.slice(0, endIndex);
 
+      // 8. SIMPAN KE REDIS
       await this.redisService.set(
         `${this.tableName}-allItems`,
         JSON.stringify(limitedItems),
       );
 
-      await this.statuspendukungService.create(
-        this.tableName,
-        newItem.id,
-        data.modifiedby,
-        trx,
-      );
+      // 9. CREATE STATUS PENDUKUNG
 
+      // 10. LOG TRAIL
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: `ADD KAS GANTUNG HEADER`,
+          postingdari: `ADD JURNAL UMUM HEADER`,
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -240,7 +288,7 @@ export class JurnalumumheaderService {
       );
 
       return {
-        newItem,
+        newItem: newItemFormatted,
         pageNumber,
         itemIndex,
       };
@@ -259,10 +307,11 @@ export class JurnalumumheaderService {
       );
     }
   }
-
   async findAll(
     { search, filters, pagination, sort, isLookUp }: FindAllParams,
     trx: any,
+    isreload: any,
+    modifiedby: string,
   ) {
     try {
       let { page, limit } = pagination ?? {};
@@ -284,108 +333,246 @@ export class JurnalumumheaderService {
         }
       }
 
-      const dataTempStatusPendukung = await this.tempStatusPendukung(
-        trx,
-        this.tableName,
-      );
-      const query = trx(`${this.tableName} as u`)
-        .select([
-          'u.id as id',
-          'u.nobukti', // nobukti (nvarchar(100))
-          trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
-          'u.keterangan', // keterangan (nvarchar(max))
-          'u.postingdari', // relasi_id (integer)
-          'u.statusformat', // bank_id (integer)
-          'u.info', // info (nvarchar(max))
-          'u.modifiedby', // modifiedby (varchar(200))
-          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
-          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
-          'd.keterangan as keteranganapproval',
-          'd.tglapproval as tglapproval',
-          'd.statusapproval as statusapproval',
-          'd.keterangan_cetak as keterangancetak',
-          'd.tglcetak as tglcetak',
-          'd.statuscetak as statuscetak',
-          'd.statusapproval_id as statusapproval_id',
-          'd.statuscetak_id as statuscetak_id',
-        ])
-        .innerJoin(`${dataTempStatusPendukung} as d`, 'u.nobukti', 'd.nobukti');
+      const tempJurnalumumheader = `temp_jurnalumumheader${modifiedby}`;
+      let data;
+      let total;
+      console.log('isreload', isreload, typeof isreload);
 
-      if (filters?.tglDari && filters?.tglSampai) {
-        // Mengonversi tglDari dan tglSampai ke format yang diterima SQL (YYYY-MM-DD)
-        const tglDariFormatted = formatDateToSQL(String(filters?.tglDari)); // Fungsi untuk format
-        const tglSampaiFormatted = formatDateToSQL(String(filters?.tglSampai));
+      if (isreload === 'false') {
+        // Ambil data dari temp table dengan filter, search, sorting, dan paging
+        console.log('masuk3');
 
-        // Menggunakan whereBetween dengan tanggal yang sudah diformat
-        query.whereBetween('u.tglbukti', [
-          tglDariFormatted,
-          tglSampaiFormatted,
-        ]);
-      }
+        // PERBAIKAN: Buat query builder terpisah untuk count
+        const buildFilteredQuery = (queryBuilder: any) => {
+          // Apply date range filter
+          if (filters?.tglDari && filters?.tglSampai) {
+            const tglDariFormatted = formatDateToSQL(String(filters?.tglDari));
+            const tglSampaiFormatted = formatDateToSQL(
+              String(filters?.tglSampai),
+            );
 
-      const excludeSearchKeys = ['tglDari', 'tglSampai'];
-      if (limit > 0) {
-        const offset = (page - 1) * limit;
-        query.limit(limit).offset(offset);
-      }
-      const searchFields = Object.keys(filters || {}).filter(
-        (k) => !excludeSearchKeys.includes(k),
-      );
-      if (search) {
-        const sanitized = String(search).replace(/\[/g, '[[]').trim();
-
-        query.where((qb) => {
-          searchFields.forEach((field) => {
-            qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
-          });
-        });
-      }
-
-      if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          const sanitizedValue = String(value).replace(/\[/g, '[[]');
-
-          // Menambahkan pengecualian untuk 'tglDari' dan 'tglSampai'
-          if (key === 'tglDari' || key === 'tglSampai') {
-            continue; // Lewati filter jika key adalah 'tglDari' atau 'tglSampai'
+            queryBuilder.whereRaw(
+              `CONVERT(DATE, tglbukti, 105) BETWEEN ? AND ?`,
+              [tglDariFormatted, tglSampaiFormatted],
+            );
           }
 
-          if (value) {
-            if (
-              key === 'created_at' ||
-              key === 'updated_at' ||
-              key === 'tglbukti'
-            ) {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-                key,
-                `%${sanitizedValue}%`,
-              ]);
-            } else if (key === 'statusapproval') {
-              query.andWhere(
-                'd.statusapproval_id',
-                'like',
-                `%${sanitizedValue}%`,
-              );
-            } else if (key === 'statuscetak') {
-              query.andWhere('d.statuscetak_id', 'like', `%${sanitizedValue}%`);
-            } else {
-              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+          // Apply search
+          const excludeSearchKeys = ['tglDari', 'tglSampai'];
+          const searchFields = Object.keys(filters || {}).filter(
+            (k) => !excludeSearchKeys.includes(k),
+          );
+
+          if (search) {
+            const sanitized = String(search).replace(/\[/g, '[[]').trim();
+
+            queryBuilder.where((qb) => {
+              searchFields.forEach((field) => {
+                qb.orWhere(field, 'like', `%${sanitized}%`);
+              });
+            });
+          }
+
+          // Apply filters
+          if (filters) {
+            for (const [key, value] of Object.entries(filters)) {
+              const sanitizedValue = String(value).replace(/\[/g, '[[]');
+
+              if (key === 'tglDari' || key === 'tglSampai') {
+                continue;
+              }
+
+              if (value) {
+                queryBuilder.andWhere(key, 'like', `%${sanitizedValue}%`);
+              }
+            }
+          }
+
+          return queryBuilder;
+        };
+
+        // Query untuk COUNT (tanpa select *)
+        const countQuery = trx(tempJurnalumumheader);
+        buildFilteredQuery(countQuery);
+        const result = await countQuery.count('id as total').first();
+        total = result?.total as number;
+
+        // Query untuk DATA (dengan select *)
+        const tempQuery = trx(tempJurnalumumheader).select('*');
+        buildFilteredQuery(tempQuery);
+
+        // Apply sorting
+        if (sort?.sortBy && sort?.sortDirection) {
+          tempQuery.orderBy(sort.sortBy, sort.sortDirection);
+        }
+
+        // Apply pagination
+        if (limit > 0) {
+          const offset = (page - 1) * limit;
+          tempQuery.limit(limit).offset(offset);
+        }
+
+        data = await tempQuery;
+        console.log('data', data);
+      } else {
+        // Ambil data dari query utama
+        const dataTempStatusPendukung = await this.tempStatusPendukung(
+          trx,
+          this.tableName,
+        );
+        const query = trx(`${this.tableName} as u`)
+          .select([
+            'u.id as id',
+            'u.nobukti',
+            trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
+            'u.keterangan',
+            'u.postingdari',
+            'u.statusformat',
+            'u.info',
+            'u.modifiedby',
+            trx.raw(
+              "FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at",
+            ),
+            trx.raw(
+              "FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at",
+            ),
+            'd.keterangan as keteranganapproval',
+            'd.tglapproval as tglapproval',
+            'd.statusapproval as statusapproval',
+            'd.keterangan_cetak as keterangancetak',
+            'd.tglcetak as tglcetak',
+            'd.statuscetak as statuscetak',
+            'd.statusapproval_id as statusapproval_id',
+            'd.statuscetak_id as statuscetak_id',
+          ])
+          .innerJoin(
+            `${dataTempStatusPendukung} as d`,
+            'u.nobukti',
+            'd.nobukti',
+          );
+
+        if (filters?.tglDari && filters?.tglSampai) {
+          const tglDariFormatted = formatDateToSQL(String(filters?.tglDari));
+          const tglSampaiFormatted = formatDateToSQL(
+            String(filters?.tglSampai),
+          );
+
+          query.whereBetween('u.tglbukti', [
+            tglDariFormatted,
+            tglSampaiFormatted,
+          ]);
+        }
+
+        const excludeSearchKeys = ['tglDari', 'tglSampai'];
+
+        const searchFields = Object.keys(filters || {}).filter(
+          (k) => !excludeSearchKeys.includes(k),
+        );
+        if (search) {
+          const sanitized = String(search).replace(/\[/g, '[[]').trim();
+
+          query.where((qb) => {
+            searchFields.forEach((field) => {
+              qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
+            });
+          });
+        }
+
+        if (filters) {
+          for (const [key, value] of Object.entries(filters)) {
+            const sanitizedValue = String(value).replace(/\[/g, '[[]');
+
+            if (key === 'tglDari' || key === 'tglSampai') {
+              continue;
+            }
+
+            if (value) {
+              if (
+                key === 'created_at' ||
+                key === 'updated_at' ||
+                key === 'tglbukti'
+              ) {
+                query.andWhereRaw(
+                  "FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?",
+                  [key, `%${sanitizedValue}%`],
+                );
+              } else if (key === 'statusapproval') {
+                query.andWhere(
+                  'd.statusapproval_id',
+                  'like',
+                  `%${sanitizedValue}%`,
+                );
+              } else if (key === 'statuscetak') {
+                query.andWhere(
+                  'd.statuscetak_id',
+                  'like',
+                  `%${sanitizedValue}%`,
+                );
+              } else {
+                query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+              }
             }
           }
         }
+
+        // Drop dan create temp table
+        await trx.schema.dropTableIfExists(tempJurnalumumheader);
+
+        await trx.schema.createTable(tempJurnalumumheader, (t) => {
+          t.bigInteger('id').nullable();
+          t.string('nobukti').nullable();
+          t.string('tglbukti').nullable();
+          t.string('keterangan').nullable();
+          t.string('postingdari').nullable();
+          t.string('statusformat').nullable();
+          t.string('keteranganapproval').nullable();
+          t.string('tglapproval').nullable();
+          t.string('statusapproval').nullable();
+          t.string('keterangancetak').nullable();
+          t.string('tglcetak').nullable();
+          t.string('statuscetak').nullable();
+          t.string('statusapproval_id').nullable();
+          t.string('statuscetak_id').nullable();
+          t.string('info').nullable();
+          t.string('modifiedby').nullable();
+          t.string('updated_at').nullable();
+          t.string('created_at').nullable();
+        });
+
+        // Hapus data lama jika namatabel dan namamenu sudah ada
+        await trx('listtemporarytable')
+          .where('namamenu', this.tableName)
+          .andWhere('modifiedby', modifiedby)
+          .delete();
+
+        const payloadtemptable = {
+          namatabel: tempJurnalumumheader,
+          namamenu: this.tableName,
+          modifiedby: modifiedby,
+          created_at: this.utilsService.getTime(),
+          updated_at: this.utilsService.getTime(),
+        };
+        await trx('listtemporarytable').insert(payloadtemptable);
+
+        const result = await trx(this.tableName).count('id as total').first();
+        total = result?.total as number;
+
+        if (sort?.sortBy && sort?.sortDirection) {
+          query.orderBy(sort.sortBy, sort.sortDirection);
+        }
+
+        if (limit > 0) {
+          const offset = (page - 1) * limit;
+          query.limit(limit).offset(offset);
+        }
+
+        data = await query;
+        await trx(tempJurnalumumheader).insert(data);
       }
 
-      const result = await trx(this.tableName).count('id as total').first();
-      const total = result?.total as number;
-      const totalPages = Math.ceil(total / limit);
-
-      if (sort?.sortBy && sort?.sortDirection) {
-        query.orderBy(sort.sortBy, sort.sortDirection);
-      }
-
-      const data = await query;
-
+      const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
       const responseType = Number(total) > 500 ? 'json' : 'local';
+      console.log('data222', data);
 
       return {
         data: data,
@@ -574,19 +761,34 @@ export class JurnalumumheaderService {
   }
   async findOne(id: string, trx: any) {
     try {
-      const query = trx(`${this.tableName} as u`)
+      const dataTempStatusPendukung = await this.tempStatusPendukung(
+        trx,
+        this.tableName,
+      );
+
+      const query = await trx
+        .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
         .select([
           'u.id as id',
-          'u.nobukti', // nobukti (nvarchar(100))
+          'u.nobukti',
           trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
-          'u.keterangan', // keterangan (nvarchar(max))
-          'u.postingdari', // relasi_id (integer)
-          'u.statusformat', // bank_id (integer)
-          'u.info', // info (nvarchar(max))
-          'u.modifiedby', // modifiedby (varchar(200))
-          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"), // created_at (datetime)
-          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"), // updated_at (datetime)
+          'u.keterangan',
+          'u.postingdari',
+          'u.statusformat',
+          'u.info',
+          'u.modifiedby',
+          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+          'd.keterangan as keteranganapproval',
+          'd.tglapproval as tglapproval',
+          'd.statusapproval as statusapproval',
+          'd.keterangan_cetak as keterangancetak',
+          'd.tglcetak as tglcetak',
+          'd.statuscetak as statuscetak',
+          'd.statusapproval_id as statusapproval_id',
+          'd.statuscetak_id as statuscetak_id',
         ])
+        .innerJoin(`${dataTempStatusPendukung} as d`, 'u.nobukti', 'd.nobukti')
         .where('u.id', id);
 
       const data = await query;
@@ -614,6 +816,7 @@ export class JurnalumumheaderService {
         postingdari,
         statusformat,
         details,
+        isreload,
         ...insertData
       } = data;
 
@@ -733,20 +936,80 @@ export class JurnalumumheaderService {
       }));
       await this.jurnalumumdetailService.create(detailsWithNobukti, id, trx);
 
-      // If there are details, call the service to handle create or update
+      // Query data yang baru saja diupdate menggunakan findOne
+      const { data: updatedItemData } = await this.findOne(String(id), trx);
+      const updatedItemFormatted = updatedItemData[0];
 
+      console.log('updatedItemFormatted result:', updatedItemFormatted);
+
+      if (!updatedItemFormatted) {
+        throw new Error(
+          `Failed to fetch formatted data for updated item with id: ${id}`,
+        );
+      }
+
+      // UPDATE TEMP TABLE
+      const tempJurnalumumheader = `temp_jurnalumumheader${insertData.modifiedby}`;
+
+      // Cek apakah temp table sudah ada
+      const tempTableExists = await trx.schema.hasTable(tempJurnalumumheader);
+
+      if (!tempTableExists) {
+        // Buat temp table jika belum ada
+        await trx.schema.createTable(tempJurnalumumheader, (t) => {
+          t.bigInteger('id').nullable();
+          t.string('nobukti').nullable();
+          t.string('tglbukti').nullable();
+          t.string('keterangan').nullable();
+          t.string('postingdari').nullable();
+          t.string('statusformat').nullable();
+          t.string('keteranganapproval').nullable();
+          t.string('tglapproval').nullable();
+          t.string('statusapproval').nullable();
+          t.string('keterangancetak').nullable();
+          t.string('tglcetak').nullable();
+          t.string('statuscetak').nullable();
+          t.string('statusapproval_id').nullable();
+          t.string('statuscetak_id').nullable();
+          t.string('info').nullable();
+          t.string('modifiedby').nullable();
+          t.string('updated_at').nullable();
+          t.string('created_at').nullable();
+        });
+
+        // Register di listtemporarytable
+        const payloadtemptable = {
+          namatabel: tempJurnalumumheader,
+          namamenu: this.tableName,
+          modifiedby: insertData.modifiedby,
+          created_at: this.utilsService.getTime(),
+          updated_at: this.utilsService.getTime(),
+        };
+        await trx('listtemporarytable').insert(payloadtemptable);
+      }
+
+      // Hapus data lama dari temp table jika ada
+      await trx(tempJurnalumumheader).where('id', id).delete();
+
+      // Insert data yang sudah diupdate ke temp table
+      await trx(tempJurnalumumheader).insert(updatedItemFormatted);
+      console.log('Updated data inserted to temp table');
+
+      // If there are details, call the service to handle create or update
       const { data: filteredItems } = await this.findAll(
         {
           search,
           filters,
           pagination: { page, limit: 0 },
           sort: { sortBy, sortDirection },
-          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
+          isLookUp: false,
         },
         trx,
+        isreload,
+        insertData.modifiedby,
       );
 
-      // Cari index item baru di hasil yang sudah difilter
+      // Cari index item di hasil yang sudah difilter
       let itemIndex = filteredItems.findIndex((item) => Number(item.id) === id);
 
       if (itemIndex === -1) {
@@ -756,7 +1019,7 @@ export class JurnalumumheaderService {
       const pageNumber = Math.floor(itemIndex / limit) + 1;
       const endIndex = pageNumber * limit;
 
-      // Ambil data hingga halaman yang mencakup item baru
+      // Ambil data hingga halaman yang mencakup item
       const limitedItems = filteredItems.slice(0, endIndex);
 
       // Simpan ke Redis
@@ -768,10 +1031,10 @@ export class JurnalumumheaderService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: `ADD KAS GANTUNG HEADER`,
+          postingdari: `EDIT JURNAL UMUM HEADER`,
           idtrans: id,
           nobuktitrans: id,
-          aksi: 'ADD',
+          aksi: 'EDIT',
           datajson: JSON.stringify(data),
           modifiedby: data.modifiedby,
         },
