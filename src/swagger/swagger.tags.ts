@@ -16,4 +16,8 @@ export const SwaggerTagDescriptions = [
     adklndklafoiehfnjkadnvkajdbfkjdkdnf
     asjdkafnknfdnfjdfjkdfjfjdbjdbfiuahefnwaefjdfjabi cek dulu dia dipake atau engga`,
   },
+  {
+    name: 'Error',
+    description: 'Deskripsi dan keterangan untuk endpoint Error ditulis disini.',
+  },
 ];

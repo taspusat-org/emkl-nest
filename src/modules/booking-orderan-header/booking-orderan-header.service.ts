@@ -640,6 +640,7 @@ export class BookingOrderanHeaderService {
         //   break;
         default:
           serviceCreate = this.bookingOrderanMuatanService;
+          serviceFindAll = this.bookingOrderanMuatanService;
           break;
       }
 
