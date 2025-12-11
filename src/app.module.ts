@@ -116,6 +116,9 @@ import { ComodityModule } from './modules/comodity/comodity.module';
 import { PackinglistheaderModule } from './modules/packinglistheader/packinglistheader.module';
 import { PackinglistdetailModule } from './modules/packinglistdetail/packinglistdetail.module';
 import { PackinglistdetailrincianModule } from './modules/packinglistdetailrincian/packinglistdetailrincian.module';
+import { ShippingInstructionModule } from './modules/shipping-instruction/shipping-instruction.module';
+import { ShippingInstructionDetailModule } from './modules/shipping-instruction-detail/shipping-instruction-detail.module';
+import { ShippingInstructionDetailRincianModule } from './modules/shipping-instruction-detail-rincian/shipping-instruction-detail-rincian.module';
 import { BlHeaderModule } from './modules/bl-header/bl-header.module';
 import { BlDetailRincianModule } from './modules/bl-detail-rincian/bl-detail-rincian.module';
 import { BlDetailModule } from './modules/bl-detail/bl-detail.module';
@@ -131,6 +134,9 @@ import { PanjarheaderModule } from './modules/panjarheader/panjarheader.module';
 import { PanjarmuatandetailModule } from './modules/panjarmuatandetail/panjarmuatandetail.module';
 import { EmailvalidationModule } from './modules/emailvalidation/emailvalidation.module';
 import { TesmoduleModule } from './modules/tesmodule/tesmodule.module';
+import { EstimasiBiayaDetailBiayaModule } from './modules/estimasi-biaya-detail-biaya/estimasi-biaya-detail-biaya.module';
+import { EstimasiBiayaHeaderModule } from './modules/estimasi-biaya-header/estimasi-biaya-header.module';
+import { EstimasiBiayaDetailInvoiceModule } from './modules/estimasi-biaya-detail-invoice/estimasi-biaya-detail-invoice.module';
 
 @Module({
   imports: [
@@ -245,6 +251,9 @@ import { TesmoduleModule } from './modules/tesmodule/tesmodule.module';
     PackinglistheaderModule,
     PackinglistdetailModule,
     PackinglistdetailrincianModule,
+    ShippingInstructionModule,
+    ShippingInstructionDetailModule,
+    ShippingInstructionDetailRincianModule,
     BlHeaderModule,
     BlDetailRincianModule,
     BlDetailModule,
@@ -260,6 +269,9 @@ import { TesmoduleModule } from './modules/tesmodule/tesmodule.module';
     PanjarmuatandetailModule,
     EmailvalidationModule,
     TesmoduleModule,
+    EstimasiBiayaDetailBiayaModule,
+    EstimasiBiayaHeaderModule,
+    EstimasiBiayaDetailInvoiceModule
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

@@ -21,15 +21,9 @@ export function setupSwagger(app: INestApplication) {
   const SWAGGER_CLEAN_DIFF = cleanDiff(SWAGGER_RAW_DIFF);
 
   // Info commit file swagger
-  const SWAGGER_AUTHOR = git(
-    `git show -s --pretty=format:"%an" ${LAST_SWAGGER_COMMIT}`,
-  );
-  const SWAGGER_DATE = git(
-    `git show -s --pretty=format:"%ad" ${LAST_SWAGGER_COMMIT}`,
-  );
-  const SWAGGER_MSG = git(
-    `git show -s --pretty=format:"%s" ${LAST_SWAGGER_COMMIT}`,
-  );
+  const SWAGGER_AUTHOR = git(`git show -s --pretty=format:"%an" ${LAST_SWAGGER_COMMIT}`);
+  const SWAGGER_DATE   = git(`git show -s --date=format:"%d-%m-%Y %H:%M" --pretty=format:"%ad" ${LAST_SWAGGER_COMMIT}`);
+  const SWAGGER_MSG    = git(`git show -s --pretty=format:"%s" ${LAST_SWAGGER_COMMIT}`);
 
   // 2️⃣ Commit terakhir di seluruh repo (untuk decorator)
   const LAST_DECORATOR_COMMIT = git(`git log -1 --pretty=format:"%H"`);
@@ -80,7 +74,9 @@ export function setupSwagger(app: INestApplication) {
   const document = SwaggerModule.createDocument(app, config);
   document.tags = SwaggerTagDescriptions;
 
-  SwaggerModule.setup('api-docs', app, document);
+  SwaggerModule.setup('api-docs', app, document, {
+    customCss: '.opblock-tag { flex-direction: column !important; align-items: flex-start !important;}'
+  });
 }
 
 function git(cmd: string) {
@@ -137,7 +133,7 @@ function buildDescription(
   swaggerTagsFullDescription: string,
 ) {
   return `
-### 🔧 Last Swagger Modification (File swagger.config.ts & swagger.tags.ts)
+### 📌 Last Modified
 - **Author:** ${author || '-'}
 - **Date:** ${date || '-'}
 - **Commit:** ${msg || '-'}
@@ -145,30 +141,43 @@ function buildDescription(
 ---
 
 <details>
-<summary><strong>📄 Changed Swagger Files</strong></summary>
+<summary><strong>📝 Changed Swagger Files</strong></summary>
 
 ${formatList(swaggerFileChanges)}
 
 </details>
 
 ---
-
+ 
 <details>
-<summary><strong>📌 Line Changes (swagger.config.ts & swagger.tags.ts)</strong></summary>
+<summary><strong>Line Changes</strong></summary>
 
-${swaggerLineDiff ? '```diff\n' + swaggerLineDiff + '\n```' : '_No changes detected_'}
+${swaggerLineDiff ? '**Changes detected:**\n```diff\n' + swaggerLineDiff + '\n```' : '_No changes detected_'}
 
 </details>
 
 --- 
 
 <details>
-<summary><strong>📝 Full Description (Changed Tags in swagger.tags.ts)</strong></summary>
+<summary><strong>Full Description</strong></summary>
 
-${swaggerTagsFullDescription ? '```text\n' + swaggerTagsFullDescription + '\n```' : '_No changes detected_'}
-
+${swaggerTagsFullDescription ? formatFullTagDescription(swaggerTagsFullDescription) : '_No changes detected_'}
 </details>
+
+---
 `;
+}
+
+// Format full description tag jadi lebih readable
+function formatFullTagDescription(tags: string) {
+  // tags = "Acos:\nEndpoint ...\n\nTypeAkuntansi:\nEndpoint ..."
+  const tagBlocks = tags.split('\n\n'); // tiap tag
+  return tagBlocks
+    .map(block => {
+      const [name, ...descLines] = block.split('\n');
+      return `**${name}**  \n${descLines.join('\n')}`; // bold + preserve line breaks
+    })
+    .join('\n\n');
 }
 
 function formatList(txt: string) {

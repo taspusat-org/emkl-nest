@@ -147,7 +147,11 @@ export class BiayaExtraHeaderService {
       const { data: filteredItems } = await this.findAll(
         {
           search: data.search,
-          filters: data.filters,
+          // filters: data.filters,
+          filters: {
+            ...data.filters,
+            jenisOrderan: data.jenisorder_id
+          },
           pagination: { page: data.page, limit: 0 },
           sort: { sortBy: data.sortBy, sortDirection: data.sortDirection },
           isLookUp: false,
@@ -196,7 +200,7 @@ export class BiayaExtraHeaderService {
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
-
+      
       const getOrderanMuatanId = await trx
         .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
         .select('id')

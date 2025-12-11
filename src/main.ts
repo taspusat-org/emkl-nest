@@ -43,6 +43,7 @@ async function bootstrap() {
       allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
     });
     // main.ts
+    setupSwagger(app);
 
     console.log('🔧 Setting up global filters and middleware...');
     app.useGlobalFilters(new ZodFilter());
