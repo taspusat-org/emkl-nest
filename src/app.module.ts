@@ -137,6 +137,8 @@ import { TesmoduleModule } from './modules/tesmodule/tesmodule.module';
 import { EstimasiBiayaDetailBiayaModule } from './modules/estimasi-biaya-detail-biaya/estimasi-biaya-detail-biaya.module';
 import { EstimasiBiayaHeaderModule } from './modules/estimasi-biaya-header/estimasi-biaya-header.module';
 import { EstimasiBiayaDetailInvoiceModule } from './modules/estimasi-biaya-detail-invoice/estimasi-biaya-detail-invoice.module';
+import { BiayaHeaderModule } from './modules/biaya-header/biaya-header.module';
+import { BiayaMuatanDetailModule } from './modules/biaya-muatan-detail/biaya-muatan-detail.module';
 
 @Module({
   imports: [
@@ -271,7 +273,9 @@ import { EstimasiBiayaDetailInvoiceModule } from './modules/estimasi-biaya-detai
     TesmoduleModule,
     EstimasiBiayaDetailBiayaModule,
     EstimasiBiayaHeaderModule,
-    EstimasiBiayaDetailInvoiceModule
+    EstimasiBiayaDetailInvoiceModule,
+    BiayaHeaderModule,
+    BiayaMuatanDetailModule
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

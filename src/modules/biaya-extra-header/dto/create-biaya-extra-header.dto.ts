@@ -41,9 +41,9 @@ const baseDetailsFields = z.object({
     .string({ message: 'ESTIMASI WAJIB DIISI' })
     .nonempty({ message: 'ESTIMASI WAJIB DIISI' }),
 
-  nominal: z
-    .string({ message: 'NOMINAL WAJIB DIISI' })
-    .nonempty({ message: 'NOMINAL WAJIB DIISI' }),
+  // nominal: z
+  //   .string({ message: 'NOMINAL WAJIB DIISI' })
+  //   .nonempty({ message: 'NOMINAL WAJIB DIISI' }),
 
   statustagih: z
     .number({

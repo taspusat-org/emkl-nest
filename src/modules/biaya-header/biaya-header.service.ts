@@ -6,19 +6,14 @@ import { GlobalService } from '../global/global.service';
 import { RedisService } from 'src/common/redis/redis.service';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
-import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
+import { formatDateToSQL, tandatanya, UtilsService } from 'src/utils/utils.service';
 import { RunningNumberService } from '../running-number/running-number.service';
-import {
-  Inject,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
-import { BiayaExtraMuatanDetailService } from '../biaya-extra-muatan-detail/biaya-extra-muatan-detail.service';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BiayaMuatanDetailService } from '../biaya-muatan-detail/biaya-muatan-detail.service';
 
 @Injectable()
-export class BiayaExtraHeaderService {
-  private readonly tableName: string = 'biayaextraheader';
+export class BiayaHeaderService {
+  private readonly tableName: string = 'biayaheader';
 
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
@@ -27,72 +22,66 @@ export class BiayaExtraHeaderService {
     private readonly globalService: GlobalService,
     private readonly logTrailService: LogtrailService,
     private readonly runningNumberService: RunningNumberService,
-    private readonly biayaExtraMuatanDetailService: BiayaExtraMuatanDetailService,
+    private readonly biayaMuatanDetailService: BiayaMuatanDetailService,
   ) {}
-
+  
   async create(data: any, trx: any) {
     try {
       let detailServiceCreate;
-      Object.keys(data).forEach((key) => {
-        if (typeof data[key] === 'string') {
-          const value = data[key];
-          const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
-
-          if (dateRegex.test(value)) {
-            data[key] = formatDateToSQL(value);
-          } else {
-            data[key] = data[key].toUpperCase();
-          }
-        }
-      });
-
-      const updated_at = this.utilsService.getTime();
+      let biayaExtraTableName;
+      let biayaExtraDetailFieldName;
       const created_at = this.utilsService.getTime();
+      const updated_at = this.utilsService.getTime();
+      const getFormatBiayaHeader = await trx('parameter').select('id', 'grp', 'subgrp').where('grp', 'NOMOR BIAYA').where('kelompok', 'BIAYA').first();
       const getOrderanMuatanId = await trx
         .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'MUATAN')
-        .first();
+        .select('id').where('nama', 'MUATAN').first();
       const getOrderanBongkaranId = await trx
         .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'BONGKARAN')
-        .first();
+        .select('id').where('nama', 'BONGKARAN').first();
       const getOrderanImportId = await trx
         .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'IMPORT')
-        .first();
+        .select('id').where('nama', 'IMPORT').first();
       const getOrderanExportId = await trx
         .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'EKSPORT')
-        .first();
-      const getFormatBiayaExtraHeader = await trx('parameter')
-        .select('id', 'grp', 'subgrp')
-        .where('grp', 'NOMOR EXTRA BIAYA')
-        .where('kelompok', 'EXTRA BIAYA')
-        .first();
+        .select('id').where('nama', 'EKSPORT').first();
 
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
-        getFormatBiayaExtraHeader.grp,
-        getFormatBiayaExtraHeader.subgrp,
+        getFormatBiayaHeader.grp,
+        getFormatBiayaHeader.subgrp,
         this.tableName,
         data.tglbukti,
       );
-
+      
       const headerData = {
         nobukti: nomorBukti,
         tglbukti: data.tglbukti,
         jenisorder_id: data.jenisorder_id,
         biayaemkl_id: data.biayaemkl_id,
-        keterangan: data.keterangan,
-        statusformat: getFormatBiayaExtraHeader.id,
+        keterangan: data.keterangan || '',
+        noinvoice: data.noinvoice || '',
+        relasi_id: data.relasi_id || '',
+        dibayarke: data.dibayarke || '',
+        biayaextra_nobukti: data.biayaextra_nobukti || '',
+        statusformat: getFormatBiayaHeader.id,
         modifiedby: data.modifiedby,
         created_at,
         updated_at,
       };
+
+      Object.keys(headerData).forEach((key) => {
+        if (typeof headerData[key] === 'string') {
+          const value = headerData[key];
+          const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
+
+          if (dateRegex.test(value)) {
+            headerData[key] = formatDateToSQL(value);
+          } else {
+            headerData[key] = headerData[key].toUpperCase();
+          }
+        }
+      });
 
       const insertedItems = await trx(this.tableName)
         .insert(headerData)
@@ -101,7 +90,9 @@ export class BiayaExtraHeaderService {
 
       switch (String(data.jenisorder_id)) {
         case getOrderanMuatanId?.id:
-          detailServiceCreate = this.biayaExtraMuatanDetailService;
+          detailServiceCreate = this.biayaMuatanDetailService;
+          biayaExtraTableName = 'biayaextramuatandetail';
+          biayaExtraDetailFieldName = 'orderanmuatan_nobukti';
           break;
         // case getOrderanBongkaranId.id:
         //   detailServiceCreate = 'test';
@@ -110,31 +101,58 @@ export class BiayaExtraHeaderService {
         //   service = this.hitungmodalexportService;
         //   break;
         default:
-          detailServiceCreate = this.biayaExtraMuatanDetailService;
+          detailServiceCreate = this.biayaMuatanDetailService;
+          biayaExtraTableName = 'biayaextramuatandetail';
+          biayaExtraDetailFieldName = 'orderanmuatan_nobukti';
           break;
       }
-
+      
       if (data.details && data.details.length > 0) {
-        const detailsWithNobukti = data.details.map((detail: any) => ({
-          id: detail.id || 0,
-          nobukti: nomorBukti,
-          biayaextra_id: newItem.id,
-          orderanmuatan_nobukti: detail.orderanmuatan_nobukti,
-          estimasi: detail.estimasi,
-          // nominal: detail.nominal,
-          statustagih: detail.statustagih,
-          nominaltagih: detail.nominaltagih,
-          keterangan: detail.keterangan || '',
-          groupbiayaextra_id: detail.groupbiayaextra_id,
-          modifiedby: newItem.modifiedby,
-        }));
-        await detailServiceCreate.create(detailsWithNobukti, newItem.id, trx);
+        const detailsPayload: any[] = [];
+
+        for (const detail of data.details) {
+          if (detail.biayaextra_nobuktijson) {
+            const parsedJson = JSON.parse(detail.biayaextra_nobuktijson);
+            for (const item of parsedJson) {
+              const nominal = item.nominal;
+
+              const updateNominalBiayaExtra = await trx(biayaExtraTableName)
+                .where('nobukti', item.biayaextra_nobukti)
+                .where(biayaExtraDetailFieldName, detail[biayaExtraDetailFieldName])
+                .update({ nominal })
+                .returning('*');
+            }
+          } else {
+            const nominal = detail.nominal;
+            const updateNominalBiayaExtra = await trx(biayaExtraTableName)
+              .where('nobukti', detail.biayaextra_nobukti)
+              .where(biayaExtraDetailFieldName, detail[biayaExtraDetailFieldName])
+              // .where('biayaextra_id', detail.biayaextra_id)
+              .update({ nominal })
+              .returning('*');
+          }
+
+          detailsPayload.push({
+            id: detail.id || 0,
+            nobukti: newItem.nobukti,
+            biaya_id: newItem.id,
+            orderanmuatan_nobukti: detail.orderanmuatan_nobukti || '',
+            estimasi: detail.estimasi || '',
+            nominal: detail.nominal || '',
+            keterangan: detail.keterangan || '',
+            biayaextra_nobukti: detail.biayaextra_nobukti || '',
+            biayaextra_nobuktijson: detail.biayaextra_nobuktijson || '',
+            modifiedby: newItem.modifiedby,
+          });
+        }
+
+        await detailServiceCreate.create(detailsPayload, newItem.id, trx);
       }
 
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: `ADD BL HEADER`,
+          postingdari: `ADD BIAYA HEADER`,
           idtrans: newItem.id,
           nobuktitrans: newItem.id,
           aksi: 'ADD',
@@ -143,15 +161,11 @@ export class BiayaExtraHeaderService {
         },
         trx,
       );
-
+      
       const { data: filteredItems } = await this.findAll(
         {
           search: data.search,
-          // filters: data.filters,
-          filters: {
-            ...data.filters,
-            jenisOrderan: data.jenisorder_id
-          },
+          filters: data.filters,
           pagination: { page: data.page, limit: 0 },
           sort: { sortBy: data.sortBy, sortDirection: data.sortDirection },
           isLookUp: false,
@@ -159,18 +173,14 @@ export class BiayaExtraHeaderService {
         trx,
       );
 
-      let dataIndex = filteredItems.findIndex((item) => item.id === newItem.id);
-
+      let dataIndex = filteredItems.findIndex((item) => item.id === newItem.id);      
       if (dataIndex === -1) {
         dataIndex = 0;
       }
       const pageNumber = Math.floor(dataIndex / data.limit) + 1;
       const endIndex = pageNumber * data.limit;
       const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
-      await this.redisService.set(
-        `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
-      );
+      await this.redisService.set(`${this.tableName}-allItems`, JSON.stringify(limitedItems));
 
       return {
         newItem,
@@ -179,14 +189,14 @@ export class BiayaExtraHeaderService {
       };
     } catch (error) {
       console.error(
-        'Error process approval creating biaya extra header in service:',
+        'Error process creating biaya header in service:',
         error.message,
       );
       if (error instanceof NotFoundException) {
         throw error;
       }
       throw new InternalServerErrorException(
-        'Error process approval creating biaya extra header in service',
+        'Error process creating biaya header in service',
       );
     }
   }
@@ -196,24 +206,32 @@ export class BiayaExtraHeaderService {
     trx: any,
   ) {
     try {
-      let filtersJenisOrderan;
+      let filtersJenisOrderan
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
-      
-      if (isLookUp) {
-        const totalData = await trx(this.tableName).count('id as total').first();
-        const resultTotalData = totalData?.total || 0;
-        if (Number(resultTotalData) > 500) {
-          return {
-            data: {
-              type: 'json',
-            },
-          };
-        } else {
-          limit = 0;
-        }
-      }
+
+      const url = 'biaya-extra-header';
+      const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
+      await trx.schema.createTable(tempUrl, (t) => {
+        t.integer('id').nullable();
+        t.text('link').nullable();
+      });
+      await trx(tempUrl).insert(
+        trx
+          .select(
+            'u.id',
+            trx.raw(`
+              STRING_AGG(
+                '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'biayaextra_nobukti=' + u.biayaextra_nobukti + '">' +
+                '<HighlightWrapper value="' + u.biayaextra_nobukti + '" />' +
+                '</a>', ','
+              ) AS link
+            `),
+          )
+          .from(`${this.tableName} as u`)
+          .groupBy('u.id'),
+      );
 
       const getOrderanMuatanId = await trx
         .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
@@ -239,15 +257,24 @@ export class BiayaExtraHeaderService {
           'u.jenisorder_id',
           'u.biayaemkl_id',
           'u.keterangan',
+          'u.noinvoice',
+          'u.relasi_id',
+          'u.dibayarke',
+          'u.biayaextra_nobukti',
           'u.modifiedby',
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-
-          'p.nama as jenisorder_nama',
-          'q.nama as biayaemkl_nama',
+          'tempUrl.link',
+          'biayaextraheader.id as biayaextra_id',
+          'jenisorderan.nama as jenisorder_nama',
+          'biayaemkl.nama as biayaemkl_nama',
+          'relasi.nama as relasi_nama'
         ])
-        .leftJoin('jenisorderan as p', 'u.jenisorder_id', 'p.id')
-        .leftJoin('biayaemkl as q', 'u.biayaemkl_id', 'q.id')
+        .leftJoin(`${tempUrl} as tempUrl`, 'u.id', 'tempUrl.id')
+        .leftJoin('biayaextraheader', 'u.biayaextra_nobukti', 'biayaextraheader.nobukti')
+        .leftJoin('jenisorderan', 'u.jenisorder_id', 'jenisorderan.id')
+        .leftJoin('biayaemkl', 'u.biayaemkl_id', 'biayaemkl.id')
+        .leftJoin('relasi', 'u.relasi_id', 'relasi.id')
         .where('u.jenisorder_id', filtersJenisOrderan);
 
       if (filters?.tglDari && filters?.tglSampai) {
@@ -258,30 +285,25 @@ export class BiayaExtraHeaderService {
           tglDariFormatted,
           tglSampaiFormatted,
         ]);
-      }
+      }      
 
       const excludeSearchKeys = ['tglDari', 'tglSampai', 'jenisOrderan'];
-      const searchFields = Object.keys(filters || {}).filter(
-        (k) => !excludeSearchKeys.includes(k),
-      );
+      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
 
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
         query.where((qb) => {
           searchFields.forEach((field) => {
             if (field === 'jenisorder_text') {
-              qb.orWhere(`p.nama`, 'like', `%${sanitized}%`);
+              qb.orWhere(`jenisorderan.nama`, 'like', `%${sanitized}%`);
             } else if (field === 'biayaemkl_text') {
-              qb.orWhere(`q.nama`, 'like', `%${sanitized}%`);
+              qb.orWhere(`biayaemkl.nama`, 'like', `%${sanitized}%`);
+            } else if (field === 'relasi_text') {
+              qb.orWhere(`relasi.nama`, 'like', `%${sanitized}%`);
             } else if (field === 'tglbukti') {
-              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy') LIKE ?`, [
-                `%${sanitized}%`,
-              ]);
+              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy') LIKE ?`, [`%${sanitized}%`]);
             } else if (field === 'created_at' || field === 'updated_at') {
-              qb.orWhereRaw(
-                `FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`,
-                [`%${sanitized}%`],
-              );
+              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`, [`%${sanitized}%`]);
             } else {
               qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
             }
@@ -294,21 +316,16 @@ export class BiayaExtraHeaderService {
           .filter(([key, value]) => !excludeSearchKeys.includes(key) && value)
           .forEach(([key, value]) => {
             const sanitizedValue = String(value).replace(/\[/g, '[[]');
-
             if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-                key,
-                `%${sanitizedValue}%`,
-              ]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [key, `%${sanitizedValue}%`]);
             } else if (key === 'tglbukti') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [
-                key,
-                `%${sanitizedValue}%`,
-              ]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [key, `%${sanitizedValue}%`]);
             } else if (key === 'jenisorder_text') {
-              query.andWhere(`p.nama`, 'like', `%${sanitizedValue}%`);
+              query.andWhere(`jenisorderan.nama`, 'like', `%${sanitizedValue}%`);
             } else if (key === 'biayaemkl_text') {
-              query.andWhere(`q.nama`, 'like', `%${sanitizedValue}%`);
+              query.andWhere(`biayaemkl.nama`, 'like', `%${sanitizedValue}%`);
+            } else if (key === 'relasi_text') {
+              query.andWhere(`relasi.nama`, 'like', `%${sanitizedValue}%`);
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
@@ -322,9 +339,11 @@ export class BiayaExtraHeaderService {
 
       if (sort?.sortBy && sort?.sortDirection) {
         if (sort?.sortBy === 'jenisorder_text') {
-          query.orderBy(`p.nama`, sort.sortDirection);
+          query.orderBy(`jenisorderan.nama`, sort.sortDirection);
         } else if (sort?.sortBy === 'biayaemkl_text') {
-          query.orderBy('q.nama', sort.sortDirection);
+          query.orderBy(`biayaemkl.nama`, sort.sortDirection);
+        } else if (sort?.sortBy === 'relasi_text') {
+          query.orderBy(`relasi.nama`, sort.sortDirection);
         } else {
           query.orderBy(sort.sortBy, sort.sortDirection);
         }
@@ -352,11 +371,17 @@ export class BiayaExtraHeaderService {
       console.error('Error to findAll Biaya Extra Header', error);
       throw new Error(error);
     }
-  }
+  } 
 
   async findOne(id: number, trx: any) {
     try {
       let detailTableName;
+      const tempBiayaExtraJson = `##temp_json_url_${Math.random().toString(36).substring(2, 8)}`;
+      await trx.schema.createTable(tempBiayaExtraJson, (t) => {
+        t.integer('id').nullable();
+        t.string('biayaextra_nobuktijson').nullable();
+      });
+
       const checkJenisOrderId = await trx
         .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
         .select('jenisorder_id')
@@ -385,7 +410,7 @@ export class BiayaExtraHeaderService {
 
       switch (String(checkJenisOrderId.jenisorder_id)) {
         case getOrderanMuatanId?.id:
-          detailTableName = 'biayaextramuatandetail';
+          detailTableName = 'biayamuatandetail';
           break;
         // case getOrderanBongkaranId.id:
         //   detailTableName = 'biayaextrabongkarandetail';
@@ -394,9 +419,27 @@ export class BiayaExtraHeaderService {
         //   service = this.hitungmodalexportService;
         //   break;
         default:
-          detailTableName = 'biayaextramuatandetail';
+          detailTableName = 'biayamuatandetail';
           break;
       }
+
+      await trx(tempBiayaExtraJson).insert(
+        trx.select(
+          'u.id',
+          trx.raw(`
+            STRING_AGG(json.BIAYAEXTRA_NOBUKTI, ', ') 
+            AS biayaextra_nobuktijson
+          `)
+        )
+        .from(`${detailTableName} as u`)
+        .joinRaw(`
+          CROSS APPLY OPENJSON(u.biayaextra_nobuktijson)
+          WITH (
+            BIAYAEXTRA_NOBUKTI NVARCHAR(100) '$.BIAYAEXTRA_NOBUKTI'
+          ) AS json
+        `)
+        .groupBy('u.id'),
+      );      
 
       const query = trx(`${this.tableName} as u`)
         .select([
@@ -406,241 +449,181 @@ export class BiayaExtraHeaderService {
           'u.jenisorder_id',
           'u.biayaemkl_id',
           'u.keterangan',
-          'jenisorderan.nama as jenisorderan_nama',
-          'p.nama as biayaemkl_nama',
-          'detail.orderanmuatan_nobukti',
-          'detail.estimasi',
-          'detail.nominal',
-          'detail.statustagih',
-          'detail.nominaltagih',
-          'detail.keterangan as keterangan_detail',
-          'detail.groupbiayaextra_id',
-          'parameter.text as statustagih_nama',
-          'q.keterangan as groupbiayaextra_nama',
+          'u.noinvoice',
+          'u.relasi_id',
+          'u.dibayarke',
+          'u.biayaextra_nobukti',
+          'jenisorderan.nama as jenisorder_nama',
+          'biayaemkl.nama as biayaemkl_nama',
+          'relasi.nama as relasi_nama',
+
+          'detail.orderanmuatan_nobukti as detail_orderanmuatan_nobukti',
+          'detail.estimasi as detail_estimasi',
+          'detail.nominal as detail_nominal',
+          'detail.keterangan as detail_keterangan',
+          'detail.biayaextra_nobukti as detail_biayaextra_nobukti',
+          'json.biayaextra_nobuktijson',
         ])
         .leftJoin('jenisorderan', 'u.jenisorder_id', 'jenisorderan.id')
-        .leftJoin('biayaemkl as p', 'u.biayaemkl_id', 'p.id')
+        .leftJoin('biayaemkl', 'u.biayaemkl_id', 'biayaemkl.id')
+        .leftJoin('relasi', 'u.relasi_id', 'relasi.id')
         .leftJoin(
           `${detailTableName} as detail`,
           'u.id',
-          'detail.biayaextra_id',
+          'detail.biaya_id',
         )
-        .innerJoin('parameter', 'detail.statustagih', 'parameter.id')
-        .innerJoin('groupbiayaextra as q', 'detail.groupbiayaextra_id', 'q.id')
+        .leftJoin(`${tempBiayaExtraJson} as json`, 'detail.id', 'json.id')
         .where('u.id', id);
 
       const data = await query;
-      return {
-        data: data,
-      };
-    } catch (error) {
-      console.error('Error fetching data findone biaya extra header by id:', error);
-      throw new Error('Failed to fetch data findone biaya extra header by id');
-    }
-  }
 
-  async findOneDetail(id: number, jenisOrderan:number, trx: any) {
-    try {
-      let detailService;
-      const getOrderanMuatanId = await trx
-        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'MUATAN')
-        .first();
-      const getOrderanBongkaranId = await trx
-        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'BONGKARAN')
-        .first();
-      const getOrderanImportId = await trx
-        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'IMPORT')
-        .first();
-      const getOrderanExportId = await trx
-        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'EKSPORT')
-        .first();
-
-      switch (jenisOrderan) {
-        case getOrderanMuatanId?.id:
-          detailService = this.biayaExtraMuatanDetailService;
-          break;
-        // case getOrderanBongkaranId.id:
-        //   detailService = 'biayaextrabongkarandetail';
-        //   break;
-        // case 'EXPORT':
-        //   service = this.hitungmodalexportService;
-        //   break;
-        default:
-          detailService = this.biayaExtraMuatanDetailService;
-          break;
+      const result = {
+        header: data,
+        // detailbiaya: findOneDetailBiaya,
       }
-
-      const result = await detailService.findOne(+id, trx)
-      return {
-        data: result,
-      };
-    } catch (error) {
-      console.error('Error fetching data find one detail biaya extra by id:', error);
-      throw new Error('Failed to fetch data find one detail biaya extra by id');
-    }
-  }
-
-  async getDetailByJob(filters:any, trx: any) {
-    try {
-      let detailService;
-      const getOrderanMuatanId = await trx
-        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'MUATAN')
-        .first();
-      const getOrderanBongkaranId = await trx
-        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'BONGKARAN')
-        .first();
-      const getOrderanImportId = await trx
-        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'IMPORT')
-        .first();
-      const getOrderanExportId = await trx
-        .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'EKSPORT')
-        .first();
-
-      switch (filters?.jenisOrderan) {
-        case getOrderanMuatanId?.id:
-          detailService = this.biayaExtraMuatanDetailService;
-          break;
-        // case getOrderanBongkaranId.id:
-        //   detailService = 'biayaextrabongkarandetail';
-        //   break;
-        // case 'EXPORT':
-        //   service = this.hitungmodalexportService;
-        //   break;
-        default:
-          detailService = this.biayaExtraMuatanDetailService;
-          break;
-      }      
       
-      const result = await detailService.biayaExraByJob(filters, trx)
       return {
-        data: result,
-      };
+        data: data
+      }
     } catch (error) {
-      console.error('Error fetching data find one detail by job:', error);
-      throw new Error('Failed to fetch data find one detail by job');
+      console.error('Error fetching data biaya header by id:', error);
+      throw new Error('Failed to fetch data biaya header by id');
     }
   }
 
   async update(id: number, data: any, trx: any) {
     try {
       let updatedData;
-      let detailServiceCreate;
+      let detailServiceUpdate;
+      let biayaExtraTableName;
+      let biayaExtraDetailFieldName;
       const updated_at = this.utilsService.getTime();
+      const existingData = await trx(this.tableName).where('id', id).first();
       const getOrderanMuatanId = await trx
         .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'MUATAN')
-        .first();
+        .select('id').where('nama', 'MUATAN').first();
       const getOrderanBongkaranId = await trx
         .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'BONGKARAN')
-        .first();
+        .select('id').where('nama', 'BONGKARAN').first();
       const getOrderanImportId = await trx
         .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'IMPORT')
-        .first();
+        .select('id').where('nama', 'IMPORT').first();
       const getOrderanExportId = await trx
         .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
-        .select('id')
-        .where('nama', 'EKSPORT')
-        .first();
-
-      Object.keys(data).forEach((key) => {
-        if (typeof data[key] === 'string') {
-          const value = data[key];
-          const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
-
-          if (dateRegex.test(value)) {
-            data[key] = formatDateToSQL(value);
-          } else {
-            data[key] = data[key].toUpperCase();
-          }
-        }
-      });
+        .select('id').where('nama', 'EKSPORT').first();
 
       const headerData = {
         nobukti: data.nobukti,
-        tglbukti: data.tglbukti,
         jenisorder_id: data.jenisorder_id,
         biayaemkl_id: data.biayaemkl_id,
         keterangan: data.keterangan,
+        noinvoice: data.noinvoice,
+        relasi_id: data.relasi_id,
+        dibayarke: data.dibayarke,
+        biayaextra_nobukti: data.biayaextra_nobukti,
         modifiedby: data.modifiedby,
-        updated_at,
       };
+      
+      const hasChanges = this.utilsService.hasChanges(headerData, existingData); 
+      if (hasChanges) { 
+        const fixHeaderData = {
+          ...headerData,
+          tglbukti: data.tglbukti,
+          updated_at
+        }
 
-      const existingData = await trx(this.tableName).where('id', id).first();
-      const hasChanges = this.utilsService.hasChanges(headerData, existingData);
+        Object.keys(fixHeaderData).forEach((key) => {
+          if (typeof fixHeaderData[key] === 'string') {
+            const value = fixHeaderData[key];
+            const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
 
-      if (hasChanges) {
+            if (dateRegex.test(value)) {
+              fixHeaderData[key] = formatDateToSQL(value);
+            } else {
+              fixHeaderData[key] = fixHeaderData[key].toUpperCase();
+            }
+          }
+        });
+        
         const updated = await trx(this.tableName)
           .where('id', id)
-          .update(headerData)
+          .update(fixHeaderData)
           .returning('*');
         updatedData = updated[0];
-      }
+
+        await this.logTrailService.create(
+          {
+            namatabel: this.tableName,
+            postingdari: `EDIT BIAYA HEADER`,
+            idtrans: updatedData.id,
+            nobuktitrans: updatedData.id,
+            aksi: 'ADD',
+            datajson: JSON.stringify([updatedData]),
+            modifiedby: updatedData.modifiedby,
+          },
+          trx,
+        );
+      }     
 
       switch (String(data.jenisorder_id)) {
         case getOrderanMuatanId?.id:
-          detailServiceCreate = this.biayaExtraMuatanDetailService;
+          detailServiceUpdate = this.biayaMuatanDetailService;
+          biayaExtraTableName = 'biayaextramuatandetail';
+          biayaExtraDetailFieldName = 'orderanmuatan_nobukti';
           break;
         // case getOrderanBongkaranId.id:
-        //   detailServiceCreate = 'test';
+        //   detailServiceUpdate = 'test';
         //   break;
         // case 'EXPORT':
         //   service = this.hitungmodalexportService;
         //   break;
         default:
-          detailServiceCreate = this.biayaExtraMuatanDetailService;
+          detailServiceUpdate = this.biayaMuatanDetailService;
+          biayaExtraTableName = 'biayaextramuatandetail';
+          biayaExtraDetailFieldName = 'orderanmuatan_nobukti';
           break;
       }
 
-      if (data.details && data.details.length > 0) {
-        const detailsWithNobukti = data.details.map((detail: any) => ({
-          id: detail.id || 0,
-          nobukti: updatedData.nobukti || data.nobukti,
-          biayaextra_id: updatedData.id || data.id,
-          orderanmuatan_nobukti: detail.orderanmuatan_nobukti,
-          estimasi: detail.estimasi,
-          // nominal: detail.nominal,
-          statustagih: detail.statustagih,
-          nominaltagih: detail.nominaltagih,
-          keterangan: detail.keterangan || '',
-          groupbiayaextra_id: detail.groupbiayaextra_id,
-          modifiedby: updatedData.modifiedby,
-        }));
-        await detailServiceCreate.create(detailsWithNobukti, id, trx);
-      }
+      if (data.details && data.details.length > 0) {    
+        const detailsPayload: any[] = [];
 
-      await this.logTrailService.create(
-        {
-          namatabel: this.tableName,
-          postingdari: `EDIT BIAYA EXTRA HEADER`,
-          idtrans: updatedData.id,
-          nobuktitrans: updatedData.id,
-          aksi: 'ADD',
-          datajson: JSON.stringify([updatedData]),
-          modifiedby: updatedData.modifiedby,
-        },
-        trx,
-      );
+        for (const detail of data.details) {
+          if (detail.biayaextra_nobuktijson) {
+            const parsedJson = JSON.parse(detail.biayaextra_nobuktijson);
+            for (const item of parsedJson) {
+              const nominal = item.nominal;
+
+              const updateNominalBiayaExtra = await trx(biayaExtraTableName)
+                .where('nobukti', item.biayaextra_nobukti)
+                .where(biayaExtraDetailFieldName, detail[biayaExtraDetailFieldName])
+                .update({ nominal })
+                .returning('*');
+            }
+          } else {
+            const nominal = detail.nominal;
+            const updateNominalBiayaExtra = await trx(biayaExtraTableName)
+              .where('nobukti', detail.biayaextra_nobukti)
+              .where(biayaExtraDetailFieldName, detail[biayaExtraDetailFieldName])
+              .update({ nominal })
+              .returning('*');
+          }
+
+          detailsPayload.push({
+            id: detail.id || 0,
+            nobukti: updatedData ? updatedData.nobukti || data.nobukti : existingData.nobukti,
+            biaya_id: updatedData ? updatedData.id || data.id : detail.biaya_id,
+            orderanmuatan_nobukti: detail.orderanmuatan_nobukti || '',
+            estimasi: detail.estimasi || '',
+            nominal: detail.nominal || '',
+            keterangan: detail.keterangan || '',
+            biayaextra_nobukti: detail.biayaextra_nobukti || '',
+            biayaextra_nobuktijson: detail.biayaextra_nobuktijson || '',
+            modifiedby: updatedData ? updatedData.modifiedby : headerData.modifiedby
+          });
+        }
+        
+        await detailServiceUpdate.create(detailsPayload, id, trx);
+      }
 
       const { data: filteredItems } = await this.findAll(
         {
@@ -653,19 +636,14 @@ export class BiayaExtraHeaderService {
         trx,
       );
 
-      let dataIndex = filteredItems.findIndex(
-        (item) => item.id === updatedData.id,
-      );
+      let dataIndex = filteredItems.findIndex((item) => Number(item.id) === Number(id));      
       if (dataIndex === -1) {
         dataIndex = 0;
       }
       const pageNumber = Math.floor(dataIndex / data.limit) + 1;
       const endIndex = pageNumber * data.limit;
       const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
-      await this.redisService.set(
-        `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
-      );
+      await this.redisService.set(`${this.tableName}-allItems`, JSON.stringify(limitedItems));
 
       return {
         updatedData,
@@ -674,14 +652,14 @@ export class BiayaExtraHeaderService {
       };
     } catch (error) {
       console.error(
-        'Error process update biaya extra header in service:',
+        'Error process update biaya header in service:',
         error.message,
       );
       if (error instanceof NotFoundException) {
         throw error;
       }
       throw new InternalServerErrorException(
-        'Error process update biaya extra header in service',
+        'Error process update biaya header in service',
       );
     }
   }
@@ -689,12 +667,8 @@ export class BiayaExtraHeaderService {
   async delete(id: number, trx: any, modifiedby: any) {
     try {
       let detailServiceDelete;
-      let detailTableName;
-      const checkJenisOrderId = await trx
-        .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
-        .select('jenisorder_id')
-        .where('id', id)
-        .first();
+      let detailBiayaTableName;
+      const checkJenisOrderId = await trx(this.tableName).select('jenisorder_id').where('id', id);
       const getOrderanMuatanId = await trx
         .from(trx.raw(`jenisorderan as u WITH (READUNCOMMITTED)`))
         .select('id')
@@ -718,27 +692,24 @@ export class BiayaExtraHeaderService {
 
       switch (String(checkJenisOrderId.jenisorder_id)) {
         case getOrderanMuatanId?.id:
-          detailServiceDelete = this.biayaExtraMuatanDetailService;
-          detailTableName = 'biayaextramuatandetail';
+          detailServiceDelete = this.biayaMuatanDetailService;
+          detailBiayaTableName = 'biayamuatandetail';
           break;
         // case getOrderanBongkaranId.id:
         //   detailServiceDelete = 'test';
-        //   detailTableName = 'biayaextrabongkarandetail';
         //   break;
         // case 'EXPORT':
         //   service = this.hitungmodalexportService;
         //   break;
         default:
-          detailServiceDelete = this.biayaExtraMuatanDetailService;
-          detailTableName = 'biayaextramuatandetail';
+          detailServiceDelete = this.biayaMuatanDetailService;
+          detailBiayaTableName = 'biayamuatandetail';
           break;
       }
 
-      const checkDataDetail = await trx(detailTableName)
-        .select('id')
-        .where('biayaextra_id', id);
-      if (checkDataDetail && checkDataDetail.length > 0) {
-        for (const detail of checkDataDetail) {
+      const checkDataDetailBiaya = await trx(detailBiayaTableName).select('id').where('biaya_id', id);
+      if (checkDataDetailBiaya && checkDataDetailBiaya.length > 0) {
+        for (const detail of checkDataDetailBiaya) {
           await detailServiceDelete.delete(detail.id, trx, modifiedby);
         }
       }
@@ -753,7 +724,7 @@ export class BiayaExtraHeaderService {
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
-          postingdari: 'DELETE BIAYA EXTRA HEADER',
+          postingdari: 'DELETE BIAYA HEADER',
           idtrans: id,
           nobuktitrans: id,
           aksi: 'DELETE',
@@ -769,7 +740,7 @@ export class BiayaExtraHeaderService {
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to delete data');
+      throw new InternalServerErrorException('Failed to delete data biaya');
     }
   }
 
@@ -805,14 +776,16 @@ export class BiayaExtraHeaderService {
   }
 
   async exportToExcel(data: any) {
-    const dataHeader = data.data[0];
+    console.log('data', data);
+    
+    const dataHeader = data[0];
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Data Export');
 
     worksheet.mergeCells('A1:H1');
     worksheet.mergeCells('A2:H2');
     worksheet.getCell('A1').value = 'PT. TRANSPORINDO AGUNG SEJAHTERA';
-    worksheet.getCell('A2').value = 'LAPORAN BIAYA EXTRA';
+    worksheet.getCell('A2').value = 'LAPORAN BIAYA';
 
     ['A1', 'A2', 'A3'].forEach((cellKey, i) => {
       worksheet.getCell(cellKey).alignment = {
@@ -831,26 +804,32 @@ export class BiayaExtraHeaderService {
     worksheet.getCell('B7').value = 'JENIS ORDER :';
     worksheet.getCell('B8').value = 'BIAYA EMKL :';
     worksheet.getCell('B9').value = 'KETERANGAN :';
+    worksheet.getCell('B10').value = 'NO INVOICE :';
+    worksheet.getCell('B11').value = 'RELASI :';
+    worksheet.getCell('B12').value = 'DIBAYAR KE :';
+    worksheet.getCell('B13').value = 'NO BUKTI BIAYA EXTRA :';
 
     worksheet.getCell('C5').value = dataHeader.nobukti;
     worksheet.getCell('C6').value = dataHeader.tglbukti;
-    worksheet.getCell('C7').value = dataHeader.jenisorderan_nama;
+    worksheet.getCell('C7').value = dataHeader.jenisorder_nama;
     worksheet.getCell('C8').value = dataHeader.biayaemkl_nama;
     worksheet.getCell('C9').value = dataHeader.keterangan;
+    worksheet.getCell('C10').value = dataHeader.noinvoice;
+    worksheet.getCell('C11').value = dataHeader.relasi_nama;
+    worksheet.getCell('C12').value = dataHeader.dibayarke;
+    worksheet.getCell('C13').value = dataHeader.biayaextra_nobukti;
 
     const headers = [
       'NO.',
       'NO BUKTI ORDERAN',
       'ESTIMASI',
       'NOMINAL',
-      'STATUS TAGIH',
-      'NOMINAL TAGIH',
       'KETERANGAN',
-      'GROUP BIAYA EXTRA',
+      'NO BUKTI BIAYA EXTRA'
     ];
 
     headers.forEach((header, index) => {
-      const cell = worksheet.getCell(11, index + 1);
+      const cell = worksheet.getCell(15, index + 1);
       cell.value = header;
       cell.fill = {
         type: 'pattern',
@@ -871,17 +850,15 @@ export class BiayaExtraHeaderService {
       };
     });
 
-    data.data.forEach((row, rowIndex) => {
-      const currentRow = rowIndex + 12;
+    data.forEach((row, rowIndex) => {
+      const currentRow = rowIndex + 16;
       const rowValues = [
         rowIndex + 1,
-        row.orderanmuatan_nobukti,
-        row.estimasi,
-        row.nominal || 0,
-        row.statustagih_nama,
-        row.nominaltagih,
-        row.keterangan_detail,
-        row.groupbiayaextra_nama,
+        row.detail_orderanmuatan_nobukti,
+        row.detail_estimasi,
+        row.detail_nominal,
+        row.detail_keterangan,
+        row.detail_biayaextra_nobukti ? row.detail_biayaextra_nobukti : row.biayaextra_nobuktijson
       ];
 
       rowValues.forEach((value, colIndex) => {
@@ -890,7 +867,7 @@ export class BiayaExtraHeaderService {
         cell.value = value ?? '';
         cell.font = { name: 'Tahoma', size: 10 };
 
-        if (colIndex === 2 || colIndex === 3 || colIndex === 5) {
+        if (colIndex === 2 || colIndex === 3) {
           cell.value = Number(value);
           cell.numFmt = '#,##0.00'; // format angka dengan ribuan
           cell.alignment = {
@@ -912,6 +889,7 @@ export class BiayaExtraHeaderService {
       });
     });
 
+
     worksheet.columns
       .filter((c): c is Column => !!c)
       .forEach((col) => {
@@ -932,7 +910,7 @@ export class BiayaExtraHeaderService {
 
     const tempFilePath = path.resolve(
       tempDir,
-      `laporan_biaya_extra_${Date.now()}.xlsx`,
+      `laporan_biaya_header_${Date.now()}.xlsx`,
     );
     await workbook.xlsx.writeFile(tempFilePath);
 
