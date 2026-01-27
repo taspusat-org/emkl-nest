@@ -1,70 +1,57 @@
-import {
-  Controller,
-  Get,
+import { 
+  Get, 
   Res,
-  Req,
+  Req, 
   Put,
-  Post,
-  Body,
-  Param,
-  Query,
-  Delete,
-  UsePipes,
-  UseGuards,
-  HttpStatus,
-  HttpException,
-  InternalServerErrorException,
+  Post, 
+  Body, 
+  Param, 
+  Query, 
+  Delete, 
+  UsePipes, 
+  UseGuards, 
+  Controller, 
+  HttpStatus, 
+  HttpException, 
+  InternalServerErrorException, 
 } from '@nestjs/common';
 import * as fs from 'fs';
 import { Response } from 'express';
 import { dbMssql } from 'src/common/utils/db';
 import { AuthGuard } from '../auth/auth.guard';
+import { BiayaHeaderService } from './biaya-header.service';
 import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
-import { BiayaExtraHeaderService } from './biaya-extra-header.service';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
-import {
-  FindAllDto,
-  FindAllParams,
-  FindAllSchema,
-} from 'src/common/interfaces/all.interface';
-import {
-  CreateBiayaExtraHeaderSchema,
-  UpdateBiayaExtraHeaderDto,
-  UpdateBiayaExtraHeaderSchema,
-} from './dto/create-biaya-extra-header.dto';
+import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
+import { CreateBiayaHeaderSchema, UpdateBiayaHeaderDto, UpdateBiayaHeaderSchema } from './dto/create-biaya-header.dto';
 
-@Controller('biayaextraheader')
-export class BiayaExtraHeaderController {
-  constructor(
-    private readonly biayaExtraHeaderService: BiayaExtraHeaderService,
-  ) {}
+@Controller('biayaheader')
+export class BiayaHeaderController {
+  constructor(private readonly biayaHeaderService: BiayaHeaderService) {}
 
   @UseGuards(AuthGuard)
   @Post()
-  //@BIAYA-EXTRA-HEADER
+  //@BIAYA-HEADER
   async create(
     @Body(
       new InjectMethodPipe('create'),
-      new ZodValidationPipe(CreateBiayaExtraHeaderSchema),
+      new ZodValidationPipe(CreateBiayaHeaderSchema),
       KeyboardOnlyValidationPipe,
     )
     data: any,
     @Req() req,
-  ) {
+  ) {    
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      const result = await this.biayaExtraHeaderService.create(data, trx);
+      const result = await this.biayaHeaderService.create(data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error(
-        'Error while creating biaya extra header in controller',
-        error,
-      );
+      console.error('Error while creating biaya header in controller', error);
 
       if (error instanceof HttpException) {
         throw error;
@@ -73,7 +60,7 @@ export class BiayaExtraHeaderController {
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to create biaya extra header',
+          message: 'Failed to create biaya header',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -81,11 +68,10 @@ export class BiayaExtraHeaderController {
   }
 
   @Get()
-  //@BIAYA-EXTRA-HEADER
+  //@BIAYA-HEADER
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
-    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
-      query;
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } = query;
 
     const sortParams = {
       sortBy: sortBy || 'nobukti',
@@ -107,47 +93,39 @@ export class BiayaExtraHeaderController {
 
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.biayaExtraHeaderService.findAll(params, trx);
+      const result = await this.biayaHeaderService.findAll(params, trx);
       trx.commit();
       return result;
     } catch (error) {
       trx.rollback();
       console.error(
-        'Error fetching all biaya extra header ini controller:',
+        'Error fetching all biaya header ini controller:',
         error,
         error.message,
       );
-      throw new InternalServerErrorException(
-        'Failed to fetch biaya extra header',
-      );
+      throw new InternalServerErrorException('Failed to fetch biaya header');
     }
   }
 
   @UseGuards(AuthGuard)
   @Put(':id')
-  //@BIAYA-EXTRA-HEADER
+  //@BIAYA-HEADER
   async update(
     @Param('id') id: string,
-    @Body(
-      new InjectMethodPipe('update'),
-      new ZodValidationPipe(UpdateBiayaExtraHeaderSchema),
-    )
-    data: UpdateBiayaExtraHeaderDto,
+    @Body(new InjectMethodPipe('update'), new ZodValidationPipe(UpdateBiayaHeaderSchema))
+    data: UpdateBiayaHeaderDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      const result = await this.biayaExtraHeaderService.update(+id, data, trx);
+      const result = await this.biayaHeaderService.update(+id, data, trx);
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error(
-        'Error while updating biaya extra header in controller:',
-        error,
-      );
+      console.error('Error while updating biaya header in controller:', error);
 
       if (error instanceof HttpException) {
         // Ensure any other errors get caught and returned
@@ -157,7 +135,7 @@ export class BiayaExtraHeaderController {
       throw new HttpException( // Generic error handling, if something unexpected happens
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Failed to update biaya extra header',
+          message: 'Failed to update biaya header',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -166,24 +144,20 @@ export class BiayaExtraHeaderController {
 
   @UseGuards(AuthGuard)
   @Delete(':id')
-  //@BIAYA-EXTRA-HEADER
+  //@BIAYA-HEADER
   async delete(@Param('id') id: string, @Req() req) {
     const trx = await dbMssql.transaction();
     const modifiedby = req.user?.user?.username || 'unknown';
     try {
-      const result = await this.biayaExtraHeaderService.delete(
-        +id,
-        trx,
-        modifiedby,
-      );
+      const result = await this.biayaHeaderService.delete(+id, trx, modifiedby);
 
       trx.commit();
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error deleting biaya extra header in controller:', error);
+      console.error('Error deleting biaya header in controller:', error);
       throw new Error(
-        `Error deleting biaya extra header in controller: ${error.message}`,
+        `Error deleting biaya header in controller: ${error.message}`,
       );
     }
   }
@@ -196,7 +170,7 @@ export class BiayaExtraHeaderController {
     const editedby = req.user?.user?.username;
 
     try {
-      const forceEdit = await this.biayaExtraHeaderService.checkValidasi(
+      const forceEdit = await this.biayaHeaderService.checkValidasi(
         aksi,
         value,
         editedby,
@@ -216,12 +190,11 @@ export class BiayaExtraHeaderController {
     try {
       const data = await this.findOne(id);
 
-      if (!data.data && data?.data.length === 0) {
+      if (data?.data.length === 0) {
         throw new Error('Data is not found');
       }
 
-      const tempFilePath =
-        await this.biayaExtraHeaderService.exportToExcel(data);
+      const tempFilePath = await this.biayaHeaderService.exportToExcel(data.data);
       const fileStream = fs.createReadStream(tempFilePath);
 
       res.setHeader(
@@ -230,7 +203,7 @@ export class BiayaExtraHeaderController {
       );
       res.setHeader(
         'Content-Disposition',
-        'attachment; filename="laporan_biaya_extra.xlsx"',
+        'attachment; filename="laporan_biaya_header.xlsx"',
       );
 
       fileStream.pipe(res);
@@ -241,51 +214,17 @@ export class BiayaExtraHeaderController {
   }
 
   @UseGuards(AuthGuard)
-  @Get('findOneDetail/:id')
-  async findOneDetail(@Param('id') id: number, @Query() query: any) {
-    const trx = await dbMssql.transaction();
-    try {
-      const { jenisOrderan } =  query;
-      const result = await this.biayaExtraHeaderService.findOneDetail(+id, +jenisOrderan, trx);
-      trx.commit();
-
-      return result;
-    } catch (error) {
-      trx.rollback();
-      console.error('Error in findOne detail biaya extra:', error);
-      throw error; // Re-throw the error to be handled by the global exception filter
-    }
-  }
-
-  @UseGuards(AuthGuard)
-  @Get('/detailByJob')
-  async getDetailByJob(@Query() query: any) {
-    const trx = await dbMssql.transaction();
-    try {
-      const { ...filters } =  query;
-      const result = await this.biayaExtraHeaderService.getDetailByJob(filters, trx);
-      trx.commit();
-
-      return result; 
-    } catch (error) {
-      trx.rollback();
-      console.error('Error in findOne detail biaya extra:', error);
-      throw error; // Re-throw the error to be handled by the global exception filter
-    }
-  }
-
-  @UseGuards(AuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.biayaExtraHeaderService.findOne(+id, trx);
+      const result = await this.biayaHeaderService.findOne(+id, trx);
       trx.commit();
 
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error in findOne biaya extra header:', error);
+      console.error('Error in findOne biaya header:', error);
       throw error; // Re-throw the error to be handled by the global exception filter
     }
   }
