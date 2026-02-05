@@ -21,7 +21,7 @@ import { BiayaMuatanDetailModule } from '../biaya-muatan-detail/biaya-muatan-det
     UtilsModule,
     RunningNumberModule,
     LogtrailModule,
-    BiayaMuatanDetailModule
-  ]
+    BiayaMuatanDetailModule,
+  ],
 })
 export class BiayaHeaderModule {}

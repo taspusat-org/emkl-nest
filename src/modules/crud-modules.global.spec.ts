@@ -545,7 +545,7 @@ function validateModuleFile(moduleInfo: ModuleInfo): ValidationResult[] {
  * Main test suite
  */
 describe('Global CRUD Modules Validation', () => {
-  const logger = new TestLogger();
+  const glogger = new TestLogger();
   const modules: ModuleInfo[] = scanModulesDirectory();
   const allResults: ValidationResult[] = [];
 

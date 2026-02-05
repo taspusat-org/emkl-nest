@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateEstimasiBiayaDetailBiayaDto } from './dto/create-estimasi-biaya-detail-biaya.dto';
 import { UpdateEstimasiBiayaDetailBiayaDto } from './dto/update-estimasi-biaya-detail-biaya.dto';
 import { UtilsService } from 'src/utils/utils.service';
@@ -13,7 +17,7 @@ export class EstimasiBiayaDetailBiayaService {
     private readonly utilsService: UtilsService,
     private readonly logTrailService: LogtrailService,
   ) {}
-  
+
   async create(details: any, id: any = 0, trx: any = null) {
     try {
       let insertedData = null;
@@ -121,7 +125,10 @@ export class EstimasiBiayaDetailBiayaService {
         .returning('*')
         .then((result: any) => result[0])
         .catch((error: any) => {
-          console.error('Error updated data estimasi biaya detail biaya:', error);
+          console.error(
+            'Error updated data estimasi biaya detail biaya:',
+            error,
+          );
           throw error;
         });
 
@@ -259,7 +266,7 @@ export class EstimasiBiayaDetailBiayaService {
           'u.nominalsebelumdisc',
           'u.nominaltradoluar',
           'p.nama as biayaemkl_nama',
-          'q.keterangan as link_nama'
+          'q.keterangan as link_nama',
         )
         .leftJoin('biayaemkl as p', 'u.biayaemkl_id', 'p.id')
         .leftJoin('hargatrucking as q', 'u.link_id', 'q.id')
@@ -302,7 +309,7 @@ export class EstimasiBiayaDetailBiayaService {
       }
 
       if (sort?.sortBy && sort?.sortDirection) {
-       if (sort?.sortBy === 'biayaemkl_text') {
+        if (sort?.sortBy === 'biayaemkl_text') {
           query.orderBy(`p.nama`, sort.sortDirection);
         } else if (sort?.sortBy === 'link_text') {
           query.orderBy(`q.keterangan`, sort.sortDirection);
@@ -313,12 +320,15 @@ export class EstimasiBiayaDetailBiayaService {
 
       const result = await query;
       console.log('RESULT DETAIL BIAYA', result);
-      
+
       return {
         data: result,
       };
     } catch (error) {
-      console.error('Error to findAll estimasi biaya detail biaya in service', error);
+      console.error(
+        'Error to findAll estimasi biaya detail biaya in service',
+        error,
+      );
       throw new Error(error);
     }
   }
@@ -374,22 +384,28 @@ export class EstimasiBiayaDetailBiayaService {
           'u.nominalsebelumdisc',
           'u.nominaltradoluar',
           'biayaemkl.nama as biayaemkl_nama',
-          'hargatrucking.keterangan as link_nama'
+          'hargatrucking.keterangan as link_nama',
         ])
         .leftJoin('biayaemkl', 'u.biayaemkl_id', 'biayaemkl.id')
         .leftJoin('hargatrucking', 'u.link_id', 'hargatrucking.id')
         .where('u.estimasibiaya_id', id);
 
       const data = await query;
-      
-      return data
+
+      return data;
     } catch (error) {
-      console.error('Error fetching data estimasi biaya detail biaya by id:', error);
+      console.error(
+        'Error fetching data estimasi biaya detail biaya by id:',
+        error,
+      );
       throw new Error('Failed to fetch data estimasi biaya detail biaya by id');
     }
   }
 
-  update(id: number, updateEstimasiBiayaDetailBiayaDto: UpdateEstimasiBiayaDetailBiayaDto) {
+  update(
+    id: number,
+    updateEstimasiBiayaDetailBiayaDto: UpdateEstimasiBiayaDetailBiayaDto,
+  ) {
     return `This action updates a #${id} estimasiBiayaDetailBiaya`;
   }
 }

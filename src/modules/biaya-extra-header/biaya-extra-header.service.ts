@@ -150,7 +150,7 @@ export class BiayaExtraHeaderService {
           // filters: data.filters,
           filters: {
             ...data.filters,
-            jenisOrderan: data.jenisorder_id
+            jenisOrderan: data.jenisorder_id,
           },
           pagination: { page: data.page, limit: 0 },
           sort: { sortBy: data.sortBy, sortDirection: data.sortDirection },
@@ -200,9 +200,11 @@ export class BiayaExtraHeaderService {
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
-      
+
       if (isLookUp) {
-        const totalData = await trx(this.tableName).count('id as total').first();
+        const totalData = await trx(this.tableName)
+          .count('id as total')
+          .first();
         const resultTotalData = totalData?.total || 0;
         if (Number(resultTotalData) > 500) {
           return {
@@ -434,12 +436,15 @@ export class BiayaExtraHeaderService {
         data: data,
       };
     } catch (error) {
-      console.error('Error fetching data findone biaya extra header by id:', error);
+      console.error(
+        'Error fetching data findone biaya extra header by id:',
+        error,
+      );
       throw new Error('Failed to fetch data findone biaya extra header by id');
     }
   }
 
-  async findOneDetail(id: number, jenisOrderan:number, trx: any) {
+  async findOneDetail(id: number, jenisOrderan: number, trx: any) {
     try {
       let detailService;
       const getOrderanMuatanId = await trx
@@ -478,17 +483,20 @@ export class BiayaExtraHeaderService {
           break;
       }
 
-      const result = await detailService.findOne(+id, trx)
+      const result = await detailService.findOne(+id, trx);
       return {
         data: result,
       };
     } catch (error) {
-      console.error('Error fetching data find one detail biaya extra by id:', error);
+      console.error(
+        'Error fetching data find one detail biaya extra by id:',
+        error,
+      );
       throw new Error('Failed to fetch data find one detail biaya extra by id');
     }
   }
 
-  async getDetailByJob(filters:any, trx: any) {
+  async getDetailByJob(filters: any, trx: any) {
     try {
       let detailService;
       const getOrderanMuatanId = await trx
@@ -525,9 +533,9 @@ export class BiayaExtraHeaderService {
         default:
           detailService = this.biayaExtraMuatanDetailService;
           break;
-      }      
-      
-      const result = await detailService.biayaExraByJob(filters, trx)
+      }
+
+      const result = await detailService.biayaExraByJob(filters, trx);
       return {
         data: result,
       };

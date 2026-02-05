@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, InternalServerErrorException, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  InternalServerErrorException,
+  Query,
+} from '@nestjs/common';
 import { EstimasiBiayaDetailInvoiceService } from './estimasi-biaya-detail-invoice.service';
 import { CreateEstimasiBiayaDetailInvoiceDto } from './dto/create-estimasi-biaya-detail-invoice.dto';
 import { UpdateEstimasiBiayaDetailInvoiceDto } from './dto/update-estimasi-biaya-detail-invoice.dto';
@@ -7,11 +17,18 @@ import { dbMssql } from 'src/common/utils/db';
 
 @Controller('estimasibiayadetailinvoice')
 export class EstimasiBiayaDetailInvoiceController {
-  constructor(private readonly estimasiBiayaDetailInvoiceService: EstimasiBiayaDetailInvoiceService) {}
+  constructor(
+    private readonly estimasiBiayaDetailInvoiceService: EstimasiBiayaDetailInvoiceService,
+  ) {}
 
   @Post()
-  create(@Body() createEstimasiBiayaDetailInvoiceDto: CreateEstimasiBiayaDetailInvoiceDto) {
-    return this.estimasiBiayaDetailInvoiceService.create(createEstimasiBiayaDetailInvoiceDto);
+  create(
+    @Body()
+    createEstimasiBiayaDetailInvoiceDto: CreateEstimasiBiayaDetailInvoiceDto,
+  ) {
+    return this.estimasiBiayaDetailInvoiceService.create(
+      createEstimasiBiayaDetailInvoiceDto,
+    );
   }
 
   @Get(':id')
@@ -75,7 +92,14 @@ export class EstimasiBiayaDetailInvoiceController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateEstimasiBiayaDetailInvoiceDto: UpdateEstimasiBiayaDetailInvoiceDto) {
-    return this.estimasiBiayaDetailInvoiceService.update(+id, updateEstimasiBiayaDetailInvoiceDto);
+  update(
+    @Param('id') id: string,
+    @Body()
+    updateEstimasiBiayaDetailInvoiceDto: UpdateEstimasiBiayaDetailInvoiceDto,
+  ) {
+    return this.estimasiBiayaDetailInvoiceService.update(
+      +id,
+      updateEstimasiBiayaDetailInvoiceDto,
+    );
   }
 }

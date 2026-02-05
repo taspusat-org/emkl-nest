@@ -21,9 +21,15 @@ export function setupSwagger(app: INestApplication) {
   const SWAGGER_CLEAN_DIFF = cleanDiff(SWAGGER_RAW_DIFF);
 
   // Info commit file swagger
-  const SWAGGER_AUTHOR = git(`git show -s --pretty=format:"%an" ${LAST_SWAGGER_COMMIT}`);
-  const SWAGGER_DATE   = git(`git show -s --date=format:"%d-%m-%Y %H:%M" --pretty=format:"%ad" ${LAST_SWAGGER_COMMIT}`);
-  const SWAGGER_MSG    = git(`git show -s --pretty=format:"%s" ${LAST_SWAGGER_COMMIT}`);
+  const SWAGGER_AUTHOR = git(
+    `git show -s --pretty=format:"%an" ${LAST_SWAGGER_COMMIT}`,
+  );
+  const SWAGGER_DATE = git(
+    `git show -s --date=format:"%d-%m-%Y %H:%M" --pretty=format:"%ad" ${LAST_SWAGGER_COMMIT}`,
+  );
+  const SWAGGER_MSG = git(
+    `git show -s --pretty=format:"%s" ${LAST_SWAGGER_COMMIT}`,
+  );
 
   // 2️⃣ Commit terakhir di seluruh repo (untuk decorator)
   const LAST_DECORATOR_COMMIT = git(`git log -1 --pretty=format:"%H"`);
@@ -75,7 +81,8 @@ export function setupSwagger(app: INestApplication) {
   document.tags = SwaggerTagDescriptions;
 
   SwaggerModule.setup('api-docs', app, document, {
-    customCss: '.opblock-tag { flex-direction: column !important; align-items: flex-start !important;}'
+    customCss:
+      '.opblock-tag { flex-direction: column !important; align-items: flex-start !important;}',
   });
 }
 
@@ -173,7 +180,7 @@ function formatFullTagDescription(tags: string) {
   // tags = "Acos:\nEndpoint ...\n\nTypeAkuntansi:\nEndpoint ..."
   const tagBlocks = tags.split('\n\n'); // tiap tag
   return tagBlocks
-    .map(block => {
+    .map((block) => {
       const [name, ...descLines] = block.split('\n');
       return `**${name}**  \n${descLines.join('\n')}`; // bold + preserve line breaks
     })

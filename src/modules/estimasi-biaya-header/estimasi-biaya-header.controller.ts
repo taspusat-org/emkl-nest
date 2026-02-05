@@ -1,19 +1,19 @@
-import { 
-  Controller, 
-  Get, 
+import {
+  Controller,
+  Get,
   Res,
-  Req, 
+  Req,
   Put,
-  Post, 
-  Body, 
-  Param, 
-  Query, 
-  Delete, 
-  UsePipes, 
-  UseGuards, 
-  HttpStatus, 
-  HttpException, 
-  InternalServerErrorException, 
+  Post,
+  Body,
+  Param,
+  Query,
+  Delete,
+  UsePipes,
+  UseGuards,
+  HttpStatus,
+  HttpException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import * as fs from 'fs';
 import { Response } from 'express';
@@ -23,12 +23,22 @@ import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { EstimasiBiayaHeaderService } from './estimasi-biaya-header.service';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
-import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
-import { CreateEstimasiBiayaHeaderSchema, UpdateEstimasiBiayaHeaderDto, UpdateEstimasiBiayaHeaderSchema } from './dto/create-estimasi-biaya-header.dto';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
+import {
+  CreateEstimasiBiayaHeaderSchema,
+  UpdateEstimasiBiayaHeaderDto,
+  UpdateEstimasiBiayaHeaderSchema,
+} from './dto/create-estimasi-biaya-header.dto';
 
 @Controller('estimasibiayaheader')
 export class EstimasiBiayaHeaderController {
-  constructor(private readonly estimasiBiayaHeaderService: EstimasiBiayaHeaderService) {}
+  constructor(
+    private readonly estimasiBiayaHeaderService: EstimasiBiayaHeaderService,
+  ) {}
 
   @UseGuards(AuthGuard)
   @Post()
@@ -51,7 +61,10 @@ export class EstimasiBiayaHeaderController {
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while creating estimasi biaya header in controller', error);
+      console.error(
+        'Error while creating estimasi biaya header in controller',
+        error,
+      );
 
       if (error instanceof HttpException) {
         throw error;
@@ -71,7 +84,8 @@ export class EstimasiBiayaHeaderController {
   //@ESTIMASI-BIAYA-HEADER
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
-    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } = query;
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
 
     const sortParams = {
       sortBy: sortBy || 'nobukti',
@@ -103,7 +117,9 @@ export class EstimasiBiayaHeaderController {
         error,
         error.message,
       );
-      throw new InternalServerErrorException('Failed to fetch estimasi biaya header');
+      throw new InternalServerErrorException(
+        'Failed to fetch estimasi biaya header',
+      );
     }
   }
 
@@ -112,20 +128,30 @@ export class EstimasiBiayaHeaderController {
   //@ESTIMASI-BIAYA-HEADER
   async update(
     @Param('id') id: string,
-    @Body(new InjectMethodPipe('update'), new ZodValidationPipe(UpdateEstimasiBiayaHeaderSchema))
+    @Body(
+      new InjectMethodPipe('update'),
+      new ZodValidationPipe(UpdateEstimasiBiayaHeaderSchema),
+    )
     data: UpdateEstimasiBiayaHeaderDto,
     @Req() req,
   ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
-      const result = await this.estimasiBiayaHeaderService.update(+id, data, trx);
+      const result = await this.estimasiBiayaHeaderService.update(
+        +id,
+        data,
+        trx,
+      );
 
       await trx.commit();
       return result;
     } catch (error) {
       await trx.rollback();
-      console.error('Error while updating estimasi biaya header in controller:', error);
+      console.error(
+        'Error while updating estimasi biaya header in controller:',
+        error,
+      );
 
       if (error instanceof HttpException) {
         // Ensure any other errors get caught and returned
@@ -149,13 +175,20 @@ export class EstimasiBiayaHeaderController {
     const trx = await dbMssql.transaction();
     const modifiedby = req.user?.user?.username || 'unknown';
     try {
-      const result = await this.estimasiBiayaHeaderService.delete(+id, trx, modifiedby);
+      const result = await this.estimasiBiayaHeaderService.delete(
+        +id,
+        trx,
+        modifiedby,
+      );
 
       trx.commit();
       return result;
     } catch (error) {
       trx.rollback();
-      console.error('Error deleting estimasi biaya header in controller:', error);
+      console.error(
+        'Error deleting estimasi biaya header in controller:',
+        error,
+      );
       throw new Error(
         `Error deleting estimasi biaya header in controller: ${error.message}`,
       );
@@ -194,7 +227,9 @@ export class EstimasiBiayaHeaderController {
         throw new Error('Data is not found');
       }
 
-      const tempFilePath = await this.estimasiBiayaHeaderService.exportToExcel(data.data);
+      const tempFilePath = await this.estimasiBiayaHeaderService.exportToExcel(
+        data.data,
+      );
       const fileStream = fs.createReadStream(tempFilePath);
 
       res.setHeader(

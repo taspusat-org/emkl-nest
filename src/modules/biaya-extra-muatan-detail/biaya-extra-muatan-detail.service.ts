@@ -382,9 +382,13 @@ export class BiayaExtraMuatanDetailService {
           'detail.noseal',
           'hargatrucking.keterangan as lokasistuffing_nama',
           'shipper.nama as shipper_nama',
-          'container.nama as container_nama'
+          'container.nama as container_nama',
         ])
-        .leftJoin('orderanheader as header', 'u.orderanmuatan_nobukti', 'header.nobukti')
+        .leftJoin(
+          'orderanheader as header',
+          'u.orderanmuatan_nobukti',
+          'header.nobukti',
+        )
         .leftJoin('orderanmuatan as detail', 'header.id', 'detail.orderan_id')
         .leftJoin('hargatrucking', 'detail.lokasistuffing', 'hargatrucking.id')
         .leftJoin('shipper', 'detail.shipper_id', 'shipper.id')
@@ -392,7 +396,7 @@ export class BiayaExtraMuatanDetailService {
         .where('u.biayaextra_id', id);
 
       const data = await query;
-      return data
+      return data;
     } catch (error) {
       console.error('Error fetching data bl header by id:', error);
       throw new Error('Failed to fetch data bl header by id');
@@ -401,18 +405,23 @@ export class BiayaExtraMuatanDetailService {
 
   async biayaExraByJob(params: any, trx: any = null) {
     try {
-      const { page, limit, search, sortyBy, sortDirection, ...filters } = params
+      const { page, limit, search, sortyBy, sortDirection, ...filters } =
+        params;
       const query = trx(`${this.tableNameBiayaExraHeader} as u`)
         .select([
           'detail.id',
           'detail.nobukti',
           'detail.biayaextra_id',
           'detail.estimasi',
-          'detail.nominal'
+          'detail.nominal',
         ])
-        .leftJoin(`${this.tableName} as detail`, 'u.id', 'detail.biayaextra_id')
+        .leftJoin(
+          `${this.tableName} as detail`,
+          'u.id',
+          'detail.biayaextra_id',
+        );
 
-        if (filters) {
+      if (filters) {
         for (const [key, value] of Object.entries(filters)) {
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
 
@@ -422,7 +431,11 @@ export class BiayaExtraMuatanDetailService {
             } else if (key === 'biayaemkl_id') {
               query.andWhere(`u.biayaemkl_id`, '=', sanitizedValue);
             } else if (key === 'job') {
-              query.andWhere(`detail.orderanmuatan_nobukti`, 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                `detail.orderanmuatan_nobukti`,
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else {
               query.andWhere(`detail.${key}`, 'like', `%${sanitizedValue}%`);
             }
@@ -430,7 +443,7 @@ export class BiayaExtraMuatanDetailService {
         }
       }
       const data = await query;
-      return data
+      return data;
     } catch (error) {
       console.error('Error fetching data bl header by id:', error);
       throw new Error('Failed to fetch data bl header by id');

@@ -43,6 +43,7 @@ import * as fs from 'fs';
 export class HargatruckingController {
   constructor(private readonly hargatruckingService: HargatruckingService) {}
 
+  @UseGuards(AuthGuard)
   @Post()
   //@HARGA-TRUCKING
   async create(

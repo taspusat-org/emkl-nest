@@ -23,7 +23,7 @@ import { EstimasiBiayaDetailInvoiceModule } from '../estimasi-biaya-detail-invoi
     RunningNumberModule,
     LogtrailModule,
     EstimasiBiayaDetailBiayaModule,
-    EstimasiBiayaDetailInvoiceModule
-  ]
+    EstimasiBiayaDetailInvoiceModule,
+  ],
 })
 export class EstimasiBiayaHeaderModule {}

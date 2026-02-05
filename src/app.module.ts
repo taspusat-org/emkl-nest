@@ -275,7 +275,7 @@ import { BiayaMuatanDetailModule } from './modules/biaya-muatan-detail/biaya-mua
     EstimasiBiayaHeaderModule,
     EstimasiBiayaDetailInvoiceModule,
     BiayaHeaderModule,
-    BiayaMuatanDetailModule
+    BiayaMuatanDetailModule,
   ],
   controllers: [],
   providers: [RabbitmqService], // global],

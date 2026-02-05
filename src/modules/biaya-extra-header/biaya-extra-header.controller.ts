@@ -245,8 +245,12 @@ export class BiayaExtraHeaderController {
   async findOneDetail(@Param('id') id: number, @Query() query: any) {
     const trx = await dbMssql.transaction();
     try {
-      const { jenisOrderan } =  query;
-      const result = await this.biayaExtraHeaderService.findOneDetail(+id, +jenisOrderan, trx);
+      const { jenisOrderan } = query;
+      const result = await this.biayaExtraHeaderService.findOneDetail(
+        +id,
+        +jenisOrderan,
+        trx,
+      );
       trx.commit();
 
       return result;
@@ -262,11 +266,14 @@ export class BiayaExtraHeaderController {
   async getDetailByJob(@Query() query: any) {
     const trx = await dbMssql.transaction();
     try {
-      const { ...filters } =  query;
-      const result = await this.biayaExtraHeaderService.getDetailByJob(filters, trx);
+      const { ...filters } = query;
+      const result = await this.biayaExtraHeaderService.getDetailByJob(
+        filters,
+        trx,
+      );
       trx.commit();
 
-      return result; 
+      return result;
     } catch (error) {
       trx.rollback();
       console.error('Error in findOne detail biaya extra:', error);

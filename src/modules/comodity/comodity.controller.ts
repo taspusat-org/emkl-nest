@@ -43,6 +43,7 @@ import * as fs from 'fs';
 export class ComodityController {
   constructor(private readonly comodityService: ComodityService) {}
 
+  @UseGuards(AuthGuard)
   @Post()
   //@COMODITY
   async create(

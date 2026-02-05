@@ -33,6 +33,7 @@ import * as fs from 'fs';
 export class HutangheaderController {
   constructor(private readonly hutangheaderService: HutangheaderService) {}
 
+  @UseGuards(AuthGuard)
   @Post()
   async create(
     @Body()

@@ -7,12 +7,7 @@ import { LogtrailModule } from 'src/common/logtrail/logtrail.module';
 @Module({
   controllers: [EstimasiBiayaDetailInvoiceController],
   providers: [EstimasiBiayaDetailInvoiceService],
-  exports: [
-    EstimasiBiayaDetailInvoiceService
-  ],
-  imports: [
-    UtilsModule,
-    LogtrailModule
-  ]
+  exports: [EstimasiBiayaDetailInvoiceService],
+  imports: [UtilsModule, LogtrailModule],
 })
 export class EstimasiBiayaDetailInvoiceModule {}

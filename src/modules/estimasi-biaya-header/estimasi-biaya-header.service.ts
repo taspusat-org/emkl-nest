@@ -8,7 +8,12 @@ import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
 import { RunningNumberService } from '../running-number/running-number.service';
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { EstimasiBiayaDetailBiayaService } from '../estimasi-biaya-detail-biaya/estimasi-biaya-detail-biaya.service';
 import { EstimasiBiayaDetailInvoiceService } from '../estimasi-biaya-detail-invoice/estimasi-biaya-detail-invoice.service';
 
@@ -16,7 +21,8 @@ import { EstimasiBiayaDetailInvoiceService } from '../estimasi-biaya-detail-invo
 export class EstimasiBiayaHeaderService {
   private readonly tableName: string = 'estimasibiayaheader';
   private readonly detailBiayaTableName: string = 'estimasibiayadetailbiaya';
-  private readonly detailInvoiceTableName: string = 'estimasibiayadetailInvoice';
+  private readonly detailInvoiceTableName: string =
+    'estimasibiayadetailInvoice';
 
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
@@ -28,12 +34,16 @@ export class EstimasiBiayaHeaderService {
     private readonly detailBiayaService: EstimasiBiayaDetailBiayaService,
     private readonly detailInvoiceService: EstimasiBiayaDetailInvoiceService,
   ) {}
-  
+
   async create(data: any, trx: any) {
     try {
       const created_at = this.utilsService.getTime();
       const updated_at = this.utilsService.getTime();
-      const getFormatEstimasiBiayaHeader = await trx('parameter').select('id', 'grp', 'subgrp').where('grp', 'NOMOR ESTIMASI BIAYA').where('kelompok', 'ESTIMASI BIAYA').first();
+      const getFormatEstimasiBiayaHeader = await trx('parameter')
+        .select('id', 'grp', 'subgrp')
+        .where('grp', 'NOMOR ESTIMASI BIAYA')
+        .where('kelompok', 'ESTIMASI BIAYA')
+        .first();
 
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
@@ -76,8 +86,8 @@ export class EstimasiBiayaHeaderService {
         .insert(headerData)
         .returning('*');
       const newItem = insertedItems[0];
-      
-      if (data.detailsbiaya && data.detailsbiaya.length > 0) {    
+
+      if (data.detailsbiaya && data.detailsbiaya.length > 0) {
         const detailsBiayaPayload = data.detailsbiaya.map((detail: any) => ({
           id: detail.id || 0,
           nobukti: nomorBukti,
@@ -92,20 +102,30 @@ export class EstimasiBiayaHeaderService {
           modifiedby: newItem.modifiedby,
         }));
 
-        await this.detailBiayaService.create(detailsBiayaPayload, newItem.id, trx);        
+        await this.detailBiayaService.create(
+          detailsBiayaPayload,
+          newItem.id,
+          trx,
+        );
       }
 
-      if (data.detailsinvoice && data.detailsinvoice.length > 0) {    
-        const detailsInvoicePayload = data.detailsinvoice.map((detail: any) => ({
-          id: detail.id || 0,
-          nobukti: nomorBukti,
-          estimasibiaya_id: newItem.id,
-          link_id: detail.link_id || null,
-          biayaemkl_id: detail.biayaemkl_id || null,
-          nominal: detail.nominal || '',
-          modifiedby: newItem.modifiedby,
-        }));
-        await this.detailInvoiceService.create(detailsInvoicePayload, newItem.id, trx);
+      if (data.detailsinvoice && data.detailsinvoice.length > 0) {
+        const detailsInvoicePayload = data.detailsinvoice.map(
+          (detail: any) => ({
+            id: detail.id || 0,
+            nobukti: nomorBukti,
+            estimasibiaya_id: newItem.id,
+            link_id: detail.link_id || null,
+            biayaemkl_id: detail.biayaemkl_id || null,
+            nominal: detail.nominal || '',
+            modifiedby: newItem.modifiedby,
+          }),
+        );
+        await this.detailInvoiceService.create(
+          detailsInvoicePayload,
+          newItem.id,
+          trx,
+        );
       }
 
       await this.logTrailService.create(
@@ -120,7 +140,7 @@ export class EstimasiBiayaHeaderService {
         },
         trx,
       );
-      
+
       const { data: filteredItems } = await this.findAll(
         {
           search: data.search,
@@ -139,7 +159,10 @@ export class EstimasiBiayaHeaderService {
       const pageNumber = Math.floor(dataIndex / data.limit) + 1;
       const endIndex = pageNumber * data.limit;
       const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
-      await this.redisService.set(`${this.tableName}-allItems`, JSON.stringify(limitedItems));
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
 
       return {
         newItem,
@@ -165,7 +188,7 @@ export class EstimasiBiayaHeaderService {
     trx: any,
   ) {
     try {
-      let filtersJenisOrderan
+      let filtersJenisOrderan;
       let { page, limit } = pagination ?? {};
       page = page ?? 1;
       limit = limit ?? 0;
@@ -187,7 +210,7 @@ export class EstimasiBiayaHeaderService {
           'u.modifiedby',
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          
+
           'jenisorderan.nama as jenisorder_nama',
           'shipper.nama as shipper_nama',
           'ppn.text as statusppn_nama',
@@ -201,7 +224,7 @@ export class EstimasiBiayaHeaderService {
         .leftJoin('parameter as ppn', 'u.statusppn', 'ppn.id')
         .leftJoin('typeakuntansi as asuransi', 'u.asuransi_id', 'asuransi.id') //INI NANTI UBAH KALO BG DENIS UDH PUSH ASURANSI
         .leftJoin('comodity', 'u.comodity_id', 'comodity.id')
-        .leftJoin('consignee', 'u.consignee_id', 'consignee.id')
+        .leftJoin('consignee', 'u.consignee_id', 'consignee.id');
 
       if (filters?.tglDari && filters?.tglSampai) {
         const tglDariFormatted = formatDateToSQL(String(filters?.tglDari));
@@ -211,10 +234,12 @@ export class EstimasiBiayaHeaderService {
           tglDariFormatted,
           tglSampaiFormatted,
         ]);
-      }      
+      }
 
       const excludeSearchKeys = ['tglDari', 'tglSampai', 'statusppn_text'];
-      const searchFields = Object.keys(filters || {}).filter((k) => !excludeSearchKeys.includes(k));
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
 
       if (search) {
         const sanitized = String(search).replace(/\[/g, '[[]').trim();
@@ -231,9 +256,14 @@ export class EstimasiBiayaHeaderService {
             } else if (field === 'consignee_text') {
               qb.orWhere(`consignee.namaconsignee`, 'like', `%${sanitized}%`);
             } else if (field === 'tglbukti') {
-              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy') LIKE ?`, [`%${sanitized}%`]);
+              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy') LIKE ?`, [
+                `%${sanitized}%`,
+              ]);
             } else if (field === 'created_at' || field === 'updated_at') {
-              qb.orWhereRaw(`FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`, [`%${sanitized}%`]);
+              qb.orWhereRaw(
+                `FORMAT(u.${field}, 'dd-MM-yyyy HH:mm:ss') LIKE ?`,
+                [`%${sanitized}%`],
+              );
             } else {
               qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
             }
@@ -251,21 +281,39 @@ export class EstimasiBiayaHeaderService {
 
           if (value) {
             if (key === 'created_at' || key === 'updated_at') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'tglbukti') {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [key, `%${sanitizedValue}%`]);
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
             } else if (key === 'jenisorder_text') {
-              query.andWhere(`jenisorderan.nama`, 'like', `%${sanitizedValue}%`);
+              query.andWhere(
+                `jenisorderan.nama`,
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else if (key === 'shipper_text') {
               query.andWhere(`shipper.nama`, 'like', `%${sanitizedValue}%`);
-            }  else if (key === 'statusppn_text') {
+            } else if (key === 'statusppn_text') {
               query.andWhere(`ppn.id`, '=', sanitizedValue);
-            }  else if (key === 'asuransi_text') {
+            } else if (key === 'asuransi_text') {
               query.andWhere(`asuransi.nama`, 'like', `%${sanitizedValue}%`);
-            }  else if (key === 'comodity_text') {
-              query.andWhere(`comodity.keterangan`, 'like', `%${sanitizedValue}%`);
-            }  else if (key === 'consignee_text') {
-              query.andWhere(`consignee.namaconsignee`, 'like', `%${sanitizedValue}%`);
+            } else if (key === 'comodity_text') {
+              query.andWhere(
+                `comodity.keterangan`,
+                'like',
+                `%${sanitizedValue}%`,
+              );
+            } else if (key === 'consignee_text') {
+              query.andWhere(
+                `consignee.namaconsignee`,
+                'like',
+                `%${sanitizedValue}%`,
+              );
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
@@ -321,7 +369,7 @@ export class EstimasiBiayaHeaderService {
       console.error('Error to findAll Biaya Extra Header', error);
       throw new Error(error);
     }
-  }  
+  }
 
   async findOne(id: number, trx: any) {
     try {
@@ -337,7 +385,7 @@ export class EstimasiBiayaHeaderService {
           'u.statusppn',
           'u.asuransi_id',
           'u.comodity_id',
-          'u.consignee_id', 
+          'u.consignee_id',
           'jenisorderan.nama as jenisorder_nama',
           'shipper.nama as shipper_nama',
           'ppn.text as statusppn_nama',
@@ -355,21 +403,26 @@ export class EstimasiBiayaHeaderService {
 
       const data = await query;
 
-      const findOneDetailBiaya = await this.detailBiayaService.findOne(+id, trx)
-      const findOneDetailInvoice = await this.detailInvoiceService.findOne(+id, trx)
+      const findOneDetailBiaya = await this.detailBiayaService.findOne(
+        +id,
+        trx,
+      );
+      const findOneDetailInvoice = await this.detailInvoiceService.findOne(
+        +id,
+        trx,
+      );
 
       const result = {
         header: data,
         detailbiaya: findOneDetailBiaya,
-        detailinvoice: findOneDetailInvoice
-
-      }
+        detailinvoice: findOneDetailInvoice,
+      };
       console.log('result', result);
       // throw new Error('HAHA')
-      
+
       return {
-        data: result
-      }
+        data: result,
+      };
     } catch (error) {
       console.error('Error fetching data estimasi biaya header by id:', error);
       throw new Error('Failed to fetch data estimasi biaya header by id');
@@ -397,14 +450,14 @@ export class EstimasiBiayaHeaderService {
         keterangan: data.keterangan,
         modifiedby: data.modifiedby,
       };
-      
-      const hasChanges = this.utilsService.hasChanges(headerData, existingData); 
+
+      const hasChanges = this.utilsService.hasChanges(headerData, existingData);
       if (hasChanges) {
         const fixHeaderData = {
           ...headerData,
           tglbukti: data.tglbukti,
-          updated_at
-        }
+          updated_at,
+        };
 
         Object.keys(fixHeaderData).forEach((key) => {
           if (typeof fixHeaderData[key] === 'string') {
@@ -418,7 +471,7 @@ export class EstimasiBiayaHeaderService {
             }
           }
         });
-        
+
         const updated = await trx(this.tableName)
           .where('id', id)
           .update(fixHeaderData)
@@ -437,12 +490,14 @@ export class EstimasiBiayaHeaderService {
           },
           trx,
         );
-      }     
+      }
 
-      if (data.detailsbiaya && data.detailsbiaya.length > 0) {    
+      if (data.detailsbiaya && data.detailsbiaya.length > 0) {
         const detailsBiayaPayload = data.detailsbiaya.map((detail: any) => ({
           id: detail.id || 0,
-          nobukti: updatedData ? updatedData.nobukti || data.nobukti  : existingData.nobukti,
+          nobukti: updatedData
+            ? updatedData.nobukti || data.nobukti
+            : existingData.nobukti,
           estimasibiaya_id: updatedData ? updatedData.id : existingData.id,
           link_id: detail.link_id || null,
           biayaemkl_id: detail.biayaemkl_id || null,
@@ -451,23 +506,31 @@ export class EstimasiBiayaHeaderService {
           nominaldisc: detail.nominaldisc || '',
           nominalsebelumdisc: detail.nominalsebelumdisc || '',
           nominaltradoluar: detail.nominaltradoluar || '',
-          modifiedby: updatedData ? updatedData.modifiedby : existingData.modifiedby,
+          modifiedby: updatedData
+            ? updatedData.modifiedby
+            : existingData.modifiedby,
         }));
-        
-        await this.detailBiayaService.create(detailsBiayaPayload, id, trx);        
+
+        await this.detailBiayaService.create(detailsBiayaPayload, id, trx);
       }
 
-      if (data.detailsinvoice && data.detailsinvoice.length > 0) {    
-        const detailsInvoicePayload = data.detailsinvoice.map((detail: any) => ({
-          id: detail.id || 0,
-          nobukti: updatedData ? updatedData.nobukti || data.nobukti  : existingData.nobukti,
-          estimasibiaya_id: updatedData ? updatedData.id : existingData.id,
-          link_id: detail.link_id || null,
-          biayaemkl_id: detail.biayaemkl_id || null,
-          nominal: detail.nominal || '',
-          modifiedby: updatedData ? updatedData.modifiedby : existingData.modifiedby,
-        }));
-        
+      if (data.detailsinvoice && data.detailsinvoice.length > 0) {
+        const detailsInvoicePayload = data.detailsinvoice.map(
+          (detail: any) => ({
+            id: detail.id || 0,
+            nobukti: updatedData
+              ? updatedData.nobukti || data.nobukti
+              : existingData.nobukti,
+            estimasibiaya_id: updatedData ? updatedData.id : existingData.id,
+            link_id: detail.link_id || null,
+            biayaemkl_id: detail.biayaemkl_id || null,
+            nominal: detail.nominal || '',
+            modifiedby: updatedData
+              ? updatedData.modifiedby
+              : existingData.modifiedby,
+          }),
+        );
+
         await this.detailInvoiceService.create(detailsInvoicePayload, id, trx);
       }
 
@@ -482,14 +545,19 @@ export class EstimasiBiayaHeaderService {
         trx,
       );
 
-      let dataIndex = filteredItems.findIndex((item) => Number(item.id) === Number(id));      
+      let dataIndex = filteredItems.findIndex(
+        (item) => Number(item.id) === Number(id),
+      );
       if (dataIndex === -1) {
         dataIndex = 0;
       }
       const pageNumber = Math.floor(dataIndex / data.limit) + 1;
       const endIndex = pageNumber * data.limit;
       const limitedItems = filteredItems.slice(0, endIndex); // Ambil data hingga halaman yang mencakup item baru
-      await this.redisService.set(`${this.tableName}-allItems`, JSON.stringify(limitedItems));
+      await this.redisService.set(
+        `${this.tableName}-allItems`,
+        JSON.stringify(limitedItems),
+      );
 
       return {
         updatedData,
@@ -512,14 +580,18 @@ export class EstimasiBiayaHeaderService {
 
   async delete(id: number, trx: any, modifiedby: any) {
     try {
-      const checkDataDetailBiaya = await trx(this.detailBiayaTableName).select('id').where('estimasibiaya_id', id);
+      const checkDataDetailBiaya = await trx(this.detailBiayaTableName)
+        .select('id')
+        .where('estimasibiaya_id', id);
       if (checkDataDetailBiaya && checkDataDetailBiaya.length > 0) {
         for (const detail of checkDataDetailBiaya) {
           await this.detailBiayaService.delete(detail.id, trx, modifiedby);
         }
       }
 
-      const checkDataDetailInvoice = await trx(this.detailInvoiceTableName).select('id').where('estimasibiaya_id', id);
+      const checkDataDetailInvoice = await trx(this.detailInvoiceTableName)
+        .select('id')
+        .where('estimasibiaya_id', id);
       if (checkDataDetailInvoice && checkDataDetailInvoice.length > 0) {
         for (const detail of checkDataDetailInvoice) {
           await this.detailInvoiceService.delete(detail.id, trx, modifiedby);
@@ -552,7 +624,9 @@ export class EstimasiBiayaHeaderService {
       if (error instanceof NotFoundException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to delete data estimasi biaya');
+      throw new InternalServerErrorException(
+        'Failed to delete data estimasi biaya',
+      );
     }
   }
 
@@ -626,7 +700,10 @@ export class EstimasiBiayaHeaderService {
     worksheet.getCell('C8').value = dataHeader.orderan_nobukti;
     worksheet.getCell('C9').value = dataHeader.nominal;
     worksheet.getCell('C9').numFmt = '#,##0.00'; // format angka dengan ribuan
-    worksheet.getCell('C9').alignment = { horizontal: 'right', vertical: 'middle' };
+    worksheet.getCell('C9').alignment = {
+      horizontal: 'right',
+      vertical: 'middle',
+    };
     worksheet.getCell('C10').value = dataHeader.shipper_nama;
     worksheet.getCell('C11').value = dataHeader.statusppn_nama;
     worksheet.getCell('C12').value = dataHeader.asuransi_nama;
@@ -641,18 +718,18 @@ export class EstimasiBiayaHeaderService {
       'NILAI ASURANSI',
       'NOMINAL DISC',
       'NOMINAL SEBELUM DISC',
-      'NOMINAL TRADO LUAR'
+      'NOMINAL TRADO LUAR',
     ];
 
     const headersDetailInvoice = [
       'NO.',
       'BIAYA EMKL',
       'LINK HARGA TRUCKING',
-      'NOMINAL'
+      'NOMINAL',
     ];
 
     worksheet.getCell('A16').value = 'DETAIL BIAYA';
-    worksheet.getCell('A16').font = { bold: true};
+    worksheet.getCell('A16').font = { bold: true };
 
     headersDetailBiaya.forEach((header, index) => {
       const cell = worksheet.getCell(17, index + 1);
@@ -722,8 +799,8 @@ export class EstimasiBiayaHeaderService {
     });
 
     worksheet.getCell('A21').value = 'DETAIL INVOICE';
-    worksheet.getCell('A21').font = { bold: true};
-    
+    worksheet.getCell('A21').font = { bold: true };
+
     headersDetailInvoice.forEach((header, index) => {
       const cell = worksheet.getCell(22, index + 1);
       cell.value = header;

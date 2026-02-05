@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, InternalServerErrorException, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  InternalServerErrorException,
+  UseGuards,
+} from '@nestjs/common';
 import { EstimasiBiayaDetailBiayaService } from './estimasi-biaya-detail-biaya.service';
 import { CreateEstimasiBiayaDetailBiayaDto } from './dto/create-estimasi-biaya-detail-biaya.dto';
 import { UpdateEstimasiBiayaDetailBiayaDto } from './dto/update-estimasi-biaya-detail-biaya.dto';
@@ -8,11 +19,18 @@ import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('estimasibiayadetailbiaya')
 export class EstimasiBiayaDetailBiayaController {
-  constructor(private readonly estimasiBiayaDetailBiayaService: EstimasiBiayaDetailBiayaService) {}
+  constructor(
+    private readonly estimasiBiayaDetailBiayaService: EstimasiBiayaDetailBiayaService,
+  ) {}
 
   @Post()
-  create(@Body() createEstimasiBiayaDetailBiayaDto: CreateEstimasiBiayaDetailBiayaDto) {
-    return this.estimasiBiayaDetailBiayaService.create(createEstimasiBiayaDetailBiayaDto);
+  create(
+    @Body()
+    createEstimasiBiayaDetailBiayaDto: CreateEstimasiBiayaDetailBiayaDto,
+  ) {
+    return this.estimasiBiayaDetailBiayaService.create(
+      createEstimasiBiayaDetailBiayaDto,
+    );
   }
 
   @Get(':id')
@@ -74,7 +92,10 @@ export class EstimasiBiayaDetailBiayaController {
   async findOne(@Param('id') id: string) {
     const trx = await dbMssql.transaction();
     try {
-      const result = await this.estimasiBiayaDetailBiayaService.findOne(+id, trx);
+      const result = await this.estimasiBiayaDetailBiayaService.findOne(
+        +id,
+        trx,
+      );
       trx.commit();
 
       return result;
@@ -86,8 +107,14 @@ export class EstimasiBiayaDetailBiayaController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateEstimasiBiayaDetailBiayaDto: UpdateEstimasiBiayaDetailBiayaDto) {
-    return this.estimasiBiayaDetailBiayaService.update(+id, updateEstimasiBiayaDetailBiayaDto);
+  update(
+    @Param('id') id: string,
+    @Body()
+    updateEstimasiBiayaDetailBiayaDto: UpdateEstimasiBiayaDetailBiayaDto,
+  ) {
+    return this.estimasiBiayaDetailBiayaService.update(
+      +id,
+      updateEstimasiBiayaDetailBiayaDto,
+    );
   }
-
 }
