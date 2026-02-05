@@ -70,6 +70,7 @@ export class PengeluaranemklheaderService {
         pengeluaranemkl_id: data.pengeluaranemkl_id ?? null,
       };
       console.log(insertData, 'insertData33333');
+      console.log(data, 'mentah');
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();

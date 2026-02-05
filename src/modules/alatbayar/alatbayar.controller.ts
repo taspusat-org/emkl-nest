@@ -40,6 +40,7 @@ import * as fs from 'fs';
 export class AlatbayarController {
   constructor(private readonly alatbayarService: AlatbayarService) {}
 
+  @UseGuards(AuthGuard)
   @Post()
   //@ALAT-BAYAR
   async create(

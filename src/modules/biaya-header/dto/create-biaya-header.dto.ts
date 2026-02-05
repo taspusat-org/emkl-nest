@@ -7,7 +7,7 @@ const baseFields = {
     .nonempty({ message: 'TGL BUKTI WAJIB DIISI' }),
 
   jenisorder_id: z
-    .number({ 
+    .number({
       required_error: 'JENIS ORDER WAJIB DIISI',
     })
     .min(1, { message: 'JENIS ORDER WAJIB DIISI' }),
@@ -15,7 +15,7 @@ const baseFields = {
 
   biayaemkl_id: z
     .number({
-      required_error: 'BIAYA EMKL WAJIB DIISI'
+      required_error: 'BIAYA EMKL WAJIB DIISI',
     })
     .min(1, { message: 'BIAYA EMKL WAJIB DIISI' }),
   biayaemkl_nama: z.string().nullable().optional(),
@@ -25,7 +25,7 @@ const baseFields = {
 
   relasi_id: z
     .number({
-      required_error: 'RELASI WAJIB DIISI'
+      required_error: 'RELASI WAJIB DIISI',
     })
     .min(1, { message: 'RELASI WAJIB DIISI' }),
   relasi_nama: z.string().nullable().optional(),
@@ -70,7 +70,6 @@ export const CreateBiayaHeaderSchema = z.object({
   // Field/aturan khusus create bisa ditambah di sini
 });
 export type CreateBiayaHeaderDto = z.infer<typeof CreateBiayaHeaderSchema>;
-
 
 export const UpdateBiayaHeaderSchema = z.object({
   ...baseFields,

@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, InternalServerErrorException, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  InternalServerErrorException,
+  Query,
+} from '@nestjs/common';
 import { BiayaMuatanDetailService } from './biaya-muatan-detail.service';
 import { CreateBiayaMuatanDetailDto } from './dto/create-biaya-muatan-detail.dto';
 import { UpdateBiayaMuatanDetailDto } from './dto/update-biaya-muatan-detail.dto';
@@ -7,7 +17,9 @@ import { FindAllDto, FindAllParams } from 'src/common/interfaces/all.interface';
 
 @Controller('biayamuatandetail')
 export class BiayaMuatanDetailController {
-  constructor(private readonly biayaMuatanDetailService: BiayaMuatanDetailService) {}
+  constructor(
+    private readonly biayaMuatanDetailService: BiayaMuatanDetailService,
+  ) {}
 
   @Post()
   create(@Body() createBiayaMuatanDetailDto: CreateBiayaMuatanDetailDto) {
@@ -75,7 +87,13 @@ export class BiayaMuatanDetailController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateBiayaMuatanDetailDto: UpdateBiayaMuatanDetailDto) {
-    return this.biayaMuatanDetailService.update(+id, updateBiayaMuatanDetailDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateBiayaMuatanDetailDto: UpdateBiayaMuatanDetailDto,
+  ) {
+    return this.biayaMuatanDetailService.update(
+      +id,
+      updateBiayaMuatanDetailDto,
+    );
   }
 }

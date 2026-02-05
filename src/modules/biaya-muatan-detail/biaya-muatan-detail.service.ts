@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateBiayaMuatanDetailDto } from './dto/create-biaya-muatan-detail.dto';
 import { UpdateBiayaMuatanDetailDto } from './dto/update-biaya-muatan-detail.dto';
 import { tandatanya, UtilsService } from 'src/utils/utils.service';
@@ -43,7 +47,9 @@ export class BiayaMuatanDetailService {
 
         // Check if the data has an id (existing record)
         if (data.id) {
-          const existingData = await trx(this.tableName).where('id', data.id).first();
+          const existingData = await trx(this.tableName)
+            .where('id', data.id)
+            .first();
 
           if (existingData) {
             const createdAt = {
@@ -111,7 +117,9 @@ export class BiayaMuatanDetailService {
           nominal: trx.raw(`${tempTableName}.nominal`),
           keterangan: trx.raw(`${tempTableName}.keterangan`),
           biayaextra_nobukti: trx.raw(`${tempTableName}.biayaextra_nobukti`),
-          biayaextra_nobuktijson: trx.raw(`${tempTableName}.biayaextra_nobuktijson`),
+          biayaextra_nobuktijson: trx.raw(
+            `${tempTableName}.biayaextra_nobuktijson`,
+          ),
           info: trx.raw(`${tempTableName}.info`),
           modifiedby: trx.raw(`${tempTableName}.modifiedby`),
           created_at: trx.raw(`${tempTableName}.created_at`),
@@ -190,10 +198,7 @@ export class BiayaMuatanDetailService {
           .returning('*')
           .then((result: any) => result[0])
           .catch((error: any) => {
-            console.error(
-              'Error inserting data biaya muatan detail:',
-              error,
-            );
+            console.error('Error inserting data biaya muatan detail:', error);
             throw error;
           });
       }
@@ -245,11 +250,11 @@ export class BiayaMuatanDetailService {
       const url = 'biaya-extra-header';
       const urlOrderan = 'orderanmuatan';
 
-        // trx.raw(`
-        //   STRING_AGG(json.BIAYAEXTRA_NOBUKTI, ', ') 
-        //   AS biayaextra_nobuktijson
-        // `),
-        
+      // trx.raw(`
+      //   STRING_AGG(json.BIAYAEXTRA_NOBUKTI, ', ')
+      //   AS biayaextra_nobuktijson
+      // `),
+
       const tempBiayaExtraJson = `##temp_json_url_${Math.random().toString(36).substring(2, 8)}`;
       const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
       const tempUrlOrderan = `##temp_url_orderan_${Math.random().toString(36).substring(2, 8)}`;
@@ -284,15 +289,17 @@ export class BiayaMuatanDetailService {
                 '<HighlightWrapper value="' + json.BIAYAEXTRA_NOBUKTI + '" />' +
                 '</a>', ','
               ) AS json_link
-            `)
+            `),
           )
           .from(`${this.tableName} as u`)
-          .joinRaw(`
+          .joinRaw(
+            `
             CROSS APPLY OPENJSON(u.biayaextra_nobuktijson)
             WITH (
               BIAYAEXTRA_NOBUKTI NVARCHAR(100) '$.BIAYAEXTRA_NOBUKTI'
             ) AS json
-          `)
+          `,
+          )
           .groupBy('u.id'),
       );
 
@@ -327,7 +334,7 @@ export class BiayaMuatanDetailService {
           .from(`${this.tableName} as u`)
           .groupBy('u.id'),
       );
-      
+
       const query = trx(`${this.tableName} as u`)
         .select(
           'u.id',
@@ -354,10 +361,26 @@ export class BiayaMuatanDetailService {
         )
         .leftJoin(`${tempBiayaExtraJson} as json`, 'u.id', 'json.id')
         .leftJoin(`${tempUrl} as tempUrl`, 'u.id', 'tempUrl.id')
-        .leftJoin(`${tempUrlOrderan} as tempUrlOrderan`, 'u.id', 'tempUrlOrderan.id')
-        .leftJoin('biayaextraheader', 'u.biayaextra_nobukti', 'biayaextraheader.nobukti')
-        .leftJoin('orderanmuatan', 'u.orderanmuatan_nobukti', 'orderanmuatan.nobukti')
-        .leftJoin('orderanheader', 'orderanmuatan.orderan_id', 'orderanheader.id')
+        .leftJoin(
+          `${tempUrlOrderan} as tempUrlOrderan`,
+          'u.id',
+          'tempUrlOrderan.id',
+        )
+        .leftJoin(
+          'biayaextraheader',
+          'u.biayaextra_nobukti',
+          'biayaextraheader.nobukti',
+        )
+        .leftJoin(
+          'orderanmuatan',
+          'u.orderanmuatan_nobukti',
+          'orderanmuatan.nobukti',
+        )
+        .leftJoin(
+          'orderanheader',
+          'orderanmuatan.orderan_id',
+          'orderanheader.id',
+        )
         .leftJoin('hargatrucking as p', 'orderanmuatan.lokasistuffing', 'p.id')
         .leftJoin('shipper as q', 'orderanmuatan.shipper_id', 'q.id')
         .leftJoin('container', 'orderanmuatan.container_id', 'container.id')
@@ -374,8 +397,12 @@ export class BiayaMuatanDetailService {
         query.where((qb) => {
           searchFields.forEach((field) => {
             if (field === 'biayaextra_nobukti') {
-              qb.orWhere(`u.biayaextra_nobukti`, 'like', `%${sanitized}%`)
-              qb.orWhere(`json.biayaextra_nobuktijson`, 'like', `%${sanitized}%`);
+              qb.orWhere(`u.biayaextra_nobukti`, 'like', `%${sanitized}%`);
+              qb.orWhere(
+                `json.biayaextra_nobuktijson`,
+                'like',
+                `%${sanitized}%`,
+              );
             } else {
               qb.orWhere(`u.${field}`, 'like', `%${sanitized}%`);
             }
@@ -392,9 +419,17 @@ export class BiayaMuatanDetailService {
             if (key === 'biayaextra_nobukti') {
               // query.andWhere(`p.nama`, 'like', `%${sanitizedValue}%`);
               query.andWhere((qb) => {
-                qb.orWhere(`u.biayaextra_nobukti`, 'like', `%${sanitizedValue}%`)
-                qb.orWhere(`json.biayaextra_nobuktijson`, 'like', `%${sanitizedValue}%`);
-              })
+                qb.orWhere(
+                  `u.biayaextra_nobukti`,
+                  'like',
+                  `%${sanitizedValue}%`,
+                );
+                qb.orWhere(
+                  `json.biayaextra_nobuktijson`,
+                  'like',
+                  `%${sanitizedValue}%`,
+                );
+              });
             } else {
               query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
             }
@@ -405,9 +440,8 @@ export class BiayaMuatanDetailService {
         query.orderBy(sort.sortBy, sort.sortDirection);
       }
 
-      const result = await query; 
+      const result = await query;
       console.log('result', result);
-           
 
       return {
         data: result,
@@ -450,10 +484,7 @@ export class BiayaMuatanDetailService {
 
       return { status: 200, message: 'Data deleted successfully', deletedData };
     } catch (error) {
-      console.log(
-        'Error deleting biaya muatan detail in service:',
-        error,
-      );
+      console.log('Error deleting biaya muatan detail in service:', error);
       if (error instanceof NotFoundException) {
         throw error;
       }

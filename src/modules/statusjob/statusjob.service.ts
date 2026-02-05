@@ -440,11 +440,19 @@ export class StatusjobService {
         .leftJoin('parameter', 'u.statusjob', 'parameter.id')
         .where('u.tglstatus', formatTglStatus);
 
-      if (filters?.jenisOrderan && filters?.jenisOrderan !== 'null' && filters?.jenisOrderan !== null) {
+      if (
+        filters?.jenisOrderan &&
+        filters?.jenisOrderan !== 'null' &&
+        filters?.jenisOrderan !== null
+      ) {
         query.where('u.jenisorderan_id', Number(filters?.jenisOrderan));
       }
 
-      if (filters?.jenisStatusJob && filters?.jenisStatusJob !== 'null' && filters?.jenisStatusJob !== null) {
+      if (
+        filters?.jenisStatusJob &&
+        filters?.jenisStatusJob !== 'null' &&
+        filters?.jenisStatusJob !== null
+      ) {
         query.where('u.statusjob', Number(filters?.jenisStatusJob));
       }
 

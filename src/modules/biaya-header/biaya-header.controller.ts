@@ -1,19 +1,19 @@
-import { 
-  Get, 
+import {
+  Get,
   Res,
-  Req, 
+  Req,
   Put,
-  Post, 
-  Body, 
-  Param, 
-  Query, 
-  Delete, 
-  UsePipes, 
-  UseGuards, 
-  Controller, 
-  HttpStatus, 
-  HttpException, 
-  InternalServerErrorException, 
+  Post,
+  Body,
+  Param,
+  Query,
+  Delete,
+  UsePipes,
+  UseGuards,
+  Controller,
+  HttpStatus,
+  HttpException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import * as fs from 'fs';
 import { Response } from 'express';
@@ -23,8 +23,16 @@ import { BiayaHeaderService } from './biaya-header.service';
 import { InjectMethodPipe } from 'src/common/pipes/inject-method.pipe';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { KeyboardOnlyValidationPipe } from 'src/common/pipes/keyboardonly-validation.pipe';
-import { FindAllDto, FindAllParams, FindAllSchema } from 'src/common/interfaces/all.interface';
-import { CreateBiayaHeaderSchema, UpdateBiayaHeaderDto, UpdateBiayaHeaderSchema } from './dto/create-biaya-header.dto';
+import {
+  FindAllDto,
+  FindAllParams,
+  FindAllSchema,
+} from 'src/common/interfaces/all.interface';
+import {
+  CreateBiayaHeaderSchema,
+  UpdateBiayaHeaderDto,
+  UpdateBiayaHeaderSchema,
+} from './dto/create-biaya-header.dto';
 
 @Controller('biayaheader')
 export class BiayaHeaderController {
@@ -41,7 +49,7 @@ export class BiayaHeaderController {
     )
     data: any,
     @Req() req,
-  ) {    
+  ) {
     const trx = await dbMssql.transaction();
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
@@ -71,7 +79,8 @@ export class BiayaHeaderController {
   //@BIAYA-HEADER
   @UsePipes(new ZodValidationPipe(FindAllSchema))
   async findAll(@Query() query: FindAllDto) {
-    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } = query;
+    const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
+      query;
 
     const sortParams = {
       sortBy: sortBy || 'nobukti',
@@ -112,7 +121,10 @@ export class BiayaHeaderController {
   //@BIAYA-HEADER
   async update(
     @Param('id') id: string,
-    @Body(new InjectMethodPipe('update'), new ZodValidationPipe(UpdateBiayaHeaderSchema))
+    @Body(
+      new InjectMethodPipe('update'),
+      new ZodValidationPipe(UpdateBiayaHeaderSchema),
+    )
     data: UpdateBiayaHeaderDto,
     @Req() req,
   ) {
@@ -194,7 +206,9 @@ export class BiayaHeaderController {
         throw new Error('Data is not found');
       }
 
-      const tempFilePath = await this.biayaHeaderService.exportToExcel(data.data);
+      const tempFilePath = await this.biayaHeaderService.exportToExcel(
+        data.data,
+      );
       const fileStream = fs.createReadStream(tempFilePath);
 
       res.setHeader(

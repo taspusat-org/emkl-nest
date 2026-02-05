@@ -27,7 +27,6 @@ export class ContainerService {
     private readonly globalService: GlobalService,
     private readonly locksService: LocksService,
   ) {}
-
   async create(createContainerDto: any, trx: any) {
     try {
       const {

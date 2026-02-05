@@ -52,6 +52,7 @@ export class HargatruckingService {
         created_at: created_at || this.utilsService.getTime(),
         updated_at: updated_at || this.utilsService.getTime(),
       };
+      console.log(insertData, 'INSERTSSS');
       // Insert the new item
       const insertedItems = await trx(this.tableName)
         .insert(insertData)

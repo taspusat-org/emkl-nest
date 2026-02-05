@@ -7,12 +7,7 @@ import { UtilsModule } from 'src/utils/utils.module';
 @Module({
   controllers: [EstimasiBiayaDetailBiayaController],
   providers: [EstimasiBiayaDetailBiayaService],
-  imports: [
-    LogtrailModule,
-    UtilsModule
-  ],
-  exports: [
-    EstimasiBiayaDetailBiayaService
-  ]
+  imports: [LogtrailModule, UtilsModule],
+  exports: [EstimasiBiayaDetailBiayaService],
 })
 export class EstimasiBiayaDetailBiayaModule {}

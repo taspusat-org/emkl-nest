@@ -8,9 +8,6 @@ import { UtilsModule } from 'src/utils/utils.module';
   controllers: [BiayaMuatanDetailController],
   providers: [BiayaMuatanDetailService],
   exports: [BiayaMuatanDetailService],
-  imports: [
-    LogtrailModule,
-    UtilsModule
-  ]
+  imports: [LogtrailModule, UtilsModule],
 })
 export class BiayaMuatanDetailModule {}

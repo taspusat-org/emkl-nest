@@ -18,6 +18,7 @@ export const SwaggerTagDescriptions = [
   },
   {
     name: 'Error',
-    description: 'Deskripsi dan keterangan untuk endpoint Error ditulis disini.',
+    description:
+      'Deskripsi dan keterangan untuk endpoint Error ditulis disini.',
   },
 ];

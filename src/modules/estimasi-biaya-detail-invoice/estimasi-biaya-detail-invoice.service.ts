@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateEstimasiBiayaDetailInvoiceDto } from './dto/create-estimasi-biaya-detail-invoice.dto';
 import { UpdateEstimasiBiayaDetailInvoiceDto } from './dto/update-estimasi-biaya-detail-invoice.dto';
 import { UtilsService } from 'src/utils/utils.service';
@@ -117,7 +121,10 @@ export class EstimasiBiayaDetailInvoiceService {
         .returning('*')
         .then((result: any) => result[0])
         .catch((error: any) => {
-          console.error('Error updated data estimasi biaya detail biaya:', error);
+          console.error(
+            'Error updated data estimasi biaya detail biaya:',
+            error,
+          );
           throw error;
         });
 
@@ -243,7 +250,7 @@ export class EstimasiBiayaDetailInvoiceService {
           'u.biayaemkl_id',
           'u.nominal',
           'p.nama as biayaemkl_nama',
-          'q.keterangan as link_nama'
+          'q.keterangan as link_nama',
         )
         .leftJoin('biayaemkl as p', 'u.biayaemkl_id', 'p.id')
         .leftJoin('hargatrucking as q', 'u.link_id', 'q.id')
@@ -297,12 +304,15 @@ export class EstimasiBiayaDetailInvoiceService {
 
       const result = await query;
       console.log('RESULT DETAIL BIAYA', result);
-      
+
       return {
         data: result,
       };
     } catch (error) {
-      console.error('Error to findAll estimasi biaya detail biaya in service', error);
+      console.error(
+        'Error to findAll estimasi biaya detail biaya in service',
+        error,
+      );
       throw new Error(error);
     }
   }
@@ -317,18 +327,23 @@ export class EstimasiBiayaDetailInvoiceService {
           'u.biayaemkl_id',
           'u.nominal',
           'biayaemkl.nama as biayaemkl_nama',
-          'hargatrucking.keterangan as link_nama'
+          'hargatrucking.keterangan as link_nama',
         ])
         .leftJoin('biayaemkl', 'u.biayaemkl_id', 'biayaemkl.id')
         .leftJoin('hargatrucking', 'u.link_id', 'hargatrucking.id')
         .where('u.estimasibiaya_id', id);
 
       const data = await query;
-      
-      return data
+
+      return data;
     } catch (error) {
-      console.error('Error fetching data estimasi biaya detail invoice by id:', error);
-      throw new Error('Failed to fetch data estimasi biaya detail invoice by id');
+      console.error(
+        'Error fetching data estimasi biaya detail invoice by id:',
+        error,
+      );
+      throw new Error(
+        'Failed to fetch data estimasi biaya detail invoice by id',
+      );
     }
   }
 
@@ -369,7 +384,10 @@ export class EstimasiBiayaDetailInvoiceService {
     }
   }
 
-  update(id: number, updateEstimasiBiayaDetailInvoiceDto: UpdateEstimasiBiayaDetailInvoiceDto) {
+  update(
+    id: number,
+    updateEstimasiBiayaDetailInvoiceDto: UpdateEstimasiBiayaDetailInvoiceDto,
+  ) {
     return `This action updates a #${id} estimasiBiayaDetailInvoice`;
   }
 }

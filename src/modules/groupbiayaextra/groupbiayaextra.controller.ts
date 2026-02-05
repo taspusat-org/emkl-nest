@@ -45,6 +45,7 @@ export class GroupbiayaextraController {
     private readonly GroupbiayaextraService: GroupbiayaextraService,
   ) {}
 
+  @UseGuards(AuthGuard)
   @Post()
   //@GROUPBIAYAEXTRA
   async create(
