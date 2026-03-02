@@ -669,6 +669,8 @@ export class PengeluaranheaderService {
               query.andWhere('b.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'coakredit_text') {
               query.andWhere('a.keterangancoa', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'bank_id') {
+              query.andWhere('b.id', '=', `${sanitizedValue}`);
             } else if (key === 'alatbayar_text') {
               query.andWhere('c.nama', 'like', `%${sanitizedValue}%`);
             } else if (key === 'daftarbank_text') {
