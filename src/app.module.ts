@@ -34,7 +34,6 @@ import { RabbitmqModule } from './modules/rabbitmq/rabbitmq.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RabbitmqService } from './modules/rabbitmq/rabbitmq.service';
 import { RabbitmqClientModule } from './modules/rabbitmq-client/rabbitmq-client.module';
-import { BotModule } from './modules/bot/bot.module';
 import { PengembaliankasgantungheaderModule } from './modules/pengembaliankasgantungheader/pengembaliankasgantungheader.module';
 import { PengembaliankasgantungdetailModule } from './modules/pengembaliankasgantungdetail/pengembaliankasgantungdetail.module';
 import { KasgantungheaderModule } from './modules/kasgantungheader/kasgantungheader.module';
@@ -139,6 +138,7 @@ import { EstimasiBiayaHeaderModule } from './modules/estimasi-biaya-header/estim
 import { EstimasiBiayaDetailInvoiceModule } from './modules/estimasi-biaya-detail-invoice/estimasi-biaya-detail-invoice.module';
 import { BiayaHeaderModule } from './modules/biaya-header/biaya-header.module';
 import { BiayaMuatanDetailModule } from './modules/biaya-muatan-detail/biaya-muatan-detail.module';
+import { AIModule } from './modules/ai/ai.module';
 
 @Module({
   imports: [
@@ -154,6 +154,7 @@ import { BiayaMuatanDetailModule } from './modules/biaya-muatan-detail/biaya-mua
     //     },
     //   ],
     // }),
+    AIModule,
     AuthModule,
     MailModule,
     AcosModule,
@@ -176,7 +177,6 @@ import { BiayaMuatanDetailModule } from './modules/biaya-muatan-detail/biaya-mua
     CabangModule,
     RabbitmqModule,
     RabbitmqClientModule,
-    BotModule,
     PengembaliankasgantungheaderModule,
     PengembaliankasgantungdetailModule,
     KasgantungheaderModule,
