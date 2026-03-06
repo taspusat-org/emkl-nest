@@ -8,13 +8,24 @@ import { CreateShipperDto } from './dto/create-shipper.dto';
 import { UpdateShipperDto } from './dto/update-shipper.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
-import { formatDateToSQL, UtilsService } from 'src/utils/utils.service';
+import {
+  calculateItemIndex,
+  extractFetchedPageData,
+  formatDateToSQL,
+  getFetchedPages,
+  splitDataByPages,
+  UtilsService,
+} from 'src/utils/utils.service';
 import { RedisService } from 'src/common/redis/redis.service';
 import { RelasiService } from '../relasi/relasi.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Workbook, Column } from 'exceljs';
+import * as dotenv from 'dotenv';
+
 import { StatuspendukungService } from '../statuspendukung/statuspendukung.service';
+dotenv.config();
+
 @Injectable()
 export class ShipperService {
   constructor(
@@ -44,6 +55,7 @@ export class ShipperService {
         parentshipper_text,
         ...insertData
       } = createShipperDto;
+      console.log('masukkkk22112');
       insertData.updated_at = this.utilsService.getTime();
       insertData.created_at = this.utilsService.getTime();
       insertData.tglemailshipperjobminus = formatDateToSQL(
@@ -58,7 +70,7 @@ export class ShipperService {
       });
 
       const insertedItems = await trx(this.tableName).insert(insertData);
-      const insertedData = await trx(this.tableName).orderBy('id', 'desc');
+      const newItem = await trx(this.tableName).orderBy('id', 'desc').first();
       const statusRelasi = await trx('parameter')
         .select('*')
         .where('grp', 'STATUS RELASI')
@@ -76,9 +88,9 @@ export class ShipperService {
         statusaktif: insertData.statusaktif,
         modifiedby: insertData.modifiedby,
       };
+
       const dataRelasi = await this.relasiService.create(relasi, trx);
 
-      const newItem = insertedData[0];
       await trx(this.tableName)
         .update({
           relasi_id: Number(dataRelasi.id),
@@ -93,30 +105,78 @@ export class ShipperService {
         trx,
       );
 
-      const { data, pagination } = await this.findAll(
+      let posisi = 0;
+      let totalItems = 0;
+      const LastId = await trx(this.tableName)
+        .select('id')
+        .orderBy('id', 'desc')
+        .first();
+      const resultposition = await trx('vtemp')
+        .count('* as posisi')
+        .where(
+          sortBy,
+          sortDirection === 'desc' ? '>=' : '<=',
+          insertData[sortBy],
+        )
+        .where('id', '<=', LastId?.id)
+        .first();
+      const totalRecords = await trx(this.tableName)
+        .count('id as total')
+        .first();
+      totalItems = totalRecords?.total || 0;
+
+      posisi = resultposition?.posisi || 0;
+      const pageNumber = Math.ceil(posisi / limit);
+      const totalPages = Math.ceil(totalItems / limit);
+
+      const fetchedPages = getFetchedPages(pageNumber, totalPages);
+
+      // ========== SOLUSI BARU: SINGLE QUERY dengan custom offset ==========
+
+      // Hitung range page
+      const startPage = fetchedPages[0];
+      const endPage = fetchedPages[fetchedPages.length - 1];
+
+      // Hitung offset dan total data yang dibutuhkan
+      const customOffset = (startPage - 1) * limit;
+      const totalDataNeeded = (endPage - startPage + 1) * limit;
+
+      // FETCH SEKALI SAJA dengan custom offset
+      const result = await this.findAll(
         {
-          search,
-          filters,
-          pagination: { page, limit: 0 },
-          sort: { sortBy, sortDirection },
+          search: search || '',
+          filters: filters || {},
+          pagination: {
+            page: startPage, // page tidak dipakai karena useCustomOffset = true
+            limit: totalDataNeeded, // ambil total data yang dibutuhkan
+            customOffset: customOffset, // offset manual
+          },
+          sort: {
+            sortBy: sortBy,
+            sortDirection: sortDirection.toLowerCase(),
+          },
           isLookUp: false,
+          useCustomOffset: true, // flag untuk pakai custom offset
         },
         trx,
       );
-      let itemIndex = data.findIndex(
-        (item) => Number(item.id) === Number(newItem.id),
-      );
-      if (itemIndex === -1) {
-        itemIndex = 0;
-      }
+      console.log('result', result);
+      const allFetchedData = result?.data;
+      // Split data ke pages di memory (sangat cepat!)
+      const pagedData = {};
+      let dataIndex = 0;
 
-      const pageNumber = Math.floor(itemIndex / limit) + 1;
+      fetchedPages.forEach((pageNum) => {
+        const pageStartIndex = dataIndex;
+        const pageEndIndex = dataIndex + limit;
+        pagedData[pageNum] = allFetchedData.slice(pageStartIndex, pageEndIndex);
+        dataIndex += limit;
+      });
 
-      await this.redisService.set(
-        `${this.tableName}-allItems`,
-        JSON.stringify(data),
-      );
+      // Hitung item index
+      const itemIndex = calculateItemIndex(Number(posisi), fetchedPages, limit);
 
+      // Log trail
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
@@ -130,714 +190,222 @@ export class ShipperService {
         trx,
       );
 
+      // Cache data per page ke Redis
+      await this.redisService.set(
+        `${this.tableName}-page-${pageNumber}`,
+        JSON.stringify(allFetchedData),
+      );
       return {
         newItem,
+        itemIndex: itemIndex.zeroBasedIndex,
         pageNumber,
-        itemIndex,
+        fetchedPages,
+        pagedData,
       };
     } catch (error) {
       throw new Error(`Error creating SHIPPER: ${error.message}`);
     }
   }
-
   async findAll(
-    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+    {
+      search,
+      filters,
+      pagination,
+      sort,
+      isLookUp,
+      useCustomOffset,
+    }: FindAllParams,
     trx: any,
   ) {
     try {
-      let { page, limit } = pagination ?? {};
-      page = page ?? 1;
-      limit = 0;
+      const { page = 1, limit = 0, customOffset } = pagination ?? {};
 
-      const pvtFields = [
-        'statustidakasuransi',
-        'asuransi_tas',
-        'top_field',
-        'open_field',
-        'bongkaran',
-        'delivery_report',
-        'final_asuransi_bulan',
-        'job_banyak_invoice',
-        'job_pajak',
-        'cetak_keterangan_shipper',
-        'fumigasi',
-        'adjust_tagih_warkat',
-        'job_non_ppn',
-        'approval_pajakp_pisah_ongkos',
-        'decimal_invoice',
-        'reimbursement',
-        'not_invoice_tambahan',
-        'invoice_jasa_pengurusan_transportasi',
-        'not_ucase_shipper',
-        'shipper_sttb',
-        'shipper_cabang',
-        'spk',
-        'ppn_warkat_eksport',
-        'ppn_11',
-        'non_prospek',
-        'info_delay',
-        'job_minus',
-        'shipper_sendiri',
-        'wajib_invoice_sebelum_biaya',
-        'tanpa_nik_npwp',
-        'pusat',
-        'app_saldo_piutang',
-        'nama_paraf',
-        'not_order_trucking',
-        'passport',
-        'ppn_kunci',
-        'approval_shipper_job_minus',
-        'approval_top',
-        'blacklist_shipper',
-        'non_lapor_pajak',
-        'shipper_potongan',
-        'shipper_tidak_tagih_invoice_utama',
-        'not_tampil_web',
-        'not_free_admin',
-        'non_reimbursement',
-        'app_cetak_invoice_lain',
-        'lewat_hitung_ulang_ppn',
-        'online',
-        'keterangan_buruh',
-        'edit_keterangan_invoice_utama',
-        'tampil_keterangan_tambahan_sttb',
-        'update_ppn_shiper_khusus',
-        'shipper_rincian',
-        'national_id',
-        'refdesc_po',
-      ];
+      // Helper function untuk apply filters yang sama
+      const applyFilters = (query: any) => {
+        // Apply search filter
+        if (search && search.trim()) {
+          const sanitizedSearch = String(search)
+            .replace(/[[\]%_]/g, '[$&]')
+            .trim();
 
-      const dataTempStatusPendukung = await this.tempStatusPendukung(
-        trx,
-        this.tableName,
-      );
+          query.where((qb) => {
+            // Search semua kolom text
+            qb.orWhere('s.nama', 'like', `%${sanitizedSearch}%`)
+              .orWhere('s.keterangan', 'like', `%${sanitizedSearch}%`)
+              .orWhere('s.contactperson', 'like', `%${sanitizedSearch}%`)
+              .orWhere('s.alamat', 'like', `%${sanitizedSearch}%`)
+              .orWhere('s.kota', 'like', `%${sanitizedSearch}%`)
+              .orWhere('s.kodepos', 'like', `%${sanitizedSearch}%`)
+              .orWhere('s.telp', 'like', `%${sanitizedSearch}%`)
+              .orWhere('s.email', 'like', `%${sanitizedSearch}%`)
+              .orWhere('s.npwp', 'like', `%${sanitizedSearch}%`)
+              .orWhere('s.grup', 'like', `%${sanitizedSearch}%`)
+              .orWhere('s.initial', 'like', `%${sanitizedSearch}%`)
+              .orWhere('s.tipe', 'like', `%${sanitizedSearch}%`);
 
-      // console.log(await trx(dataTempStatusPendukung).select('*'), 'TES');
-      const query = trx
-        .from(trx.raw(`${this.tableName} as s WITH (READUNCOMMITTED)`))
-        .select([
-          's.id',
-          's.statusrelasi',
-          's.relasi_id',
-          's.nama',
-          's.keterangan',
-          's.contactperson',
-          's.alamat',
-          's.coa',
-          's.coapiutang',
-          's.coahutang',
-          's.kota',
-          's.kodepos',
-          's.telp',
-          's.email',
-          's.fax',
-          's.web',
-          's.creditlimit',
-          's.creditterm',
-          's.credittermplus',
-          's.npwp',
-          's.coagiro',
-          's.ppn',
-          's.titipke',
-          's.ppnbatalmuat',
-          's.grup',
-          's.formatdeliveryreport',
-          's.comodity',
-          's.namashippercetak',
-          's.formatcetak',
-          's.marketing_id',
-          's.blok',
-          's.nomor',
-          's.rt',
-          's.rw',
-          's.kelurahan',
-          's.kabupaten',
-          's.kecamatan',
-          's.propinsi',
-          's.isdpp10psn',
-          's.usertracing',
-          's.passwordtracing',
-          's.kodeprospek',
-          's.namashipperprospek',
-          's.emaildelay',
-          's.keterangan1barisinvoice',
-          's.nik',
-          's.namaparaf',
-          's.saldopiutang',
-          's.keteranganshipperjobminus',
-          trx.raw(
-            "FORMAT(s.tglemailshipperjobminus, 'dd-MM-yyyy') as tglemailshipperjobminus",
-          ),
-          trx.raw("FORMAT(s.tgllahir, 'dd-MM-yyyy') as tgllahir"),
-          's.idshipperasal',
-          's.initial',
-          's.tipe',
-          's.idtipe',
-          's.idinitial',
-          's.nshipperprospek',
-          's.parentshipper_id',
-          's.npwpnik',
-          's.nitku',
-          's.kodepajak',
-          's.statusaktif',
-          's.info',
-          's.modifiedby',
-          trx.raw("FORMAT(s.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-          trx.raw("FORMAT(s.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          'p.memo',
-          'p.text',
-          'q.keterangancoa as coa_text',
-          'q2.keterangancoa as coapiutang_text',
-          'q3.keterangancoa as coahutang_text',
-          'q4.keterangancoa as coagiro_text',
-          's1.nama as shipperasal_text',
-          's2.nama as parentshipper_text',
-          'm.nama as marketing_text',
+            // Search pada kolom tanggal
+            qb.orWhereRaw("FORMAT(s.tgllahir, 'dd-MM-yyyy') like ?", [
+              `%${sanitizedSearch}%`,
+            ])
+              .orWhereRaw(
+                "FORMAT(s.created_at, 'dd-MM-yyyy HH:mm:ss') like ?",
+                [`%${sanitizedSearch}%`],
+              )
+              .orWhereRaw(
+                "FORMAT(s.updated_at, 'dd-MM-yyyy HH:mm:ss') like ?",
+                [`%${sanitizedSearch}%`],
+              );
 
-          'pvt.statustidakasuransi as statustidakasuransi',
-          'pvt.statustidakasuransi_nama as statustidakasuransi_nama',
-          'pvt.statustidakasuransi_memo as statustidakasuransi_memo',
-
-          'pvt.asuransi_tas as asuransi_tas',
-          'pvt.asuransi_tas_nama as asuransi_tas_nama',
-          'pvt.asuransi_tas_memo as asuransi_tas_memo',
-
-          'pvt.top_field as top_field',
-          'pvt.top_field_nama as top_field_nama',
-          'pvt.top_field_memo as top_field_memo',
-
-          'pvt.open_field as open_field',
-          'pvt.open_field_nama as open_field_nama',
-          'pvt.open_field_memo as open_field_memo',
-
-          'pvt.bongkaran as bongkaran',
-          'pvt.bongkaran_nama as bongkaran_nama',
-          'pvt.bongkaran_memo as bongkaran_memo',
-
-          'pvt.delivery_report as delivery_report',
-          'pvt.delivery_report_nama as delivery_report_nama',
-          'pvt.delivery_report_memo as delivery_report_memo',
-
-          'pvt.final_asuransi_bulan as final_asuransi_bulan',
-          'pvt.final_asuransi_bulan_nama as final_asuransi_bulan_nama',
-          'pvt.final_asuransi_bulan_memo as final_asuransi_bulan_memo',
-
-          'pvt.job_banyak_invoice as job_banyak_invoice',
-          'pvt.job_banyak_invoice_nama as job_banyak_invoice_nama',
-          'pvt.job_banyak_invoice_memo as job_banyak_invoice_memo',
-
-          'pvt.job_pajak as job_pajak',
-          'pvt.job_pajak_nama as job_pajak_nama',
-          'pvt.job_pajak_memo as job_pajak_memo',
-
-          'pvt.cetak_keterangan_shipper as cetak_keterangan_shipper',
-          'pvt.cetak_keterangan_shipper_nama as cetak_keterangan_shipper_nama',
-          'pvt.cetak_keterangan_shipper_memo as cetak_keterangan_shipper_memo',
-
-          'pvt.fumigasi as fumigasi',
-          'pvt.fumigasi_nama as fumigasi_nama',
-          'pvt.fumigasi_memo as fumigasi_memo',
-
-          'pvt.adjust_tagih_warkat as adjust_tagih_warkat',
-          'pvt.adjust_tagih_warkat_nama as adjust_tagih_warkat_nama',
-          'pvt.adjust_tagih_warkat_memo as adjust_tagih_warkat_memo',
-
-          'pvt.job_non_ppn as job_non_ppn',
-          'pvt.job_non_ppn_nama as job_non_ppn_nama',
-          'pvt.job_non_ppn_memo as job_non_ppn_memo',
-
-          'pvt.approval_pajakp_pisah_ongkos as approval_pajakp_pisah_ongkos',
-          'pvt.approval_pajakp_pisah_ongkos_nama as approval_pajakp_pisah_ongkos_nama',
-          'pvt.approval_pajakp_pisah_ongkos_memo as approval_pajakp_pisah_ongkos_memo',
-
-          'pvt.decimal_invoice as decimal_invoice',
-          'pvt.decimal_invoice_nama as decimal_invoice_nama',
-          'pvt.decimal_invoice_memo as decimal_invoice_memo',
-
-          'pvt.reimbursement as reimbursement',
-          'pvt.reimbursement_nama as reimbursement_nama',
-          'pvt.reimbursement_memo as reimbursement_memo',
-
-          'pvt.not_invoice_tambahan as not_invoice_tambahan',
-          'pvt.not_invoice_tambahan_nama as not_invoice_tambahan_nama',
-          'pvt.not_invoice_tambahan_memo as not_invoice_tambahan_memo',
-
-          'pvt.invoice_jasa_pengurusan_transportasi as invoice_jasa_pengurusan_transportasi',
-          'pvt.invoice_jasa_pengurusan_transportasi_nama as invoice_jasa_pengurusan_transportasi_nama',
-          'pvt.invoice_jasa_pengurusan_transportasi_memo as invoice_jasa_pengurusan_transportasi_memo',
-
-          'pvt.not_ucase_shipper as not_ucase_shipper',
-          'pvt.not_ucase_shipper_nama as not_ucase_shipper_nama',
-          'pvt.not_ucase_shipper_memo as not_ucase_shipper_memo',
-
-          'pvt.shipper_sttb as shipper_sttb',
-          'pvt.shipper_sttb_nama as shipper_sttb_nama',
-          'pvt.shipper_sttb_memo as shipper_sttb_memo',
-
-          'pvt.shipper_cabang as shipper_cabang',
-          'pvt.shipper_cabang_nama as shipper_cabang_nama',
-          'pvt.shipper_cabang_memo as shipper_cabang_memo',
-
-          'pvt.spk as spk',
-          'pvt.spk_nama as spk_nama',
-          'pvt.spk_memo as spk_memo',
-
-          'pvt.ppn_warkat_eksport as ppn_warkat_eksport',
-          'pvt.ppn_warkat_eksport_nama as ppn_warkat_eksport_nama',
-          'pvt.ppn_warkat_eksport_memo as ppn_warkat_eksport_memo',
-
-          'pvt.ppn_11 as ppn_11',
-          'pvt.ppn_11_nama as ppn_11_nama',
-          'pvt.ppn_11_memo as ppn_11_memo',
-
-          'pvt.non_prospek as non_prospek',
-          'pvt.non_prospek_nama as non_prospek_nama',
-          'pvt.non_prospek_memo as non_prospek_memo',
-
-          'pvt.info_delay as info_delay',
-          'pvt.info_delay_nama as info_delay_nama',
-          'pvt.info_delay_memo as info_delay_memo',
-
-          'pvt.job_minus as job_minus',
-          'pvt.job_minus_nama as job_minus_nama',
-          'pvt.job_minus_memo as job_minus_memo',
-
-          'pvt.shipper_sendiri as shipper_sendiri',
-          'pvt.shipper_sendiri_nama as shipper_sendiri_nama',
-          'pvt.shipper_sendiri_memo as shipper_sendiri_memo',
-
-          'pvt.wajib_invoice_sebelum_biaya as wajib_invoice_sebelum_biaya',
-          'pvt.wajib_invoice_sebelum_biaya_nama as wajib_invoice_sebelum_biaya_nama',
-          'pvt.wajib_invoice_sebelum_biaya_memo as wajib_invoice_sebelum_biaya_memo',
-
-          'pvt.tanpa_nik_npwp as tanpa_nik_npwp',
-          'pvt.tanpa_nik_npwp_nama as tanpa_nik_npwp_nama',
-          'pvt.tanpa_nik_npwp_memo as tanpa_nik_npwp_memo',
-
-          'pvt.pusat as pusat',
-          'pvt.pusat_nama as pusat_nama',
-          'pvt.pusat_memo as pusat_memo',
-
-          'pvt.app_saldo_piutang as app_saldo_piutang',
-          'pvt.app_saldo_piutang_nama as app_saldo_piutang_nama',
-          'pvt.app_saldo_piutang_memo as app_saldo_piutang_memo',
-
-          'pvt.nama_paraf as nama_paraf',
-          'pvt.nama_paraf_nama as nama_paraf_nama',
-          'pvt.nama_paraf_memo as nama_paraf_memo',
-
-          'pvt.not_order_trucking as not_order_trucking',
-          'pvt.not_order_trucking_nama as not_order_trucking_nama',
-          'pvt.not_order_trucking_memo as not_order_trucking_memo',
-
-          'pvt.passport as passport',
-          'pvt.passport_nama as passport_nama',
-          'pvt.passport_memo as passport_memo',
-
-          'pvt.ppn_kunci as ppn_kunci',
-          'pvt.ppn_kunci_nama as ppn_kunci_nama',
-          'pvt.ppn_kunci_memo as ppn_kunci_memo',
-
-          'pvt.approval_shipper_job_minus as approval_shipper_job_minus',
-          'pvt.approval_shipper_job_minus_nama as approval_shipper_job_minus_nama',
-          'pvt.approval_shipper_job_minus_memo as approval_shipper_job_minus_memo',
-
-          'pvt.approval_top as approval_top',
-          'pvt.approval_top_nama as approval_top_nama',
-          'pvt.approval_top_memo as approval_top_memo',
-
-          'pvt.blacklist_shipper as blacklist_shipper',
-          'pvt.blacklist_shipper_nama as blacklist_shipper_nama',
-          'pvt.blacklist_shipper_memo as blacklist_shipper_memo',
-
-          'pvt.non_lapor_pajak as non_lapor_pajak',
-          'pvt.non_lapor_pajak_nama as non_lapor_pajak_nama',
-          'pvt.non_lapor_pajak_memo as non_lapor_pajak_memo',
-
-          'pvt.shipper_potongan as shipper_potongan',
-          'pvt.shipper_potongan_nama as shipper_potongan_nama',
-          'pvt.shipper_potongan_memo as shipper_potongan_memo',
-
-          'pvt.shipper_tidak_tagih_invoice_utama as shipper_tidak_tagih_invoice_utama',
-          'pvt.shipper_tidak_tagih_invoice_utama_nama as shipper_tidak_tagih_invoice_utama_nama',
-          'pvt.shipper_tidak_tagih_invoice_utama_memo as shipper_tidak_tagih_invoice_utama_memo',
-
-          'pvt.not_tampil_web as not_tampil_web',
-          'pvt.not_tampil_web_nama as not_tampil_web_nama',
-          'pvt.not_tampil_web_memo as not_tampil_web_memo',
-
-          'pvt.not_free_admin as not_free_admin',
-          'pvt.not_free_admin_nama as not_free_admin_nama',
-          'pvt.not_free_admin_memo as not_free_admin_memo',
-
-          'pvt.non_reimbursement as non_reimbursement',
-          'pvt.non_reimbursement_nama as non_reimbursement_nama',
-          'pvt.non_reimbursement_memo as non_reimbursement_memo',
-
-          'pvt.app_cetak_invoice_lain as app_cetak_invoice_lain',
-          'pvt.app_cetak_invoice_lain_nama as app_cetak_invoice_lain_nama',
-          'pvt.app_cetak_invoice_lain_memo as app_cetak_invoice_lain_memo',
-
-          'pvt.lewat_hitung_ulang_ppn as lewat_hitung_ulang_ppn',
-          'pvt.lewat_hitung_ulang_ppn_nama as lewat_hitung_ulang_ppn_nama',
-          'pvt.lewat_hitung_ulang_ppn_memo as lewat_hitung_ulang_ppn_memo',
-
-          'pvt.online as online',
-          'pvt.online_nama as online_nama',
-          'pvt.online_memo as online_memo',
-
-          'pvt.keterangan_buruh as keterangan_buruh',
-          'pvt.keterangan_buruh_nama as keterangan_buruh_nama',
-          'pvt.keterangan_buruh_memo as keterangan_buruh_memo',
-
-          'pvt.edit_keterangan_invoice_utama as edit_keterangan_invoice_utama',
-          'pvt.edit_keterangan_invoice_utama_nama as edit_keterangan_invoice_utama_nama',
-          'pvt.edit_keterangan_invoice_utama_memo as edit_keterangan_invoice_utama_memo',
-
-          'pvt.tampil_keterangan_tambahan_sttb as tampil_keterangan_tambahan_sttb',
-          'pvt.tampil_keterangan_tambahan_sttb_nama as tampil_keterangan_tambahan_sttb_nama',
-          'pvt.tampil_keterangan_tambahan_sttb_memo as tampil_keterangan_tambahan_sttb_memo',
-
-          'pvt.update_ppn_shiper_khusus as update_ppn_shiper_khusus',
-          'pvt.update_ppn_shiper_khusus_nama as update_ppn_shiper_khusus_nama',
-          'pvt.update_ppn_shiper_khusus_memo as update_ppn_shiper_khusus_memo',
-
-          'pvt.shipper_rincian as shipper_rincian',
-          'pvt.shipper_rincian_nama as shipper_rincian_nama',
-          'pvt.shipper_rincian_memo as shipper_rincian_memo',
-
-          'pvt.national_id as national_id',
-          'pvt.national_id_nama as national_id_nama',
-          'pvt.national_id_memo as national_id_memo',
-
-          'pvt.refdesc_po as refdesc_po',
-          'pvt.refdesc_po_nama as refdesc_po_nama',
-          'pvt.refdesc_po_memo as refdesc_po_memo',
-        ])
-        .leftJoin(
-          trx.raw('parameter as p WITH (READUNCOMMITTED)'),
-          's.statusaktif',
-          'p.id',
-        )
-        .leftJoin(
-          trx.raw('akunpusat as q WITH (READUNCOMMITTED)'),
-          's.coa',
-          'q.coa',
-        )
-        .leftJoin(
-          trx.raw('akunpusat as q2 WITH (READUNCOMMITTED)'),
-          's.coapiutang',
-          'q2.coa',
-        )
-        .leftJoin(
-          trx.raw('akunpusat as q3 WITH (READUNCOMMITTED)'),
-          's.coahutang',
-          'q3.coa',
-        )
-        .leftJoin(
-          trx.raw('akunpusat as q4 WITH (READUNCOMMITTED)'),
-          's.coagiro',
-          'q4.coa',
-        )
-        .leftJoin(
-          trx.raw('shipper as s1 WITH (READUNCOMMITTED)'),
-          's.idshipperasal',
-          's1.id',
-        )
-        .leftJoin(
-          trx.raw('shipper as s2 WITH (READUNCOMMITTED)'),
-          's.parentshipper_id',
-          's2.id',
-        )
-        .leftJoin(
-          trx.raw('marketing as m WITH (READUNCOMMITTED)'),
-          's.marketing_id',
-          'm.id',
-        )
-        .leftJoin(`${dataTempStatusPendukung} as pvt`, 's.id', 'pvt.id');
-
-      const pvtCols = [
-        'statustidakasuransi',
-        'asuransi_tas',
-        'top_field',
-        'open_field',
-        'bongkaran',
-        'delivery_report',
-        'final_asuransi_bulan',
-        'job_banyak_invoice',
-        'job_pajak',
-        'cetak_keterangan_shipper',
-        'fumigasi',
-        'adjust_tagih_warkat',
-        'job_non_ppn',
-        'approval_pajakp_pisah_ongkos',
-        'decimal_invoice',
-        'reimbursement',
-        'not_invoice_tambahan',
-        'invoice_jasa_pengurusan_transportasi',
-        'not_ucase_shipper',
-        'shipper_sttb',
-        'shipper_cabang',
-        'spk',
-        'ppn_warkat_eksport',
-        'ppn_11',
-        'non_prospek',
-        'info_delay',
-        'job_minus',
-        'shipper_sendiri',
-        'wajib_invoice_sebelum_biaya',
-        'tanpa_nik_npwp',
-        'pusat',
-        'app_saldo_piutang',
-        'nama_paraf',
-        'not_order_trucking',
-        'passport',
-        'ppn_kunci',
-        'approval_shipper_job_minus',
-        'approval_top',
-        'blacklist_shipper',
-        'non_lapor_pajak',
-        'shipper_potongan',
-        'shipper_tidak_tagih_invoice_utama',
-        'not_tampil_web',
-        'not_free_admin',
-        'non_reimbursement',
-        'app_cetak_invoice_lain',
-        'lewat_hitung_ulang_ppn',
-        'online',
-        'keterangan_buruh',
-        'edit_keterangan_invoice_utama',
-        'tampil_keterangan_tambahan_sttb',
-        'update_ppn_shiper_khusus',
-        'shipper_rincian',
-        'national_id',
-        'refdesc_po',
-      ];
-      const excludeSearchKeys = [
-        'statusrelasi',
-        'relasi_id',
-        'coa',
-        'coapiutang',
-        'coahutang',
-        'coagiro',
-        'statusaktif',
-        'marketing_id',
-        'idshipperasal',
-        'parentshipper_id',
-        'idtipe',
-        'idinitial',
-      ];
-      const searchFields = Object.keys(filters || {}).filter(
-        (k) => !excludeSearchKeys.includes(k),
-      );
-
-      if (limit > 0) {
-        const offset = (page - 1) * limit;
-        query.limit(limit).offset(offset);
-      }
-
-      if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
-
-        query.where((qb) => {
-          searchFields.forEach((field) => {
-            if (['created_at', 'updated_at'].includes(field)) {
-              qb.orWhereRaw("FORMAT(s.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
-                field,
-                `%${sanitizedValue}%`,
-              ]);
-            } else if (
-              ['tgllahir', 'tglemailshipperjobminus'].includes(field)
-            ) {
-              qb.orWhereRaw("FORMAT(s.??, 'dd-MM-yyyy') like ?", [
-                field,
-                `%${sanitizedValue}%`,
-              ]);
-            } else if (field === 'memo' || field === 'text') {
-              qb.orWhere(`p.${field}`, 'like', `%${sanitizedValue}%`);
-            } else if (field === 'coa_text') {
-              qb.orWhere('q.keterangancoa', 'like', `%${sanitizedValue}%`);
-            } else if (field === 'coapiutang_text') {
-              qb.orWhere('q2.keterangancoa', 'like', `%${sanitizedValue}%`);
-            } else if (field === 'coahutang_text') {
-              qb.orWhere('q3.keterangancoa', 'like', `%${sanitizedValue}%`);
-            } else if (field === 'coagiro_text') {
-              qb.orWhere('q4.keterangancoa', 'like', `%${sanitizedValue}%`);
-            } else if (field === 'shipperasal_text') {
-              qb.orWhere('s1.nama', 'like', `%${sanitizedValue}%`);
-            } else if (field === 'parentshipper_text') {
-              qb.orWhere('s2.nama', 'like', `%${sanitizedValue}%`);
-            } else if (field === 'marketing_text') {
-              qb.orWhere('m.nama', 'like', `%${sanitizedValue}%`);
-            } else if (field.endsWith('_nama') || field.endsWith('_memo')) {
-              const baseField = field.replace(/_nama$|_memo$/, '');
-              if (pvtCols.includes(baseField)) {
-                qb.orWhere(`pvt.${field}`, 'like', `%${sanitizedValue}%`);
-              }
-            } else if (pvtCols.includes(field)) {
-              qb.orWhere(`pvt.${field}`, 'like', `%${sanitizedValue}%`);
-              qb.orWhere(`pvt.${field}_nama`, 'like', `%${sanitizedValue}%`);
-              qb.orWhere(`pvt.${field}_memo`, 'like', `%${sanitizedValue}%`);
-            } else {
-              qb.orWhere(`s.${field}`, 'like', `%${sanitizedValue}%`);
+            // Search pada kolom numerik jika search berupa angka
+            const numericSearch = Number(sanitizedSearch);
+            if (!isNaN(numericSearch)) {
+              qb.orWhere('s.id', numericSearch)
+                .orWhere('s.coa', numericSearch)
+                .orWhere('s.marketing_id', numericSearch);
             }
           });
-        });
-      }
-
-      // --- FILTER ---
-      if (filters) {
-        for (const [key, rawValue] of Object.entries(filters)) {
-          if (!rawValue) continue;
-          const val = `%${String(rawValue)}%`;
-
-          const base = key.replace(/(_nama|_memo)$/, '');
-          const isPivot = pvtCols.includes(base);
-
-          if (key === 'coa_text') {
-            query.andWhere('q.keterangancoa', 'like', `%${val}%`);
-          } else if (key === 'coapiutang_text') {
-            query.andWhere('q2.keterangancoa', 'like', `%${val}%`);
-          } else if (key === 'coahutang_text') {
-            query.andWhere('q3.keterangancoa', 'like', `%${val}%`);
-          } else if (key === 'coagiro_text') {
-            query.andWhere('q4.keterangancoa', 'like', `%${val}%`);
-          } else if (key === 'shipperasal_text') {
-            query.andWhere('s.nama', 'like', `%${val}%`);
-          } else if (key === 'parentshipper_text') {
-            query.andWhere('s2.nama', 'like', `%${val}%`);
-          } else if (key === 'marketing_text') {
-            query.andWhere('m.nama', 'like', `%${val}%`);
-          } else if (
-            [
-              'created_at',
-              'updated_at',
-              'tgllahir',
-              'tglemailshipperjobminus',
-            ].includes(key)
-          ) {
-            query.andWhereRaw("FORMAT(s.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
-              key,
-              `%${val}%`,
-            ]);
-          } else if (
-            [
-              'nama',
-              'keterangan',
-              'contactperson',
-              'alamat',
-              'kota',
-              'kodepos',
-              'telp',
-              'email',
-              'fax',
-              'web',
-              'npwp',
-              'grup',
-              'comodity',
-              'namashippercetak',
-              'formatcetak',
-              'blok',
-              'nomor',
-              'titipke',
-              'rt',
-              'rw',
-              'kelurahan',
-              'kabupaten',
-              'kecamatan',
-              'propinsi',
-              'usertracing',
-              'passwordtracing',
-              'kodeprospek',
-              'nshipperprospek',
-              'emaildelay',
-              'keterangan1barisinvoice',
-              'nik',
-              'namaparaf',
-              'keteranganshipperjobminus',
-              'initial',
-              'tipe',
-              'npwpnik',
-              'nitku',
-              'kodepajak',
-              'info',
-              'modifiedby',
-            ].includes(key)
-          ) {
-            query.andWhere(`s.${key}`, 'like', `%${val}%`);
-          } else if (
-            [
-              'id',
-              'statusrelasi',
-              'relasi_id',
-              'coa',
-              'coapiutang',
-              'coahutang',
-              'creditlimit',
-              'creditterm',
-              'credittermplus',
-              'coagiro',
-              'ppn',
-              'ppnbatalmuat',
-              'formatdeliveryreport',
-              'marketing_id',
-              'isdpp10psn',
-              'saldopiutang',
-              'idshipperasal',
-              'idtipe',
-              'idinitial',
-              'parentshipper_id',
-              'statusaktif',
-            ].includes(key)
-          ) {
-            const num = Number(rawValue);
-            if (!isNaN(num)) {
-              query.andWhere(`s.${key}`, num);
-            }
-          } else if (isPivot) {
-            if (key.endsWith('_nama')) {
-              query.andWhere(`pvt.${base}`, 'like', val);
-            } else {
-              query.andWhere(`pvt.${base}`, 'like', val);
-            }
-          } else {
-            query.andWhere(`s.${key}`, 'like', val);
-          }
         }
-      }
 
-      // --- SORT ---
-      if (sort?.sortBy && sort?.sortDirection) {
-        const { sortBy, sortDirection } = sort;
-        const base = sortBy.replace(/(_nama|_memo)$/, '');
-        const isPivot = pvtCols.includes(base) || pvtCols.includes(sortBy);
+        // Apply filters
+        if (filters && Object.keys(filters).length > 0) {
+          Object.entries(filters).forEach(([key, rawValue]) => {
+            if (
+              rawValue === null ||
+              rawValue === undefined ||
+              rawValue === ''
+            ) {
+              return;
+            }
 
-        if (isPivot) {
-          if (pvtCols.includes(sortBy)) {
-            query.orderBy(`pvt.${sortBy}`, sortDirection);
-          } else if (sortBy.endsWith('_nama')) {
-            query.orderBy(`pvt.${base}_nama`, sortDirection);
-          } else if (sortBy.endsWith('_memo')) {
-            query.orderBy(`pvt.${base}_memo`, sortDirection);
-          } else {
-            query.orderBy(`pvt.${base}`, sortDirection);
-          }
-        } else {
-          query.orderBy(sort.sortBy, sort.sortDirection);
+            const sanitizedValue = String(rawValue).replace(/[[\]%_]/g, '[$&]');
+
+            // Cek apakah kolom tanggal
+            if (['tgllahir', 'tglemailshipperjobminus'].includes(key)) {
+              query.andWhereRaw("FORMAT(s.??, 'dd-MM-yyyy') like ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
+            }
+            // Cek apakah kolom timestamp
+            else if (['created_at', 'updated_at'].includes(key)) {
+              query.andWhereRaw("FORMAT(s.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
+            }
+            // Cek apakah kolom numerik
+            else {
+              const numValue = Number(rawValue);
+              if (!isNaN(numValue) && /^\d+$/.test(String(rawValue).trim())) {
+                query.andWhere(`s.${key}`, numValue);
+              } else {
+                query.andWhere(`s.${key}`, 'like', `%${sanitizedValue}%`);
+              }
+            }
+          });
         }
+
+        return query;
+      };
+
+      // Determine sort column and direction
+      const sortBy = sort?.sortBy || 'creditlimit';
+      const sortDirection =
+        sort?.sortDirection?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+      // Count query untuk total records
+      const countQuery = trx('shipper as s');
+      applyFilters(countQuery);
+      const countResult = await countQuery.count('s.id as total').first();
+      const total = Number(countResult?.total || 0);
+
+      const query = trx('vshippertest as s').select([
+        's.id',
+        's.statusrelasi',
+        's.relasi_id',
+        's.nama',
+        's.keterangan',
+        's.contactperson',
+        's.alamat',
+        's.coa',
+        's.coapiutang',
+        's.coahutang',
+        's.kota',
+        's.kodepos',
+        's.telp',
+        's.email',
+        's.fax',
+        's.web',
+        's.creditlimit',
+        's.creditterm',
+        's.credittermplus',
+        's.npwp',
+        's.coagiro',
+        's.ppn',
+        's.titipke',
+        's.ppnbatalmuat',
+        's.grup',
+        's.formatdeliveryreport',
+        's.comodity',
+        's.namashippercetak',
+        's.formatcetak',
+        's.marketing_id',
+        's.blok',
+        's.nomor',
+        's.rt',
+        's.rw',
+        's.kelurahan',
+        's.kabupaten',
+        's.kecamatan',
+        's.propinsi',
+        's.isdpp10psn',
+        's.usertracing',
+        's.passwordtracing',
+        's.kodeprospek',
+        's.namashipperprospek',
+        's.emaildelay',
+        's.keterangan1barisinvoice',
+        's.nik',
+        's.namaparaf',
+        's.saldopiutang',
+        's.keteranganshipperjobminus',
+        's.tglemailshipperjobminus',
+        's.tgllahir',
+        's.idshipperasal',
+        's.initial',
+        's.tipe',
+        's.idtipe',
+        's.idinitial',
+        's.nshipperprospek',
+        's.parentshipper_id',
+        's.npwpnik',
+        's.nitku',
+        's.kodepajak',
+        's.statusaktif',
+        's.info',
+        's.modifiedby',
+        's.created_at',
+        's.updated_at',
+      ]);
+
+      applyFilters(query);
+      query.orderBy(`s.${sortBy}`, sortDirection);
+      if (sortBy !== 'id') {
+        query.orderBy('s.id', 'asc');
       }
 
-      // Pagination
+      const offset =
+        useCustomOffset === true && customOffset !== undefined
+          ? customOffset
+          : (page - 1) * limit;
+
       if (limit > 0) {
-        const offset = (page - 1) * limit;
-        query.limit(limit).offset(offset);
+        query.offset(offset).limit(limit);
       }
-
-      const result = await trx(this.tableName).count('id as total').first();
-      const total = result?.total as number;
-      const totalPages = Math.ceil(total / (limit || total));
       const data = await query;
-      const responseType = Number(total) > 500 ? 'json' : 'local';
+
+      const totalPages = Math.ceil(total / limit);
+      const responseType = total > 500 ? 'json' : 'local';
 
       return {
         data,
@@ -847,15 +415,88 @@ export class ShipperService {
           currentPage: Number(page),
           totalPages,
           totalItems: total,
-          itemsPerPage: limit > 0 ? limit : total,
+          itemsPerPage: limit,
         },
       };
     } catch (error) {
-      console.error('Error to findAll Shipper', error);
-      throw new Error(error);
+      console.error('Error in findAll Shipper:', error);
+      throw new Error(`Failed to fetch shipper data: ${error.message}`);
     }
   }
 
+  // Helper method untuk build WHERE clause
+  private buildWhereClause(search: string | undefined, filters: any): string {
+    const conditions: string[] = [];
+
+    // Apply search filter
+    if (search && search.trim()) {
+      const sanitizedSearch = String(search)
+        .replace(/[[\]%_]/g, '[$&]')
+        .replace(/'/g, "''")
+        .trim();
+
+      const searchConditions = [
+        `s.nama LIKE '%${sanitizedSearch}%'`,
+        `s.keterangan LIKE '%${sanitizedSearch}%'`,
+        `s.contactperson LIKE '%${sanitizedSearch}%'`,
+        `s.alamat LIKE '%${sanitizedSearch}%'`,
+        `s.kota LIKE '%${sanitizedSearch}%'`,
+        `s.kodepos LIKE '%${sanitizedSearch}%'`,
+        `s.telp LIKE '%${sanitizedSearch}%'`,
+        `s.email LIKE '%${sanitizedSearch}%'`,
+        `s.npwp LIKE '%${sanitizedSearch}%'`,
+        `s.grup LIKE '%${sanitizedSearch}%'`,
+        `s.initial LIKE '%${sanitizedSearch}%'`,
+        `s.tipe LIKE '%${sanitizedSearch}%'`,
+        `FORMAT(s.tgllahir, 'dd-MM-yyyy') LIKE '%${sanitizedSearch}%'`,
+        `FORMAT(s.created_at, 'dd-MM-yyyy HH:mm:ss') LIKE '%${sanitizedSearch}%'`,
+        `FORMAT(s.updated_at, 'dd-MM-yyyy HH:mm:ss') LIKE '%${sanitizedSearch}%'`,
+      ];
+
+      const numericSearch = Number(sanitizedSearch);
+      if (!isNaN(numericSearch)) {
+        searchConditions.push(
+          `s.id = ${numericSearch}`,
+          `s.coa = ${numericSearch}`,
+          `s.marketing_id = ${numericSearch}`,
+        );
+      }
+
+      conditions.push(`(${searchConditions.join(' OR ')})`);
+    }
+
+    // Apply filters
+    if (filters && Object.keys(filters).length > 0) {
+      Object.entries(filters).forEach(([key, rawValue]) => {
+        if (rawValue === null || rawValue === undefined || rawValue === '') {
+          return;
+        }
+
+        const sanitizedValue = String(rawValue)
+          .replace(/[[\]%_]/g, '[$&]')
+          .replace(/'/g, "''");
+
+        if (['tgllahir', 'tglemailshipperjobminus'].includes(key)) {
+          conditions.push(
+            `FORMAT(s.${key}, 'dd-MM-yyyy') LIKE '%${sanitizedValue}%'`,
+          );
+        } else if (['created_at', 'updated_at'].includes(key)) {
+          conditions.push(
+            `FORMAT(s.${key}, 'dd-MM-yyyy HH:mm:ss') LIKE '%${sanitizedValue}%'`,
+          );
+        } else {
+          const numValue = Number(rawValue);
+          if (!isNaN(numValue) && /^\d+$/.test(String(rawValue).trim())) {
+            conditions.push(`s.${key} = ${numValue}`);
+          } else {
+            conditions.push(`s.${key} LIKE '%${sanitizedValue}%'`);
+          }
+        }
+      });
+    }
+
+    return conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  }
   async tempStatusPendukung(trx: any, tablename: string) {
     try {
       const tempStatusPendukung = `##temp_${Math.random().toString(36).substring(2, 15)}`;
@@ -1657,6 +1298,7 @@ export class ShipperService {
       String(data?.tglemailshipperjobminus),
     );
     data.tgllahir = formatDateToSQL(String(data?.tgllahir));
+
     try {
       const existingData = await trx(this.tableName).where('id', id).first();
 
@@ -1682,6 +1324,7 @@ export class ShipperService {
         parentshipper_text,
         ...insertData
       } = data;
+
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
           insertData[key] = insertData[key].toUpperCase();
@@ -1694,29 +1337,13 @@ export class ShipperService {
         await trx(this.tableName).where('id', id).update(insertData);
       }
 
-      const { data: filteredData, pagination } = await this.findAll(
-        {
-          search,
-          filters,
-          pagination: { page, limit: 0 },
-          sort: { sortBy, sortDirection },
-          isLookUp: false, // Set based on your requirement (e.g., lookup flag)
-        },
-        trx,
-      );
-
-      // Cari index item yang baru saja diupdate
-      let itemIndex = filteredData.findIndex(
-        (item) => Number(item.id) === Number(id),
-      );
-      if (itemIndex === -1) {
-        itemIndex = 0;
-      }
+      // Update relasi
       const statusRelasi = await trx('parameter')
         .select('*')
         .where('grp', 'STATUS RELASI')
         .where('text', 'SHIPPER')
         .first();
+
       const relasi = {
         nama: insertData.nama,
         statusrelasi: statusRelasi.id,
@@ -1728,22 +1355,93 @@ export class ShipperService {
         statusaktif: insertData.statusaktif,
         modifiedby: insertData.modifiedby,
       };
-      const dataRelasi = await this.relasiService.update(
-        existingData.relasi_id,
-        relasi,
+
+      await this.relasiService.update(existingData.relasi_id, relasi, trx);
+
+      // ========== LOGIKA BARU: SAMA SEPERTI CREATE ==========
+
+      // Hitung posisi item yang diupdate
+      let posisi = 0;
+      let totalItems = 0;
+
+      const LastId = await trx(this.tableName)
+        .select('id')
+        .orderBy('id', 'desc')
+        .first();
+      const resultposition = await trx('vtemp')
+        .count('* as posisi')
+        .where(
+          sortBy,
+          sortDirection === 'desc' ? '>=' : '<=',
+          insertData[sortBy],
+        )
+        .where('id', '<=', LastId?.id)
+        .first();
+
+      const totalRecords = await trx(this.tableName)
+        .count('id as total')
+        .first();
+      console.log('existingData[sortBy]', existingData[sortBy]);
+      console.log('resultposition', resultposition);
+      console.log('totalRecords', totalRecords);
+      totalItems = totalRecords?.total || 0;
+      posisi = resultposition?.posisi || 0;
+
+      const pageNumber = Math.ceil(posisi / limit);
+      const totalPages = Math.ceil(totalItems / limit);
+      console.log('pageNumber', pageNumber);
+      console.log('Debug pageNumber calculation:', {
+        posisi,
+        limit,
+        division: posisi / limit,
+        result: Math.ceil(posisi / limit),
+      });
+      const fetchedPages = getFetchedPages(pageNumber, totalPages);
+
+      // ========== SINGLE QUERY dengan custom offset ==========
+      const startPage = fetchedPages[0];
+      const endPage = fetchedPages[fetchedPages.length - 1];
+
+      const customOffset = (startPage - 1) * limit;
+      const totalDataNeeded = (endPage - startPage + 1) * limit;
+
+      // FETCH SEKALI SAJA dengan custom offset
+      const result = await this.findAll(
+        {
+          search: search || '',
+          filters: filters || {},
+          pagination: {
+            page: startPage,
+            limit: totalDataNeeded,
+            customOffset: customOffset,
+          },
+          sort: {
+            sortBy: sortBy,
+            sortDirection: sortDirection.toLowerCase(),
+          },
+          isLookUp: false,
+          useCustomOffset: true,
+        },
         trx,
       );
-      const itemsPerPage = limit || 10; // Default 10 items per page, atau yang dikirimkan dari frontend
-      const pageNumber = Math.floor(itemIndex / itemsPerPage) + 1;
 
-      // Ambil data hingga halaman yang mencakup item yang baru diperbarui
-      const endIndex = pageNumber * itemsPerPage;
-      const limitedItems = filteredData.slice(0, endIndex);
-      await this.redisService.set(
-        `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
-      );
+      const allFetchedData = result.data;
 
+      // Split data ke pages di memory
+      const pagedData = {};
+      let dataIndex = 0;
+
+      fetchedPages.forEach((pageNum) => {
+        const pageStartIndex = dataIndex;
+        const pageEndIndex = dataIndex + limit;
+        pagedData[pageNum] = allFetchedData.slice(pageStartIndex, pageEndIndex);
+        dataIndex += limit;
+      });
+
+      // Hitung item index
+      const itemIndex = calculateItemIndex(Number(posisi), fetchedPages, limit);
+
+      // Log trail
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
@@ -1757,17 +1455,25 @@ export class ShipperService {
         trx,
       );
 
+      // Cache data per page ke Redis
+      await this.redisService.set(
+        `${this.tableName}-page-${pageNumber}`,
+        JSON.stringify(allFetchedData),
+      );
+
       return {
         updatedItem: {
           id,
           ...data,
         },
+        itemIndex: itemIndex.zeroBasedIndex,
         pageNumber,
-        itemIndex,
+        fetchedPages,
+        pagedData,
       };
     } catch (error) {
       console.error('Error updating shipper:', error);
-      throw new Error('Failed to update shipper');
+      throw new Error(`Failed to update shipper: ${error.message}`);
     }
   }
 

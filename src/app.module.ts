@@ -138,7 +138,6 @@ import { EstimasiBiayaHeaderModule } from './modules/estimasi-biaya-header/estim
 import { EstimasiBiayaDetailInvoiceModule } from './modules/estimasi-biaya-detail-invoice/estimasi-biaya-detail-invoice.module';
 import { BiayaHeaderModule } from './modules/biaya-header/biaya-header.module';
 import { BiayaMuatanDetailModule } from './modules/biaya-muatan-detail/biaya-muatan-detail.module';
-import { AIModule } from './modules/ai/ai.module';
 
 @Module({
   imports: [
@@ -154,7 +153,6 @@ import { AIModule } from './modules/ai/ai.module';
     //     },
     //   ],
     // }),
-    AIModule,
     AuthModule,
     MailModule,
     AcosModule,
@@ -288,6 +286,8 @@ export class AppModule implements NestModule {
         // 'offdays',
         { path: 'bot/(.*)', method: RequestMethod.ALL },
         { path: 'email-validation/(.*)', method: RequestMethod.ALL },
+        { path: 'shipper/(.*)', method: RequestMethod.ALL },
+        { path: 'shipper', method: RequestMethod.ALL },
         'auth/*', // Exclude all routes under the 'auth' path
         'menu/*', // Exclude all routes under the 'menu' path
         // 'offdays/*', // Exclude all routes under the 'offdays' path

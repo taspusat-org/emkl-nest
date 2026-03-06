@@ -15,6 +15,33 @@ const dbMysqlTes = knex(knexConfig.mysqltest);
 const dbBunga = knex(knexConfig.dbBunga);
 const dbHr = knex(knexConfig.dbHr);
 
+/**
+ * Helper untuk create transaction dengan retry mechanism
+ * Mengatasi race condition "SentClientRequest state" error
+ */
+export async function createTransaction(
+  db: any,
+  retries = 3,
+  delayMs = 50,
+): Promise<any> {
+  while (retries > 0) {
+    try {
+      return await db.transaction();
+    } catch (error) {
+      retries--;
+      if (retries === 0) {
+        console.error(
+          '[TRANSACTION ERROR] Failed after all retries:',
+          error.message,
+        );
+        throw error;
+      }
+      // Wait before retry
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+}
+
 export {
   dbMssql,
   dbMdnEmkl,

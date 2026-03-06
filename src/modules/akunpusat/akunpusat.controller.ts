@@ -22,7 +22,7 @@ import {
   UpdateAkunpusatDto,
   updateAkunPusatSchema,
 } from './dto/create-akunpusat.dto';
-import { dbMssql } from 'src/common/utils/db';
+import { dbMssql, createTransaction } from 'src/common/utils/db';
 import {
   FindAllDto,
   FindAllParams,
@@ -45,7 +45,8 @@ export class AkunpusatController {
     data: CreateAkunpusatDto,
     @Req() req,
   ) {
-    const trx = await dbMssql.transaction();
+    const trx = await createTransaction(dbMssql);
+
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
@@ -83,15 +84,16 @@ export class AkunpusatController {
       sort: sortParams as { sortBy: string; sortDirection: 'asc' | 'desc' },
       isLookUp: isLookUp === 'true',
     };
-    const trx = await dbMssql.transaction();
+
+    const trx = await createTransaction(dbMssql);
 
     try {
       const result = await this.akunpusatService.findAll(params, trx);
-      trx.commit();
+      await trx.commit();
 
       return result;
     } catch (error) {
-      trx.rollback();
+      await trx.rollback();
       console.error('Error in findAll:', error);
       throw error; // Re-throw the error to be handled by the global exception filter
     }
@@ -106,7 +108,8 @@ export class AkunpusatController {
     data: UpdateAkunpusatDto,
     @Req() req,
   ) {
-    const trx = await dbMssql.transaction();
+    const trx = await createTransaction(dbMssql);
+
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
@@ -125,7 +128,8 @@ export class AkunpusatController {
   @Delete(':id')
   //@AKUN-PUSAT
   async delete(@Param('id') id: string, @Req() req) {
-    const trx = await dbMssql.transaction();
+    const trx = await createTransaction(dbMssql);
+
     try {
       const result = await this.akunpusatService.delete(
         +id,
