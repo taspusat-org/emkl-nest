@@ -267,6 +267,230 @@ export class UtilsService {
       throw new Error(`Failed to create temp table: ${error.message}`);
     }
   }
+  /**
+   * Create temp table directly from SQL query using SELECT INTO (optimized for BIG DATA)
+   * This method is MUCH FASTER than fetching to Node.js then inserting
+   * Perfect for 500k+ rows
+   */
+  async createTempFisikTableFromQuery(
+    queryBuilder: any,
+    trx: any,
+    customPrefix?: string,
+  ): Promise<{
+    tempFisikTableFromData: string;
+    insertedCount: number;
+    executionTimeMs: number;
+  }> {
+    const startTime = Date.now();
+
+    try {
+      const tempFisikTableFromData = `temp_${customPrefix || 'data'}_${Math.random().toString(36).substring(2, 15)}`;
+
+      // Drop table if exists
+      await trx.raw(
+        `IF OBJECT_ID('${tempFisikTableFromData}', 'U') IS NOT NULL DROP TABLE ${tempFisikTableFromData}`,
+      );
+
+      // Get the SQL string from query builder
+      let sqlQuery = queryBuilder.toString();
+
+      // Remove ORDER BY clause from the query
+      sqlQuery = sqlQuery.replace(
+        /ORDER\s+BY\s+[\s\S]+?(?=OFFSET|FETCH|$)/gi,
+        '',
+      );
+
+      // Create temp table with ROW_NUMBER as position directly in the SELECT INTO
+      // This converts any IDENTITY columns to regular columns
+      // Jika ingin menggunakan urutan dari query builder
+      const selectIntoSQL = `
+  SELECT 
+    ROW_NUMBER() OVER (ORDER BY id) as position,  -- ganti 'id' dengan kolom sorting yang diinginkan
+    *
+  INTO ${tempFisikTableFromData}
+  FROM (${sqlQuery}) AS source_data
+`;
+
+      await trx.raw(selectIntoSQL);
+
+      // Get count
+      const countResult = await trx.raw(
+        `SELECT COUNT(*) as total FROM ${tempFisikTableFromData}`,
+      );
+      const insertedCount = countResult[0]?.total || 0;
+
+      const executionTimeMs = Date.now() - startTime;
+
+      console.log(`[TEMP TABLE] Created ${tempFisikTableFromData}`);
+      console.log(
+        `[TEMP TABLE] Inserted ${insertedCount} rows in ${executionTimeMs}ms using SELECT INTO`,
+      );
+      console.log(
+        `[TEMP TABLE] Speed: ${Math.round(insertedCount / (executionTimeMs / 1000))} rows/sec`,
+      );
+
+      return {
+        tempFisikTableFromData,
+        insertedCount,
+        executionTimeMs,
+      };
+    } catch (error) {
+      console.error('Error creating temp table from query:', error);
+      throw new Error(`Failed to create temp table: ${error.message}`);
+    }
+  }
+  async createTempFisikTableFromData(
+    data: any[],
+    trx: any,
+    customPrefix?: string,
+  ): Promise<{
+    tempFisikTableFromData: string;
+    insertedCount: number;
+    executionTimeMs: number;
+  }> {
+    const startTime = Date.now();
+
+    try {
+      // Generate unique temp table name
+      const tempFisikTableFromData = `temp_${customPrefix || 'data'}_${Math.random().toString(36).substring(2, 15)}`;
+      // Drop table if exists
+      await trx.raw(
+        `IF OBJECT_ID('${tempFisikTableFromData}', 'U') IS NOT NULL DROP TABLE ${tempFisikTableFromData}`,
+      );
+      // Handle empty data - create empty table with position field only
+      if (!data || data.length === 0) {
+        const createTableSQL = `
+          CREATE TABLE ${tempFisikTableFromData} (
+            position BIGINT IDENTITY(1,1) NOT NULL
+          )
+        `;
+        await trx.raw(createTableSQL);
+
+        return {
+          tempFisikTableFromData,
+          insertedCount: 0,
+          executionTimeMs: Date.now() - startTime,
+        };
+      }
+
+      // Configuration
+      const chunkSize = data.length > 100000 ? 5000 : 1000;
+
+      // Get column definitions from first data object
+      const firstRow = data[0];
+      const columns = Object.keys(firstRow);
+
+      // Build column definitions for raw SQL
+      const columnDefs: string[] = [];
+
+      columnDefs.push('position BIGINT IDENTITY(1,1) NOT NULL');
+      columns.forEach((columnName) => {
+        const value = firstRow[columnName];
+        const valueType = typeof value;
+
+        let columnDef = '';
+
+        if (valueType === 'number') {
+          if (Number.isInteger(value)) {
+            columnDef = `[${columnName}] BIGINT NULL`;
+          } else {
+            columnDef = `[${columnName}] DECIMAL(18,2) NULL`;
+          }
+        } else if (valueType === 'boolean') {
+          columnDef = `[${columnName}] BIT NULL`;
+        } else if (value instanceof Date) {
+          columnDef = `[${columnName}] DATETIME2 NULL`;
+        } else if (valueType === 'string') {
+          const strLength = String(value).length;
+          if (strLength > 500) {
+            columnDef = `[${columnName}] NVARCHAR(MAX) NULL`;
+          } else {
+            columnDef = `[${columnName}] NVARCHAR(255) NULL`;
+          }
+        } else {
+          columnDef = `[${columnName}] NVARCHAR(255) NULL`;
+        }
+
+        columnDefs.push(columnDef);
+      });
+
+      // Create table using raw SQL (faster than schema builder)
+      const createTableSQL = `
+        CREATE TABLE ${tempFisikTableFromData} (
+          ${columnDefs.join(',\n          ')}
+        )
+      `;
+      await trx.raw(createTableSQL);
+
+      // Bulk insert using raw SQL (much faster for big data)
+      let insertedCount = 0;
+      const totalChunks = Math.ceil(data.length / chunkSize);
+
+      for (let i = 0; i < data.length; i += chunkSize) {
+        const chunk = data.slice(i, i + chunkSize);
+
+        // Build VALUES clause for bulk insert
+        const values = chunk
+          .map((row) => {
+            const rowValues = columns.map((col) => {
+              const value = row[col];
+
+              // Handle NULL
+              if (value === null || value === undefined) {
+                return 'NULL';
+              }
+
+              // Handle different types
+              if (typeof value === 'number') {
+                return value;
+              } else if (typeof value === 'boolean') {
+                return value ? '1' : '0';
+              } else if (value instanceof Date) {
+                return `'${value.toISOString().slice(0, 23)}'`;
+              } else {
+                // Escape single quotes in strings
+                const escaped = String(value).replace(/'/g, "''");
+                return `N'${escaped}'`;
+              }
+            });
+
+            return `(${rowValues.join(',')})`;
+          })
+          .join(',\n');
+
+        // Execute bulk insert
+        const insertSQL = `
+          INSERT INTO ${tempFisikTableFromData} (${columns.map((c) => `[${c}]`).join(',')})
+          VALUES ${values}
+        `;
+
+        await trx.raw(insertSQL);
+        insertedCount += chunk.length;
+      }
+
+      const executionTimeMs = Date.now() - startTime;
+
+      // Log performance metrics for big data
+      if (data.length > 10000) {
+        console.log(`[TEMP TABLE] Created ${tempFisikTableFromData}`);
+        console.log(
+          `[TEMP TABLE] Inserted ${insertedCount} rows in ${executionTimeMs}ms`,
+        );
+        console.log(
+          `[TEMP TABLE] Speed: ${Math.round(insertedCount / (executionTimeMs / 1000))} rows/sec`,
+        );
+      }
+
+      return {
+        tempFisikTableFromData,
+        insertedCount,
+        executionTimeMs,
+      };
+    } catch (error) {
+      console.error('Error creating temp table from data:', error);
+      throw new Error(`Failed to create temp table: ${error.message}`);
+    }
+  }
 
   async tempPivotStatusPendukung(
     trx: any,
@@ -1062,10 +1286,41 @@ export function extractFetchedPageData<T>(
   return results;
 }
 export function calculateItemIndex(itemPosition, fetchedPages, limit) {
-  const minPage = Math.min(...fetchedPages); // page pertama
-  const startPosition = (minPage - 1) * limit + 1; // global start
+  // itemPosition adalah posisi global (1-based) dari query COUNT
+  // fetchedPages adalah array page numbers yang di-fetch
+  // limit adalah items per page
 
-  const zeroBasedIndex = itemPosition - startPosition;
+  // Page dimana item berada (1-based)
+  const itemPage = Math.ceil(itemPosition / limit);
+
+  // Index item dalam page tersebut (0-based dalam page)
+  const indexInPage = (itemPosition - 1) % limit;
+
+  // Hitung index dalam fetched data
+  // Cari posisi itemPage dalam fetchedPages
+  const sortedPages = [...fetchedPages].sort((a, b) => a - b);
+  const itemPageIndex = sortedPages.indexOf(itemPage);
+
+  if (itemPageIndex === -1) {
+    // Item page tidak ada dalam fetchedPages (seharusnya tidak terjadi)
+    console.warn(
+      `Item page ${itemPage} not found in fetchedPages`,
+      fetchedPages,
+    );
+    return {
+      zeroBasedIndex: itemPosition - 1,
+      oneBasedIndex: itemPosition,
+    };
+  }
+
+  // Hitung total items dari pages sebelum itemPage dalam fetchedPages
+  let itemsBeforePage = 0;
+  for (let i = 0; i < itemPageIndex; i++) {
+    itemsBeforePage += limit;
+  }
+
+  // Index dalam fetched data (0-based)
+  const zeroBasedIndex = itemsBeforePage + indexInPage;
   const oneBasedIndex = zeroBasedIndex + 1;
 
   return {

@@ -23,7 +23,6 @@ async function bootstrap() {
     console.log('📦 Creating NestJS application...');
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-    console.log('📁 Setting up upload directory...');
     const uploadDir = path.join(process.cwd(), 'uploads', 'compress');
     if (!existsSync(uploadDir)) {
       mkdirSync(uploadDir, { recursive: true });
@@ -37,6 +36,7 @@ async function bootstrap() {
         'http://192.168.3.211:3001',
         'http://192.168.3.21:3000',
         'http://localhost:3000',
+        'http://localhost:5173',
         'http://192.168.3.217:3000',
       ], // List of allowed origins
       methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods

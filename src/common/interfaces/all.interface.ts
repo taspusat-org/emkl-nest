@@ -2,17 +2,20 @@ export interface FindAllParams {
   search?: string;
   filters?: Record<string, string | number>;
   isLookUp?: boolean;
+  isReload?: boolean;
   exclude?: any;
   exactMatch?: any;
   karyawanId?: number; // Opsional
   pagination?: {
     page?: number; // Opsional
     limit?: number; // Opsional
+    customOffset?: number; // Opsional
   };
   sort?: {
     sortBy: string;
     sortDirection: 'asc' | 'desc';
   };
+  useCustomOffset?: boolean;
   flag?: string;
 }
 

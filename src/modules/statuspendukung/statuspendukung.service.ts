@@ -40,8 +40,6 @@ export class StatuspendukungService {
         .where('grp', 'DATA PENDUKUNG')
         .andWhere('subgrp', tablename);
 
-      console.log('getDataRequest', getDataRequest);
-
       if (getDataRequest && getDataRequest.length > 0) {
         const payload = getDataRequest.map((data: any) => {
           const value = statuspendukung?.[data.text] ?? data.nilai_tidak;
@@ -56,12 +54,8 @@ export class StatuspendukungService {
             created_at: this.utilsService.getTime(),
           };
         });
-        console.log('payload', payload);
-
-        // Hapus .returning('*') dan query manual untuk mendapatkan data
         await trx(this.tableName).insert(payload);
 
-        // Ambil data yang baru di-insert berdasarkan transaksi_id dan modifiedby
         const insertedData = await trx(this.tableName)
           .where('transaksi_id', id)
           .andWhere('modifiedby', modifiedby)
@@ -69,6 +63,10 @@ export class StatuspendukungService {
           .limit(payload.length);
 
         if (insertedData && insertedData.length > 0) {
+          console.log(
+            'Calling logTrailService.create with namatabel:',
+            this.tableName,
+          );
           await this.logTrailService.create(
             {
               namatabel: this.tableName,

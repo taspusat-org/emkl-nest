@@ -13,8 +13,10 @@ const knexConfig: { [key: string]: Knex.Config } = {
       database: process.env.SSMS_DB,
       port: Number(process.env.SSMS_PORT),
       pool: {
-        min: 2,
-        max: 10,
+        min: 5,
+        max: 30,
+        acquireTimeoutMillis: 10000, // Wait 10s for connection
+        idleTimeoutMillis: 30000, // Release idle connections after 30s
       },
       options: {
         encrypt: false,
@@ -40,7 +42,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
         encrypt: false,
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmatika
       },
-      requestTimeout: 50000000, // Mengatur timeout permintaan ke 30 detik
+      requestTimeout: 60000, // Mengatur timeout permintaan ke 30 detik
     },
     migrations: {
       tableName: 'knex_migrations',
@@ -60,7 +62,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
         encrypt: false,
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmatika
       },
-      requestTimeout: 50000000, // Mengatur timeout permintaan ke 30 detik
+      requestTimeout: 60000, // Mengatur timeout permintaan ke 30 detik
     },
     migrations: {
       tableName: 'knex_migrations',
@@ -80,7 +82,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
         encrypt: false,
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmatika
       },
-      requestTimeout: 50000000, // Mengatur timeout permintaan ke 30 detik
+      requestTimeout: 60000, // Mengatur timeout permintaan ke 30 detik
     },
     migrations: {
       tableName: 'knex_migrations',
@@ -100,7 +102,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
         encrypt: false,
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmatika
       },
-      requestTimeout: 50000000, // Mengatur timeout permintaan ke 30 detik
+      requestTimeout: 60000, // Mengatur timeout permintaan ke 30 detik
     },
     migrations: {
       tableName: 'knex_migrations',
@@ -120,7 +122,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
         encrypt: false,
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmatika
       },
-      requestTimeout: 50000000, // Mengatur timeout permintaan ke 30 detik
+      requestTimeout: 60000, // Mengatur timeout permintaan ke 30 detik
     },
     migrations: {
       tableName: 'knex_migrations',
@@ -140,7 +142,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
         encrypt: false,
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmatika
       },
-      requestTimeout: 50000000, // Mengatur timeout permintaan ke 30 detik
+      requestTimeout: 60000, // Mengatur timeout permintaan ke 30 detik
     },
     migrations: {
       tableName: 'knex_migrations',
@@ -160,7 +162,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
         encrypt: false,
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmatika
       },
-      requestTimeout: 50000000, // Mengatur timeout permintaan ke 30 detik
+      requestTimeout: 60000, // Mengatur timeout permintaan ke 30 detik
     },
     migrations: {
       tableName: 'knex_migrations',
@@ -180,7 +182,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
         encrypt: false,
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmatika
       },
-      requestTimeout: 50000000, // Mengatur timeout permintaan ke 30 detik
+      requestTimeout: 60000, // Mengatur timeout permintaan ke 30 detik
     },
     migrations: {
       tableName: 'knex_migrations',
@@ -200,7 +202,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
         encrypt: false,
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmatika
       },
-      requestTimeout: 50000000, // Mengatur timeout permintaan ke 30 detik
+      requestTimeout: 60000, // Mengatur timeout permintaan ke 30 detik
     },
     migrations: {
       tableName: 'knex_migrations',
@@ -220,7 +222,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
         encrypt: false, // Sesuaikan dengan pengaturan enkripsi pada MSSQL
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmati
       },
-      requestTimeout: 50000000,
+      requestTimeout: 60000,
     },
     migrations: {
       tableName: 'knex_migrations',
@@ -239,7 +241,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
         encrypt: false, // Sesuaikan dengan pengaturan enkripsi pada MSSQL
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmati
       },
-      requestTimeout: 50000000,
+      requestTimeout: 60000,
     },
     migrations: {
       tableName: 'knex_migrations',
@@ -258,7 +260,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
         encrypt: false, // Sesuaikan dengan pengaturan enkripsi pada MSSQL
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmati
       },
-      requestTimeout: 50000000,
+      requestTimeout: 60000,
     },
     migrations: {
       tableName: 'knex_migrations',
@@ -277,7 +279,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
         encrypt: false, // Sesuaikan dengan pengaturan enkripsi pada MSSQL
         enableArithAbort: true, // Diperlukan untuk mencegah error aritmati
       },
-      requestTimeout: 50000000,
+      requestTimeout: 60000,
     },
     migrations: {
       tableName: 'knex_migrations',
@@ -291,7 +293,7 @@ const knexConfig: { [key: string]: Knex.Config } = {
       user: process.env.SSMS_USER,
       password: process.env.SSMS_PASSWORD,
       database: process.env.SSMS_DB,
-      port: 1433,
+      port: 1450,
       options: {
         encrypt: false,
         enableArithAbort: true,

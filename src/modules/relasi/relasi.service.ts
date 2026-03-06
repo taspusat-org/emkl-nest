@@ -31,26 +31,29 @@ export class RelasiService {
         }
       });
 
+      console.log('Query: INSERT INTO', this.tableName, 'Data:', insertData);
       const insertedItems = await trx(this.tableName)
         .insert(insertData)
         .returning('*');
+      console.log('Result insertedItems:', insertedItems);
 
       const newItem = insertedItems[0];
+      console.log('newItem', newItem);
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
           postingdari: 'ADD RELASI',
-          idtrans: newItem.id,
-          nobuktitrans: newItem.id,
+          idtrans: newItem?.id,
+          nobuktitrans: newItem?.id,
           aksi: 'ADD',
           datajson: JSON.stringify(newItem),
-          modifiedby: newItem.modifiedby,
+          modifiedby: newItem?.modifiedby,
         },
         trx,
       );
 
       return {
-        id: newItem.id,
+        id: newItem?.id,
       };
     } catch (error) {
       throw new Error(`Error creating relasi: ${error.message}`);
@@ -290,7 +293,7 @@ export class RelasiService {
       const existingData = await trx(this.tableName).where('id', id).first();
 
       if (!existingData) {
-        throw new Error('Relasi not found');
+        return;
       }
       const { ...insertData } = data;
 

@@ -49,10 +49,10 @@ export class ShipperController {
     try {
       data.modifiedby = req.user?.user?.username || 'unknown';
       const result = await this.shipperService.create(data, trx);
-      await trx.commit();
+      trx.commit();
       return result;
     } catch (error) {
-      await trx.rollback();
+      trx.rollback();
       console.error('Error while creating shipper in controller', error);
       if (error instanceof HttpException) {
         throw error;
@@ -67,11 +67,10 @@ export class ShipperController {
     }
   }
 
-  @UseGuards(AuthGuard)
   @Get()
   //@SHIPPER
   @UsePipes(new ZodValidationPipe(FindAllSchema))
-  async findAll(@Query() query: FindAllDto) {
+  async findAll(@Query() query: FindAllDto, @Req() req) {
     const { search, page, limit, sortBy, sortDirection, isLookUp, ...filters } =
       query;
 
@@ -172,9 +171,9 @@ export class ShipperController {
   }
 
   @Get('/export')
-  async exportToExcel(@Query() params: any, @Res() res: Response) {
+  async exportToExcel(@Query() params: any, @Res() res: Response, @Req() req) {
     try {
-      const { data } = await this.findAll(params);
+      const { data } = await this.findAll(params, req);
 
       if (!Array.isArray(data)) {
         throw new Error('Data is not an array or is undefined.');

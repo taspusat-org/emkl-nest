@@ -191,172 +191,235 @@ export class AkunpusatService {
         'info',
       ];
 
-      // Fungsi helper untuk membuat base query dengan semua filter
-      const buildBaseQuery = (selectColumns = false) => {
-        // Tentukan ORDER BY untuk row_number berdasarkan sort parameter
-        let orderByClause = 'u.id'; // default jika tidak ada sort
-        let orderDirection = 'ASC'; // default direction
+      // Helper untuk sorting
+      const getSortColumn = (sortBy?: string) => {
+        if (!sortBy) return 'u.id';
 
-        if (sort?.sortBy) {
-          // Map field yang mungkin memerlukan alias atau join
-          const sortMapping = {
-            type_nama: 't.nama',
-            statusaktif_nama: 'p.text',
-            cabang_nama: 'c.nama',
-          };
+        const sortMapping = {
+          type_nama: 't.nama',
+          statusaktif_nama: 'p.text',
+          cabang_nama: 'c.nama',
+        };
 
-          // Gunakan mapping jika ada, atau tambahkan prefix 'u.' untuk field dari table utama
-          orderByClause = sortMapping[sort.sortBy] || `u.${sort.sortBy}`;
-          orderDirection = sort.sortDirection?.toUpperCase() || 'ASC';
-        }
-
-        const query = selectColumns
-          ? trx(`${this.tableName} as u`)
-              .select([
-                'u.id as id',
-                'u.type_id',
-                'u.level',
-                'u.coa',
-                'u.keterangancoa',
-                'u.statusaktif',
-                'p.text as statusaktif_nama',
-                'p.memo',
-                'u.parent',
-                'u.cabang_id',
-                'c.nama as cabang_nama',
-                't.nama as type_nama',
-                'u.info',
-                'u.modifiedby',
-                'u.created_at',
-                'u.updated_at',
-                trx.raw('COUNT(*) OVER() AS __total_items'),
-              ])
-              .leftJoin('cabang as c', 'u.cabang_id', 'c.id')
-              .leftJoin('typeakuntansi as t', 'u.type_id', 't.id')
-              .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
-          : trx(`${this.tableName} as u`)
-              .leftJoin('cabang as c', 'u.cabang_id', 'c.id')
-              .leftJoin('typeakuntansi as t', 'u.type_id', 't.id')
-              .leftJoin('parameter as p', 'u.statusaktif', 'p.id');
-
-        return query;
+        return sortMapping[sortBy] || `u.${sortBy}`;
       };
 
-      // Fungsi helper untuk menerapkan semua filter (synchronous, returns query)
-      const applyFilters = (query, tempParent?: string) => {
-        // Apply isLookUp filter if needed
-        if (isLookUp && tempParent) {
-          query = query
-            .leftOuterJoin(trx.raw(`${tempParent} as b`), 'u.coa', 'b.coa')
-            .whereRaw(`ISNULL(b.coa, '') = ''`);
-        }
+      // Cek apakah perlu join untuk filter atau sort
+      const needsCabangJoin =
+        filters.cabang_nama || sort?.sortBy === 'cabang_nama';
+      const needsTypeJoin = filters.type_nama || sort?.sortBy === 'type_nama';
+      const needsParamJoin =
+        filters.statusaktif_nama || sort?.sortBy === 'statusaktif_nama';
 
-        // Apply search filtering
+      // Helper untuk apply filters
+      const applyFilters = (query: any, includeJoins = true) => {
+        // Base filters pada table utama (FILTER DULU SEBELUM JOIN)
         if (search) {
           const sanitizedValue = String(search).replace(/\[/g, '[[]');
-          const searchableFields = ['coa', 'keterangancoa'];
           query.where((builder) => {
-            searchableFields.forEach((field) =>
-              builder.orWhere(`u.${field}`, 'like', `%${sanitizedValue}%`),
-            );
+            builder
+              .orWhere('u.coa', 'like', `${sanitizedValue}%`)
+              .orWhere('u.keterangancoa', 'like', `%${sanitizedValue}%`);
           });
         }
 
-        // Apply other filters
+        // Apply filters pada kolom utama SEBELUM join
         Object.entries(filters).forEach(([key, value]) => {
           if (excludedFields.includes(key) || !value) return;
+
           const sanitizedValue = String(value).replace(/\[/g, '[[]');
-          if (key === 'created_at' || key === 'updated_at') {
-            query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-              key,
-              `%${sanitizedValue}%`,
-            ]);
-          } else if (key === 'type_nama') {
-            query.andWhere(`t.nama`, 'like', `%${sanitizedValue}%`);
-          } else if (key === 'statusaktif_nama') {
-            query.andWhere(`p.text`, 'like', `%${sanitizedValue}%`);
-          } else if (key === 'cabang_nama') {
-            query.andWhere(`c.nama`, 'like', `%${sanitizedValue}%`);
-          } else {
-            query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+
+          // Filter yang bisa langsung di table utama
+          if (!['type_nama', 'statusaktif_nama', 'cabang_nama'].includes(key)) {
+            if (key === 'created_at' || key === 'updated_at') {
+              query.whereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
+            } else {
+              query.where(`u.${key}`, 'like', `${sanitizedValue}%`);
+            }
           }
         });
+
+        // JOIN hanya jika diperlukan
+        if (includeJoins) {
+          if (needsCabangJoin) {
+            query.leftJoin('cabang as c', 'u.cabang_id', 'c.id');
+            if (filters.cabang_nama) {
+              query.where(
+                'c.nama',
+                'like',
+                `${String(filters.cabang_nama).replace(/\[/g, '[[]')}%`,
+              );
+            }
+          }
+
+          if (needsTypeJoin) {
+            query.leftJoin('typeakuntansi as t', 'u.type_id', 't.id');
+            if (filters.type_nama) {
+              query.where(
+                't.nama',
+                'like',
+                `${String(filters.type_nama).replace(/\[/g, '[[]')}%`,
+              );
+            }
+          }
+
+          if (needsParamJoin) {
+            query.leftJoin('parameter as p', 'u.statusaktif', 'p.id');
+            if (filters.statusaktif_nama) {
+              query.where(
+                'p.text',
+                'like',
+                `${String(filters.statusaktif_nama).replace(/\[/g, '[[]')}%`,
+              );
+            }
+          }
+        }
 
         return query;
       };
 
-      let tempParent: string | undefined;
-
-      // If isLookUp is true, apply the specific logic for lookups
+      // Lookup optimization - gunakan NOT EXISTS
+      let lookupCondition: ((query: any) => void) | null = null;
       if (isLookUp) {
-        const acoCountResult = await trx(this.tableName)
+        // Quick count check
+        const quickCount = await trx(this.tableName)
           .count('id as total')
           .first();
-        const acoCount = acoCountResult?.total || 0;
 
-        if (Number(acoCount) > 500) {
+        if (Number(quickCount?.total || 0) > 500) {
           return { data: { type: 'json' } };
         }
 
-        // Create temporary table for LookUp query
-        tempParent = `##temp_${Math.random().toString(36).substring(2, 15)}`;
-        await trx.schema.createTable(tempParent, (t) =>
-          t.string('coa').nullable(),
-        );
-        await trx(tempParent).insert(
-          trx
-            .select('u.parent')
-            .from(this.tableName + ' as u')
-            .groupBy('u.parent'),
-        );
+        // Gunakan NOT EXISTS
+        lookupCondition = (query) => {
+          query.whereNotExists(function () {
+            this.select(trx.raw('1'))
+              .from(`${trx.raw('??', [this.tableName])} as parent`)
+              .whereRaw('parent.parent = u.coa');
+          });
+        };
       }
 
-      // Build query untuk fetch data dengan filter yang sama
-      let dataQuery = buildBaseQuery(true);
-      dataQuery = applyFilters(dataQuery, tempParent);
+      // ===== COUNT QUERY - OPTIMIZED =====
+      let countQuery = trx(`${this.tableName} as u`);
+      countQuery = applyFilters(countQuery, true);
 
-      // Apply sorting
-      if (sort?.sortBy && sort?.sortDirection) {
-        dataQuery.orderBy(sort.sortBy, sort.sortDirection);
+      if (lookupCondition) {
+        countQuery.where(lookupCondition);
       }
+
+      const countResult = await countQuery.count('u.id as total').first();
+      const total = Number(countResult?.total || 0);
+
+      // Early return jika tidak ada data
+      if (total === 0) {
+        return {
+          data: [],
+          total: 0,
+          pagination: {
+            currentPage: Number(page),
+            totalPages: 0,
+            totalItems: 0,
+            itemsPerPage: limit > 0 ? limit : 0,
+          },
+        };
+      }
+
+      // ===== DATA QUERY - OPTIMIZED dengan CTE =====
+      const orderByClause = getSortColumn(sort?.sortBy);
+      const orderDirection = sort?.sortDirection?.toUpperCase() || 'ASC';
+
+      // Build filtered IDs query
+      let filteredIdsQuery = trx(`${this.tableName} as u`).select('u.id');
+
+      filteredIdsQuery = applyFilters(filteredIdsQuery, true);
+
+      if (lookupCondition) {
+        filteredIdsQuery.where(lookupCondition);
+      }
+
+      // Apply sorting ke filtered query
+      filteredIdsQuery.orderBy(trx.raw(orderByClause), orderDirection);
 
       // Apply pagination
       if (limit > 0) {
         const offset = (page - 1) * limit;
-        dataQuery.limit(limit).offset(offset);
+        filteredIdsQuery.offset(offset).limit(limit);
       }
 
-      // Fetch the data
-      if (flag == 'GET POSITION') {
-        const data = await dataQuery;
-        const total = data.length ? Number(data[0].__total_items) : 0;
-        const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+      // Get the IDs first
+      const filteredIds = await filteredIdsQuery;
+      const ids = filteredIds.map((row) => row.id);
+
+      // Early return jika tidak ada hasil setelah filter
+      if (ids.length === 0) {
         return {
-          query: dataQuery.toQuery(),
-          data,
+          data: [],
           total,
           pagination: {
             currentPage: Number(page),
-            totalPages,
-            totalItems: total,
-            itemsPerPage: limit > 0 ? limit : total,
-          },
-        };
-      } else {
-        const data = await dataQuery;
-        const total = data.length ? Number(data[0].__total_items) : 0;
-        const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
-        return {
-          data,
-          total,
-          pagination: {
-            currentPage: Number(page),
-            totalPages,
+            totalPages: Math.ceil(total / (limit || 1)),
             totalItems: total,
             itemsPerPage: limit > 0 ? limit : total,
           },
         };
       }
+
+      // Main query dengan ROW_NUMBER untuk nomor urut
+      const dataQuery = trx(`${this.tableName} as u`)
+        .select([
+          trx.raw(
+            `ROW_NUMBER() OVER (ORDER BY ${orderByClause} ${orderDirection}) + ? as nomor`,
+            [limit > 0 ? (page - 1) * limit : 0],
+          ),
+          'u.id',
+          'u.type_id',
+          'u.level',
+          'u.coa',
+          'u.keterangancoa',
+          'u.statusaktif',
+          'p.text as statusaktif_nama',
+          'p.memo',
+          'u.parent',
+          'u.cabang_id',
+          'c.nama as cabang_nama',
+          't.nama as type_nama',
+          'u.info',
+          'u.modifiedby',
+          'u.created_at',
+          'u.updated_at',
+        ])
+        .whereIn('u.id', ids)
+        .leftJoin('cabang as c', 'u.cabang_id', 'c.id')
+        .leftJoin('typeakuntansi as t', 'u.type_id', 't.id')
+        .leftJoin('parameter as p', 'u.statusaktif', 'p.id')
+        .orderBy(trx.raw(orderByClause), orderDirection);
+
+      const data = await dataQuery;
+      const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+
+      const result = {
+        data,
+        total,
+        pagination: {
+          currentPage: Number(page),
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit > 0 ? limit : total,
+        },
+      };
+
+      if (flag === 'GET POSITION') {
+        return {
+          query: dataQuery.toQuery(),
+          ...result,
+        };
+      }
+
+      return result;
     } catch (error) {
       console.error('Error fetching data:', error);
       throw new Error('Failed to fetch data');
@@ -398,7 +461,7 @@ export class AkunpusatService {
         await trx(this.tableName).where('id', id).update(insertData);
       }
 
-      const { data: allData, pagination } = await this.findAll(
+      const { data: allData } = await this.findAll(
         {
           search,
           filters,

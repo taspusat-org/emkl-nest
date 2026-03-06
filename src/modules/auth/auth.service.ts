@@ -94,7 +94,7 @@ export class AuthService {
       user: userWithoutPassword,
     };
 
-    const accessTokenExpiresIn = 7200; // 2 hours
+    const accessTokenExpiresIn = 7200; // 1 minute
     const accessTokenExpires = new Date(
       Date.now() + accessTokenExpiresIn * 1000,
     );

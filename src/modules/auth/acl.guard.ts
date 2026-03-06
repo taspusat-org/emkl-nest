@@ -69,13 +69,10 @@ export class AclGuard implements CanActivate {
     req: Req,
   ): boolean {
     const norm = (s?: string) => (s ?? '').toLowerCase();
-    console.log('have', have);
-    console.log('need', need);
     const actionEq =
       this.normalizeAction(have.action) === this.normalizeAction(need.action) ||
       have.action === '*' ||
       need.action === '*';
-    console.log('actionEq', actionEq);
     const subjectEq =
       norm(have.subject) === norm(need.subject) ||
       have.subject === '*' ||
