@@ -332,7 +332,7 @@ export class KasgantungheaderService {
             'u.pengeluaran_nobukti',
             trx.raw(`
                     STRING_AGG(
-                      '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'pengeluaran_nobukti=' + u.pengeluaran_nobukti + '">' +
+                      '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'nobukti=' + u.pengeluaran_nobukti + '">' +
                       '<HighlightWrapper value="' + u.pengeluaran_nobukti + '" />' +
                       '</a>', ','
                     ) AS link
