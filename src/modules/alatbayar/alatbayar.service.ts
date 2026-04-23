@@ -77,6 +77,23 @@ export class AlatbayarService {
           insertData[sortBy],
         )
         .where('id', '<=', LastId?.id)
+        .modify((qb) => {
+          if (search) {
+            qb.where((builder) => {
+              Object.keys(filters).forEach((key) => {
+                builder.orWhere(key, 'like', `%${search}%`);
+              });
+            });
+          }
+
+          if (filters && Object.keys(filters).length > 0) {
+            Object.entries(filters).forEach(([key, value]) => {
+              if (value !== undefined && value !== null && value !== '') {
+                qb.where(key, 'like', `%${value}%`);
+              }
+            });
+          }
+        })
         .first();
       const totalRecords = await trx(this.tableName)
         .count('id as total')
@@ -359,7 +376,7 @@ export class AlatbayarService {
           if (filters && Object.keys(filters).length > 0) {
             Object.entries(filters).forEach(([key, value]) => {
               if (value !== undefined && value !== null && value !== '') {
-                qb.where(key, value);
+                qb.where(key, 'like', `%${value}%`);
               }
             });
           }
@@ -369,9 +386,11 @@ export class AlatbayarService {
       const totalRecords = await trx(this.tableName)
         .count('id as total')
         .first();
-      console.log('existingData[sortBy]', existingData[sortBy]);
+      console.log('existingData[sortBy]', insertData[sortBy]);
       console.log('resultposition', resultposition);
       console.log('totalRecords', totalRecords);
+      console.log('data', insertData);
+
       totalItems = totalRecords?.total || 0;
       posisi = resultposition?.posisi || 0;
 
