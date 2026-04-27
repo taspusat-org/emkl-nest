@@ -193,15 +193,32 @@ export class AlatbayarService {
     try {
       const { page = 1, limit = 0, customOffset } = pagination ?? {};
 
+      const excludeSearchKeys = [
+        'statusaktif',
+        'text',
+        'icon',
+        'statuslangsungcair',
+        'statusdefault',
+        'statusbank',
+      ];
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
       const applyFilters = (query: any) => {
         // Apply search filter
         if (search) {
-          const sanitized = String(search).replace(/\[/g, '[[]').trim();
-          query.where((qb) => {
-            const searchFields = Object.keys(filters || {});
+          const sanitizedValue = String(search).replace(/\[/g, '[[]');
 
+          query.where((qb) => {
             searchFields.forEach((field) => {
-              qb.orWhere(`ab.${field}`, 'like', `%${sanitized}%`);
+              if (['created_at', 'updated_at'].includes(field)) {
+                qb.orWhereRaw("FORMAT(ab.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                  field,
+                  `%${sanitizedValue}%`,
+                ]);
+              } else {
+                qb.orWhere(`ab.${field}`, 'like', `%${sanitizedValue}%`);
+              }
             });
           });
         }
@@ -271,8 +288,8 @@ export class AlatbayarService {
         'ab.memo',
         'ab.info',
         'ab.modifiedby',
-        'ab.created_at',
-        'ab.updated_at',
+        trx.raw("FORMAT(ab.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+        trx.raw("FORMAT(ab.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
       ]);
 
       applyFilters(query);
