@@ -27,7 +27,6 @@ export class AkunpusatService {
     private readonly runningNumberService: RunningNumberService,
   ) {}
   private readonly tableName = 'akunpusat';
-  private readonly viewName = 'vAkunpusat';
   async create(createAkunpusatDto: any, trx: any) {
     try {
       const {
@@ -61,72 +60,86 @@ export class AkunpusatService {
         .returning('*');
 
       const newItem = insertedItems[0]; // Get the inserted item
-      let posisi = 0;
-      let totalItems = 0;
-      const LastId = await trx(this.viewName)
-        .select('id')
-        .orderBy('id', 'desc')
-        .first();
-      const resultposition = await trx(this.viewName)
-        .count('* as posisi')
-        .where(
-          sortBy,
-          sortDirection === 'desc' ? '>=' : '<=',
-          createAkunpusatDto[sortBy] ?? '',
-        )
-        .where('id', '<=', LastId?.id)
-        .first();
-      const totalRecords = await trx(this.viewName)
-        .count('id as total')
-        .first();
-      totalItems = totalRecords?.total || 0;
 
-      posisi = resultposition?.posisi || 0;
-      const pageNumber = Math.ceil(posisi / limit);
-      const totalPages = Math.ceil(totalItems / limit);
-
-      const fetchedPages = getFetchedPages(pageNumber, totalPages);
-
-      const startPage = fetchedPages[0];
-      const endPage = fetchedPages[fetchedPages.length - 1];
-
-      // Hitung offset dan total data yang dibutuhkan
-      const customOffset = (startPage - 1) * limit;
-      const totalDataNeeded = (endPage - startPage + 1) * limit;
-      const result = await this.findAll(
+      // Get all data to find the position of new item
+      const { data: allData } = await this.findAll(
         {
-          search: search || '',
-          filters: filters || {},
-          pagination: {
-            page: startPage, // page tidak dipakai karena useCustomOffset = true
-            limit: totalDataNeeded, // ambil total data yang dibutuhkan
-            customOffset: customOffset, // offset manual
-          },
-          sort: {
-            sortBy: sortBy,
-            sortDirection: sortDirection.toLowerCase(),
-          },
+          search,
+          filters,
+          pagination: { page, limit: 0 },
+          sort: { sortBy, sortDirection },
           isLookUp: false,
-          useCustomOffset: true, // flag untuk pakai custom offset
         },
         trx,
       );
-      const allFetchedData = result.data;
-      const pagedData = {};
-      let dataIndex = 0;
 
-      fetchedPages.forEach((pageNum) => {
-        const pageStartIndex = dataIndex;
-        const pageEndIndex = dataIndex + limit;
-        pagedData[pageNum] = allFetchedData.slice(pageStartIndex, pageEndIndex);
-        dataIndex += limit;
-      });
+      // If there is no data, skip creating the temp table and return minimal result
+      if (!allData || allData.length === 0) {
+        // Cache empty result
+        await this.redisService.set(
+          `${this.tableName}-allItems`,
+          JSON.stringify([]),
+        );
 
-      // Hitung item index
-      const itemIndex = calculateItemIndex(Number(posisi), fetchedPages, limit);
+        // Log the creation action
+        await this.logTrailService.create(
+          {
+            namatabel: this.tableName,
+            postingdari: 'ADD CONTAINER',
+            idtrans: newItem.id,
+            nobuktitrans: newItem.id,
+            aksi: 'ADD',
+            datajson: JSON.stringify(newItem),
+            modifiedby: newItem.modifiedby,
+          },
+          trx,
+        );
+
+        return {
+          newItem,
+          itemIndex: 0,
+          fetchedPages: [],
+          pagedData: {},
+        };
+      }
+
+      // Create temporary table and insert data using utility method
+      const { tempTableName } = await this.utilsService.createTempTableFromData(
+        allData,
+        trx,
+        this.tableName,
+      );
+
+      // Get position from temporary table (ini adalah posisi global dari SEMUA data, 1-based)
+      const positionResult = await trx(tempTableName)
+        .select('position', '__total_items')
+        .where('id', newItem.id)
+        .first();
+
+      // Posisi global
+      const itemPosition = positionResult?.position ?? 0;
+
+      // Hitung page berdasarkan limit
+      const pageNumber = limit > 0 ? Math.ceil(itemPosition / limit) : 1;
+      const totalItems = positionResult.__total_items;
+      const totalPages = Math.ceil(totalItems / limit);
+
+      const fetchedPages = getFetchedPages(pageNumber, totalPages);
+      const mergedFetchedData = extractFetchedPageData(
+        allData,
+        fetchedPages,
+        limit,
+      );
+      const pagedData = splitDataByPages(allData, fetchedPages, limit);
+      const itemIndex = calculateItemIndex(
+        Number(itemPosition),
+        fetchedPages,
+        limit,
+      );
+
       await this.redisService.set(
-        `${this.tableName}-page-${pageNumber}`,
-        JSON.stringify(allFetchedData),
+        `${this.tableName}-allItems`,
+        JSON.stringify(mergedFetchedData),
       );
 
       await this.logTrailService.create(
@@ -145,7 +158,6 @@ export class AkunpusatService {
       return {
         newItem,
         itemIndex: itemIndex.zeroBasedIndex,
-        pageNumber,
         fetchedPages,
         pagedData,
       };
@@ -161,13 +173,12 @@ export class AkunpusatService {
       pagination = {},
       sort,
       isLookUp,
-      useCustomOffset,
+      flag,
     }: FindAllParams,
     trx: any,
   ) {
     try {
-      const { page = 1, limit = 0, customOffset } = pagination ?? {};
-
+      const { page = 1, limit = 0 } = pagination;
       const excludedFields = [
         'created_at',
         'updated_at',
@@ -311,27 +322,41 @@ export class AkunpusatService {
 
       // Apply pagination
       if (limit > 0) {
-        const offset =
-          useCustomOffset === true && customOffset !== undefined
-            ? customOffset
-            : (page - 1) * limit;
-
+        const offset = (page - 1) * limit;
         dataQuery.limit(limit).offset(offset);
       }
 
-      const data = await dataQuery;
-      const total = data.length ? Number(data[0].__total_items) : 0;
-      const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
-      return {
-        data,
-        total,
-        pagination: {
-          currentPage: Number(page),
-          totalPages,
-          totalItems: total,
-          itemsPerPage: limit > 0 ? limit : total,
-        },
-      };
+      // Fetch the data
+      if (flag == 'GET POSITION') {
+        const data = await dataQuery;
+        const total = data.length ? Number(data[0].__total_items) : 0;
+        const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+        return {
+          query: dataQuery.toQuery(),
+          data,
+          total,
+          pagination: {
+            currentPage: Number(page),
+            totalPages,
+            totalItems: total,
+            itemsPerPage: limit > 0 ? limit : total,
+          },
+        };
+      } else {
+        const data = await dataQuery;
+        const total = data.length ? Number(data[0].__total_items) : 0;
+        const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+        return {
+          data,
+          total,
+          pagination: {
+            currentPage: Number(page),
+            totalPages,
+            totalItems: total,
+            itemsPerPage: limit > 0 ? limit : total,
+          },
+        };
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       throw new Error('Failed to fetch data');

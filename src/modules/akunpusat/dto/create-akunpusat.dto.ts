@@ -17,13 +17,19 @@ const baseFields = {
     .number()
     .int({ message: 'Status Aktif harus bulat' })
     .min(1, { message: 'Status Aktif Wajib Diisi' }),
+  // modifiedby diisi di backend, optional di request body
   modifiedby: z.string().max(200).optional(),
 };
+// ------------------------
+// 2. KHUSUS CREATE
+// ------------------------
 export const CreateAkunpusatSchema = z
   .object({
     ...baseFields,
+    // Field/aturan khusus create bisa ditambah di sini
   })
   .superRefine(async (data, ctx) => {
+    // Cek unik hanya untuk create (excludeId tidak ada)
     const existsName = await isRecordExist('coa', data.coa, 'akunpusat');
     if (existsName) {
       ctx.addIssue({
@@ -32,8 +38,12 @@ export const CreateAkunpusatSchema = z
         message: 'Akun Pusat dengan coa ini sudah ada',
       });
     }
+    // Validasi khusus penambahan create dapat disimpan di sini
   });
 export type CreateAkunpusatDto = z.infer<typeof CreateAkunpusatSchema>;
+// ------------------------
+// 3. KHUSUS UPDATE
+// ------------------------
 export const updateAkunPusatSchema = z
   .object({
     ...baseFields,

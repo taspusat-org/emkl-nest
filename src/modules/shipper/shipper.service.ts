@@ -55,6 +55,7 @@ export class ShipperService {
         parentshipper_text,
         ...insertData
       } = createShipperDto;
+      console.log('masukkkk22112');
       insertData.updated_at = this.utilsService.getTime();
       insertData.created_at = this.utilsService.getTime();
       insertData.tglemailshipperjobminus = formatDateToSQL(
@@ -68,6 +69,7 @@ export class ShipperService {
         }
       });
 
+      const insertedItems = await trx(this.tableName).insert(insertData);
       const newItem = await trx(this.tableName).orderBy('id', 'desc').first();
       const statusRelasi = await trx('parameter')
         .select('*')
@@ -116,7 +118,6 @@ export class ShipperService {
           sortDirection === 'desc' ? '>=' : '<=',
           insertData[sortBy],
         )
-
         .where('id', '<=', LastId?.id)
         .first();
       const totalRecords = await trx(this.tableName)
@@ -130,6 +131,9 @@ export class ShipperService {
 
       const fetchedPages = getFetchedPages(pageNumber, totalPages);
 
+      // ========== SOLUSI BARU: SINGLE QUERY dengan custom offset ==========
+
+      // Hitung range page
       const startPage = fetchedPages[0];
       const endPage = fetchedPages[fetchedPages.length - 1];
 
@@ -156,6 +160,7 @@ export class ShipperService {
         },
         trx,
       );
+      console.log('result', result);
       const allFetchedData = result?.data;
       // Split data ke pages di memory (sangat cepat!)
       const pagedData = {};
