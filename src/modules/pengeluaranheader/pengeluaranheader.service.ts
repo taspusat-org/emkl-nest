@@ -16,6 +16,8 @@ import {
   formatIndonesianNumber,
   parseNumberWithSeparators,
   formatIndonesianNegative,
+  calculateItemIndex,
+  getFetchedPages,
 } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
@@ -87,6 +89,7 @@ export class PengeluaranheaderService {
         .leftJoin('parameter as p', 'p.id', 'b.formatpengeluaran')
         .where('b.id', insertData.bank_id)
         .first();
+
       const parameter = await trx('parameter')
         .select(
           'grp',
@@ -95,6 +98,7 @@ export class PengeluaranheaderService {
         )
         .where('id', formatpengeluaran.formatpengeluaran)
         .first();
+
       if (!formatpengeluaran) {
         throw new Error(`Bank dengan id ${insertData.bank_id} tidak ditemukan`);
       }
@@ -104,6 +108,7 @@ export class PengeluaranheaderService {
           `Parameter dengan id ${formatpengeluaran.formatpengeluaran} tidak ditemukan`,
         );
       }
+
       const cabangId = parameterCabang.cabang_id;
       const nomorBukti = await this.runningNumberService.generateRunningNumber(
         trx,
@@ -136,7 +141,6 @@ export class PengeluaranheaderService {
       let penerimaanemklheader_nobukti = null;
 
       if (data.details.length > 0) {
-        // Pisahkan details berdasarkan ada/tidaknya transaksilain_nobukti
         const detailsForPenerimaan = data.details.filter(
           (detail: any) =>
             detail.transaksilain_nobukti &&
@@ -151,27 +155,20 @@ export class PengeluaranheaderService {
 
         // ============ PROSES PENERIMAAN (yang ada transaksilain_nobukti) ============
         if (detailsForPenerimaan.length > 0) {
-          // Filter hanya detail yang coadebet-nya ada di coaproses datapengeluaranemkl
           const validDetailsForPenerimaan: any[] = [];
 
           for (const detail of detailsForPenerimaan) {
-            // Cari data pengeluaranemkl berdasarkan coadebet detail
             const datapengeluaranemkl = await trx('pengeluaranemkl')
               .where('coaproses', detail.coadebet)
               .first();
 
-            // Hanya proses jika coadebet ada di coaproses
             if (datapengeluaranemkl) {
-              // Validasi nilaiprosespenerimaan
               const statusPenerimaan =
                 datapengeluaranemkl.nilaiprosespenerimaan;
               const nominalValue = parseNumberWithSeparators(detail.nominal);
-
-              // Cek apakah nominal positif atau negatif
               const isPositif = !isNaN(nominalValue) && nominalValue > 0;
               const isNegatif = !isNaN(nominalValue) && nominalValue < 0;
 
-              // Validasi: jika positif, status harus 171; jika negatif, status harus 172
               if (
                 isPositif &&
                 Number(statusPenerimaan) !== Number(dataPositif.id)
@@ -190,12 +187,10 @@ export class PengeluaranheaderService {
                 );
               }
 
-              // Jika validasi lolos, masukkan ke array valid
               validDetailsForPenerimaan.push(detail);
             }
           }
 
-          // Proses insert hanya jika ada detail yang valid
           if (validDetailsForPenerimaan.length > 0) {
             const detailPenerimaanEmkl = validDetailsForPenerimaan.map(
               (detail: any) => {
@@ -213,6 +208,7 @@ export class PengeluaranheaderService {
                 };
               },
             );
+
             const firstValidDetail = validDetailsForPenerimaan[0];
             const datapenerimaanemkl = await trx('penerimaanemkl')
               .where('coaproses', firstValidDetail.coadebet)
@@ -248,26 +244,20 @@ export class PengeluaranheaderService {
 
         // ============ PROSES PENGELUARAN (yang tidak ada transaksilain_nobukti) ============
         if (detailsForPengeluaran.length > 0) {
-          // Filter hanya detail yang coadebet-nya ada di coaproses datapengeluaranemkl
           const validDetailsForPengeluaran: any[] = [];
 
           for (const detail of detailsForPengeluaran) {
-            // Cari data pengeluaranemkl berdasarkan coadebet detail
             const datapengeluaranemkl = await trx('pengeluaranemkl')
               .where('coaproses', detail.coadebet)
               .first();
 
-            // Hanya proses jika coadebet ada di coaproses
             if (datapengeluaranemkl) {
-              // Validasi nilaiprosespengeluaran
               const statusPengeluaran =
                 datapengeluaranemkl.nilaiprosespengeluaran;
               const nominalValue = parseNumberWithSeparators(detail.nominal);
-
-              // Cek apakah nominal positif atau negatif
               const isPositif = !isNaN(nominalValue) && nominalValue > 0;
               const isNegatif = !isNaN(nominalValue) && nominalValue < 0;
-              // Validasi: jika positif, status harus 171; jika negatif, status harus 172
+
               if (
                 isPositif &&
                 Number(statusPengeluaran) !== Number(dataPositif.id)
@@ -286,12 +276,10 @@ export class PengeluaranheaderService {
                 );
               }
 
-              // Jika validasi lolos, masukkan ke array valid
               validDetailsForPengeluaran.push(detail);
             }
           }
 
-          // Proses insert hanya jika ada detail yang valid
           if (validDetailsForPengeluaran.length > 0) {
             const detailPengeluaranEmkl = validDetailsForPengeluaran.map(
               (detail: any) => {
@@ -309,11 +297,11 @@ export class PengeluaranheaderService {
               },
             );
 
-            // Ambil data pengeluaranemkl pertama dari detail yang valid
             const firstValidDetail = validDetailsForPengeluaran[0];
             const datapengeluaranemklForInsert = await trx('pengeluaranemkl')
               .where('coaproses', firstValidDetail.coadebet)
               .first();
+
             const payloadPengeluaranEmklHeader = {
               tglbukti: insertData.tglbukti ?? null,
               coaproses: datapengeluaranemklForInsert.coaproses ?? null,
@@ -329,6 +317,7 @@ export class PengeluaranheaderService {
               modifiedby: insertData.modifiedby,
               details: detailPengeluaranEmkl,
             };
+
             const pengeluaranemklheaderInserted =
               await this.pengeluaranemklheaderService.create(
                 payloadPengeluaranEmklHeader,
@@ -366,6 +355,7 @@ export class PengeluaranheaderService {
       }
 
       const newItem = insertedItems[0];
+
       const processDetails = (details) => {
         return details.flatMap((detail) => [
           {
@@ -390,6 +380,7 @@ export class PengeluaranheaderService {
           },
         ]);
       };
+
       const result = processDetails(data.details);
       const jurnalPayload = {
         nobukti: nomorBukti,
@@ -403,46 +394,99 @@ export class PengeluaranheaderService {
         details: result,
       };
 
-      const jurnalHeaderInserted = await this.JurnalumumheaderService.create(
-        jurnalPayload,
-        trx,
-      );
+      await this.JurnalumumheaderService.create(jurnalPayload, trx);
 
-      const { data: filteredItems } = await this.findAll(
+      // ============ GET POSITION ============
+      let posisi = 0;
+      let totalItems = 0;
+
+      const LastId = await trx(this.tableName)
+        .select('id')
+        .orderBy('id', 'desc')
+        .first();
+
+      const resultposition = await trx('vpengeluarankas')
+        .count('* as posisi')
+        .where(
+          data.sortBy,
+          data.sortDirection === 'desc' ? '>=' : '<=',
+          newItem[data.sortBy],
+        )
+        .where('id', '<=', LastId?.id)
+        .modify((qb) => {
+          if (data.search) {
+            qb.where((builder) => {
+              Object.keys(data.filters || {}).forEach((key) => {
+                builder.orWhere(key, 'like', `%${data.search}%`);
+              });
+            });
+          }
+
+          if (data.filters && Object.keys(data.filters).length > 0) {
+            Object.entries(data.filters).forEach(([key, value]) => {
+              if (value !== undefined && value !== null && value !== '') {
+                qb.where(key, 'like', `%${value}%`);
+              }
+            });
+          }
+        })
+        .first();
+
+      const totalRecords = await trx(this.tableName)
+        .count('id as total')
+        .first();
+
+      totalItems = totalRecords?.total || 0;
+      posisi = resultposition?.posisi || 0;
+
+      const pageNumber = Math.ceil(posisi / data.limit);
+      const totalPages = Math.ceil(totalItems / data.limit);
+
+      const fetchedPages = getFetchedPages(pageNumber, totalPages);
+
+      const startPage = fetchedPages[0];
+      const endPage = fetchedPages[fetchedPages.length - 1];
+
+      const customOffset = (startPage - 1) * data.limit;
+      const totalDataNeeded = (endPage - startPage + 1) * data.limit;
+
+      const findAllResult = await this.findAll(
         {
-          search: data.search,
-          filters: data.filters,
-          pagination: { page: data.page, limit: 0 },
-          sort: { sortBy: data.sortBy, sortDirection: data.sortDirection },
+          search: data.search || '',
+          filters: data.filters || {},
+          pagination: {
+            page: startPage,
+            limit: totalDataNeeded,
+            customOffset: customOffset,
+          },
+          sort: {
+            sortBy: data.sortBy,
+            sortDirection: data.sortDirection.toLowerCase(),
+          },
           isLookUp: false,
+          useCustomOffset: true,
         },
         trx,
       );
 
-      let itemIndex = filteredItems.findIndex(
-        (item) => Number(item.id) === Number(newItem.id),
+      const allFetchedData = findAllResult?.data;
+
+      const pagedData = {};
+      let dataIndex = 0;
+
+      fetchedPages.forEach((pageNum) => {
+        const pageStartIndex = dataIndex;
+        const pageEndIndex = dataIndex + data.limit;
+        pagedData[pageNum] = allFetchedData.slice(pageStartIndex, pageEndIndex);
+        dataIndex += data.limit;
+      });
+
+      const itemIndex = calculateItemIndex(
+        Number(posisi),
+        fetchedPages,
+        data.limit,
       );
-
-      if (itemIndex === -1) {
-        itemIndex = 0;
-      }
-
-      const pageNumber = Math.floor(itemIndex / data.limit) + 1;
-      const endIndex = pageNumber * data.limit;
-
-      const limitedItems = filteredItems.slice(0, endIndex);
-
-      await this.redisService.set(
-        `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
-      );
-
-      await this.statuspendukungService.create(
-        this.tableName,
-        newItem.id,
-        insertData.modifiedby,
-        trx,
-      );
+      // ============ END GET POSITION ============
 
       await this.logTrailService.create(
         {
@@ -457,10 +501,24 @@ export class PengeluaranheaderService {
         trx,
       );
 
+      await this.redisService.set(
+        `${this.tableName}-page-${pageNumber}`,
+        JSON.stringify(allFetchedData),
+      );
+
+      await this.statuspendukungService.create(
+        this.tableName,
+        newItem.id,
+        insertData.modifiedby,
+        trx,
+      );
+
       return {
         newItem,
+        itemIndex: itemIndex.zeroBasedIndex < 0 ? 0 : itemIndex.zeroBasedIndex,
         pageNumber,
-        itemIndex,
+        fetchedPages,
+        pagedData,
       };
     } catch (error) {
       console.log(error, 'error di pengeluaran header');
@@ -469,14 +527,18 @@ export class PengeluaranheaderService {
   }
 
   async findAll(
-    { search, filters, pagination, sort, isLookUp }: FindAllParams,
+    {
+      search,
+      filters,
+      pagination,
+      sort,
+      isLookUp,
+      useCustomOffset,
+    }: FindAllParams,
     trx: any,
   ) {
     try {
-      let { page, limit } = pagination ?? {};
-
-      page = page ?? 1;
-      limit = limit ?? 0;
+      const { page = 1, limit = 0, customOffset } = pagination ?? {};
 
       if (isLookUp) {
         const acoCountResult = await trx(this.tableName)
@@ -487,41 +549,159 @@ export class PengeluaranheaderService {
 
         if (Number(acoCount) > 500) {
           return { data: { type: 'json' } };
-        } else {
-          limit = 0;
         }
       }
 
+      const excludeSearchKeys = [
+        'tglDari',
+        'tglSampai',
+        'relasi_id',
+        'bank_id',
+        'alatbayar_id',
+        'daftarbank_id',
+        'id',
+      ];
+
+      const searchFields = Object.keys(filters || {}).filter(
+        (k) => !excludeSearchKeys.includes(k),
+      );
+
+      const applyFilters = (query: any) => {
+        // Filter tanggal range
+        if (filters?.tglDari && filters?.tglSampai) {
+          const tglDariFormatted = formatDateToSQL(String(filters.tglDari));
+          const tglSampaiFormatted = formatDateToSQL(String(filters.tglSampai));
+          query.whereBetween('u.tglbukti', [
+            tglDariFormatted,
+            tglSampaiFormatted,
+          ]);
+        }
+
+        // Apply search
+        if (search) {
+          const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
+
+          query.where((qb) => {
+            searchFields.forEach((field) => {
+              if (
+                [
+                  'created_at',
+                  'updated_at',
+                  'tglbukti',
+                  'tgljatuhtempo',
+                ].includes(field)
+              ) {
+                qb.orWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+                  field,
+                  `%${sanitizedValue}%`,
+                ]);
+              } else if (field === 'relasi_text') {
+                qb.orWhere('u.relasi_text', 'like', `%${sanitizedValue}%`);
+              } else if (field === 'bank_text') {
+                qb.orWhere('u.bank_text', 'like', `%${sanitizedValue}%`);
+              } else if (field === 'coakredit_text') {
+                qb.orWhere('u.coakredit_text', 'like', `%${sanitizedValue}%`);
+              } else if (field === 'alatbayar_text') {
+                qb.orWhere('u.alatbayar_text', 'like', `%${sanitizedValue}%`);
+              } else if (field === 'daftarbank_text') {
+                qb.orWhere('u.daftarbank_text', 'like', `%${sanitizedValue}%`);
+              } else {
+                qb.orWhere(`u.${field}`, 'like', `%${sanitizedValue}%`);
+              }
+            });
+          });
+        }
+
+        // Apply filters
+        if (filters && Object.keys(filters).length > 0) {
+          Object.entries(filters).forEach(([key, rawValue]) => {
+            if (key === 'tglDari' || key === 'tglSampai') return;
+            if (rawValue === null || rawValue === undefined || rawValue === '')
+              return;
+
+            const sanitizedValue = String(rawValue).replace(/\[/g, '[[]');
+
+            if (
+              [
+                'created_at',
+                'updated_at',
+                'tglbukti',
+                'tgljatuhtempo',
+              ].includes(key)
+            ) {
+              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+                key,
+                `%${sanitizedValue}%`,
+              ]);
+            } else if (key === 'relasi_text') {
+              query.andWhere('u.relasi_text', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'bank_text') {
+              query.andWhere('u.bank_text', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'coakredit_text') {
+              query.andWhere('u.coakredit_text', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'bank_id') {
+              query.andWhere('u.bank_id', '=', sanitizedValue);
+            } else if (key === 'alatbayar_text') {
+              query.andWhere('u.alatbayar_text', 'like', `%${sanitizedValue}%`);
+            } else if (key === 'daftarbank_text') {
+              query.andWhere(
+                'u.daftarbank_text',
+                'like',
+                `%${sanitizedValue}%`,
+              );
+            } else {
+              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
+            }
+          });
+        }
+
+        return query;
+      };
+
+      const sortBy = sort?.sortBy || 'id';
+      const sortDirection =
+        sort?.sortDirection?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+      // Count query pakai tabel asli (lebih efisien)
+      const countQuery = trx(this.tableName);
+      const countResult = await countQuery.count('id as total').first();
+      const total = Number(countResult?.total || 0);
+
+      // Temp table untuk link
       const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
 
       await trx.schema.createTable(tempUrl, (t) => {
         t.integer('id').nullable();
-        t.string('nobukti').nullable();
+        t.string('nobukti_key').nullable();
         t.text('link').nullable();
       });
+
       const url = 'jurnalumumheader';
 
       await trx(tempUrl).insert(
         trx
           .select(
-            'u.id',
-            'u.nobukti',
+            'ph.id',
+            trx.raw('ph.nobukti as nobukti_key'), // ← ganti nama kolomnya
             trx.raw(`
-                    STRING_AGG(
-                      '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'nobukti=' + u.nobukti + '">' +
-                      '<HighlightWrapper value="' + u.nobukti + '" />' +
-                      '</a>', ','
-                    ) AS link
-                  `),
+        STRING_AGG(
+          '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'nobukti=' + ph.nobukti + '">' +
+          '<HighlightWrapper value="' + ph.nobukti + '" />' +
+          '</a>', ','
+        ) AS link
+      `),
           )
-          .from(this.tableName + ' as u')
-          .groupBy('u.id', 'u.nobukti'),
+          .from(this.tableName + ' as ph')
+          .groupBy('ph.id', 'ph.nobukti'),
       );
 
-      const query = trx
-        .from(trx.raw(`${this.tableName} as u WITH (READUNCOMMITTED)`))
+      // Main query pakai view
+      const query = trx('vpengeluaranheader as u')
         .select([
-          'u.id as id',
+          trx.raw(`ROW_NUMBER() OVER (ORDER BY ?? ${sortDirection}) as nomor`, [
+            sortBy,
+          ]),
+          'u.id',
           'u.nobukti',
           trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
           'u.relasi_id',
@@ -539,168 +719,46 @@ export class PengeluaranheaderService {
           'u.modifiedby',
           trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
           trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          'r.nama as relasi_text',
-          'b.nama as bank_text',
-          'a.keterangancoa as coakredit_text',
-          'c.nama as alatbayar_text',
-          'd.nama as daftarbank_text',
+          'u.relasi_text',
+          'u.bank_text',
+          'u.coakredit_text',
+          'u.alatbayar_text',
+          'u.daftarbank_text',
           'tempUrl.link',
         ])
         .leftJoin(
           trx.raw(`${tempUrl} as tempUrl`),
-          'u.nobukti',
-          'tempUrl.nobukti',
-        )
-        .leftJoin(
-          trx.raw('relasi as r WITH (READUNCOMMITTED)'),
-          'u.relasi_id',
-          'r.id',
-        )
-        .leftJoin(
-          trx.raw('bank as b WITH (READUNCOMMITTED)'),
-          'u.bank_id',
-          'b.id',
-        )
-        .leftJoin(
-          trx.raw('akunpusat as a WITH (READUNCOMMITTED)'),
-          'u.coakredit',
-          'a.coa',
-        )
-        .leftJoin(
-          trx.raw('alatbayar as c WITH (READUNCOMMITTED)'),
-          'u.alatbayar_id',
-          'c.id',
-        )
-        .leftJoin(
-          trx.raw('daftarbank as d WITH (READUNCOMMITTED)'),
-          'u.daftarbank_id',
-          'd.id',
+          trx.raw('u.nobukti = tempUrl.nobukti_key'),
         );
 
-      if (filters?.tglDari && filters?.tglSampai) {
-        const tglDariFormatted = formatDateToSQL(String(filters?.tglDari));
-        const tglSampaiFormatted = formatDateToSQL(String(filters?.tglSampai));
-        query.whereBetween('u.tglbukti', [
-          tglDariFormatted,
-          tglSampaiFormatted,
-        ]);
+      applyFilters(query);
+
+      query.orderBy(`u.${sortBy}`, sortDirection);
+      if (sortBy !== 'id') {
+        query.orderBy('u.id', 'asc');
       }
 
-      const excludeSearchKeys = [
-        'tglDari',
-        'tglSampai',
-        'relasi_id',
-        'bank_id',
-        'alatbayar_id',
-        'daftarbank_id',
-      ];
-
-      const searchFields = Object.keys(filters || {}).filter(
-        (k) => !excludeSearchKeys.includes(k),
-      );
+      const offset =
+        useCustomOffset === true && customOffset !== undefined
+          ? customOffset
+          : (page - 1) * limit;
 
       if (limit > 0) {
-        const offset = (page - 1) * limit;
-        query.limit(limit).offset(offset);
-      }
-
-      if (search) {
-        const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
-
-        query.where((qb) => {
-          searchFields.forEach((field) => {
-            if (
-              [
-                'created_at',
-                'updated_at',
-                'tglbukti',
-                'tgljatuhtempo',
-              ].includes(field)
-            ) {
-              qb.orWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
-                field,
-                `%${sanitizedValue}%`,
-              ]);
-            } else if (field === 'relasi_text') {
-              qb.orWhere('r.nama', 'like', `%${sanitizedValue}%`);
-            } else if (field === 'nobukti') {
-              qb.orWhere('u.nobukti', 'like', `%${sanitizedValue}%`);
-            } else if (field === 'bank_text') {
-              qb.orWhere('b.nama', 'like', `%${sanitizedValue}%`);
-            } else if (field === 'coakredit_text') {
-              qb.orWhere('a.keterangancoa', 'like', `%${sanitizedValue}%`);
-            } else if (field === 'alatbayar_text') {
-              qb.orWhere('c.nama', 'like', `%${sanitizedValue}%`);
-            } else if (field === 'daftarbank_text') {
-              qb.orWhere('d.nama', 'like', `%${sanitizedValue}%`);
-            } else {
-              qb.orWhere(`u.${field}`, 'like', `%${sanitizedValue}%`);
-            }
-          });
-        });
-      }
-
-      if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          if (key === 'tglDari' || key === 'tglSampai') {
-            continue;
-          }
-
-          if (value) {
-            const sanitizedValue = String(value).replace(/\[/g, '[[]');
-
-            if (
-              [
-                'created_at',
-                'updated_at',
-                'tglbukti',
-                'tgljatuhtempo',
-              ].includes(key)
-            ) {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-                key,
-                `%${sanitizedValue}%`,
-              ]);
-            } else if (key === 'relasi_text') {
-              query.andWhere('r.nama', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'nobukti') {
-              query.andWhere('u.nobukti', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'bank_text') {
-              query.andWhere('b.nama', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'coakredit_text') {
-              query.andWhere('a.keterangancoa', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'bank_id') {
-              query.andWhere('b.id', '=', `${sanitizedValue}`);
-            } else if (key === 'alatbayar_text') {
-              query.andWhere('c.nama', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'daftarbank_text') {
-              query.andWhere('d.nama', 'like', `%${sanitizedValue}%`);
-            } else {
-              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
-            }
-          }
-        }
-      }
-
-      const result = await trx(this.tableName).count('id as total').first();
-      const total = result?.total as number;
-      const totalPages = Math.ceil(total / limit);
-
-      if (sort?.sortBy && sort?.sortDirection) {
-        query.orderBy(sort.sortBy, sort.sortDirection);
+        query.offset(offset).limit(limit);
       }
 
       const data = await query;
 
-      const responseType = Number(total) > 500 ? 'json' : 'local';
+      const totalPages = Math.ceil(total / limit);
+      const responseType = total > 500 ? 'json' : 'local';
 
       return {
-        data: data,
+        data,
         type: responseType,
         total,
         pagination: {
-          currentPage: page,
-          totalPages: totalPages,
+          currentPage: Number(page),
+          totalPages,
           totalItems: total,
           itemsPerPage: limit,
         },
@@ -809,7 +867,6 @@ export class PengeluaranheaderService {
         throw new Error(`Pengeluaran dengan id ${id} tidak ditemukan`);
       }
 
-      // Get format pengeluaran untuk COA kredit
       const formatpengeluaran = await trx(`bank as b`)
         .select('p.grp', 'p.subgrp', 'b.formatpengeluaran', 'b.coa')
         .leftJoin('parameter as p', 'p.id', 'b.formatpengeluaran')
@@ -843,11 +900,10 @@ export class PengeluaranheaderService {
         const updatedData = { ...existingData, ...insertData };
         const nobukti = updatedData.nobukti;
 
-        // Process details untuk jurnal
         const processDetails = (details) => {
           return details.flatMap((detail) => [
             {
-              id: 0, // Set 0 untuk update, service akan handle existing ID
+              id: 0,
               coa: detail.coadebet,
               nobukti: nobukti,
               tglbukti: formatDateToSQL(updatedData.tglbukti),
@@ -857,7 +913,7 @@ export class PengeluaranheaderService {
               modifiedby: updatedData.modifiedby,
             },
             {
-              id: 0, // Set 0 untuk update, service akan handle existing ID
+              id: 0,
               coa: formatpengeluaran?.coa || null,
               nobukti: nobukti,
               tglbukti: formatDateToSQL(updatedData.tglbukti),
@@ -871,13 +927,11 @@ export class PengeluaranheaderService {
 
         const jurnalDetails = processDetails(details || []);
 
-        // Cari jurnal header yang existing berdasarkan nobukti
         const existingJurnal = await trx('jurnalumumheader')
           .where('nobukti', nobukti)
           .first();
 
         if (existingJurnal) {
-          // Update existing jurnal
           const jurnalUpdatePayload = {
             nobukti: nobukti,
             tglbukti: updatedData.tglbukti,
@@ -895,7 +949,6 @@ export class PengeluaranheaderService {
             trx,
           );
         } else {
-          // Create new jurnal jika tidak ada (fallback)
           const jurnalCreatePayload = {
             nobukti: nobukti,
             tglbukti: updatedData.tglbukti,
@@ -912,30 +965,93 @@ export class PengeluaranheaderService {
         }
       }
 
-      const { data: filteredItems } = await this.findAll(
+      // ============ GET POSITION ============
+      let posisi = 0;
+      let totalItems = 0;
+
+      const LastId = await trx(this.tableName)
+        .select('id')
+        .orderBy('id', 'desc')
+        .first();
+
+      const resultposition = await trx('vpengeluarankas')
+        .count('* as posisi')
+        .where(
+          sortBy,
+          sortDirection === 'desc' ? '>=' : '<=',
+          insertData[sortBy],
+        )
+        .where('id', '<=', LastId?.id)
+        .modify((qb) => {
+          if (search) {
+            qb.where((builder) => {
+              Object.keys(filters).forEach((key) => {
+                builder.orWhere(key, 'like', `%${search}%`);
+              });
+            });
+          }
+
+          if (filters && Object.keys(filters).length > 0) {
+            Object.entries(filters).forEach(([key, value]) => {
+              if (value !== undefined && value !== null && value !== '') {
+                qb.where(key, 'like', `%${value}%`);
+              }
+            });
+          }
+        })
+        .first();
+
+      const totalRecords = await trx(this.tableName)
+        .count('id as total')
+        .first();
+
+      totalItems = totalRecords?.total || 0;
+      posisi = resultposition?.posisi || 0;
+
+      const pageNumber = Math.ceil(posisi / limit);
+      const totalPages = Math.ceil(totalItems / limit);
+
+      const fetchedPages = getFetchedPages(pageNumber, totalPages);
+
+      const startPage = fetchedPages[0];
+      const endPage = fetchedPages[fetchedPages.length - 1];
+
+      const customOffset = (startPage - 1) * limit;
+      const totalDataNeeded = (endPage - startPage + 1) * limit;
+
+      const result = await this.findAll(
         {
-          search,
-          filters,
-          pagination: { page, limit: 0 },
-          sort: { sortBy, sortDirection },
+          search: search || '',
+          filters: filters || {},
+          pagination: {
+            page: startPage,
+            limit: totalDataNeeded,
+            customOffset: customOffset,
+          },
+          sort: {
+            sortBy: sortBy,
+            sortDirection: sortDirection.toLowerCase(),
+          },
           isLookUp: false,
+          useCustomOffset: true,
         },
         trx,
       );
 
-      let itemIndex = filteredItems.findIndex((item) => Number(item.id) === id);
-      if (itemIndex === -1) {
-        itemIndex = 0;
-      }
+      const allFetchedData = result.data;
 
-      const pageNumber = Math.floor(itemIndex / limit) + 1;
-      const endIndex = pageNumber * limit;
-      const limitedItems = filteredItems.slice(0, endIndex);
+      const pagedData = {};
+      let dataIndex = 0;
 
-      await this.redisService.set(
-        `${this.tableName}-allItems`,
-        JSON.stringify(limitedItems),
-      );
+      fetchedPages.forEach((pageNum) => {
+        const pageStartIndex = dataIndex;
+        const pageEndIndex = dataIndex + limit;
+        pagedData[pageNum] = allFetchedData.slice(pageStartIndex, pageEndIndex);
+        dataIndex += limit;
+      });
+
+      const itemIndex = calculateItemIndex(Number(posisi), fetchedPages, limit);
+      // ============ END GET POSITION ============
 
       await this.logTrailService.create(
         {
@@ -950,13 +1066,20 @@ export class PengeluaranheaderService {
         trx,
       );
 
+      await this.redisService.set(
+        `${this.tableName}-page-${pageNumber}`,
+        JSON.stringify(allFetchedData),
+      );
+
       return {
         updatedItem: {
           id,
           ...data,
         },
+        itemIndex: itemIndex.zeroBasedIndex < 0 ? 0 : itemIndex.zeroBasedIndex,
         pageNumber,
-        itemIndex,
+        fetchedPages,
+        pagedData,
       };
     } catch (error) {
       console.error('Error in pengeluaran update:', error);

@@ -373,7 +373,8 @@ export class AlatbayarService {
         .select('id')
         .orderBy('id', 'desc')
         .first();
-      const resultposition = await trx('valatbayar')
+
+      const resultposition = trx('valatbayar')
         .count('* as posisi')
         .where(
           sortBy,
@@ -399,7 +400,6 @@ export class AlatbayarService {
           }
         })
         .first();
-
       const totalRecords = await trx(this.tableName)
         .count('id as total')
         .first();
