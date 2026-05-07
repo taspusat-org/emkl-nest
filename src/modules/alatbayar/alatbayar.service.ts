@@ -2,6 +2,7 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { CreateAlatbayarDto } from './dto/create-alatbayar.dto';
@@ -18,9 +19,11 @@ import { RunningNumberService } from '../running-number/running-number.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Workbook, Column } from 'exceljs';
+import { Knex } from 'knex';
 
 @Injectable()
 export class AlatbayarService {
+  private readonly logger = new Logger(AlatbayarService.name);
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
@@ -28,129 +31,146 @@ export class AlatbayarService {
     private readonly runningNumberService: RunningNumberService,
   ) {}
   private readonly tableName = 'alatbayar';
+  private readonly viewName = 'valatbayar';
+
+  private applyFilters(
+    qb: any,
+    filters: Record<string, any>,
+    search?: string,
+  ): void {
+    const excludeSearchKeys: string[] = [];
+
+    const searchFields = Object.keys(filters || {}).filter(
+      (k) => !excludeSearchKeys.includes(k),
+    );
+    const dateFields = ['created_at', 'updated_at'];
+
+    if (search && filters && Object.keys(filters).length > 0) {
+      const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
+      qb.where((query) => {
+        searchFields.forEach((field) => {
+          if (['created_at', 'updated_at'].includes(field)) {
+            qb.orWhereRaw("FORMAT(ab.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
+              field,
+              `%${sanitizedValue}%`,
+            ]);
+          } else {
+            query.orWhere(field, 'like', `%${sanitizedValue}%`);
+          }
+        });
+      });
+    }
+
+    Object.entries(filters || {}).forEach(([key, rawValue]) => {
+      if (excludeSearchKeys.includes(key)) return;
+      if (rawValue === null || rawValue === undefined || rawValue === '')
+        return;
+
+      const sanitizedValue = String(rawValue).replace(/\[/g, '[[]');
+      if (dateFields.includes(key)) {
+        qb.andWhereRaw("FORMAT(ab.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
+          key,
+          `%${sanitizedValue}%`,
+        ]);
+      } else {
+        // ✅ prefix ab. agar konsisten dengan alias view
+        qb.andWhere(`ab.${key}`, 'like', `%${sanitizedValue}%`);
+      }
+    });
+  }
+
+  private buildInsertData(dto: any): Record<string, any> {
+    return {
+      nama: dto.nama ? dto.nama.toUpperCase() : null,
+      keterangan: dto.keterangan ? dto.keterangan.toUpperCase() : null,
+      statuslangsungcair: dto.statuslangsungcair,
+      statusdefault: dto.statusdefault,
+      statusbank: dto.statusbank,
+      statusaktif: dto.statusaktif,
+      modifiedby: dto.modifiedby,
+      created_at: dto.created_at || this.utilsService.getTime(),
+      updated_at: dto.updated_at || this.utilsService.getTime(),
+    };
+  }
+
   async create(CreateAlatbayarDto: any, trx: any) {
     try {
-      const {
-        sortBy,
-        sortDirection,
-        filters,
-        search,
-        page,
-        limit,
-        nama,
-        keterangan,
-        statuslangsungcair,
-        statusdefault,
-        statusbank,
-        statusaktif,
-        modifiedby,
-        created_at,
-        updated_at,
-        info,
-      } = CreateAlatbayarDto;
-      const insertData = {
-        nama: nama ? nama.toUpperCase() : null,
-        keterangan: keterangan ? keterangan.toUpperCase() : null,
-        statuslangsungcair: statuslangsungcair,
-        statusdefault: statusdefault,
-        statusbank: statusbank,
-        statusaktif: statusaktif,
-        modifiedby: modifiedby,
-        created_at: created_at || this.utilsService.getTime(),
-        updated_at: updated_at || this.utilsService.getTime(),
-      };
-      // Insert the new item
-      const insertedItems = await trx(this.tableName).insert(insertData);
-      const newItem = await trx(this.tableName).orderBy('id', 'desc').first();
+      const { sortBy, sortDirection, filters, search, page, limit, info } =
+        CreateAlatbayarDto;
 
-      let posisi = 0;
-      let totalItems = 0;
-      const LastId = await trx(this.tableName)
-        .select('id')
-        .orderBy('id', 'desc')
-        .first();
-      const resultposition = await trx('valatbayar')
-        .count('* as posisi')
-        .where(
-          sortBy,
-          sortDirection === 'desc' ? '>=' : '<=',
-          insertData[sortBy],
-        )
-        .where('id', '<=', LastId?.id)
-        .modify((qb) => {
-          if (search) {
-            qb.where((builder) => {
-              Object.keys(filters).forEach((key) => {
-                builder.orWhere(key, 'like', `%${search}%`);
-              });
-            });
-          }
+      // 1. Insert
+      const insertData = this.buildInsertData(CreateAlatbayarDto);
+      await trx(this.tableName).insert(insertData);
+      const newItem = await trx(this.viewName).orderBy('id', 'desc').first();
 
-          if (filters && Object.keys(filters).length > 0) {
-            Object.entries(filters).forEach(([key, value]) => {
-              if (value !== undefined && value !== null && value !== '') {
-                qb.where(key, 'like', `%${value}%`);
-              }
-            });
-          }
-        })
+      // 2. Cek apakah newItem lolos filter aktif (agar posisi akurat)
+      const existingData = await trx(this.viewName)
+        .where('id', newItem.id)
+        .modify((qb) => this.applyFilters(qb, filters, search))
         .first();
-      const totalRecords = await trx(this.tableName)
+
+      // 3. Hitung posisi & total dengan filter yang sama
+      let posisi: number;
+      let totalItems: number;
+
+      // totalItems selalu dihitung dengan filter — fix bug utama
+      const totalRecords = await trx(this.viewName)
         .count('id as total')
+        .modify((qb) => this.applyFilters(qb, filters, search))
         .first();
-      totalItems = totalRecords?.total || 0;
+      totalItems = Number(totalRecords?.total ?? 0);
 
-      posisi = resultposition?.posisi || 0;
+      if (existingData) {
+        const resultposition = await trx(this.viewName) // fix: pakai this.tableName, bukan hardcode 'valatbayar'
+          .count('* as posisi')
+          .where(
+            sortBy,
+            sortDirection === 'desc' ? '>=' : '<=',
+            insertData[sortBy],
+          )
+          .where('id', '<=', newItem.id) // fix: tidak perlu query LastId terpisah
+          .modify((qb) => this.applyFilters(qb, filters, search))
+          .first();
+
+        posisi = Number(resultposition?.posisi ?? 0);
+      } else {
+        posisi = 1;
+      }
+
+      // 4. Pagination
       const pageNumber = Math.ceil(posisi / limit);
       const totalPages = Math.ceil(totalItems / limit);
-
       const fetchedPages = getFetchedPages(pageNumber, totalPages);
 
-      // ========== SOLUSI BARU: SINGLE QUERY dengan custom offset ==========
-
-      // Hitung range page
       const startPage = fetchedPages[0];
       const endPage = fetchedPages[fetchedPages.length - 1];
-
-      // Hitung offset dan total data yang dibutuhkan
       const customOffset = (startPage - 1) * limit;
       const totalDataNeeded = (endPage - startPage + 1) * limit;
 
-      // FETCH SEKALI SAJA dengan custom offset
+      // 5. Fetch sekali, split di memory
       const result = await this.findAll(
         {
           search: search || '',
           filters: filters || {},
-          pagination: {
-            page: startPage, // page tidak dipakai karena useCustomOffset = true
-            limit: totalDataNeeded, // ambil total data yang dibutuhkan
-            customOffset: customOffset, // offset manual
-          },
-          sort: {
-            sortBy: sortBy,
-            sortDirection: sortDirection.toLowerCase(),
-          },
+          pagination: { page: startPage, limit: totalDataNeeded, customOffset },
+          sort: { sortBy, sortDirection: sortDirection.toLowerCase() },
           isLookUp: false,
-          useCustomOffset: true, // flag untuk pakai custom offset
+          useCustomOffset: true,
         },
         trx,
       );
-      console.log('result', result);
-      const allFetchedData = result?.data;
-      // Split data ke pages di memory (sangat cepat!)
-      const pagedData = {};
-      let dataIndex = 0;
 
+      const allFetchedData = result?.data ?? [];
+      const pagedData: Record<number, any[]> = {};
+      let dataIndex = 0;
       fetchedPages.forEach((pageNum) => {
-        const pageStartIndex = dataIndex;
-        const pageEndIndex = dataIndex + limit;
-        pagedData[pageNum] = allFetchedData.slice(pageStartIndex, pageEndIndex);
+        pagedData[pageNum] = allFetchedData.slice(dataIndex, dataIndex + limit);
         dataIndex += limit;
       });
 
-      // Hitung item index
       const itemIndex = calculateItemIndex(Number(posisi), fetchedPages, limit);
 
+      // 6. Side-effects
       await this.logTrailService.create(
         {
           namatabel: this.tableName,
@@ -163,10 +183,12 @@ export class AlatbayarService {
         },
         trx,
       );
+
       await this.redisService.set(
         `${this.tableName}-page-${pageNumber}`,
         JSON.stringify(allFetchedData),
       );
+
       return {
         newItem,
         itemIndex: itemIndex.zeroBasedIndex,
@@ -188,89 +210,24 @@ export class AlatbayarService {
       isLookUp,
       useCustomOffset,
     }: FindAllParams,
-    trx: any,
+    trx: Knex.Transaction,
   ) {
     try {
       const { page = 1, limit = 0, customOffset } = pagination ?? {};
 
-      const excludeSearchKeys = [
-        'statusaktif',
-        'text',
-        'icon',
-        'statuslangsungcair',
-        'statusdefault',
-        'statusbank',
-      ];
-      const searchFields = Object.keys(filters || {}).filter(
-        (k) => !excludeSearchKeys.includes(k),
-      );
-      const applyFilters = (query: any) => {
-        // Apply search filter
-        if (search) {
-          const sanitizedValue = String(search).replace(/\[/g, '[[]');
-
-          query.where((qb) => {
-            searchFields.forEach((field) => {
-              if (['created_at', 'updated_at'].includes(field)) {
-                qb.orWhereRaw("FORMAT(ab.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
-                  field,
-                  `%${sanitizedValue}%`,
-                ]);
-              } else {
-                qb.orWhere(`ab.${field}`, 'like', `%${sanitizedValue}%`);
-              }
-            });
-          });
-        }
-
-        // Apply filters
-        if (filters && Object.keys(filters).length > 0) {
-          Object.entries(filters).forEach(([key, rawValue]) => {
-            if (
-              rawValue === null ||
-              rawValue === undefined ||
-              rawValue === ''
-            ) {
-              return;
-            }
-
-            const sanitizedValue = String(rawValue).replace(/[[\]%_]/g, '[$&]');
-
-            // Cek apakah kolom timestamp
-            if (['created_at', 'updated_at'].includes(key)) {
-              query.andWhereRaw("FORMAT(ab.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
-                key,
-                `%${sanitizedValue}%`,
-              ]);
-            }
-            // Cek apakah kolom numerik
-            else {
-              const numValue = Number(rawValue);
-              if (!isNaN(numValue) && /^\d+$/.test(String(rawValue).trim())) {
-                query.andWhere(`ab.${key}`, numValue);
-              } else {
-                query.andWhere(`ab.${key}`, 'like', `%${sanitizedValue}%`);
-              }
-            }
-          });
-        }
-
-        return query;
-      };
-
-      const sortBy = sort?.sortBy || 'creditlimit';
+      const sortBy = sort?.sortBy || 'nama'; // fix: was 'creditlimit'
       const sortDirection =
         sort?.sortDirection?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+      const safeFilters = filters || {};
+      // Count dari tabel base (tanpa ROW_NUMBER overhead)
+      const countResult = await trx(`${this.viewName} as ab`)
+        .count('ab.id as total')
+        .modify((qb) => this.applyFilters(qb, safeFilters, search))
+        .first();
+      const total = Number(countResult?.total ?? 0);
 
-      const countQuery = trx('alatbayar as ab');
-      applyFilters(countQuery);
-      const countResult = await countQuery.count('ab.id as total').first();
-      const total = Number(countResult?.total || 0);
-
-      const query = trx('valatbayar as ab').select([
-        trx.raw(`ROW_NUMBER() OVER (ORDER BY ?? ${sortDirection}) as nomor`, [
-          sortBy,
-        ]),
+      // Data dari view (mengandung _text, _memo, dll)
+      const query = trx(`${this.viewName} as ab`).select([
         'ab.id',
         'ab.nama',
         'ab.keterangan',
@@ -292,7 +249,8 @@ export class AlatbayarService {
         trx.raw("FORMAT(ab.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
       ]);
 
-      applyFilters(query);
+      query.modify((qb) => this.applyFilters(qb, safeFilters, search));
+
       query.orderBy(`ab.${sortBy}`, sortDirection);
       if (sortBy !== 'id') {
         query.orderBy('ab.id', 'asc');
@@ -306,8 +264,8 @@ export class AlatbayarService {
       if (limit > 0) {
         query.offset(offset).limit(limit);
       }
-      const data = await query;
 
+      const data = await query;
       const totalPages = Math.ceil(total / limit);
       const responseType = total > 500 ? 'json' : 'local';
 
@@ -323,148 +281,104 @@ export class AlatbayarService {
         },
       };
     } catch (error) {
-      console.error('Error fetching alatbayar data:', error);
-      throw new Error('Failed to fetch alatbayar data');
+      this.logger.error('Error fetching alatbayar data', error?.stack);
+      throw new InternalServerErrorException('Failed to fetch alatbayar data');
     }
   }
 
   async update(id: number, data: any, trx: any) {
     try {
-      const existingData = await trx(this.tableName).where('id', id).first();
+      const existedData = await trx(this.tableName).where('id', id).first();
 
-      if (!existingData) {
+      if (!existedData) {
         throw new Error('Alat Bayar not found');
       }
 
-      const {
-        sortBy,
-        sortDirection,
-        filters,
-        search,
-        page,
-        limit,
-        statuslangsungcair_text,
-        statusdefault_text,
-        statusbank_text,
-        text,
-        id: SkipId,
-        ...insertData
-      } = data;
-
-      Object.keys(insertData).forEach((key) => {
-        if (typeof insertData[key] === 'string') {
-          insertData[key] = insertData[key].toUpperCase();
+      const { sortBy, sortDirection, filters, search, limit } = data;
+      Object.keys(data).forEach((key) => {
+        if (typeof data[key] === 'string') {
+          data[key] = data[key].toUpperCase();
         }
       });
-      const hasChanges = this.utilsService.hasChanges(insertData, existingData);
+      // 2. Build insert payload — uppercase hanya nama & keterangan,
+      //    sama persis seperti create, via buildInsertData()
+      const insertData = this.buildInsertData(data);
+
+      const hasChanges = this.utilsService.hasChanges(insertData, existedData);
 
       if (hasChanges) {
         insertData.updated_at = this.utilsService.getTime();
         await trx(this.tableName).where('id', id).update(insertData);
       }
 
-      // ========== LOGIKA BARU: SAMA SEPERTI CREATE ==========
+      const existingData = await trx(this.viewName)
+        .where('id', id)
+        .modify((qb) => this.applyFilters(qb, filters, search))
+        .first();
 
-      // Hitung posisi item yang diupdate
-      let posisi = 0;
-      let totalItems = 0;
+      // 3. Hitung posisi & total dengan filter yang sama
+      let posisi: number;
+      let totalItems: number;
 
-      const LastId = await trx(this.tableName)
+      // totalItems selalu dihitung dengan filter — fix bug utama
+      const totalRecords = await trx(this.viewName)
+        .count('id as total')
+        .modify((qb) => this.applyFilters(qb, filters, search))
+        .first();
+      totalItems = Number(totalRecords?.total ?? 0);
+      const LastId = await trx(this.viewName)
         .select('id')
         .orderBy('id', 'desc')
         .first();
+      if (existingData) {
+        const resultposition = await trx(this.viewName) // fix: pakai this.tableName, bukan hardcode 'valatbayar'
+          .count('* as posisi')
+          .where(
+            sortBy,
+            sortDirection === 'desc' ? '>=' : '<=',
+            insertData[sortBy],
+          )
+          .where('id', '<=', LastId.id) // fix: tidak perlu query LastId terpisah
+          .modify((qb) => this.applyFilters(qb, filters, search))
+          .first();
 
-      const resultposition = trx('valatbayar')
-        .count('* as posisi')
-        .where(
-          sortBy,
-          sortDirection === 'desc' ? '>=' : '<=',
-          insertData[sortBy],
-        )
-        .where('id', '<=', LastId?.id)
-        .modify((qb) => {
-          if (search) {
-            qb.where((builder) => {
-              Object.keys(filters).forEach((key) => {
-                builder.orWhere(key, 'like', `%${search}%`);
-              });
-            });
-          }
+        posisi = Number(resultposition?.posisi ?? 0);
+      } else {
+        posisi = 1;
+      }
 
-          if (filters && Object.keys(filters).length > 0) {
-            Object.entries(filters).forEach(([key, value]) => {
-              if (value !== undefined && value !== null && value !== '') {
-                qb.where(key, 'like', `%${value}%`);
-              }
-            });
-          }
-        })
-        .first();
-      const totalRecords = await trx(this.tableName)
-        .count('id as total')
-        .first();
-      console.log('existingData[sortBy]', insertData[sortBy]);
-      console.log('resultposition', resultposition);
-      console.log('totalRecords', totalRecords);
-      console.log('data', insertData);
-
-      totalItems = totalRecords?.total || 0;
-      posisi = resultposition?.posisi || 0;
-
+      // 4. Pagination
       const pageNumber = Math.ceil(posisi / limit);
       const totalPages = Math.ceil(totalItems / limit);
-      console.log('pageNumber', pageNumber);
-      console.log('Debug pageNumber calculation:', {
-        posisi,
-        limit,
-        division: posisi / limit,
-        result: Math.ceil(posisi / limit),
-      });
       const fetchedPages = getFetchedPages(pageNumber, totalPages);
 
-      // ========== SINGLE QUERY dengan custom offset ==========
       const startPage = fetchedPages[0];
       const endPage = fetchedPages[fetchedPages.length - 1];
-
       const customOffset = (startPage - 1) * limit;
       const totalDataNeeded = (endPage - startPage + 1) * limit;
 
-      // FETCH SEKALI SAJA dengan custom offset
+      // 5. Fetch sekali, split di memory
       const result = await this.findAll(
         {
           search: search || '',
           filters: filters || {},
-          pagination: {
-            page: startPage,
-            limit: totalDataNeeded,
-            customOffset: customOffset,
-          },
-          sort: {
-            sortBy: sortBy,
-            sortDirection: sortDirection.toLowerCase(),
-          },
+          pagination: { page: startPage, limit: totalDataNeeded, customOffset },
+          sort: { sortBy, sortDirection: sortDirection.toLowerCase() },
           isLookUp: false,
           useCustomOffset: true,
         },
         trx,
       );
 
-      const allFetchedData = result.data;
-
-      // Split data ke pages di memory
-      const pagedData = {};
+      const allFetchedData = result?.data ?? [];
+      const pagedData: Record<number, any[]> = {};
       let dataIndex = 0;
-
       fetchedPages.forEach((pageNum) => {
-        const pageStartIndex = dataIndex;
-        const pageEndIndex = dataIndex + limit;
-        pagedData[pageNum] = allFetchedData.slice(pageStartIndex, pageEndIndex);
+        pagedData[pageNum] = allFetchedData.slice(dataIndex, dataIndex + limit);
         dataIndex += limit;
       });
 
-      // Hitung item index
       const itemIndex = calculateItemIndex(Number(posisi), fetchedPages, limit);
-
       await this.logTrailService.create(
         {
           namatabel: this.tableName,

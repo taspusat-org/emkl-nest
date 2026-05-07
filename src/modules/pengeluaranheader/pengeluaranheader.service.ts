@@ -47,8 +47,102 @@ export class PengeluaranheaderService {
     private readonly penerimaanemklheaderService: PenerimaanemklheaderService,
   ) {}
   private readonly tableName = 'pengeluaranheader';
+  private readonly viewName = 'vpengeluaranheader';
+
+  private async setDateRangeSessionContext(
+    trx: any,
+    filters: Record<string, any>,
+  ): Promise<void> {
+    if (filters?.tglDari && filters?.tglSampai) {
+      const tglDariFormatted = formatDateToSQL(String(filters.tglDari));
+      const tglSampaiFormatted = formatDateToSQL(String(filters.tglSampai));
+
+      if (tglDariFormatted && tglSampaiFormatted) {
+        await trx.raw(`exec sp_set_session_context 'tgldari', ?`, [
+          tglDariFormatted,
+        ]);
+
+        await trx.raw(`exec sp_set_session_context 'tglsampai', ?`, [
+          tglSampaiFormatted,
+        ]);
+      }
+    }
+
+    // optional bank_id
+    if (filters?.bank_id) {
+      await trx.raw(`exec sp_set_session_context 'bank_id', ?`, [
+        filters.bank_id,
+      ]);
+    } else {
+      // reset supaya tidak terbawa session sebelumnya
+      await trx.raw(`exec sp_set_session_context 'bank_id', NULL`);
+    }
+  }
+  private applyFilters(
+    qb: any,
+    filters: Record<string, any>,
+    search?: string,
+    alias?: string,
+  ): void {
+    const excludeSearchKeys: string[] = ['tglDari', 'tglSampai', 'bank_id']; // contoh kunci yang ingin dikecualikan dari pencarian
+    const dateFields = [
+      'created_at',
+      'updated_at',
+      'tglbukti',
+      'tgljatuhtempo',
+    ];
+
+    const safeAlias = alias?.trim();
+    const prefix = safeAlias ? `${safeAlias}.` : '';
+    const formatExpr = safeAlias
+      ? (col: string) => `FORMAT(${safeAlias}.??, 'dd-MM-yyyy HH:mm:ss')`
+      : (col: string) => `FORMAT(??, 'dd-MM-yyyy HH:mm:ss')`;
+
+    const searchFields = Object.keys(filters || {}).filter(
+      (k) => !excludeSearchKeys.includes(k),
+    );
+
+    // Search: OR across all searchable fields
+    if (search && searchFields.length > 0) {
+      const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
+      qb.where((query) => {
+        searchFields.forEach((field) => {
+          if (dateFields.includes(field)) {
+            // ✅ pakai query, bukan qb
+            query.orWhereRaw(`${formatExpr(field)} LIKE ?`, [
+              field,
+              `%${sanitizedValue}%`,
+            ]);
+          } else {
+            query.orWhere(`${prefix}${field}`, 'like', `%${sanitizedValue}%`);
+          }
+        });
+      });
+    }
+
+    // Filter: AND per field — ✅ pakai Object.entries(filters), bukan searchFields
+    Object.entries(filters || {}).forEach(([key, rawValue]) => {
+      if (excludeSearchKeys.includes(key)) return;
+      if (rawValue === null || rawValue === undefined || rawValue === '')
+        return;
+
+      const sanitizedValue = String(rawValue).replace(/\[/g, '[[]');
+      if (dateFields.includes(key)) {
+        qb.andWhereRaw(`${formatExpr(key)} LIKE ?`, [
+          key,
+          `%${sanitizedValue}%`,
+        ]);
+      } else {
+        // ✅ prefix  agar konsisten dengan alias view
+        qb.andWhere(`${prefix}${key}`, 'like', `%${sanitizedValue}%`);
+      }
+    });
+  }
   async create(data: any, trx: any) {
     try {
+      const { sortBy, sortDirection, filters, search, page, limit, info } =
+        data;
+      await this.setDateRangeSessionContext(trx, filters || {});
       const nominalValue = 0;
       const positiveNominal = '';
       const insertData = {
@@ -396,72 +490,60 @@ export class PengeluaranheaderService {
 
       await this.JurnalumumheaderService.create(jurnalPayload, trx);
 
-      // ============ GET POSITION ============
-      let posisi = 0;
-      let totalItems = 0;
-
-      const LastId = await trx(this.tableName)
-        .select('id')
-        .orderBy('id', 'desc')
+      const existingData = await trx(this.viewName)
+        .where('id', newItem.id)
+        .modify((qb) => this.applyFilters(qb, filters || {}, search))
         .first();
 
-      const resultposition = await trx('vpengeluarankas')
-        .count('* as posisi')
-        .where(
-          data.sortBy,
-          data.sortDirection === 'desc' ? '>=' : '<=',
-          newItem[data.sortBy],
-        )
-        .where('id', '<=', LastId?.id)
-        .modify((qb) => {
-          if (data.search) {
-            qb.where((builder) => {
-              Object.keys(data.filters || {}).forEach((key) => {
-                builder.orWhere(key, 'like', `%${data.search}%`);
-              });
-            });
-          }
+      // 3. Hitung posisi & total dengan filter yang sama
+      let posisi: number;
+      let totalItems: number;
 
-          if (data.filters && Object.keys(data.filters).length > 0) {
-            Object.entries(data.filters).forEach(([key, value]) => {
-              if (value !== undefined && value !== null && value !== '') {
-                qb.where(key, 'like', `%${value}%`);
-              }
-            });
-          }
-        })
-        .first();
-
-      const totalRecords = await trx(this.tableName)
+      // totalItems selalu dihitung dengan filter — fix bug utama
+      const totalRecords = await trx(this.viewName)
         .count('id as total')
+        .modify((qb) => this.applyFilters(qb, filters || {}, search))
         .first();
+      totalItems = Number(totalRecords?.total ?? 0);
 
-      totalItems = totalRecords?.total || 0;
-      posisi = resultposition?.posisi || 0;
-
-      const pageNumber = Math.ceil(posisi / data.limit);
-      const totalPages = Math.ceil(totalItems / data.limit);
+      if (existingData) {
+        const resultposition = await trx(this.viewName) // fix: pakai this.viewName, bukan hardcode 'valatbayar'
+          .count('* as posisi')
+          .where(
+            sortBy,
+            sortDirection === 'desc' ? '>=' : '<=',
+            insertData[sortBy],
+          )
+          .where('id', '<=', newItem.id) // fix: tidak perlu query LastId terpisah
+          .modify((qb) => this.applyFilters(qb, filters || {}, search))
+          .first();
+        posisi = Number(resultposition?.posisi ?? 0);
+      } else {
+        posisi = 1;
+      }
+      const pageNumber = Math.ceil(posisi / limit);
+      const totalPages = Math.ceil(totalItems / limit);
 
       const fetchedPages = getFetchedPages(pageNumber, totalPages);
 
       const startPage = fetchedPages[0];
       const endPage = fetchedPages[fetchedPages.length - 1];
 
-      const customOffset = (startPage - 1) * data.limit;
-      const totalDataNeeded = (endPage - startPage + 1) * data.limit;
+      const customOffset = (startPage - 1) * limit;
+      const totalDataNeeded = (endPage - startPage + 1) * limit;
 
       const findAllResult = await this.findAll(
         {
-          search: data.search || '',
-          filters: data.filters || {},
+          search: search || '',
+          filters: filters || {},
           pagination: {
             page: startPage,
             limit: totalDataNeeded,
             customOffset: customOffset,
           },
           sort: {
-            sortBy: data.sortBy,
-            sortDirection: data.sortDirection.toLowerCase(),
+            sortBy: sortBy,
+            sortDirection: sortDirection.toLowerCase(),
           },
           isLookUp: false,
           useCustomOffset: true,
@@ -475,17 +557,11 @@ export class PengeluaranheaderService {
       let dataIndex = 0;
 
       fetchedPages.forEach((pageNum) => {
-        const pageStartIndex = dataIndex;
-        const pageEndIndex = dataIndex + data.limit;
-        pagedData[pageNum] = allFetchedData.slice(pageStartIndex, pageEndIndex);
-        dataIndex += data.limit;
+        pagedData[pageNum] = allFetchedData.slice(dataIndex, dataIndex + limit);
+        dataIndex += limit;
       });
 
-      const itemIndex = calculateItemIndex(
-        Number(posisi),
-        fetchedPages,
-        data.limit,
-      );
+      const itemIndex = calculateItemIndex(Number(posisi), fetchedPages, limit);
       // ============ END GET POSITION ============
 
       await this.logTrailService.create(
@@ -551,188 +627,48 @@ export class PengeluaranheaderService {
           return { data: { type: 'json' } };
         }
       }
+      const safeFilters = filters || {};
 
-      const excludeSearchKeys = [
-        'tglDari',
-        'tglSampai',
-        'relasi_id',
-        'bank_id',
-        'alatbayar_id',
-        'daftarbank_id',
-        'id',
-      ];
-
-      const searchFields = Object.keys(filters || {}).filter(
-        (k) => !excludeSearchKeys.includes(k),
-      );
-
-      const applyFilters = (query: any) => {
-        // Filter tanggal range
-        if (filters?.tglDari && filters?.tglSampai) {
-          const tglDariFormatted = formatDateToSQL(String(filters.tglDari));
-          const tglSampaiFormatted = formatDateToSQL(String(filters.tglSampai));
-          query.whereBetween('u.tglbukti', [
-            tglDariFormatted,
-            tglSampaiFormatted,
-          ]);
-        }
-
-        // Apply search
-        if (search) {
-          const sanitizedValue = String(search).replace(/\[/g, '[[]').trim();
-
-          query.where((qb) => {
-            searchFields.forEach((field) => {
-              if (
-                [
-                  'created_at',
-                  'updated_at',
-                  'tglbukti',
-                  'tgljatuhtempo',
-                ].includes(field)
-              ) {
-                qb.orWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') like ?", [
-                  field,
-                  `%${sanitizedValue}%`,
-                ]);
-              } else if (field === 'relasi_text') {
-                qb.orWhere('u.relasi_text', 'like', `%${sanitizedValue}%`);
-              } else if (field === 'bank_text') {
-                qb.orWhere('u.bank_text', 'like', `%${sanitizedValue}%`);
-              } else if (field === 'coakredit_text') {
-                qb.orWhere('u.coakredit_text', 'like', `%${sanitizedValue}%`);
-              } else if (field === 'alatbayar_text') {
-                qb.orWhere('u.alatbayar_text', 'like', `%${sanitizedValue}%`);
-              } else if (field === 'daftarbank_text') {
-                qb.orWhere('u.daftarbank_text', 'like', `%${sanitizedValue}%`);
-              } else {
-                qb.orWhere(`u.${field}`, 'like', `%${sanitizedValue}%`);
-              }
-            });
-          });
-        }
-
-        // Apply filters
-        if (filters && Object.keys(filters).length > 0) {
-          Object.entries(filters).forEach(([key, rawValue]) => {
-            if (key === 'tglDari' || key === 'tglSampai') return;
-            if (rawValue === null || rawValue === undefined || rawValue === '')
-              return;
-
-            const sanitizedValue = String(rawValue).replace(/\[/g, '[[]');
-
-            if (
-              [
-                'created_at',
-                'updated_at',
-                'tglbukti',
-                'tgljatuhtempo',
-              ].includes(key)
-            ) {
-              query.andWhereRaw("FORMAT(u.??, 'dd-MM-yyyy HH:mm:ss') LIKE ?", [
-                key,
-                `%${sanitizedValue}%`,
-              ]);
-            } else if (key === 'relasi_text') {
-              query.andWhere('u.relasi_text', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'bank_text') {
-              query.andWhere('u.bank_text', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'coakredit_text') {
-              query.andWhere('u.coakredit_text', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'bank_id') {
-              query.andWhere('u.bank_id', '=', sanitizedValue);
-            } else if (key === 'alatbayar_text') {
-              query.andWhere('u.alatbayar_text', 'like', `%${sanitizedValue}%`);
-            } else if (key === 'daftarbank_text') {
-              query.andWhere(
-                'u.daftarbank_text',
-                'like',
-                `%${sanitizedValue}%`,
-              );
-            } else {
-              query.andWhere(`u.${key}`, 'like', `%${sanitizedValue}%`);
-            }
-          });
-        }
-
-        return query;
-      };
+      await this.setDateRangeSessionContext(trx, safeFilters);
 
       const sortBy = sort?.sortBy || 'id';
       const sortDirection =
         sort?.sortDirection?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-
-      // Count query pakai tabel asli (lebih efisien)
-      const countQuery = trx(this.tableName);
-      const countResult = await countQuery.count('id as total').first();
-      const total = Number(countResult?.total || 0);
-
-      // Temp table untuk link
-      const tempUrl = `##temp_url_${Math.random().toString(36).substring(2, 8)}`;
-
-      await trx.schema.createTable(tempUrl, (t) => {
-        t.integer('id').nullable();
-        t.string('nobukti_key').nullable();
-        t.text('link').nullable();
-      });
-
-      const url = 'jurnalumumheader';
-
-      await trx(tempUrl).insert(
-        trx
-          .select(
-            'ph.id',
-            trx.raw('ph.nobukti as nobukti_key'), // ← ganti nama kolomnya
-            trx.raw(`
-        STRING_AGG(
-          '<a target="_blank" className="link-color" href="/dashboard/${url}' + ${tandatanya} + 'nobukti=' + ph.nobukti + '">' +
-          '<HighlightWrapper value="' + ph.nobukti + '" />' +
-          '</a>', ','
-        ) AS link
-      `),
-          )
-          .from(this.tableName + ' as ph')
-          .groupBy('ph.id', 'ph.nobukti'),
-      );
+      const countResult = await trx(`${this.viewName} as ab`)
+        .count('ab.id as total')
+        .modify((qb) => this.applyFilters(qb, safeFilters, search, 'ab'))
+        .first();
+      const total = Number(countResult?.total ?? 0);
 
       // Main query pakai view
-      const query = trx('vpengeluaranheader as u')
-        .select([
-          trx.raw(`ROW_NUMBER() OVER (ORDER BY ?? ${sortDirection}) as nomor`, [
-            sortBy,
-          ]),
-          'u.id',
-          'u.nobukti',
-          trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
-          'u.relasi_id',
-          'u.keterangan',
-          'u.bank_id',
-          'u.postingdari',
-          'u.coakredit',
-          'u.dibayarke',
-          'u.alatbayar_id',
-          'u.nowarkat',
-          trx.raw("FORMAT(u.tgljatuhtempo, 'dd-MM-yyyy') as tgljatuhtempo"),
-          'u.gantungorderan_nobukti',
-          'u.daftarbank_id',
-          'u.statusformat',
-          'u.modifiedby',
-          trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
-          trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
-          'u.relasi_text',
-          'u.bank_text',
-          'u.coakredit_text',
-          'u.alatbayar_text',
-          'u.daftarbank_text',
-          'tempUrl.link',
-        ])
-        .leftJoin(
-          trx.raw(`${tempUrl} as tempUrl`),
-          trx.raw('u.nobukti = tempUrl.nobukti_key'),
-        );
+      const query = trx(`${this.viewName} as u`).select([
+        'u.id',
+        'u.nobukti',
+        trx.raw("FORMAT(u.tglbukti, 'dd-MM-yyyy') as tglbukti"),
+        'u.relasi_id',
+        'u.keterangan',
+        'u.bank_id',
+        'u.postingdari',
+        'u.coakredit',
+        'u.dibayarke',
+        'u.alatbayar_id',
+        'u.nowarkat',
+        trx.raw("FORMAT(u.tgljatuhtempo, 'dd-MM-yyyy') as tgljatuhtempo"),
+        'u.gantungorderan_nobukti',
+        'u.daftarbank_id',
+        'u.statusformat',
+        'u.modifiedby',
+        trx.raw("FORMAT(u.created_at, 'dd-MM-yyyy HH:mm:ss') as created_at"),
+        trx.raw("FORMAT(u.updated_at, 'dd-MM-yyyy HH:mm:ss') as updated_at"),
+        'u.relasi_text',
+        'u.bank_text',
+        'u.coakredit_text',
+        'u.alatbayar_text',
+        'u.daftarbank_text',
+        'u.link',
+      ]);
 
-      applyFilters(query);
-
+      query.modify((qb) => this.applyFilters(qb, safeFilters, search, 'u'));
       query.orderBy(`u.${sortBy}`, sortDirection);
       if (sortBy !== 'id') {
         query.orderBy('u.id', 'asc');
@@ -855,6 +791,7 @@ export class PengeluaranheaderService {
         details,
         ...insertData
       } = data;
+      await this.setDateRangeSessionContext(trx, filters || {});
 
       Object.keys(insertData).forEach((key) => {
         if (typeof insertData[key] === 'string') {
@@ -862,18 +799,18 @@ export class PengeluaranheaderService {
         }
       });
 
-      const existingData = await trx(this.tableName).where('id', id).first();
-      if (!existingData) {
+      const existedData = await trx(this.tableName).where('id', id).first();
+      if (!existedData) {
         throw new Error(`Pengeluaran dengan id ${id} tidak ditemukan`);
       }
 
       const formatpengeluaran = await trx(`bank as b`)
         .select('p.grp', 'p.subgrp', 'b.formatpengeluaran', 'b.coa')
         .leftJoin('parameter as p', 'p.id', 'b.formatpengeluaran')
-        .where('b.id', insertData.bank_id || existingData.bank_id)
+        .where('b.id', insertData.bank_id || existedData.bank_id)
         .first();
 
-      const hasChanges = this.utilsService.hasChanges(insertData, existingData);
+      const hasChanges = this.utilsService.hasChanges(insertData, existedData);
 
       if (hasChanges) {
         insertData.updated_at = this.utilsService.getTime();
@@ -882,13 +819,13 @@ export class PengeluaranheaderService {
 
       // Handle detail updates
       if (details && details.length > 0) {
-        const nobuktiHeader = insertData.nobukti || existingData.nobukti;
+        const nobuktiHeader = insertData.nobukti || existedData.nobukti;
         const cleanedDetails = details.map(
           ({ coadebet_text, tglinvoiceemkl, ...rest }) => ({
             ...rest,
             nobukti: nobuktiHeader,
             tglinvoiceemkl: formatDateToSQL(tglinvoiceemkl),
-            modifiedby: insertData.modifiedby || existingData.modifiedby,
+            modifiedby: insertData.modifiedby || existedData.modifiedby,
           }),
         );
 
@@ -897,7 +834,7 @@ export class PengeluaranheaderService {
 
       // Update jurnal jika ada perubahan
       if (hasChanges || (details && details.length > 0)) {
-        const updatedData = { ...existingData, ...insertData };
+        const updatedData = { ...existedData, ...insertData };
         const nobukti = updatedData.nobukti;
 
         const processDetails = (details) => {
@@ -966,47 +903,41 @@ export class PengeluaranheaderService {
       }
 
       // ============ GET POSITION ============
-      let posisi = 0;
-      let totalItems = 0;
 
-      const LastId = await trx(this.tableName)
+      const existingData = await trx(this.tableName)
+        .where('id', id)
+        .modify((qb) => this.applyFilters(qb, filters || {}, search))
+        .first();
+
+      // 3. Hitung posisi & total dengan filter yang sama
+      let posisi: number;
+      let totalItems: number;
+
+      // totalItems selalu dihitung dengan filter — fix bug utama
+      const totalRecords = await trx(this.viewName)
+        .count('id as total')
+        .modify((qb) => this.applyFilters(qb, filters || {}, search))
+        .first();
+      totalItems = Number(totalRecords?.total ?? 0);
+      const LastId = await trx(this.viewName)
         .select('id')
         .orderBy('id', 'desc')
         .first();
-
-      const resultposition = await trx('vpengeluarankas')
-        .count('* as posisi')
-        .where(
-          sortBy,
-          sortDirection === 'desc' ? '>=' : '<=',
-          insertData[sortBy],
-        )
-        .where('id', '<=', LastId?.id)
-        .modify((qb) => {
-          if (search) {
-            qb.where((builder) => {
-              Object.keys(filters).forEach((key) => {
-                builder.orWhere(key, 'like', `%${search}%`);
-              });
-            });
-          }
-
-          if (filters && Object.keys(filters).length > 0) {
-            Object.entries(filters).forEach(([key, value]) => {
-              if (value !== undefined && value !== null && value !== '') {
-                qb.where(key, 'like', `%${value}%`);
-              }
-            });
-          }
-        })
-        .first();
-
-      const totalRecords = await trx(this.tableName)
-        .count('id as total')
-        .first();
-
-      totalItems = totalRecords?.total || 0;
-      posisi = resultposition?.posisi || 0;
+      if (existingData) {
+        const resultposition = await trx(this.viewName) // fix: pakai this.tableName, bukan hardcode 'valatbayar'
+          .count('* as posisi')
+          .where(
+            sortBy,
+            sortDirection === 'desc' ? '>=' : '<=',
+            insertData[sortBy],
+          )
+          .where('id', '<=', LastId.id) // fix: tidak perlu query LastId terpisah
+          .modify((qb) => this.applyFilters(qb, filters || {}, search))
+          .first();
+        posisi = Number(resultposition?.posisi ?? 0);
+      } else {
+        posisi = 1;
+      }
 
       const pageNumber = Math.ceil(posisi / limit);
       const totalPages = Math.ceil(totalItems / limit);
