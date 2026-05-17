@@ -1,12 +1,13 @@
 import {
-  forwardRef,
   HttpException,
   HttpStatus,
   Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { CreatePenerimaanemklheaderDto } from './dto/create-penerimaanemklheader.dto';
 import { UpdatePenerimaanemklheaderDto } from './dto/update-penerimaanemklheader.dto';
 import { RedisService } from 'src/common/redis/redis.service';
@@ -26,7 +27,9 @@ import * as path from 'path';
 import { PenerimaanheaderService } from '../penerimaanheader/penerimaanheader.service';
 
 @Injectable()
-export class PenerimaanemklheaderService {
+export class PenerimaanemklheaderService implements OnModuleInit {
+  private penerimaanheaderService: PenerimaanheaderService;
+
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
@@ -35,10 +38,16 @@ export class PenerimaanemklheaderService {
     private readonly locksService: LocksService,
     private readonly globalService: GlobalService,
     private readonly penerimaanemkldetailService: PenerimaanemkldetailService,
-    @Inject(forwardRef(() => PenerimaanheaderService)) // ← Index 7: Gunakan forwardRef di sini!
-    private readonly penerimaanheaderService: PenerimaanheaderService,
+    private readonly moduleRef: ModuleRef,
     private readonly hutangheaderService: HutangheaderService,
   ) {}
+
+  onModuleInit() {
+    this.penerimaanheaderService = this.moduleRef.get(PenerimaanheaderService, {
+      strict: false,
+    });
+  }
+
   private readonly tableName = 'penerimaanemklheader';
   async create(data: any, trx: any) {
     try {

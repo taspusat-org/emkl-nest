@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import Knex from 'knex';
-import knexConfig from 'knexfile';
+import knexConfig from 'src/knexfile';
 
 @Module({
   providers: [

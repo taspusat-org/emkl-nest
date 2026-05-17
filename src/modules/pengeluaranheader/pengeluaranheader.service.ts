@@ -1,10 +1,11 @@
 import {
-  forwardRef,
   Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { CreatePengeluaranheaderDto } from './dto/create-pengeluaranheader.dto';
 import { UpdatePengeluaranheaderDto } from './dto/update-pengeluaranheader.dto';
 import { FindAllParams } from 'src/common/interfaces/all.interface';
@@ -33,7 +34,10 @@ import { PengeluaranemklheaderService } from '../pengeluaranemklheader/pengeluar
 import { PenerimaanemklheaderService } from '../penerimaanemklheader/penerimaanemklheader.service';
 
 @Injectable()
-export class PengeluaranheaderService {
+export class PengeluaranheaderService implements OnModuleInit {
+  private pengeluaranemklheaderService: PengeluaranemklheaderService;
+  private penerimaanemklheaderService: PenerimaanemklheaderService;
+
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly utilsService: UtilsService,
@@ -42,10 +46,20 @@ export class PengeluaranheaderService {
     private readonly pengeluarandetailService: PengeluarandetailService,
     private readonly JurnalumumheaderService: JurnalumumheaderService,
     private readonly statuspendukungService: StatuspendukungService,
-    @Inject(forwardRef(() => PengeluaranemklheaderService)) // ← Index 7: Gunakan forwardRef di sini!
-    private readonly pengeluaranemklheaderService: PengeluaranemklheaderService,
-    private readonly penerimaanemklheaderService: PenerimaanemklheaderService,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  onModuleInit() {
+    this.pengeluaranemklheaderService = this.moduleRef.get(
+      PengeluaranemklheaderService,
+      { strict: false },
+    );
+    this.penerimaanemklheaderService = this.moduleRef.get(
+      PenerimaanemklheaderService,
+      { strict: false },
+    );
+  }
+
   private readonly tableName = 'pengeluaranheader';
   private readonly viewName = 'vpengeluaranheader';
 

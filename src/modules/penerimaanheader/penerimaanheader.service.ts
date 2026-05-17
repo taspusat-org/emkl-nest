@@ -3,8 +3,9 @@ import {
   Injectable,
   NotFoundException,
   InternalServerErrorException,
-  forwardRef,
+  OnModuleInit,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { CreatePenerimaanheaderDto } from './dto/create-penerimaanheader.dto';
 import { UpdatePenerimaanheaderDto } from './dto/update-penerimaanheader.dto';
 import {
@@ -27,8 +28,12 @@ import { JurnalumumheaderService } from '../jurnalumumheader/jurnalumumheader.se
 import { dbMssql } from 'src/common/utils/db';
 import { PenerimaanemklheaderService } from '../penerimaanemklheader/penerimaanemklheader.service';
 import { PengeluaranemklheaderService } from '../pengeluaranemklheader/pengeluaranemklheader.service';
+
 @Injectable()
-export class PenerimaanheaderService {
+export class PenerimaanheaderService implements OnModuleInit {
+  private penerimaanemklheaderService: PenerimaanemklheaderService;
+  private pengeluaranemklheaderService: PengeluaranemklheaderService;
+
   constructor(
     @Inject('REDIS_CLIENT') private readonly redisService: RedisService,
     private readonly logTrailService: LogtrailService,
@@ -38,11 +43,20 @@ export class PenerimaanheaderService {
     private readonly globalService: GlobalService,
     private readonly locksService: LocksService,
     private readonly jurnalumumheaderService: JurnalumumheaderService,
-    @Inject(forwardRef(() => PenerimaanemklheaderService)) // ← Index 7: Gunakan forwardRef di sini!
-    private readonly penerimaanemklheaderService: PenerimaanemklheaderService,
-    @Inject(forwardRef(() => PengeluaranemklheaderService)) // ← Index 7: Gunakan forwardRef di sini!
-    private readonly pengeluaranemklheaderService: PengeluaranemklheaderService,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  onModuleInit() {
+    this.penerimaanemklheaderService = this.moduleRef.get(
+      PenerimaanemklheaderService,
+      { strict: false },
+    );
+    this.pengeluaranemklheaderService = this.moduleRef.get(
+      PengeluaranemklheaderService,
+      { strict: false },
+    );
+  }
+
   private readonly tableName = 'penerimaanheader';
   async create(data: any, trx: any) {
     try {

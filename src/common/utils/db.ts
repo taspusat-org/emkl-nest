@@ -1,5 +1,5 @@
 import knex from 'knex';
-import knexConfig from 'knexfile';
+import knexConfig from 'src/knexfile';
 const dbMssql = knex(knexConfig.development);
 const dbMdnEmkl = knex(knexConfig.medanEmkl);
 const dbMdnTruck = knex(knexConfig.medanTrucking);

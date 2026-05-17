@@ -251,9 +251,18 @@ export class AlatbayarService {
 
       query.modify((qb) => this.applyFilters(qb, safeFilters, search));
 
-      query.orderBy(`ab.${sortBy}`, sortDirection);
-      if (sortBy !== 'id') {
-        query.orderBy('ab.id', 'asc');
+      const dateFields = ['created_at', 'updated_at'];
+
+      if (sortBy === 'statusaktif') {
+        query.orderBy('ab.text', 'asc');
+      } else if (sortBy === 'statusbank') {
+        query.orderBy('ab.statusbank_text', sortDirection);
+      } else if (sortBy === 'statusdefault') {
+        query.orderBy('ab.statusdefault_text', sortDirection);
+      } else if (sortBy === 'statuslangsungcair') {
+        query.orderBy('ab.statuslangsungcair_text', sortDirection);
+      } else {
+        query.orderBy(`ab.${sortBy}`, sortDirection);
       }
 
       const offset =
