@@ -195,6 +195,7 @@ export class ParameterService {
       const offset = (page - 1) * limit;
       const query = dbMssql(this.tableName).select(
         'id',
+        'uuid',
         'grp',
         'subgrp',
         'kelompok',

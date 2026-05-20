@@ -13,6 +13,7 @@ import {
   calculateItemIndex,
   getFetchedPages,
   UtilsService,
+  uuidV7,
 } from 'src/utils/utils.service';
 import { LogtrailService } from 'src/common/logtrail/logtrail.service';
 import { RunningNumberService } from '../running-number/running-number.service';
@@ -79,14 +80,19 @@ export class AlatbayarService {
     });
   }
 
-  private buildInsertData(dto: any): Record<string, any> {
+  private buildInsertData(dto: any, uuid?: string): Record<string, any> {
     return {
+      uuid: uuid ? uuid : dto.uuid, // ← tambahkan ini
       nama: dto.nama ? dto.nama.toUpperCase() : null,
       keterangan: dto.keterangan ? dto.keterangan.toUpperCase() : null,
       statuslangsungcair: dto.statuslangsungcair,
+      statuslangsungcair_uuid: dto.statuslangsungcair_uuid,
       statusdefault: dto.statusdefault,
+      statusdefault_uuid: dto.statusdefault_uuid,
       statusbank: dto.statusbank,
+      statusbank_uuid: dto.statusbank_uuid,
       statusaktif: dto.statusaktif,
+      statusaktif_uuid: dto.statusaktif_uuid,
       modifiedby: dto.modifiedby,
       created_at: dto.created_at || this.utilsService.getTime(),
       updated_at: dto.updated_at || this.utilsService.getTime(),
@@ -98,12 +104,13 @@ export class AlatbayarService {
       const { sortBy, sortDirection, filters, search, page, limit, info } =
         CreateAlatbayarDto;
 
-      // 1. Insert
-      const insertData = this.buildInsertData(CreateAlatbayarDto);
+      const uuid = await uuidV7(trx);
+
+      const insertData = this.buildInsertData(CreateAlatbayarDto, uuid);
+      console.log('insertData', insertData);
       await trx(this.tableName).insert(insertData);
       const newItem = await trx(this.viewName).orderBy('id', 'desc').first();
 
-      // 2. Cek apakah newItem lolos filter aktif (agar posisi akurat)
       const existingData = await trx(this.viewName)
         .where('id', newItem.id)
         .modify((qb) => this.applyFilters(qb, filters, search))
@@ -229,17 +236,22 @@ export class AlatbayarService {
       // Data dari view (mengandung _text, _memo, dll)
       const query = trx(`${this.viewName} as ab`).select([
         'ab.id',
+        'ab.uuid',
         'ab.nama',
         'ab.keterangan',
         'ab.statuslangsungcair',
         'ab.statusdefault',
         'ab.statusbank',
         'ab.statusaktif',
+        'ab.statusaktif_uuid',
         'ab.statuslangsungcair_text',
+        'ab.statuslangsungcair_uuid',
         'ab.statuslangsungcair_memo',
         'ab.statusdefault_text',
+        'ab.statusdefault_uuid',
         'ab.statusdefault_memo',
         'ab.statusbank_text',
+        'ab.statusbank_uuid',
         'ab.statusbank_memo',
         'ab.text',
         'ab.memo',
@@ -250,8 +262,6 @@ export class AlatbayarService {
       ]);
 
       query.modify((qb) => this.applyFilters(qb, safeFilters, search));
-
-      const dateFields = ['created_at', 'updated_at'];
 
       if (sortBy === 'statusaktif') {
         query.orderBy('ab.text', 'asc');
@@ -297,6 +307,7 @@ export class AlatbayarService {
 
   async update(id: number, data: any, trx: any) {
     try {
+      console.log('data', data);
       const existedData = await trx(this.tableName).where('id', id).first();
 
       if (!existedData) {

@@ -40,6 +40,10 @@ import * as fs from 'fs';
 export class AlatbayarController {
   constructor(private readonly alatbayarService: AlatbayarService) {}
 
+  private async delay(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   @UseGuards(AuthGuard)
   @Post()
   //@ALAT-BAYAR
@@ -56,6 +60,8 @@ export class AlatbayarController {
       data.modifiedby = req.user?.user?.username || 'unknown';
 
       const result = await this.alatbayarService.create(data, trx);
+
+      await this.delay(60000);
 
       await trx.commit();
       return result;

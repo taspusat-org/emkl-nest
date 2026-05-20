@@ -1344,3 +1344,27 @@ export function splitDataByPages(
 
   return paged;
 }
+export async function uuidV7(trx: any): Promise<string> {
+  // 1. Ambil kode cabang dari parameter
+  const parameter = await trx('parameter')
+    .where('grp', 'CABANG')
+    .andWhere('subgrp', 'CABANG')
+    .select(
+      '*',
+      trx.raw(
+        `JSON_VALUE(CAST(memo AS NVARCHAR(MAX)), '$."KODE CABANG"') as kode_cabang`,
+      ),
+    )
+    .first();
+
+  const kodeCabang = parameter?.kode_cabang ?? '00';
+
+  // 2. Generate UUIDv7 dari fungsi MSSQL
+  const result = await trx.raw(
+    `SELECT '${kodeCabang}-' + CAST(dbo.GetUUIDv7() AS VARCHAR(100)) AS uuid`,
+  );
+
+  const uuid = result?.[0]?.uuid ?? null;
+
+  return uuid;
+}
