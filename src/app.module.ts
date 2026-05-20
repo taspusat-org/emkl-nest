@@ -95,7 +95,8 @@ import { PengeluaranemkldetailModule } from './modules/pengeluaranemkldetail/pen
 import { KaryawanModule } from './modules/karyawan/karyawan.module';
 import { MasterbiayaModule } from './modules/masterbiaya/masterbiaya.module';
 import { PindahBukuModule } from './modules/pindah-buku/pindah-buku.module';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import { AclGuard } from './modules/auth/acl.guard';
 import { UtilsService } from './utils/utils.service';
 import { StatuspendukungModule } from './modules/statuspendukung/statuspendukung.module';
@@ -276,7 +277,13 @@ import { BiayaMuatanDetailModule } from './modules/biaya-muatan-detail/biaya-mua
     BiayaMuatanDetailModule,
   ],
   controllers: [],
-  providers: [RabbitmqService], // global],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TimeoutInterceptor,
+    },
+    RabbitmqService,
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

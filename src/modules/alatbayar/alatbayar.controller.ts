@@ -40,10 +40,6 @@ import * as fs from 'fs';
 export class AlatbayarController {
   constructor(private readonly alatbayarService: AlatbayarService) {}
 
-  private async delay(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
   @UseGuards(AuthGuard)
   @Post()
   //@ALAT-BAYAR
@@ -61,7 +57,8 @@ export class AlatbayarController {
 
       const result = await this.alatbayarService.create(data, trx);
 
-      await this.delay(60000);
+      // TEST TIMEOUT: query DB ini akan di-cancel saat transaction rollback
+      await trx.raw("WAITFOR DELAY '00:01:00'");
 
       await trx.commit();
       return result;
@@ -69,12 +66,10 @@ export class AlatbayarController {
       await trx.rollback();
       console.error('Error while creating alatbayar in controller', error);
 
-      // Ensure any other errors get caught and returned
       if (error instanceof HttpException) {
-        throw error; // If it's already a HttpException, rethrow it
+        throw error;
       }
 
-      // Generic error handling, if something unexpected happens
       throw new HttpException(
         {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
